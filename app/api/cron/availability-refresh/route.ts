@@ -4,10 +4,24 @@ import { applyOfferAvailability, computeAvailability, offerBookingCap } from '..
 import { countRecentBookings } from '../../../../lib/server/booking-count'
 import { getCheckoutOfferKey, type OfferItem } from '../../../../lib/agent-page'
 import { captureEvent } from '../../../../lib/observability'
+import { planAllows } from '../../../../lib/billing'
+import { getOwnerPlanIds } from '../../../../lib/server/plan'
 
 export const maxDuration = 60
 
-type CronPage = { id: string; slug: string; services: OfferItem[] | null; products: OfferItem[] | null }
+type CronPage = {
+  id: string
+  owner_id: string | null
+  slug: string
+  services: OfferItem[] | null
+  products: OfferItem[] | null
+}
+
+function hasManagedAvailability(page: CronPage): boolean {
+  return [...(page.services ?? []), ...(page.products ?? [])].some(
+    (offer) => offerBookingCap(offer) != null && Boolean(offer.metadata?.last_calendly_sync),
+  )
+}
 
 /**
  * Availability refresh (Vercel cron - see vercel.json). The Calendly webhook
@@ -37,7 +51,7 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
   const { data: pages, error } = await admin
     .from('pages')
-    .select('id, slug, services, products')
+    .select('id, owner_id, slug, services, products')
     .eq('is_published', true)
     .returns<CronPage[]>()
 
@@ -47,7 +61,17 @@ export async function GET(request: Request) {
 
   let checked = 0
   let updated = 0
-  for (const page of pages ?? []) {
+  let entitlementSkipped = 0
+  const managedPages = (pages ?? []).filter(hasManagedAvailability)
+  const plansByOwner = await getOwnerPlanIds(
+    admin,
+    [...new Set(managedPages.map((page) => page.owner_id).filter(Boolean))] as string[],
+  )
+  for (const page of managedPages) {
+    if (!page.owner_id || !planAllows(plansByOwner[page.owner_id] ?? 'free', 'integrations')) {
+      entitlementSkipped += 1
+      continue
+    }
     for (const kind of ['services', 'products'] as const) {
       const offers = page[kind] ?? []
       let current = offers
@@ -76,6 +100,17 @@ export async function GET(request: Request) {
     }
   }
 
-  captureEvent('cron.availability_refresh', { pages: pages?.length ?? 0, offersChecked: checked, columnsUpdated: updated })
-  return NextResponse.json({ ok: true, pages: pages?.length ?? 0, offersChecked: checked, columnsUpdated: updated })
+  captureEvent('cron.availability_refresh', {
+    pages: pages?.length ?? 0,
+    offersChecked: checked,
+    columnsUpdated: updated,
+    entitlementSkipped,
+  })
+  return NextResponse.json({
+    ok: true,
+    pages: pages?.length ?? 0,
+    offersChecked: checked,
+    columnsUpdated: updated,
+    entitlementSkipped,
+  })
 }

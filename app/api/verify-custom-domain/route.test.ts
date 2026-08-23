@@ -146,6 +146,24 @@ describe('POST /api/verify-custom-domain', () => {
     )
   })
 
+  it('returns a retryable conflict when domain allocation is being reconciled', async () => {
+    const baseHandler = adminRef.handler
+    adminRef.handler = (ctx) => ctx.table === 'pages' && ctx.op === 'update'
+      ? { data: null, error: { code: '40001', message: 'NEXEZ_ENTITLEMENT_ALLOCATION_RETRY' } }
+      : baseHandler(ctx)
+    setTxt([['nexez-verify-abc123']])
+
+    const res = await POST(post({
+      pageId: 'page_1',
+      customDomain: 'agents.acme.com',
+      token: 'nexez-verify-abc123',
+    }))
+
+    expect(res.status).toBe(409)
+    expect(res.headers.get('retry-after')).toBe('1')
+    expect(await res.json()).toMatchObject({ code: 'entitlement_allocation_retry', retryable: true })
+  })
+
   it('rejects the conflicting TXT flow when Vercel identifies a CNAME subdomain', async () => {
     providerRef.configured = true
     providerRef.status = { verificationMethod: 'cname' }

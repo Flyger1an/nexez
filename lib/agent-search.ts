@@ -9,10 +9,12 @@ import {
   getOfferDestination,
   getPreferredOriginalOfferUrl,
   getReadinessScore,
+  isOfferActionAvailable,
 } from './agent-page'
 import { buildAgentStorefrontRef, getAgentJsonPath, type AgentStorefrontRef } from './agent-manifest'
 import {
   summarizeMarketplacePage,
+  parseMarketplacePriceCents,
   type MarketplaceCategory,
   type MarketplacePriceBand,
   type MarketplaceSummary,
@@ -51,9 +53,14 @@ export type AgentSearchResult = {
     name: string
     description: string | null
     price: string | null
-    checkout_url: string
+    /** Human/browser handoff. Null when neither an authoritative Nexez action nor
+     * an explicitly preferred provider handoff is currently available. */
+    checkout_url: string | null
     provider_url: string | null
+    /** Machine action. Provider-only handoffs use checkout_url and leave this
+     * null; this field is reserved for executable Nexez POST contracts. */
     action: {
+      type: 'nexez_checkout' | 'negotiation'
       method: 'POST'
       endpoint: string
       content_type: 'application/json'
@@ -66,7 +73,7 @@ export type AgentSearchResult = {
         offer: string
         dryRun: true
       }
-    }
+    } | null
   } | null
 }
 
@@ -91,11 +98,17 @@ export type AgentSearchOptions = {
   location?: string | null
   storefrontHandles?: Map<string, string>
   reviewSummaries?: Map<string, ReviewSummary>
+  /** Slugs whose owners authoritatively unlock negotiation. Absent means none;
+   * public capability advertising fails closed. */
+  negotiationEligibleSlugs?: ReadonlySet<string>
+  /** Slugs whose owners are operationally ready for Nexez-settled checkout. */
+  checkoutReadySlugs?: ReadonlySet<string>
   category?: MarketplaceCategory | 'all'
   industry?: string | null
   minReadiness?: number | null
   minTrust?: number | null
   verified?: boolean | null
+  nexezCheckoutReady?: boolean | null
   supportsCheckout?: boolean | null
   supportsNegotiation?: boolean | null
   priceBand?: MarketplacePriceBand | null
@@ -109,7 +122,10 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
 
   for (const page of pages) {
     const offers = getCheckoutOffers(page)
-    const marketplace = summarizeMarketplacePage(page)
+    const marketplace = summarizeMarketplacePage(page, {
+      negotiationAllowed: options.negotiationEligibleSlugs?.has(page.slug) === true,
+      nexezCheckoutReady: options.checkoutReadySlugs?.has(page.slug) === true,
+    })
     if (!matchesSearchFilters(page, marketplace, options)) continue
     const pageScore = scorePage(tokens, page)
     const searchableOffers = offers.filter((offer) => offer.availability !== 'sold_out')
@@ -141,10 +157,12 @@ export function buildResult(
   score: number,
   baseUrl: string,
   options: AgentSearchOptions = {},
-  marketplace = summarizeMarketplacePage(page),
+  marketplace = summarizeMarketplacePage(page, {
+    negotiationAllowed: options.negotiationEligibleSlugs?.has(page.slug) === true,
+    nexezCheckoutReady: options.checkoutReadySlugs?.has(page.slug) === true,
+  }),
 ): AgentSearchResult {
   const offerKey = offer ? getCheckoutOfferKey(offer.kind, offer.index) : ''
-  const preferredOriginalUrl = offer ? getPreferredOriginalOfferUrl(page, offer) : ''
   const locationMatch = options.location ? getPageLocationMatch(page, options.location) : null
   const storefrontHandle = options.storefrontHandles?.get(page.slug)
   const storefront = storefrontHandle ? buildAgentStorefrontRef(storefrontHandle, baseUrl) : null
@@ -152,6 +170,7 @@ export function buildResult(
   const matchedQueryTerms = getMatchedQueryTerms(options.queryTokens ?? [], page, offer)
   const ranking = buildAgentSearchRankingEvidence(page, offer, score, marketplace, locationMatch, reviewSummary, options.now)
   const matchReasons = buildMatchReasons(matchedQueryTerms, marketplace, locationMatch, options, ranking)
+  const execution = offer ? buildOfferExecution(page, offer, offerKey, baseUrl, marketplace) : null
 
   return {
     score,
@@ -182,24 +201,62 @@ export function buildResult(
           name: offer.name,
           description: offer.description || null,
           price: offer.price || null,
-          checkout_url: preferredOriginalUrl || `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
+          checkout_url: execution?.checkoutUrl ?? null,
           provider_url: getOfferDestination(page, offer) || null,
-          action: {
-            method: 'POST',
-            endpoint: `${baseUrl}/api/checkout`,
-            content_type: 'application/json',
-            body: {
-              slug: page.slug,
-              offer: offerKey,
-            },
-            dry_run_body: {
-              slug: page.slug,
-              offer: offerKey,
-              dryRun: true,
-            },
-          },
+          action: execution?.action ?? null,
         }
       : null,
+  }
+}
+
+function buildOfferExecution(
+  page: AgentPage,
+  offer: CheckoutOffer,
+  offerKey: string,
+  baseUrl: string,
+  marketplace: MarketplaceSummary,
+): {
+  checkoutUrl: string
+  action: NonNullable<NonNullable<AgentSearchResult['offer']>['action']> | null
+} | null {
+  if (!isOfferActionAvailable(offer)) return null
+
+  const preferredProviderUrl = getPreferredOriginalOfferUrl(page, offer)
+  if (preferredProviderUrl) {
+    return { checkoutUrl: preferredProviderUrl, action: null }
+  }
+
+  const body = { slug: page.slug, offer: offerKey }
+  const dryRunBody = { ...body, dryRun: true as const }
+  if (offer.offerType === 'negotiable') {
+    if (!marketplace.supports_negotiation) return null
+    return {
+      checkoutUrl: `${baseUrl}/${page.slug}?negotiate=${encodeURIComponent(offerKey)}#negotiate`,
+      action: {
+        type: 'negotiation',
+        method: 'POST',
+        endpoint: `${baseUrl}/api/negotiations`,
+        content_type: 'application/json',
+        body,
+        dry_run_body: dryRunBody,
+      },
+    }
+  }
+
+  if ((parseMarketplacePriceCents(offer.price) ?? 0) <= 0 || !marketplace.nexez_checkout_ready) {
+    return null
+  }
+
+  return {
+    checkoutUrl: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
+    action: {
+      type: 'nexez_checkout',
+      method: 'POST',
+      endpoint: `${baseUrl}/api/checkout`,
+      content_type: 'application/json',
+      body,
+      dry_run_body: dryRunBody,
+    },
   }
 }
 
@@ -236,9 +293,11 @@ export function buildAgentSearchRankingEvidence(
     ? 'listing-only'
     : offer.availability === 'sold_out'
       ? 'unavailable'
-      : offer.price?.trim()
-        || offer.offerType === 'negotiable'
-        || getOfferDestination(page, offer)
+      : (offer.offerType !== 'negotiable'
+          && (parseMarketplacePriceCents(offer.price) ?? 0) > 0
+          && marketplace.nexez_checkout_ready)
+        || (offer.offerType === 'negotiable' && marketplace.supports_negotiation)
+        || Boolean(getPreferredOriginalOfferUrl(page, offer))
         ? 'transaction-ready'
         : 'needs-confirmation'
 
@@ -350,6 +409,7 @@ function matchesSearchFilters(page: AgentPage, summary: MarketplaceSummary, opti
   if (options.minReadiness != null && summary.readiness < options.minReadiness) return false
   if (options.minTrust != null && summary.trust_score < options.minTrust) return false
   if (options.verified != null && summary.verified !== options.verified) return false
+  if (options.nexezCheckoutReady != null && summary.nexez_checkout_ready !== options.nexezCheckoutReady) return false
   if (options.supportsCheckout != null && summary.supports_checkout !== options.supportsCheckout) return false
   if (options.supportsNegotiation != null && summary.supports_negotiation !== options.supportsNegotiation) return false
   if (options.priceBand && summary.price_band !== options.priceBand) return false
@@ -388,6 +448,8 @@ function buildMatchReasons(
   if (options.minTrust != null) reasons.push(`Trust score ${summary.trust_score} meets minimum ${options.minTrust}`)
   if (options.verified === true) reasons.push('Seller verification signal present')
   if (options.verified === false) reasons.push('Seller has no verification signal')
+  if (options.nexezCheckoutReady === true) reasons.push('Nexez payout and settlement readiness confirmed')
+  if (options.nexezCheckoutReady === false) reasons.push('Nexez settlement readiness is not confirmed')
   if (options.supportsCheckout === true) reasons.push('Supports checkout or booking')
   if (options.supportsCheckout === false) reasons.push('Does not expose checkout or booking')
   if (options.supportsNegotiation === true) reasons.push('Supports negotiation')
@@ -396,7 +458,7 @@ function buildMatchReasons(
   if (ranking.availability === 'available') reasons.push('Offer explicitly reports available inventory or capacity')
   if (ranking.availability === 'limited') reasons.push('Offer reports limited availability')
   if (ranking.availability === 'unspecified') reasons.push('Availability is not published and still requires confirmation')
-  if (ranking.actionability === 'transaction-ready') reasons.push('Published price, negotiation path, or provider action is available')
+  if (ranking.actionability === 'transaction-ready') reasons.push('Operational Nexez checkout, entitled negotiation, or provider action is available')
   if (ranking.seller_verified) reasons.push('Seller identity has server-backed website or domain verification')
   if (ranking.review_evidence === 'cold-start') {
     reasons.push('Limited verified-purchase history is treated neutrally for cold-start fairness')

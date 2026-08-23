@@ -23,6 +23,8 @@ type CatalogSyncJob = {
   catalog_sync_pending_at: string
   catalog_sync_attempted_at: string | null
   catalog_sync_attempts: number | null
+  mapping_generation: number
+  mapping_transition_token: string | null
 }
 
 export type ShopifyCatalogSyncRun = {
@@ -55,6 +57,7 @@ export async function queueShopifyCatalogSync(
     })
     .eq('shop_domain', shop)
     .is('uninstalled_at', null)
+    .is('mapping_transition_token', null)
     .not('page_id', 'is', null)
     .select('shop_domain')
     .maybeSingle<{ shop_domain: string }>()
@@ -65,8 +68,9 @@ export async function queueShopifyCatalogSync(
 async function loadPendingJobs(admin: Pick<SupabaseClient, 'from'>, limit: number): Promise<CatalogSyncJob[]> {
   const { data, error } = await admin
     .from('shopify_installs')
-    .select('shop_domain, owner_id, page_id, catalog_sync_pending_at, catalog_sync_attempted_at, catalog_sync_attempts')
+    .select('shop_domain, owner_id, page_id, catalog_sync_pending_at, catalog_sync_attempted_at, catalog_sync_attempts, mapping_generation, mapping_transition_token')
     .is('uninstalled_at', null)
+    .is('mapping_transition_token', null)
     .not('page_id', 'is', null)
     .not('catalog_sync_pending_at', 'is', null)
     .order('catalog_sync_pending_at', { ascending: true })
@@ -84,6 +88,11 @@ async function claimJob(
   job: CatalogSyncJob,
   attemptedAt: string,
 ): Promise<boolean> {
+  if (
+    job.mapping_transition_token
+    || !Number.isSafeInteger(job.mapping_generation)
+    || job.mapping_generation <= 0
+  ) return false
   if (job.catalog_sync_attempted_at) {
     const claimedAt = Date.parse(job.catalog_sync_attempted_at)
     if (Number.isFinite(claimedAt) && Date.now() - claimedAt < CLAIM_STALE_MS) return false
@@ -98,6 +107,8 @@ async function claimJob(
     })
     .eq('shop_domain', job.shop_domain)
     .eq('catalog_sync_pending_at', job.catalog_sync_pending_at)
+    .eq('mapping_generation', job.mapping_generation)
+    .is('mapping_transition_token', null)
     .is('uninstalled_at', null)
   query = job.catalog_sync_attempted_at
     ? query.eq('catalog_sync_attempted_at', job.catalog_sync_attempted_at)
@@ -127,6 +138,8 @@ async function completeJob(
     .eq('shop_domain', job.shop_domain)
     .eq('catalog_sync_pending_at', job.catalog_sync_pending_at)
     .eq('catalog_sync_attempted_at', attemptedAt)
+    .eq('mapping_generation', job.mapping_generation)
+    .is('mapping_transition_token', null)
     .is('uninstalled_at', null)
   if (error) throw new Error('Could not complete the Shopify catalog sync.')
 }
@@ -153,6 +166,8 @@ async function failJob(
     .eq('shop_domain', job.shop_domain)
     .eq('catalog_sync_pending_at', job.catalog_sync_pending_at)
     .eq('catalog_sync_attempted_at', attemptedAt)
+    .eq('mapping_generation', job.mapping_generation)
+    .is('mapping_transition_token', null)
     .is('uninstalled_at', null)
   if (writeError) throw new Error('Could not record the Shopify catalog sync failure.')
 }
@@ -175,11 +190,20 @@ export async function processPendingShopifyCatalogSyncs(
     run.claimed += 1
 
     try {
-      if (!job.owner_id || !job.page_id) {
+      if (
+        !job.owner_id
+        || !job.page_id
+        || job.mapping_transition_token
+        || !Number.isSafeInteger(job.mapping_generation)
+        || job.mapping_generation <= 0
+      ) {
         await failJob(admin, job, 'Shopify installation is not linked to a listing.', attemptedAt, attemptedAt, false)
         run.failed += 1
         continue
       }
+      // Webhook-driven refresh is part of the installed Shopify App Store
+      // connector. It remains available on every plan; manually supplied
+      // Shopify credentials continue to use the Pro-gated import routes.
       const credentials = await getShopifyInstallCredentialsByShop(admin, job.shop_domain)
       if (!credentials) {
         await failJob(admin, job, 'Reconnect Shopify to resume automatic catalog sync.', attemptedAt, attemptedAt, true)
@@ -187,7 +211,15 @@ export async function processPendingShopifyCatalogSyncs(
         continue
       }
 
-      const result = await syncPageIntegration(admin, 'shopify', job.page_id, { shopifyCredentials: credentials })
+      const result = await syncPageIntegration(admin, 'shopify', job.page_id, {
+        shopifyCredentials: credentials,
+        shopifyMapping: {
+          shop: job.shop_domain,
+          ownerId: job.owner_id,
+          pageId: job.page_id,
+          generation: job.mapping_generation,
+        },
+      })
       const completedAt = new Date().toISOString()
       if (result.ok) {
         await completeJob(admin, job, attemptedAt, completedAt)

@@ -46,6 +46,13 @@ declare
   v_reason_bound boolean := false;
   v_target_bound boolean := false;
 begin
+  -- A clean replay seeds the live launch campaign. Isolate this certification
+  -- from that production fixture so the campaign under test is the only active
+  -- issuance target; the enclosing transaction restores every prior row.
+  update public.seller_growth_campaigns
+  set status = 'ended'
+  where status = 'active';
+
   v_owner_email := 'growth-owner-' || v_suffix || '@example.test';
   v_duplicate_email := 'growth-duplicate-' || v_suffix || '@example.test';
   v_paid_email := 'growth-paid-' || v_suffix || '@example.test';
@@ -646,5 +653,17 @@ $gauntlet$;
 select scenario, passed, detail
 from growth_gauntlet_results
 order by sequence;
+
+do $assertions$
+begin
+  if exists (
+    select 1
+    from growth_gauntlet_results
+    where passed is not true
+  ) then
+    raise exception 'seller-growth gauntlet failed';
+  end if;
+end
+$assertions$;
 
 rollback;

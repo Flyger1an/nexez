@@ -6,12 +6,12 @@ import { headers, cookies } from 'next/headers'
 import { createClient as createServerClient } from '../../utils/supabase/server'
 import { applyDraftOverlay } from '../../lib/draft'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, Handshake, LockKeyhole, Mail, MapPin, Star } from 'lucide-react'
-import { AgentPage, CredentialRecord, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getServerVerificationEvidence, getTrustScore, parseAvailabilityWindows, sanitizePublicUrl, schemaAvailability } from '../../lib/agent-page'
+import { AgentPage, CredentialRecord, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getServerVerificationEvidence, getTrustScore, isOfferActionAvailable, parseAvailabilityWindows, sanitizePublicUrl, schemaAvailability } from '../../lib/agent-page'
 import { normalizeCurrency } from '../../lib/currency'
 import { priceValidUntil } from '../../lib/freshness'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
-import { hasBranding, normalizeBranding } from '../../lib/branding'
+import { brandingForPlan, hasBranding, normalizeBranding } from '../../lib/branding'
 import { BackLink } from '../../components/BackLink'
 import { safeJsonScript } from '../../lib/safe-json'
 import { buildJsonLd } from '../../lib/page-jsonld'
@@ -206,14 +206,13 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   const certificationVerificationUrl = `${getBaseUrl()}/${page.slug}/badge.json`
   const jsonLd = buildJsonLd(page, effectiveBase, domainPath, { services: hiddenServices, products: hiddenProducts }, reviewSummary)
   const branding = await resolveBranding(page, onCustomHost, domainPath)
-  const accentStyle = branding.accent_color
-    ? ({ '--brand-accent': branding.accent_color } as CSSProperties)
-    : undefined
   // Plan-gate branding at RENDER time (unbypassable regardless of what's stored):
   // removing the Nexez badge needs Launch+, full white-label (custom name/logo)
-  // needs Scale+. Only read the owner's plan when the page actually customizes
+  // needs Launch+. Only read the owner's plan when the page actually customizes
   // branding, so default pages stay read-free on this hot path.
-  const brandingCustomized = Boolean(branding.hide_nexez_badge || branding.logo_url || branding.brand_name)
+  const brandingCustomized = Boolean(
+    branding.hide_nexez_badge || branding.logo_url || branding.brand_name || branding.accent_color,
+  )
   // Negotiation only surfaces when the seller has actually marked an offer
   // negotiable - keep the denominator to negotiable offers (not "any offer") so
   // the owner-plan read below stays off the hot path for ordinary offer pages.
@@ -228,9 +227,13 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
     : { ownerId: null }
   const ownerPlan = needsOwnerPlan && hasSupabaseAdminEnv()
     ? (privateMeta.ownerId ? await getOwnerPlanId(createAdminClient(), privateMeta.ownerId) : 'free')
-    : 'enterprise'
-  const showBrand = Boolean(branding.logo_url || branding.brand_name) && planAllows(ownerPlan, 'whiteLabel')
-  const hideBadge = Boolean(branding.hide_nexez_badge) && planAllows(ownerPlan, 'removeBadge')
+    : 'free'
+  const visibleBranding = brandingForPlan(branding, ownerPlan)
+  const showBrand = Boolean(visibleBranding.logo_url || visibleBranding.brand_name)
+  const hideBadge = visibleBranding.hide_nexez_badge
+  const accentStyle = visibleBranding.accent_color
+    ? ({ '--brand-accent': visibleBranding.accent_color } as CSSProperties)
+    : undefined
   // Negotiation is a Pro capability and POST /api/negotiations 403s below Pro.
   // Gate the buyer-facing render to match so sub-Pro pages fall back to direct
   // booking instead of showing an offer form / agent block the API will reject.
@@ -254,16 +257,16 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
         {showBrand ? (
           // White-label header: show the brand instead of the Nexez back-link.
           <div className="inline-flex items-center gap-2">
-            {branding.logo_url ? (
+            {visibleBranding.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={branding.logo_url} alt={branding.brand_name || 'Logo'} className="h-7 w-auto" />
+              <img src={visibleBranding.logo_url} alt={visibleBranding.brand_name || 'Logo'} className="h-7 w-auto" />
             ) : null}
-            {branding.brand_name ? (
+            {visibleBranding.brand_name ? (
               <span
                 className="text-base font-semibold"
-                style={branding.accent_color ? { color: 'var(--brand-accent)' } : undefined}
+                style={visibleBranding.accent_color ? { color: 'var(--brand-accent)' } : undefined}
               >
-                {branding.brand_name}
+                {visibleBranding.brand_name}
               </span>
             ) : null}
           </div>
@@ -780,6 +783,14 @@ function OfferSection({
 
             <div className="mt-4 flex flex-wrap gap-3">
               {(() => {
+                if (!isOfferActionAvailable(item)) {
+                  return (
+                    <span className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-zinc-400" aria-disabled="true">
+                      Sold out
+                      <LockKeyhole className="size-4" />
+                    </span>
+                  )
+                }
                 // Smart Rules Phase 1: negotiable offers route to the Make-an-Offer
                 // flow (proposal + seller rules) instead of direct booking - but only
                 // when the owner's plan unlocks negotiation. Below Pro (where POST

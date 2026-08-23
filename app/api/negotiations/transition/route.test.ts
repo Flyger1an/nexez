@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createSupabaseMock, type QueryContext } from '../../../../test/supabase-mock'
 
+const entitlementRef = vi.hoisted(() => ({ allowed: true }))
+
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
 vi.mock('../../../../utils/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('../../../../utils/supabase/admin', () => ({
@@ -10,10 +12,14 @@ vi.mock('../../../../utils/supabase/admin', () => ({
 vi.mock('../../../../lib/server/negotiation-notifications', () => ({
   notifyBuyerOfNegotiationDecision: vi.fn(async () => undefined),
 }))
+vi.mock('../../../../lib/server/plan', () => ({
+  ownerAllows: vi.fn(async () => entitlementRef.allowed),
+}))
 
 import { POST } from './route'
 import { createClient } from '../../../../utils/supabase/server'
 import { notifyBuyerOfNegotiationDecision } from '../../../../lib/server/negotiation-notifications'
+import { ownerAllows } from '../../../../lib/server/plan'
 
 const post = (body: unknown) =>
   new Request('https://nexez.test/api/negotiations/transition', {
@@ -90,7 +96,10 @@ const openNegotiation = (overrides: any = {}) => ({
 })
 
 describe('POST /api/negotiations/transition', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    entitlementRef.allowed = true
+  })
 
   it('401 when not authenticated', async () => {
     withNegotiation(openNegotiation(), { user: null })
@@ -136,6 +145,87 @@ describe('POST /api/negotiations/transition', () => {
     expect(notifyBuyerOfNegotiationDecision).toHaveBeenCalledWith(expect.objectContaining({ id: 'n1' }), 'counter')
   })
 
+  it.each([
+    {
+      label: 'counter',
+      negotiation: openNegotiation(),
+      body: {
+        negotiationId: 'n1',
+        decision: {
+          action: 'counter',
+          reasoning: 'Scope supports this price.',
+          counter: { priceCents: 125_00 },
+        },
+      },
+    },
+    {
+      label: 'clarification',
+      negotiation: openNegotiation(),
+      body: {
+        negotiationId: 'n1',
+        decision: {
+          action: 'clarify',
+          reasoning: 'Please confirm the delivery date.',
+          clarificationQuestions: ['Which week works?'],
+        },
+      },
+    },
+    {
+      label: 'resume',
+      negotiation: openNegotiation({ status: 'paused' }),
+      body: { negotiationId: 'n1', to: 'negotiation' },
+    },
+    {
+      label: 'standalone amount change',
+      negotiation: openNegotiation({ amount_cents: 100_00 }),
+      body: { negotiationId: 'n1', amountCents: 125_00 },
+    },
+  ])('blocks $label below Pro against the persisted owner', async ({ negotiation, body }) => {
+    entitlementRef.allowed = false
+    const state = withNegotiation(negotiation)
+
+    const res = await POST(post(body))
+
+    expect(res.status).toBe(402)
+    expect(await res.json()).toMatchObject({
+      code: 'negotiation_expansion_requires_plan',
+      upgrade: 'pro',
+    })
+    expect(ownerAllows).toHaveBeenCalledWith(expect.anything(), 'owner-1', 'negotiation')
+    expect(state.getRpcPayload()).toBeUndefined()
+    expect(state.getUpdatePayload()).toBeUndefined()
+    expect(notifyBuyerOfNegotiationDecision).not.toHaveBeenCalled()
+  })
+
+  it('fails closed for an expansion when the persisted owner is absent', async () => {
+    const state = withNegotiation(openNegotiation({ owner_id: null }))
+
+    const res = await POST(post({
+      negotiationId: 'n1',
+      decision: {
+        action: 'clarify',
+        reasoning: 'Please confirm the delivery date.',
+      },
+    }))
+
+    expect(res.status).toBe(402)
+    expect((await res.json()).code).toBe('negotiation_expansion_requires_plan')
+    expect(ownerAllows).not.toHaveBeenCalled()
+    expect(state.getRpcPayload()).toBeUndefined()
+  })
+
+  it('allows an exact standalone amount retry after downgrade without writing', async () => {
+    entitlementRef.allowed = false
+    const state = withNegotiation(openNegotiation({ amount_cents: 125_00 }))
+
+    const res = await POST(post({ negotiationId: 'n1', amountCents: 125_00 }))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ amountCents: 125_00, status: 'negotiation' })
+    expect(ownerAllows).not.toHaveBeenCalled()
+    expect(state.getUpdatePayload()).toBeUndefined()
+  })
+
   it('requires a concrete amount for acceptance', async () => {
     withNegotiation(openNegotiation())
     const res = await POST(post({
@@ -170,7 +260,54 @@ describe('POST /api/negotiations/transition', () => {
     })
   })
 
+  it('preserves an initial accept below Pro so an in-flight deal can close', async () => {
+    entitlementRef.allowed = false
+    const state = withNegotiation(openNegotiation())
+
+    const res = await POST(post({
+      negotiationId: 'n1',
+      decision: { action: 'accept', reasoning: 'Accepted.', amountCents: 125_00 },
+    }))
+
+    expect(res.status).toBe(200)
+    expect(state.getRpcPayload()).toMatchObject({
+      p_decision: { action: 'accept', amountCents: 125_00 },
+      p_amount_cents: 125_00,
+    })
+    expect(ownerAllows).not.toHaveBeenCalled()
+  })
+
+  it('preserves acceptance at an unchanged saved amount below Pro', async () => {
+    entitlementRef.allowed = false
+    const state = withNegotiation(openNegotiation({ amount_cents: 125_00 }))
+
+    const res = await POST(post({
+      negotiationId: 'n1',
+      decision: { action: 'accept', reasoning: 'Accepted.', amountCents: 125_00 },
+    }))
+
+    expect(res.status).toBe(200)
+    expect(state.getRpcPayload().p_decision.action).toBe('accept')
+    expect(ownerAllows).not.toHaveBeenCalled()
+  })
+
+  it('blocks acceptance that rewrites a saved amount below Pro', async () => {
+    entitlementRef.allowed = false
+    const state = withNegotiation(openNegotiation({ amount_cents: 100_00 }))
+
+    const res = await POST(post({
+      negotiationId: 'n1',
+      decision: { action: 'accept', reasoning: 'Accepted at a new amount.', amountCents: 125_00 },
+    }))
+
+    expect(res.status).toBe(402)
+    expect((await res.json()).code).toBe('negotiation_expansion_requires_plan')
+    expect(ownerAllows).toHaveBeenCalledWith(expect.anything(), 'owner-1', 'negotiation')
+    expect(state.getRpcPayload()).toBeUndefined()
+  })
+
   it('allows explicit offline completion only when payment is not configured', async () => {
+    entitlementRef.allowed = false
     const state = withNegotiation(openNegotiation({
       status: 'agreement_proposed',
       escrow_mode: 'not_configured',
@@ -180,6 +317,7 @@ describe('POST /api/negotiations/transition', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ status: 'complete', settlement: 'offline' })
     expect(state.getUpdatePayload()).toMatchObject({ status: 'complete' })
+    expect(ownerAllows).not.toHaveBeenCalled()
   })
 
   it('never completes a configured agreement before buyer funding', async () => {
@@ -200,6 +338,7 @@ describe('POST /api/negotiations/transition', () => {
   })
 
   it('maps decline and pause controls into sequenced owner decisions', async () => {
+    entitlementRef.allowed = false
     const declined = withNegotiation(openNegotiation())
     expect((await POST(post({ negotiationId: 'n1', to: 'declined' }))).status).toBe(200)
     expect(declined.getRpcPayload().p_decision.action).toBe('reject')
@@ -207,6 +346,7 @@ describe('POST /api/negotiations/transition', () => {
     const paused = withNegotiation(openNegotiation())
     expect((await POST(post({ negotiationId: 'n1', to: 'paused' }))).status).toBe(200)
     expect(paused.getRpcPayload().p_decision.action).toBe('pause')
+    expect(ownerAllows).not.toHaveBeenCalled()
   })
 
   it('only permits resume or reject while paused', async () => {

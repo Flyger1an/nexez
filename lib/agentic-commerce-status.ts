@@ -37,8 +37,6 @@ export type AgenticCommerceStatus = {
 export type AgenticCommerceInputs = {
   /** Listing is published (and therefore in the ACP/UCP feeds). */
   published: boolean
-  /** Compatibility field; agentic checkout is included on every plan. */
-  planAllowsCheckout: boolean
   /** Seller's Stripe Connect account can accept a charge (charges_enabled). */
   connectReady: boolean
   /** ACP checkout program is switched on. Dormant since OpenAI retired the ChatGPT

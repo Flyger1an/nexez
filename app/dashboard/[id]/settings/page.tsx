@@ -25,6 +25,7 @@ import {
   normalizeSlug,
 } from '../../../../lib/agent-page'
 import { normalizeDomainPath } from '../../../../lib/custom-domain'
+import { removeManagedCustomDomain } from '../../../../lib/custom-domain-cleanup'
 import { normalizeBranding } from '../../../../lib/branding'
 import { deploymentChangeAt, summarizeDeployments } from '../../../../lib/deployments'
 import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-manifest'
@@ -42,7 +43,7 @@ import {
   type OutboundTestResult,
 } from '../../../../components/settings/OutboundWebhooksPanel'
 import { planAllows } from '../../../../lib/billing'
-import { ProBadge } from '../../../../components/billing/PlanGate'
+import { PlanBadge, PlanGate } from '../../../../components/billing/PlanGate'
 import { usePlan } from '../../../../components/billing/PlanProvider'
 import { SUPPORTED_CURRENCIES, normalizeCurrency } from '../../../../lib/currency'
 import {
@@ -53,6 +54,8 @@ import {
   StatusPill,
 } from '../../../../components/settings/SettingsPrimitives'
 import { SurfaceHeader, surfaceActionClass } from '../../../../components/dashboard/SurfacePrimitives'
+import { mutateTeamApproval } from '../../../../lib/team-approval-client'
+import { agentMemoryCopy } from '../../../../lib/agent-memory-copy'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -349,17 +352,42 @@ export default function PageSettings({ params }: PageProps) {
   }
 
   // A2/A3: provider provisioning + live status (Vercel-backed when configured).
-  async function callDomainAction(action: 'attach' | 'status') {
-    if (!customDomain.trim()) {
+  async function requestDomainRemoval(domain: string): Promise<{ ok: boolean; error?: string }> {
+    return removeManagedCustomDomain({ domain, pageId: id })
+  }
+
+  async function callDomainAction(action: 'attach' | 'status' | 'remove') {
+    const targetDomain = action === 'remove'
+      ? (page?.custom_domain || '').trim()
+      : customDomain.trim()
+    if (!targetDomain) {
       setMessage('Enter and save your custom domain first.')
       return
     }
     setDomainProvisioning(true)
     try {
+      if (action === 'remove') {
+        const result = await requestDomainRemoval(targetDomain)
+        if (!result.ok) {
+          setMessage(`Domain cleanup failed: ${result.error}`)
+          return
+        }
+        setCustomDomain('')
+        setDomainPath('/')
+        setDomainVerified(false)
+        setDomainStatus(null)
+        setDomainVerificationToken('')
+        setPage((current) => current
+          ? { ...current, custom_domain: null, custom_domain_verified: null, domain_path: '/' }
+          : current)
+        setMessage('Domain detached from hosting and removed from this listing.')
+        return
+      }
+
       const res = await fetch('/api/custom-domain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, domain: customDomain.trim(), pageId: id }),
+        body: JSON.stringify({ action, domain: targetDomain, pageId: id }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -441,6 +469,20 @@ export default function PageSettings({ params }: PageProps) {
     const previousDomain = (page.custom_domain || '').trim().toLowerCase()
     const nextDomain = (customDomain || '').trim().toLowerCase()
     const domainChanged = previousDomain !== nextDomain
+
+    // A direct pages update cannot detach a managed hostname from Vercel. Always
+    // use the authoritative cleanup boundary before clearing or replacing a saved
+    // domain; abort the broader save if provider cleanup cannot be confirmed.
+    if (domainChanged && previousDomain) {
+      setDomainProvisioning(true)
+      const removal = await requestDomainRemoval(previousDomain)
+      setDomainProvisioning(false)
+      if (!removal.ok) {
+        setSaving(false)
+        setMessage(`Settings were not changed because the previous domain could not be detached: ${removal.error}`)
+        return
+      }
+    }
     const branding = normalizeBranding({
       brand_name: brandName,
       accent_color: accentColor,
@@ -474,10 +516,14 @@ export default function PageSettings({ params }: PageProps) {
       return
     }
 
-    const { error: secretError } = await upsertPageSecrets({
-      calendly_webhook_secret: calendlyWebhookSecret || null,
+    const integrationAllowed = planAllows(plan, 'integrations')
+    const secretPatch: Record<string, unknown> = {
+      ...(integrationAllowed ? { calendly_webhook_secret: calendlyWebhookSecret || null } : {}),
       ...(domainChanged ? { domain_verification_token: null } : {}),
-    })
+    }
+    const { error: secretError } = Object.keys(secretPatch).length
+      ? await upsertPageSecrets(secretPatch)
+      : { error: null }
 
     if (domainChanged) {
       setDomainVerified(false)
@@ -499,7 +545,9 @@ export default function PageSettings({ params }: PageProps) {
         domain_path: normalizeDomainPath(domainPath),
         branding,
         prefer_original_site: preferOriginalSite,
-	      calendly_webhook_secret: secretError ? page.calendly_webhook_secret : calendlyWebhookSecret || null,
+	      calendly_webhook_secret: integrationAllowed && !secretError
+          ? calendlyWebhookSecret || null
+          : page.calendly_webhook_secret,
 	    })
     setSaving(false)
     setMessage(
@@ -548,6 +596,10 @@ export default function PageSettings({ params }: PageProps) {
 
   async function updateLlmOptIn(next: boolean) {
     if (!page || llmSaving) return
+    if (next && !planAllows(plan, 'aiFeatures')) {
+      setMessage('Advanced AI Assist is available on the Launch plan and above.')
+      return
+    }
 
     const previous = llmOptIn
     setLlmOptIn(next)
@@ -644,10 +696,17 @@ export default function PageSettings({ params }: PageProps) {
     .split(':')[0]
   const showDomainVerified =
     domainVerified && Boolean(typedCustomDomain) && typedCustomDomain === savedCustomDomain
+  const customDomainActivationAllowed = planAllows(plan, 'customDomain')
+  const aiFeaturesAllowed = planAllows(plan, 'aiFeatures')
+  const teamCollaborationAllowed = planAllows(plan, 'teamCollaboration')
+  const showDomainActive = showDomainVerified && customDomainActivationAllowed
+  const domainRoutingPaused = showDomainVerified && !customDomainActivationAllowed
   const showTxtVerification =
-    domainStatus?.verificationMethod === 'txt' ||
-    Boolean(domainStatus && !domainStatus.providerConfigured && domainStatus.verificationMethod === 'unknown')
-  const domainAttachIsNext = Boolean(customDomain.trim() && !showDomainVerified && !domainStatus)
+    customDomainActivationAllowed && (
+      domainStatus?.verificationMethod === 'txt' ||
+      Boolean(domainStatus && !domainStatus.providerConfigured && domainStatus.verificationMethod === 'unknown')
+    )
+  const domainAttachIsNext = Boolean(customDomainActivationAllowed && customDomain.trim() && !showDomainVerified && !domainStatus)
   const domainCnameIsNext = Boolean(
     !showDomainVerified &&
     domainStatus?.verificationMethod === 'cname' &&
@@ -722,8 +781,8 @@ export default function PageSettings({ params }: PageProps) {
               tone={pageRole === 'viewer' ? 'attention' : 'neutral'}
             />
             <StatusPill
-              label={showDomainVerified ? 'Domain verified' : customDomain ? 'Domain needs verification' : 'Platform domain'}
-              tone={showDomainVerified ? 'ready' : customDomain ? 'attention' : 'neutral'}
+              label={showDomainActive ? 'Domain active' : domainRoutingPaused ? 'Domain paused by plan' : customDomain ? 'Domain needs verification' : 'Platform domain'}
+              tone={showDomainActive ? 'ready' : customDomain ? 'attention' : 'neutral'}
             />
             <StatusPill
               label={certification?.certified ? 'Agent-Ready certified' : `${certification?.criteria_met ?? 0}/${certification?.criteria_total ?? 11} readiness checks`}
@@ -887,8 +946,8 @@ export default function PageSettings({ params }: PageProps) {
               icon={Globe2}
               status={
                 <StatusPill
-                  label={showDomainVerified ? 'Domain verified' : customDomain ? 'Verification needed' : 'Using Nexez URL'}
-                  tone={showDomainVerified ? 'ready' : customDomain ? 'attention' : 'neutral'}
+                  label={showDomainActive ? 'Domain active' : domainRoutingPaused ? 'Domain paused by plan' : customDomain ? 'Verification needed' : 'Using Nexez URL'}
+                  tone={showDomainActive ? 'ready' : customDomain ? 'attention' : 'neutral'}
                 />
               }
               footer={
@@ -904,7 +963,7 @@ export default function PageSettings({ params }: PageProps) {
                 <div>
                   <p className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-400">
                     Custom domain
-                    {!planAllows(plan, 'customDomain') && <ProBadge feature="customDomain" />}
+                    {!planAllows(plan, 'customDomain') && <PlanBadge feature="customDomain" />}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <input
@@ -916,12 +975,16 @@ export default function PageSettings({ params }: PageProps) {
                       placeholder="agents.yourcompany.com"
                       className="mt-1 w-full min-w-0 flex-1 rounded border border-white/15 bg-black/30 px-2 py-1 text-sm sm:w-auto"
                     />
-                    {showDomainVerified ? (
+                    {showDomainActive ? (
                       <span
                         className="mt-1 inline-flex items-center gap-1 rounded border border-[var(--ready)]/40 bg-[var(--ready)]/10 px-3 py-1 text-xs text-[var(--ready)]"
                         title={page.custom_domain_verified ? `Verified ${new Date(page.custom_domain_verified as string).toLocaleString()}` : 'Verified'}
                       >
-                        ✓ Verified
+                        ✓ Active
+                      </span>
+                    ) : domainRoutingPaused ? (
+                      <span className="mt-1 inline-flex items-center gap-1 rounded border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-3 py-1 text-xs text-[var(--amber)]">
+                        Proof retained · paused by plan
                       </span>
                     ) : null}
                   </div>
@@ -1061,8 +1124,10 @@ export default function PageSettings({ params }: PageProps) {
                   )}
 
                   <div className="mt-1 flex items-center gap-2 text-[10px]">
-                    {showDomainVerified ? (
-                      <span className="text-[var(--ready)]">✓ Verified - custom domain ownership confirmed.</span>
+                    {showDomainActive ? (
+                      <span className="text-[var(--ready)]">✓ Active - ownership confirmed and routing allocated.</span>
+                    ) : domainRoutingPaused ? (
+                      <span className="text-[var(--amber)]">Ownership proof retained; routing is paused by plan.</span>
                     ) : customDomain ? (
                       <span className="text-zinc-400">
                         Status:{' '}
@@ -1081,6 +1146,7 @@ export default function PageSettings({ params }: PageProps) {
                     publicUrl={publicUrl}
                     status={domainStatus}
                     domainVerified={showDomainVerified}
+                    activationAllowed={customDomainActivationAllowed}
                     busy={domainProvisioning}
                     attachIsNext={domainAttachIsNext}
                     onAction={callDomainAction}
@@ -1249,17 +1315,16 @@ export default function PageSettings({ params }: PageProps) {
               <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <p className="font-medium text-[var(--fg)]">Agent memory & context</p>
-                  <StatusPill label="Public" tone="attention" />
+                  <StatusPill label={agentMemoryCopy.status} />
                 </div>
                 <p className="mb-3 text-xs leading-5 text-[var(--fg-muted)]">
-                  Notes, buyer preferences, restrictions, and common objections are published in this listing&apos;s
-                  agent.json. Keep private pricing strategy and internal notes out.
+                  {agentMemoryCopy.description}
                 </p>
-                <label htmlFor="agent-memory" className="sr-only">Public agent memory and context</label>
+                <label htmlFor="agent-memory" className="sr-only">{agentMemoryCopy.fieldLabel}</label>
                 <textarea
                   id="agent-memory"
                   className="min-h-28 w-full rounded-xl border border-[var(--line)] bg-[var(--glass)] p-3 text-sm leading-6 text-[var(--fg)]"
-                  placeholder="e.g. Prefers async over live calls for first meetings. Common question: turnaround time."
+                  placeholder={agentMemoryCopy.placeholder}
                   value={memoryNotes}
                   onChange={(event) => setMemoryNotes(event.target.value)}
                 />
@@ -1279,40 +1344,49 @@ export default function PageSettings({ params }: PageProps) {
                       setMessage(
                         error || !savedMemory
                           ? `Save failed: ${error?.message || 'the listing was not updated'}`
-                          : 'Agent memory saved. It is public in agent.json and readable by anyone.',
+                          : agentMemoryCopy.saved,
                       )
                     }}
                     className="btn-secondary px-3 py-2 text-xs"
                   >
                     Save memory context
                   </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!page) return
-                      try {
-                        const response = await fetch('/api/ai/suggest', {
-                          method: 'POST',
-                          headers: { 'content-type': 'application/json' },
-                          body: JSON.stringify({ pageId: page.id, kind: 'memory' }),
-                        })
-                        const data = await response.json()
-                        if (!response.ok) {
-                          setMessage(data.error || 'AI suggestion is unavailable right now.')
-                          return
+                  {aiFeaturesAllowed ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!page) return
+                        try {
+                          const response = await fetch('/api/ai/suggest', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ pageId: page.id, kind: 'memory' }),
+                          })
+                          const data = await response.json()
+                          if (!response.ok) {
+                            setMessage(data.error || 'AI suggestion is unavailable right now.')
+                            return
+                          }
+                          if (data.suggestion) {
+                            setMemoryNotes(String(data.suggestion).trim())
+                            setMessage('AI suggested memory notes. Edit and save when ready.')
+                          }
+                        } catch {
+                          setMessage('AI suggestion failed. You can continue editing manually.')
                         }
-                        if (data.suggestion) {
-                          setMemoryNotes(String(data.suggestion).trim())
-                          setMessage('AI suggested memory notes. Edit and save when ready.')
-                        }
-                      } catch {
-                        setMessage('AI suggestion failed. You can continue editing manually.')
-                      }
-                    }}
-                    className="btn-secondary px-3 py-2 text-xs"
-                  >
-                    Suggest with AI
-                  </button>
+                      }}
+                      className="btn-secondary px-3 py-2 text-xs"
+                    >
+                      Suggest with AI
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-2">
+                      <button type="button" disabled className="btn-secondary px-3 py-2 text-xs opacity-55">
+                        Suggest with AI
+                      </button>
+                      <PlanBadge feature="aiFeatures" />
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1321,7 +1395,10 @@ export default function PageSettings({ params }: PageProps) {
                 description={
                   <span className="inline-flex flex-wrap items-center gap-2">
                     Allow Nexez to improve listing copy, agent summaries, imports, and simulator responses.
-                    {!planAllows(plan, 'aiFeatures') ? <ProBadge feature="aiFeatures" /> : null}
+                    {!aiFeaturesAllowed ? <PlanBadge feature="aiFeatures" /> : null}
+                    {!aiFeaturesAllowed && llmOptIn
+                      ? <span className="text-[var(--amber)]">Consent is retained, but AI execution is paused until plan access returns.</span>
+                      : null}
                   </span>
                 }
                 htmlFor="advanced-ai-assist"
@@ -1331,10 +1408,11 @@ export default function PageSettings({ params }: PageProps) {
                   checked={llmOptIn}
                   onCheckedChange={updateLlmOptIn}
                   label="Advanced AI Assist"
-                  checkedLabel="Enabled"
                   uncheckedLabel="Disabled"
                   pending={llmSaving}
                   pendingLabel="Saving"
+                  disabled={!aiFeaturesAllowed && !llmOptIn}
+                  checkedLabel={!aiFeaturesAllowed && llmOptIn ? 'Configured · paused' : 'Enabled'}
                 />
               </SettingRow>
               </SettingsSection>
@@ -1392,22 +1470,49 @@ export default function PageSettings({ params }: PageProps) {
               </div>
 
               {/* Phase 3: Per-page outbound webhooks - FIRST CLASS (url + optional secret, real test button, auto-fired) */}
-              <OutboundWebhooksPanel
-                slug={slug}
-                pageId={page?.id}
-                endpoints={outboundEndpoints}
-                setEndpoints={setOutboundEndpoints}
-                testResults={testResults}
-                setTestResults={setTestResults}
-                recentFires={recentOutboundFires}
-                upsertSecrets={upsertPageSecrets}
-                onMessage={setMessage}
-                onPersisted={(next) => setPage((current) => (current ? { ...current, outbound_webhooks: next } : current))}
-              />
+              <PlanGate
+                feature="outboundWebhooks"
+                currentPlan={plan}
+                variant="inline"
+                title="Booking event webhooks"
+                description="Signed outbound automation is available on the Pro plan and up."
+              >
+                <OutboundWebhooksPanel
+                  slug={slug}
+                  pageId={page?.id}
+                  endpoints={outboundEndpoints}
+                  setEndpoints={setOutboundEndpoints}
+                  testResults={testResults}
+                  setTestResults={setTestResults}
+                  recentFires={recentOutboundFires}
+                  upsertSecrets={upsertPageSecrets}
+                  onMessage={setMessage}
+                  onPersisted={(next) => setPage((current) => (current ? { ...current, outbound_webhooks: next } : current))}
+                />
+              </PlanGate>
+              {!planAllows(plan, 'outboundWebhooks') && outboundEndpoints.length > 0 ? (
+                <button
+                  type="button"
+                  className="mt-2 text-xs text-[var(--fg-muted)] underline decoration-white/20 underline-offset-4 hover:text-white"
+                  onClick={async () => {
+                    const { error } = await upsertPageSecrets({ outbound_webhooks: [] })
+                    if (error) {
+                      setMessage(error.message)
+                      return
+                    }
+                    setOutboundEndpoints([])
+                    setPage((current) => (current ? { ...current, outbound_webhooks: [] } : current))
+                    setMessage('Saved webhook endpoints disconnected.')
+                  }}
+                >
+                  Disconnect saved booking webhooks
+                </button>
+              ) : null}
 
               {/* Google Calendar Availability */}
               <AvailabilityPanel
                 pageId={page?.id}
+                integrationsAllowed={planAllows(plan, 'integrations')}
                 calendarId={googleCalendarId}
                 setCalendarId={setGoogleCalendarId}
                 note={availabilityNote}
@@ -1416,25 +1521,51 @@ export default function PageSettings({ params }: PageProps) {
                 onPersisted={(patch) => setPage((current) => (current ? ({ ...current, ...patch } as AgentPage) : current))}
               />
 
-              <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
-                <label htmlFor="calendly-webhook-secret" className="text-sm font-medium text-[var(--fg)]">
-                  Calendly webhook secret
-                </label>
-                <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">
-                  Paste the signing secret from Calendly so Nexez can verify incoming booking events for this listing.
-                </p>
-                <input
-                  id="calendly-webhook-secret"
-                  type="password"
-                  value={calendlyWebhookSecret}
-                  onChange={(event) => setCalendlyWebhookSecret(event.target.value)}
-                  placeholder="Paste Calendly signing secret"
-                  className={`${inputClass} mt-3 font-mono`}
-                />
-                <p className="mt-2 text-xs text-[var(--fg-muted)]">
-                  This secret is staged with the listing settings. Save it from General, then use your listing slug in the Calendly webhook URL.
-                </p>
-              </div>
+              <PlanGate
+                feature="integrations"
+                currentPlan={plan}
+                variant="inline"
+                title="Calendly booking updates"
+                description="Signed Calendly booking updates are available on the Pro plan and up."
+              >
+                <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
+                  <label htmlFor="calendly-webhook-secret" className="text-sm font-medium text-[var(--fg)]">
+                    Calendly webhook secret
+                  </label>
+                  <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">
+                    Paste the signing secret from Calendly so Nexez can verify incoming booking events for this listing.
+                  </p>
+                  <input
+                    id="calendly-webhook-secret"
+                    type="password"
+                    value={calendlyWebhookSecret}
+                    onChange={(event) => setCalendlyWebhookSecret(event.target.value)}
+                    placeholder="Paste Calendly signing secret"
+                    className={`${inputClass} mt-3 font-mono`}
+                  />
+                  <p className="mt-2 text-xs text-[var(--fg-muted)]">
+                    This secret is staged with the listing settings. Save it from General, then use your listing slug in the Calendly webhook URL.
+                  </p>
+                </div>
+              </PlanGate>
+              {!planAllows(plan, 'integrations') && calendlyWebhookSecret ? (
+                <button
+                  type="button"
+                  className="mt-2 text-xs text-[var(--fg-muted)] underline decoration-white/20 underline-offset-4 hover:text-white"
+                  onClick={async () => {
+                    const { error } = await upsertPageSecrets({ calendly_webhook_secret: null })
+                    if (error) {
+                      setMessage(error.message)
+                      return
+                    }
+                    setCalendlyWebhookSecret('')
+                    setPage((current) => (current ? { ...current, calendly_webhook_secret: null } : current))
+                    setMessage('Saved Calendly credential disconnected.')
+                  }}
+                >
+                  Disconnect saved Calendly credential
+                </button>
+              ) : null}
               </SettingsSection>
 
               <SettingsSection
@@ -1470,8 +1601,8 @@ export default function PageSettings({ params }: PageProps) {
                       : 'Add a custom hostname in Brand & domain to begin verification.'}
                   >
                     <StatusPill
-                      label={showDomainVerified ? 'Verified' : customDomain ? 'Pending' : 'Not configured'}
-                      tone={showDomainVerified ? 'ready' : customDomain ? 'attention' : 'neutral'}
+                      label={showDomainActive ? 'Verified & active' : domainRoutingPaused ? 'Verified · routing paused' : customDomain ? 'Pending' : 'Not configured'}
+                      tone={showDomainActive ? 'ready' : customDomain ? 'attention' : 'neutral'}
                     />
                   </SettingRow>
                   <SettingRow
@@ -1502,7 +1633,7 @@ export default function PageSettings({ params }: PageProps) {
                 icon={History}
                 status={
                   <StatusPill
-                    label={`${(page as any)?.team_collaboration?.approvals?.filter((approval: any) => approval.status === 'pending').length || 0} pending`}
+                    label={`${(page as any)?.team_collaboration?.approvals?.filter((approval: any) => approval.status === 'pending').length || 0} pending${teamCollaborationAllowed ? '' : ' · paused by plan'}`}
                     tone={(page as any)?.team_collaboration?.approvals?.some((approval: any) => approval.status === 'pending') ? 'attention' : 'neutral'}
                   />
                 }
@@ -1568,7 +1699,11 @@ export default function PageSettings({ params }: PageProps) {
               {/* Advanced Team Collaboration & Approval Workflows (full) */}
               <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
                 <div className="font-medium text-zinc-200 mb-1">Team Approvals & Collaboration</div>
-                <p className="text-[10px] text-zinc-400 mb-2">Request and manage approvals for changes like offer updates or pricing. Approvals appear in editor health checks and team review surfaces.</p>
+                <p className="text-[10px] text-zinc-400 mb-2">
+                  {teamCollaborationAllowed
+                    ? 'Request and manage approvals for changes like offer updates or pricing. Approvals appear in editor health checks and team review surfaces.'
+                    : 'Approval history is retained, but new requests and decisions are paused until the owner has Pro access.'}
+                </p>
 
                 <div className="text-xs mb-2">Pending / History Approvals:</div>
                 <div className="max-h-24 overflow-auto text-xs bg-black/30 p-2 rounded mb-2 border border-white/10">
@@ -1584,79 +1719,76 @@ export default function PageSettings({ params }: PageProps) {
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!page) return
-                    const supabase = createClient()
-                    const current = (page as any).team_collaboration || { approvals: [] }
-                    let note = 'Offer pricing/structure update'
-                    // Server-side, gated AI suggestion. On any gate/error keep the
-                    // sensible default note (this is an optional enhancement).
-                    try {
-                      const res = await fetch('/api/ai/suggest', {
-                        method: 'POST',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ pageId: page.id, kind: 'approval-note' }),
-                      })
-                      if (res.ok) {
-                        const data = await res.json()
-                        if (data.suggestion) note = String(data.suggestion).trim().slice(0, 80)
-                      }
-                    } catch {}
-                    const newApproval = {
-                      id: Date.now().toString(),
-                      approver: 'owner',
-                      status: 'pending',
-                      note,
-                      ts: new Date().toISOString(),
-                    }
-                    const updated = { ...current, approvals: [...(current.approvals || []), newApproval] }
-                    const { data: savedCollaboration, error } = await supabase
-                      .from('pages')
-                      .update({ team_collaboration: updated })
-                      .eq('id', page.id)
-                      .select('id')
-                      .single()
-                    if (!error && savedCollaboration) {
-                      setMessage('Approval request added. Team members can review it in the editor.')
-                      // local state update for immediate UI
-                      const currentPage = page as any
-                      setPage({ ...currentPage, team_collaboration: updated } as any)
-                    } else {
-                      setMessage('Failed: ' + error.message)
-                    }
-                  }}
-                  className="text-xs rounded border border-white/20 px-3 py-1 mr-2 hover:bg-white/5"
-                >
-                  Request Approval
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!page) return
-                    const supabase = createClient()
-                    const current = (page as any).team_collaboration || { approvals: [] }
-                    const updatedApprovals = (current.approvals || []).map((a: any) => a.status === 'pending' ? { ...a, status: 'approved' } : a)
-                    const updated = { ...current, approvals: updatedApprovals }
-                    const { data: savedCollaboration, error } = await supabase
-                      .from('pages')
-                      .update({ team_collaboration: updated })
-                      .eq('id', page.id)
-                      .select('id')
-                      .single()
-                    if (error || !savedCollaboration) {
-                      setMessage(`Approvals could not be updated: ${error?.message || 'the listing was not updated'}.`)
-                      return
-                    }
-                    setMessage('All pending approvals are marked approved. Changes can now be published.')
-                    const currentPage2 = page as any
-                    setPage({ ...currentPage2, team_collaboration: updated } as any)
-                  }}
-                  className="text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/5"
-                >
-                  Approve All Pending
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {teamCollaborationAllowed ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!page) return
+                        let note = 'Offer pricing/structure update'
+                        try {
+                          const response = await fetch('/api/ai/suggest', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ pageId: page.id, kind: 'approval-note' }),
+                          })
+                          if (response.ok) {
+                            const data = await response.json()
+                            if (data.suggestion) note = String(data.suggestion).trim().slice(0, 80)
+                          }
+                        } catch {}
+                        try {
+                          const teamCollaboration = await mutateTeamApproval({ pageId: page.id, action: 'request', note })
+                          setPage((current) => current ? ({ ...current, team_collaboration: teamCollaboration } as AgentPage) : current)
+                          setMessage('Approval request added. Team members can review it in the editor.')
+                        } catch (error) {
+                          setMessage(error instanceof Error ? error.message : 'Approval request could not be added.')
+                        }
+                      }}
+                      className="text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/5"
+                    >
+                      Request Approval
+                    </button>
+                  ) : <PlanBadge feature="teamCollaboration" />}
+
+                  {teamCollaborationAllowed && pageRole === 'owner' ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!page) return
+                        try {
+                          const teamCollaboration = await mutateTeamApproval({ pageId: page.id, action: 'approve_all' })
+                          setPage((current) => current ? ({ ...current, team_collaboration: teamCollaboration } as AgentPage) : current)
+                          setMessage('All pending approval requests are marked approved.')
+                        } catch (error) {
+                          setMessage(error instanceof Error ? error.message : 'Approvals could not be updated.')
+                        }
+                      }}
+                      className="text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/5"
+                    >
+                      Approve All Pending
+                    </button>
+                  ) : null}
+
+                  {pageRole === 'owner' && (page as any)?.team_collaboration?.approvals?.length ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!page || !window.confirm('Clear all retained approval history for this listing?')) return
+                        try {
+                          const teamCollaboration = await mutateTeamApproval({ pageId: page.id, action: 'clear' })
+                          setPage((current) => current ? ({ ...current, team_collaboration: teamCollaboration } as AgentPage) : current)
+                          setMessage('Approval history cleared.')
+                        } catch (error) {
+                          setMessage(error instanceof Error ? error.message : 'Approval history could not be cleared.')
+                        }
+                      }}
+                      className="text-xs rounded border border-red-400/30 px-3 py-1 text-red-300 hover:bg-red-400/10"
+                    >
+                      Clear approval history
+                    </button>
+                  ) : null}
+                </div>
               </div>
               </SettingsSection>
 

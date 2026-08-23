@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getPlanLimits } from '../../../../lib/billing'
 import { buildPromotionExpiryEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 import { getOwnerPlanId } from '../../../../lib/server/plan'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
@@ -114,25 +115,15 @@ export async function GET(request: Request) {
 
   const allGrants = [...(noticeGrants ?? []), ...(endedGrants ?? [])]
   const ownerIds = [...new Set(allGrants.map((grant) => grant.owner_id))]
-  const [ownerPagesRes, baselinesRes] = ownerIds.length
-    ? await Promise.all([
-        admin
-          .from('pages')
-          .select('id, owner_id, name, slug, is_published, created_at')
-          .in('owner_id', ownerIds)
-          .order('created_at', { ascending: true })
-          .returns<PageRow[]>(),
-        admin
-          .from('published_page_grandfather')
-          .select('owner_id, baseline')
-          .in('owner_id', ownerIds)
-          .returns<Array<{ owner_id: string; baseline: number }>>(),
-      ])
-    : [{ data: [] as PageRow[] }, { data: [] as Array<{ owner_id: string; baseline: number }> }]
+  const ownerPagesRes = ownerIds.length
+    ? await admin
+        .from('pages')
+        .select('id, owner_id, name, slug, is_published, created_at')
+        .in('owner_id', ownerIds)
+        .order('created_at', { ascending: true })
+        .returns<PageRow[]>()
+    : { data: [] as PageRow[] }
   const ownerPages = ownerPagesRes.data
-  const grandfatheredLimit = new Map(
-    (baselinesRes.data ?? []).map((row) => [row.owner_id, Math.max(1, row.baseline)]),
-  )
   const pagesByOwner = new Map<string, PageRow[]>()
   for (const page of ownerPages ?? []) {
     const current = pagesByOwner.get(page.owner_id) ?? []
@@ -211,26 +202,12 @@ export async function GET(request: Request) {
         fallback =
           published.find((page) => page.id === grant.fallback_page_id)
           ?? published[0]
-        const keepLimit = grandfatheredLimit.get(grant.owner_id) ?? 1
-        const keptIds = new Set([
-          fallback.id,
-          ...published
-            .filter((page) => page.id !== fallback?.id)
-            .slice(0, Math.max(0, keepLimit - 1))
-            .map((page) => page.id),
-        ])
-        const extras = published.filter((page) => !keptIds.has(page.id)).map((page) => page.id)
-        if (extras.length) {
-          const { error } = await admin
-            .from('pages')
-            .update({ is_published: false })
-            .in('id', extras)
-            .eq('owner_id', grant.owner_id)
-          if (error) throw new Error('fallback_unpublish_failed')
-        }
-        fallbackListingsApplied += 1
+        if (published.length > getPlanLimits('free').publishedListings) fallbackListingsApplied += 1
       }
 
+      // The grant status write invokes the canonical database reconciler in the
+      // same transaction. It owns the exact plan allocation and the concurrency
+      // locks; this cron only records the preferred Free fallback before expiry.
       const { data: expired, error } = await admin
         .from('promotional_plan_grants')
         .update({
@@ -260,8 +237,8 @@ export async function GET(request: Request) {
           event_type: 'fallback_applied',
           metadata: {
             fallback_page_id: fallback.id,
-            grandfathered_limit: grandfatheredLimit.get(grant.owner_id) ?? null,
-            unpublished_count: Math.max(0, published.length - (grandfatheredLimit.get(grant.owner_id) ?? 1)),
+            canonical_limit: getPlanLimits('free').publishedListings,
+            unpublished_count: Math.max(0, published.length - getPlanLimits('free').publishedListings),
           },
         })
       }

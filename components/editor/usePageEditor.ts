@@ -19,10 +19,19 @@ import {
 } from '../../lib/editor-merge'
 import { draftToLiveUpdate } from '../../lib/draft'
 import { publishErrorMessage } from '../../lib/publish-error'
-import { optimizeAllOffersForAgents, enhanceDescriptionForAgents } from '../../lib/ai-optimize'
+import { requestAiEnhancement } from '../../lib/ai-enhance-client'
+import { mutateTeamApproval } from '../../lib/team-approval-client'
 import { mergeOfferCollectionPreservingConfiguration } from '../../lib/configured-offer'
 import { createClient } from '../../utils/supabase/client'
-import { EditorEvent, EditorInitial, IntegrationStatus, PendingReanalysis, ResyncProvider } from './types'
+import {
+  EditorEvent,
+  EditorInitial,
+  IntegrationStatus,
+  PendingReanalysis,
+  ResyncProvider,
+  resolveShopifyIntegrationStatus,
+  shopifyConnectionCanSync,
+} from './types'
 
 const RESYNC_LABELS: Record<ResyncProvider, string> = {
   calendly: 'Calendly',
@@ -40,11 +49,17 @@ const RESYNC_LABELS: Record<ResyncProvider, string> = {
  */
 export function usePageEditor(initial: EditorInitial) {
   const id = initial.page.id as string
+  const aiFeaturesEnabled = initial.aiFeaturesEnabled === true
+  const integrationsEnabled = initial.integrationsEnabled === true
+  const outboundWebhooksEnabled = initial.outboundWebhooksEnabled === true
+  const teamCollaborationEnabled = initial.teamCollaborationEnabled === true
+  const negotiationEnabled = initial.negotiationEnabled === true
 
   const [page, setPage] = useState<AgentPage>(initial.page)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [syncing, setSyncing] = useState(false)
+  const [aiBusy, setAiBusy] = useState(false)
   const [integrationResyncing, setIntegrationResyncing] = useState<string | null>(null)
 
   const [name, setName] = useState(initial.page.name ?? '')
@@ -145,7 +160,8 @@ export function usePageEditor(initial: EditorInitial) {
     productsOffers,
   })
 
-  // Load integration connection status (same keys as Tools + Integrations dashboard).
+  // Legacy browser markers remain useful for one-off import history, but only
+  // the server-resolved page connection may classify Shopify as OAuth or token.
   useEffect(() => {
     try {
       const status: IntegrationStatus = {}
@@ -154,14 +170,18 @@ export function usePageEditor(initial: EditorInitial) {
       const str = localStorage.getItem('nexez_stripe_connection')
       if (str) status.stripe = JSON.parse(str)
       const sh = localStorage.getItem('nexez_shopify_connection')
-      if (sh) status.shopify = JSON.parse(sh)
+      const browserShopify = sh ? JSON.parse(sh) as { lastImport?: unknown } : null
+      status.shopify = resolveShopifyIntegrationStatus(initial.shopifyConnection, {
+        present: Boolean(browserShopify),
+        lastImport: typeof browserShopify?.lastImport === 'string' ? browserShopify.lastImport : null,
+      })
       const sq = localStorage.getItem('nexez_square_connection')
       if (sq) status.square = JSON.parse(sq)
       const ac = localStorage.getItem('nexez_acuity_connection')
       if (ac) status.acuity = JSON.parse(ac)
       setIntegrationStatus(status)
     } catch {}
-  }, [])
+  }, [initial.shopifyConnection])
 
   // Arrival from the create wizard after publishing a new page. The public
   // page opens separately; the creator lands here to keep working.
@@ -233,47 +253,130 @@ export function usePageEditor(initial: EditorInitial) {
     }
   }, [id])
 
-  function optimizeOffersWithAI() {
+  async function optimizeOffersWithAI() {
+    if (!aiFeaturesEnabled) {
+      setMessage('AI optimization is available on the Launch plan and above.')
+      return
+    }
+    const currentServices = parsedServices
+    const currentProducts = parsedProducts
+    const allOffers = [...currentServices, ...currentProducts]
+    if (allOffers.length === 0) {
+      setMessage('Add at least one offer before running AI optimization.')
+      return
+    }
     const businessName = name || 'This business'
     const buyer = audience || 'qualified buyers'
-    const { services: optS, products: optP } = optimizeAllOffersForAgents(services, products, {
-      businessName,
-      audience: buyer,
-    })
-    if (optS) {
-      setServices(optS)
-      setServicesOffers(mergeOfferCollectionPreservingConfiguration(servicesOffers, parseOfferLines(optS)))
+    setAiBusy(true)
+    setMessage('Optimizing offers…')
+    try {
+      const result = await requestAiEnhancement({
+        operation: 'optimize_offers',
+        pageId: id,
+        businessName,
+        audience: buyer,
+        offers: allOffers,
+      })
+      if (!Array.isArray(result.offers) || result.offers.length !== allOffers.length) {
+        setMessage('AI optimization returned an incomplete result. Nothing changed.')
+        return
+      }
+      const nextServices = mergeOfferCollectionPreservingConfiguration(
+        currentServices,
+        result.offers.slice(0, currentServices.length),
+      )
+      const nextProducts = mergeOfferCollectionPreservingConfiguration(
+        currentProducts,
+        result.offers.slice(currentServices.length),
+      )
+      setServicesOffers(nextServices)
+      setProductsOffers(nextProducts)
+      setServices(formatOfferLines(nextServices))
+      setProducts(formatOfferLines(nextProducts))
+      setMessage('Offers rewritten for AI agents.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'AI optimization could not be completed.')
+    } finally {
+      setAiBusy(false)
     }
-    if (optP) {
-      setProducts(optP)
-      setProductsOffers(mergeOfferCollectionPreservingConfiguration(productsOffers, parseOfferLines(optP)))
-    }
-    setMessage('Offers rewritten for AI agents (local high-quality rules).')
   }
 
-  function enhanceDescriptionWithAI() {
+  async function enhanceDescriptionWithAI() {
+    if (!aiFeaturesEnabled) {
+      setMessage('AI optimization is available on the Launch plan and above.')
+      return
+    }
     const businessName = name || 'This business'
     const buyer = audience || 'buyers evaluating services'
-    setDescription(enhanceDescriptionForAgents(description, businessName, buyer))
-    setMessage('Description enhanced for agent readability.')
+    setAiBusy(true)
+    setMessage('Enhancing listing summary…')
+    try {
+      const result = await requestAiEnhancement({
+        operation: 'enhance_description',
+        pageId: id,
+        businessName,
+        audience: buyer,
+        description,
+      })
+      if (typeof result.enhanced !== 'string' || !result.enhanced.trim()) {
+        setMessage('AI enhancement returned no copy. Nothing changed.')
+        return
+      }
+      setDescription(result.enhanced)
+      setMessage('Description enhanced for agent readability.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'AI optimization could not be completed.')
+    } finally {
+      setAiBusy(false)
+    }
   }
 
-  function enhanceAllOffers() {
+  async function enhanceAllOffers() {
+    if (!aiFeaturesEnabled) {
+      setMessage('AI optimization is available on the Launch plan and above.')
+      return
+    }
+    const currentServices = parsedServices
+    const currentProducts = parsedProducts
+    const allOffers = [...currentServices, ...currentProducts]
+    if (allOffers.length === 0) {
+      setMessage('Add at least one offer before enhancing descriptions.')
+      return
+    }
     const bn = name || 'This business'
     const aud = audience || 'qualified buyers'
-    const enhancedServices = servicesOffers.map((o) => ({
-      ...o,
-      description: enhanceDescriptionForAgents(o.description || '', bn, aud),
-    }))
-    const enhancedProducts = productsOffers.map((o) => ({
-      ...o,
-      description: enhanceDescriptionForAgents(o.description || '', bn, aud),
-    }))
-    setServicesOffers(enhancedServices)
-    setProductsOffers(enhancedProducts)
-    setServices(formatOfferLines(enhancedServices))
-    setProducts(formatOfferLines(enhancedProducts))
-    setMessage('All offer descriptions enhanced for AI agents.')
+    setAiBusy(true)
+    setMessage('Enhancing offer descriptions…')
+    try {
+      const result = await requestAiEnhancement({
+        operation: 'enhance_offers',
+        pageId: id,
+        businessName: bn,
+        audience: aud,
+        offers: allOffers,
+      })
+      if (!Array.isArray(result.offers) || result.offers.length !== allOffers.length) {
+        setMessage('AI enhancement returned an incomplete result. Nothing changed.')
+        return
+      }
+      const enhancedServices = mergeOfferCollectionPreservingConfiguration(
+        currentServices,
+        result.offers.slice(0, currentServices.length),
+      )
+      const enhancedProducts = mergeOfferCollectionPreservingConfiguration(
+        currentProducts,
+        result.offers.slice(currentServices.length),
+      )
+      setServicesOffers(enhancedServices)
+      setProductsOffers(enhancedProducts)
+      setServices(formatOfferLines(enhancedServices))
+      setProducts(formatOfferLines(enhancedProducts))
+      setMessage('All offer descriptions enhanced for AI agents.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'AI optimization could not be completed.')
+    } finally {
+      setAiBusy(false)
+    }
   }
 
   async function handleSyncFromWebsite() {
@@ -383,22 +486,8 @@ export function usePageEditor(initial: EditorInitial) {
     setMessage('')
     const supabase = createClient()
 
-    const { payload, versions, snapshot } = buildSavePayload(saveInput(), (page as any).versions || [])
+    const { payload, versions } = buildSavePayload(saveInput(), (page as any).versions || [])
     const updatePayload: any = { ...payload }
-
-    const teamCollab = (page as any).team_collaboration || {}
-    if (teamCollab.approvals?.some((a: any) => a.status === 'pending')) {
-      const newApproval = {
-        id: Date.now().toString(36),
-        approver: 'self',
-        status: 'pending',
-        note: `Edit to ${name} (offers/desc update)`,
-        ts: new Date().toISOString(),
-        snapshot,
-      }
-      updatePayload.team_collaboration = { ...teamCollab, approvals: [...(teamCollab.approvals || []), newApproval] }
-      setMessage('Pending team approvals detected - this edit queued as new approval request.')
-    }
 
     const { error } = await supabase.from('pages').update(updatePayload).eq('id', page.id)
     if (!error) {
@@ -407,15 +496,12 @@ export function usePageEditor(initial: EditorInitial) {
           ({
             ...(prev as any),
             versions,
-            ...(updatePayload.team_collaboration ? { team_collaboration: updatePayload.team_collaboration } : {}),
           }) as AgentPage,
       )
     }
     setSaving(false)
     if (error) {
       setMessage(publishErrorMessage(error))
-    } else if (updatePayload.team_collaboration) {
-      setMessage('Saved. Edit queued as team approval request (see Settings). Version snapshot created.')
     } else {
       setMessage('Saved. Version snapshot created.')
     }
@@ -494,6 +580,18 @@ export function usePageEditor(initial: EditorInitial) {
       setMessage('Stripe is managed from Settings → Integrations (prices auto-sync from your Stripe account).')
       return
     }
+    if (provider === 'shopify' && !shopifyConnectionCanSync(integrationStatus.shopify?.kind, integrationsEnabled)) {
+      setMessage(
+        integrationStatus.shopify?.kind === 'other'
+          ? 'That was a one-time public catalog import, not a live Shopify connection. Install the Shopify app or connect Admin credentials in Settings.'
+          : 'Manual Shopify Admin sync is paused. Upgrade to Pro, or install the Shopify app on any plan.',
+      )
+      return
+    }
+    if (!integrationsEnabled && provider !== 'shopify') {
+      setMessage('Premium integration sync is paused. Upgrade to Pro to resume live imports.')
+      return
+    }
     setIntegrationResyncing(provider)
     try {
       const res = await fetch(`/api/pages/${id}/integrations/${provider}/sync`, { method: 'POST' })
@@ -513,6 +611,10 @@ export function usePageEditor(initial: EditorInitial) {
   }
 
   async function sendTestBooking() {
+    if (!integrationsEnabled) {
+      setMessage('Calendly automation is paused. Upgrade to Pro to send a test booking.')
+      return
+    }
     try {
       const demoSecret = `nexez-test-${Date.now()}`
       const res = await fetch('/api/webhooks/calendly', {
@@ -551,25 +653,20 @@ export function usePageEditor(initial: EditorInitial) {
   }
 
   async function requestTeamApproval() {
+    if (!page?.id) {
+      setMessage('Save this listing before requesting approval.')
+      return
+    }
     try {
-      const supabase = createClient()
-      const current = (page as any)?.team_collaboration || { approvals: [] }
-      const newA = {
-        id: Date.now().toString(36),
-        approver: 'self',
-        status: 'pending',
-        note: 'Current edits (offers/desc etc)',
-        ts: new Date().toISOString(),
-      }
-      const updated = { ...current, approvals: [...(current.approvals || []), newA] }
-      if ((page as any)?.id) {
-        await supabase.from('pages').update({ team_collaboration: updated }).eq('id', (page as any).id)
-        alert('Approval request saved. Manage it in Settings.')
-      } else {
-        alert('Save this listing before requesting approval.')
-      }
-    } catch (e: any) {
-      alert('Could not request approval: ' + e.message)
+      const teamCollaboration = await mutateTeamApproval({
+        pageId: page.id,
+        action: 'request',
+        note: 'Current saved listing is ready for review',
+      })
+      setPage((current) => ({ ...(current as AgentPage), team_collaboration: teamCollaboration } as AgentPage))
+      setMessage('Approval request saved. Manage it in Settings → Team & history.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Team approval could not be requested.')
     }
   }
 
@@ -633,6 +730,12 @@ export function usePageEditor(initial: EditorInitial) {
     recentOutboundFires,
     trustEvents,
     integrationStatus,
+    aiFeaturesEnabled,
+    integrationsEnabled,
+    outboundWebhooksEnabled,
+    teamCollaborationEnabled,
+    negotiationEnabled,
+    aiBusy,
     // handlers
     optimizeOffersWithAI,
     enhanceDescriptionWithAI,

@@ -4,7 +4,13 @@ let rateLimited = false
 let urlError: string | null = null
 let authUser: { id: string } | null = { id: 'owner-1' }
 let insertedResearch: any = null
+let aiAllowed = true
+let planReadFails = false
 const analyzeSite = vi.fn()
+const ownerAllows = vi.fn(async (_client: unknown, _ownerId: string, _feature: string) => {
+  if (planReadFails) throw new Error('plan read failed')
+  return aiAllowed
+})
 
 vi.mock('../../../lib/rate-limit', () => ({
   enforceRateLimit: vi.fn(async () => (rateLimited ? new Response('rate', { status: 429 }) : null)),
@@ -14,6 +20,9 @@ vi.mock('../../../lib/importer', () => ({
   getImportUrlError: () => urlError,
 }))
 vi.mock('../../../lib/observability', () => ({ captureError: vi.fn() }))
+vi.mock('../../../lib/server/plan', () => ({
+  ownerAllows: (client: unknown, ownerId: string, feature: string) => ownerAllows(client, ownerId, feature),
+}))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
 vi.mock('../../../utils/supabase/server', () => ({
   createClient: vi.fn(() => ({
@@ -72,6 +81,8 @@ describe('POST /api/simulate-url (anonymous any-URL demo)', () => {
     urlError = null
     authUser = { id: 'owner-1' }
     insertedResearch = null
+    aiAllowed = true
+    planReadFails = false
     analyzeSite.mockResolvedValue(crawl)
   })
 
@@ -114,6 +125,28 @@ describe('POST /api/simulate-url (anonymous any-URL demo)', () => {
     expect(insertedResearch.result).not.toHaveProperty('rawHtml')
     expect(insertedResearch.evidence.source.rawHtmlStored).toBe(false)
     expect(res.headers.get('cache-control')).toBe('private, no-store')
+    expect(ownerAllows).toHaveBeenCalledWith(expect.anything(), 'owner-1', 'aiFeatures')
+  })
+
+  it('keeps the scan public but rejects a new private save below Launch', async () => {
+    aiAllowed = false
+    const res = await POST(post({ url: 'https://acme.com', save: true }))
+    expect(res.status).toBe(402)
+    expect(await res.json()).toMatchObject({ upgrade: 'launch' })
+    expect(analyzeSite).not.toHaveBeenCalled()
+    expect(insertedResearch).toBeNull()
+
+    const publicRes = await POST(post({ url: 'https://acme.com' }))
+    expect(publicRes.status).toBe(200)
+    expect(analyzeSite).toHaveBeenCalledWith('https://acme.com', null, { skipLlm: true })
+  })
+
+  it('fails closed for private saves when entitlement resolution errors', async () => {
+    planReadFails = true
+    const res = await POST(post({ url: 'https://acme.com', save: true }))
+    expect(res.status).toBe(402)
+    expect(analyzeSite).not.toHaveBeenCalled()
+    expect(insertedResearch).toBeNull()
   })
 
   it('does not allow an anonymous caller to request persistence', async () => {
@@ -122,6 +155,7 @@ describe('POST /api/simulate-url (anonymous any-URL demo)', () => {
     expect(res.status).toBe(401)
     expect(insertedResearch).toBeNull()
     expect(analyzeSite).not.toHaveBeenCalled()
+    expect(ownerAllows).not.toHaveBeenCalled()
   })
 
   it('502 when the crawl fails', async () => {

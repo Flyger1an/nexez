@@ -289,7 +289,7 @@ describe('RECORD_ANSWERS - folding + SYNTHESIS', () => {
   })
 
   it('offer_rules merge marks the offer negotiable and satisfies the floor gap', () => {
-    const state = run(interviewState(), {
+    const applied = applyIntakeAction(interviewState(), {
       type: 'RECORD_ANSWERS',
       answers: [
         {
@@ -298,10 +298,171 @@ describe('RECORD_ANSWERS - folding + SYNTHESIS', () => {
           fields: [{ target: 'offer_rules', offerKey: 'services-0', rules: { minPrice: '$900', minNoticeHours: 48 } }],
         },
       ],
-    })
+    }, { negotiationAllowed: true })
+    if (!applied.ok) throw new Error(applied.error)
+    const state = applied.state
     expect(state.draft.services[0].offerType).toBe('negotiable')
     expect(state.draft.services[0].rules).toEqual({ minPrice: '$900', minNoticeHours: 48 })
     expect(state.gaps.map((g) => g.id)).not.toContain('offer:services-0:floor')
+  })
+
+  it('fails closed on newly-authored negotiation posture and rules below Pro', () => {
+    const state = interviewState()
+    const posture = applyIntakeAction(state, {
+      type: 'RECORD_ANSWERS',
+      answers: [{
+        gapId: `${VOLUNTEERED_PREFIX}posture`,
+        answer: 'Open to offers',
+        fields: [{ target: 'offer', offerKey: 'services-0', field: 'offerType', value: 'negotiable' }],
+      }],
+    })
+    expect(posture).toMatchObject({ ok: false, code: 'feature_not_available' })
+    expect(state.draft.services[0].offerType).toBeUndefined()
+
+    const rules = applyIntakeAction(state, {
+      type: 'RECORD_ANSWERS',
+      answers: [{
+        gapId: `${VOLUNTEERED_PREFIX}rules`,
+        answer: 'Floor is $900',
+        fields: [{ target: 'offer_rules', offerKey: 'services-0', rules: { minPrice: '$900' } }],
+      }],
+    })
+    expect(rules).toMatchObject({ ok: false, code: 'feature_not_available' })
+    expect(state.draft.services[0].rules).toBeUndefined()
+  })
+
+  it('allows structured core and unknown offer rules below Pro without changing posture', () => {
+    const state = interviewState()
+    const applied = applyIntakeAction(state, {
+      type: 'RECORD_ANSWERS',
+      answers: [{
+        gapId: `${VOLUNTEERED_PREFIX}core-rules`,
+        answer: '48 hours notice and setup are included',
+        fields: [{
+          target: 'offer_rules',
+          offerKey: 'services-0',
+          rules: { minNoticeHours: 48, includedScope: 'Setup', futureCoreRule: 'allowed' } as any,
+        }],
+      }],
+    })
+
+    expect(applied.ok).toBe(true)
+    if (!applied.ok) return
+    expect(applied.state.draft.services[0].offerType).toBeUndefined()
+    expect(applied.state.draft.services[0].rules).toEqual({
+      minNoticeHours: 48,
+      includedScope: 'Setup',
+      futureCoreRule: 'allowed',
+    })
+  })
+
+  it('allows retained downgraded configuration, ordinary edits, renames, and explicit Fixed cleanup', () => {
+    const retained = createIntakeState({
+      seed: {
+        services: [{
+          name: 'Retained Offer',
+          description: 'Existing Pro configuration',
+          price: '$1,200',
+          url: '',
+          offerType: 'negotiable',
+          rules: { minPrice: '$900', minNoticeHours: 48 },
+        }],
+      },
+    })
+
+    const edited = applyIntakeAction(retained, {
+      type: 'RECORD_ANSWERS',
+      answers: [{
+        gapId: `${VOLUNTEERED_PREFIX}description`,
+        answer: 'Update the description',
+        fields: [{ target: 'offer', offerKey: 'services-0', field: 'description', value: 'Updated copy' }],
+      }],
+    })
+    expect(edited.ok).toBe(true)
+    if (!edited.ok) return
+    expect(edited.state.draft.services[0]).toMatchObject({
+      description: 'Updated copy',
+      offerType: 'negotiable',
+      rules: { minPrice: '$900', minNoticeHours: 48 },
+    })
+
+    const coreEdited = applyIntakeAction(edited.state, {
+      type: 'RECORD_ANSWERS',
+      answers: [{
+        gapId: `${VOLUNTEERED_PREFIX}core-rule-change`,
+        answer: 'Make notice 72 hours',
+        fields: [{ target: 'offer_rules', offerKey: 'services-0', rules: { minNoticeHours: 72 } }],
+      }],
+    })
+    expect(coreEdited.ok).toBe(true)
+    if (!coreEdited.ok) return
+    expect(coreEdited.state.draft.services[0].rules).toEqual({ minPrice: '$900', minNoticeHours: 72 })
+
+    const renamed = applyIntakeAction(coreEdited.state, {
+      type: 'RECORD_ANSWERS',
+      answers: [{
+        gapId: `${VOLUNTEERED_PREFIX}rename`,
+        answer: 'Rename it',
+        fields: [{ target: 'offer', offerKey: 'services-0', field: 'name', value: 'Renamed Offer' }],
+      }],
+    })
+    expect(renamed.ok).toBe(true)
+    if (!renamed.ok) return
+    expect(renamed.state.draft.services[0].offerType).toBe('negotiable')
+
+    const mutated = applyIntakeAction(renamed.state, {
+      type: 'RECORD_ANSWERS',
+      answers: [{
+        gapId: `${VOLUNTEERED_PREFIX}rules-change`,
+        answer: 'Lower the floor',
+        fields: [{ target: 'offer_rules', offerKey: 'services-0', rules: { minPrice: '$700' } }],
+      }],
+    })
+    expect(mutated).toMatchObject({ ok: false, code: 'feature_not_available' })
+
+    const cleared = applyIntakeAction(renamed.state, {
+      type: 'RECORD_ANSWERS',
+      answers: [{
+        gapId: `${VOLUNTEERED_PREFIX}fixed`,
+        answer: 'Make it fixed',
+        fields: [{ target: 'offer', offerKey: 'services-0', field: 'offerType', value: 'fixed' }],
+      }],
+    })
+    expect(cleared.ok).toBe(true)
+    if (!cleared.ok) return
+    expect(cleared.state.draft.services[0].offerType).toBe('fixed')
+    expect(cleared.state.draft.services[0].rules).toEqual({ minNoticeHours: 72 })
+  })
+
+  it('rejects LLM curation that adds negotiable configuration below Pro', () => {
+    const state = interviewState()
+    const proposed = applyIntakeAction(state, {
+      type: 'PROPOSE_OFFERS',
+      kind: 'services',
+      offers: [{
+        ...state.draft.services[0],
+        offerType: 'negotiable',
+        rules: { minPrice: '$900' },
+      }],
+    })
+    expect(proposed).toMatchObject({ ok: false, code: 'feature_not_available' })
+    expect(state.draft.services[0].offerType).toBeUndefined()
+  })
+
+  it('allows LLM curation to add core rules below Pro', () => {
+    const state = interviewState()
+    const proposed = applyIntakeAction(state, {
+      type: 'PROPOSE_OFFERS',
+      kind: 'services',
+      offers: [{
+        ...state.draft.services[0],
+        rules: { maxBookingsPerWeek: 4, excludedScope: 'Travel' },
+      }],
+    })
+    expect(proposed.ok).toBe(true)
+    if (!proposed.ok) return
+    expect(proposed.state.draft.services[0].offerType).toBeUndefined()
+    expect(proposed.state.draft.services[0].rules).toEqual({ maxBookingsPerWeek: 4, excludedScope: 'Travel' })
   })
 
   it('new_offer appends (stated), merges on name collision, and requires a name', () => {

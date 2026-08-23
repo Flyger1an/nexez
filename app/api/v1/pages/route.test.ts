@@ -84,4 +84,18 @@ describe('/api/v1/pages', () => {
     await POST(postReq({ name: 'Sneaky', owner_id: 'owner-B' }))
     expect(insertPayload.owner_id).toBe('owner-A') // body owner_id ignored
   })
+
+  it('POST → exposes a contended entitlement allocation as retryable, not as a plan limit', async () => {
+    vi.mocked(authenticateApiKey).mockResolvedValue({ ok: true, ownerId: 'owner-A', keyId: 'k1' })
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((ctx) => ctx.op === 'insert'
+        ? { data: null, error: { code: '40001', message: 'NEXEZ_ENTITLEMENT_ALLOCATION_RETRY' } }
+        : { data: null, error: null }) as any,
+    )
+
+    const res = await POST(postReq({ name: 'Racing page', is_published: true }))
+    expect(res.status).toBe(409)
+    expect(res.headers.get('retry-after')).toBe('1')
+    expect(await res.json()).toMatchObject({ code: 'entitlement_allocation_retry', retryable: true })
+  })
 })

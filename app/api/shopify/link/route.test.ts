@@ -1,5 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const { deletePendingCookie } = vi.hoisted(() => ({ deletePendingCookie: vi.fn() }))
+const mappingMocks = vi.hoisted(() => {
+  class MappingError extends Error {
+    constructor(readonly reason: string) {
+      super(reason)
+    }
+  }
+  return {
+    MappingError,
+    begin: vi.fn(),
+    finish: vi.fn(),
+    abort: vi.fn(async () => true),
+    cleanup: vi.fn(async () => undefined),
+  }
+})
 const state = {
   cfg: true,
   pending: 'demo.myshopify.com' as string | null,
@@ -12,6 +27,22 @@ const state = {
   conflictingInstall: null as { shop_domain: string } | null,
   credentials: { shop: 'demo.myshopify.com', accessToken: 'access-token' } as { shop: string; accessToken: string } | null,
   syncResult: { ok: true, provider: 'shopify', imported: 4, windows: 0, availabilitySynced: false, note: 'Imported 4' } as any,
+  integrationsAllowed: true,
+  lease: {
+    shop: 'demo.myshopify.com',
+    token: '00000000-0000-4000-8000-000000000001',
+    kind: 'relink',
+    generation: 2,
+    catalogGeneration: null,
+    ownerId: null,
+    pageId: null,
+  } as any,
+  mapping: {
+    shop: 'demo.myshopify.com',
+    ownerId: 'owner-1',
+    pageId: 'p1',
+    generation: 3,
+  },
 }
 const updateSpy = vi.fn(() => ({
   eq: vi.fn(() => ({ is: vi.fn(async () => ({ error: null })) })),
@@ -28,25 +59,39 @@ const adminQuery = () => {
   return query
 }
 
-vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ get: () => ({ value: 'tok' }), delete: () => {} })) }))
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({ get: () => ({ value: 'tok' }), delete: deletePendingCookie })),
+}))
 vi.mock('../../../../lib/server/shopify', () => ({ shopifyConfigured: () => state.cfg, readPendingShop: () => state.pending }))
 vi.mock('../../../../utils/supabase/server', () => ({ createClient: () => ({ auth: { getUser: async () => ({ data: { user: state.user } }) } }) }))
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: () => ({ from: () => adminQuery() }), hasSupabaseAdminEnv: () => true }))
 vi.mock('../../../../lib/server/page-access', () => ({ resolvePageAccess: async () => state.access }))
 vi.mock('../../../../lib/server/shopify-install', () => ({
-  getInstallByShop: async () => state.install,
+  ShopifyMappingChangeError: mappingMocks.MappingError,
+  beginShopifyMappingChange: mappingMocks.begin,
+  finishShopifyRelink: mappingMocks.finish,
+  abortShopifyMappingChange: mappingMocks.abort,
+  getInstallByShop: vi.fn(async () => state.install),
   getShopifyInstallCredentialsByShop: vi.fn(async () => state.credentials),
-  markShopifySynced: vi.fn(async () => undefined),
-  removeShopifyCatalogFromPage: vi.fn(async () => undefined),
+  removeShopifyCatalogFromPage: mappingMocks.cleanup,
 }))
 vi.mock('../../../../lib/server/integration-sync', () => ({
   syncPageIntegration: vi.fn(async () => state.syncResult),
 }))
+vi.mock('../../../../lib/server/plan', () => ({ ownerAllows: vi.fn(async () => state.integrationsAllowed) }))
 vi.mock('../../../../lib/rate-limit', () => ({ enforceRateLimit: async () => null }))
 
 import { POST } from './route'
-import { markShopifySynced, removeShopifyCatalogFromPage } from '../../../../lib/server/shopify-install'
+import {
+  abortShopifyMappingChange,
+  beginShopifyMappingChange,
+  finishShopifyRelink,
+  getInstallByShop,
+  getShopifyInstallCredentialsByShop,
+  removeShopifyCatalogFromPage,
+} from '../../../../lib/server/shopify-install'
 import { syncPageIntegration } from '../../../../lib/server/integration-sync'
+import { ownerAllows } from '../../../../lib/server/plan'
 
 const post = (body: unknown = { pageId: 'p1' }) =>
   POST(new Request('https://app.nexez.ai/api/shopify/link', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }))
@@ -61,7 +106,27 @@ describe('POST /api/shopify/link', () => {
     state.conflictingInstall = null
     state.credentials = { shop: 'demo.myshopify.com', accessToken: 'access-token' }
     state.syncResult = { ok: true, provider: 'shopify', imported: 4, windows: 0, availabilitySynced: false, note: 'Imported 4' }
+    state.integrationsAllowed = true
+    state.lease = {
+      shop: 'demo.myshopify.com',
+      token: '00000000-0000-4000-8000-000000000001',
+      kind: 'relink',
+      generation: 2,
+      catalogGeneration: null,
+      ownerId: null,
+      pageId: null,
+    }
+    state.mapping = {
+      shop: 'demo.myshopify.com',
+      ownerId: 'owner-1',
+      pageId: 'p1',
+      generation: 3,
+    }
     vi.clearAllMocks()
+    mappingMocks.begin.mockImplementation(async () => state.lease)
+    mappingMocks.finish.mockImplementation(async () => state.mapping)
+    mappingMocks.abort.mockResolvedValue(true)
+    mappingMocks.cleanup.mockResolvedValue(undefined)
     updateSpy.mockClear()
   })
 
@@ -88,24 +153,47 @@ describe('POST /api/shopify/link', () => {
   it('links owner_id + page_id on success', async () => {
     const res = await post({ pageId: 'p1' })
     expect(res.status).toBe(200)
-    expect(updateSpy).toHaveBeenCalledWith(expect.objectContaining({
-      owner_id: 'owner-1',
-      page_id: 'p1',
-      linked_at: expect.any(String),
-      last_synced_at: null,
-      updated_at: expect.any(String),
-    }))
+    expect(beginShopifyMappingChange).toHaveBeenCalledWith(expect.anything(), {
+      shop: 'demo.myshopify.com',
+      kind: 'relink',
+      targetOwnerId: 'owner-1',
+      targetPageId: 'p1',
+    })
+    expect(removeShopifyCatalogFromPage).toHaveBeenCalledWith(
+      expect.anything(), null, 'demo.myshopify.com', null,
+    )
+    expect(finishShopifyRelink).toHaveBeenCalledWith(expect.anything(), {
+      lease: state.lease,
+      ownerId: 'owner-1',
+      pageId: 'p1',
+    })
     expect(syncPageIntegration).toHaveBeenCalledWith(expect.anything(), 'shopify', 'p1', {
       shopifyCredentials: state.credentials,
-    })
-    expect(markShopifySynced).toHaveBeenCalledWith(expect.anything(), 'p1', expect.any(String), {
-      shop: 'demo.myshopify.com',
-      clearCatalogSyncState: true,
+      shopifyMapping: state.mapping,
+      clearShopifyCatalogSyncState: true,
     })
     expect(await res.json()).toMatchObject({
       ok: true,
       sync: { status: 'synced', imported: 4 },
     })
+  })
+
+  it('keeps installed Shopify linking available below Pro', async () => {
+    state.integrationsAllowed = false
+
+    const res = await post({ pageId: 'p1' })
+
+    expect(res.status).toBe(200)
+    expect(ownerAllows).not.toHaveBeenCalled()
+    expect(getInstallByShop).toHaveBeenCalledWith(expect.anything(), 'demo.myshopify.com')
+    expect(beginShopifyMappingChange).toHaveBeenCalled()
+    expect(finishShopifyRelink).toHaveBeenCalled()
+    expect(getShopifyInstallCredentialsByShop).toHaveBeenCalled()
+    expect(removeShopifyCatalogFromPage).toHaveBeenCalledWith(
+      expect.anything(), null, 'demo.myshopify.com', null,
+    )
+    expect(syncPageIntegration).toHaveBeenCalled()
+    expect(deletePendingCookie).toHaveBeenCalled()
   })
 
   it('rejects linking two active stores to the same listing', async () => {
@@ -118,9 +206,12 @@ describe('POST /api/shopify/link', () => {
 
   it('removes this shop catalog from its previous listing before moving it', async () => {
     state.install = { shop_domain: 'demo.myshopify.com', page_id: 'old-page' }
+    state.lease = { ...state.lease, pageId: 'old-page', catalogGeneration: 7 }
     const res = await post({ pageId: 'p1' })
     expect(res.status).toBe(200)
-    expect(removeShopifyCatalogFromPage).toHaveBeenCalledWith(expect.anything(), 'old-page', 'demo.myshopify.com')
+    expect(removeShopifyCatalogFromPage).toHaveBeenCalledWith(
+      expect.anything(), 'old-page', 'demo.myshopify.com', 7,
+    )
   })
 
   it('keeps the successful link when the first catalog sync needs attention', async () => {
@@ -131,5 +222,27 @@ describe('POST /api/shopify/link', () => {
       ok: true,
       sync: { status: 'attention', error: 'Shopify catalog is temporarily unavailable.' },
     })
+  })
+
+  it('aborts the exact lease and leaves the mapping untouched when cleanup fails', async () => {
+    state.lease = { ...state.lease, pageId: 'old-page', catalogGeneration: 7 }
+    mappingMocks.cleanup.mockRejectedValueOnce(new Error('page conflict'))
+
+    const res = await post({ pageId: 'p1' })
+
+    expect(res.status).toBe(503)
+    expect(abortShopifyMappingChange).toHaveBeenCalledWith(expect.anything(), state.lease)
+    expect(finishShopifyRelink).not.toHaveBeenCalled()
+    expect(syncPageIntegration).not.toHaveBeenCalled()
+  })
+
+  it('maps a competing active lease to a retryable conflict without aborting it', async () => {
+    mappingMocks.begin.mockRejectedValueOnce(new mappingMocks.MappingError('busy'))
+
+    const res = await post({ pageId: 'p1' })
+
+    expect(res.status).toBe(409)
+    expect(abortShopifyMappingChange).not.toHaveBeenCalled()
+    expect(finishShopifyRelink).not.toHaveBeenCalled()
   })
 })

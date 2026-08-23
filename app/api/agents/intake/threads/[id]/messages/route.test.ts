@@ -44,13 +44,23 @@ function analyzedState(): IntakeState {
   return state
 }
 
-function dbWith(row: any, updates: any[] = []) {
+function dbWith(row: any, updates: any[] = [], planId: 'free' | 'pro' | 'error' = 'free') {
   return createSupabaseMock((ctx) => {
     if (ctx.table === 'intake_sessions' && ctx.op === 'select') return { data: row }
     if (ctx.table === 'intake_sessions' && ctx.op === 'update') {
       updates.push(ctx.payload)
       return { data: null }
     }
+    if (ctx.table === 'platform_admins') return planId === 'error' ? { data: null, error: { message: 'plan read failed' } } : { data: null }
+    if (ctx.table === 'billing_subscriptions') {
+      if (planId === 'error') return { data: null, error: { message: 'plan read failed' } }
+      return {
+        data: planId === 'pro'
+          ? { owner_id: OWNER.id, plan_id: 'pro', status: 'active', trial_ends_at: null, account_origin: 'paid' }
+          : null,
+      }
+    }
+    if (ctx.table === 'promotional_plan_grants') return planId === 'error' ? { data: null, error: { message: 'plan read failed' } } : { data: [] }
     return { data: null }
   })
 }
@@ -92,6 +102,21 @@ describe('POST /api/agents/intake/threads/[id]/messages', () => {
     expect(updates[0].state.messages.some((m: any) => m.role === 'owner' && m.content === 'ready!')).toBe(true)
   })
 
+  it('fails plan-read errors closed to the deterministic interviewer even when an LLM is configured', async () => {
+    vi.stubEnv('LLM_API_KEY', 'configured-but-not-entitled')
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    try {
+      const row = { id: 'sess-1', owner_id: OWNER.id, page_id: null, status: 'active', phase: 'GAP_ANALYSIS', state: analyzedState() }
+      authRef.result = { supabase: dbWith(row, [], 'error'), user: OWNER }
+      const res = await POST(post({ content: 'ready!' }), params)
+      expect(res.status).toBe(200)
+      expect(fetchMock).not.toHaveBeenCalled()
+    } finally {
+      fetchMock.mockRestore()
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('applies structured quick-answers and 400s invalid ones with the reducer code', async () => {
     const row = { id: 'sess-1', owner_id: OWNER.id, page_id: null, status: 'active', phase: 'GAP_ANALYSIS', state: analyzedState() }
     authRef.result = { supabase: dbWith(row, []), user: OWNER }
@@ -106,6 +131,27 @@ describe('POST /api/agents/intake/threads/[id]/messages', () => {
     expect(good.status).toBe(200)
     const json = await good.json()
     expect(json.state.draft.services[0].price).toBe('$99')
+  })
+
+  it('uses the effective owner plan to reject Open to offers below Pro and allow it on Pro', async () => {
+    const answer = {
+      answers: [{
+        gapId: 'offer:services-0:posture',
+        answer: 'Open to offers',
+        fields: [{ target: 'offer', offerKey: 'services-0', field: 'offerType', value: 'negotiable' }],
+      }],
+    }
+    const row = { id: 'sess-1', owner_id: OWNER.id, page_id: null, status: 'active', phase: 'GAP_ANALYSIS', state: analyzedState() }
+
+    authRef.result = { supabase: dbWith(row), user: OWNER }
+    const blocked = await POST(post(answer), params)
+    expect(blocked.status).toBe(403)
+    expect(await blocked.json()).toMatchObject({ code: 'feature_not_available' })
+
+    authRef.result = { supabase: dbWith(row, [], 'pro'), user: OWNER }
+    const allowed = await POST(post(answer), params)
+    expect(allowed.status).toBe(200)
+    expect((await allowed.json()).state.draft.services[0].offerType).toBe('negotiable')
   })
 
   it('409s once the interview has handed off', async () => {

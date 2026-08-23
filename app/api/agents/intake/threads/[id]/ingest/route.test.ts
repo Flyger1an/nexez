@@ -5,7 +5,13 @@ import { applyIntakeAction, createIntakeState, type IntakeState } from '../../..
 const { authRef, rateLimitRef, importerRef, integRef } = vi.hoisted(() => ({
   authRef: { result: null as any },
   rateLimitRef: { response: null as any },
-  importerRef: { urlError: null as string | null, result: null as any, offers: [] as any[] },
+  importerRef: {
+    urlError: null as string | null,
+    result: null as any,
+    offers: [] as any[],
+    analyzeArgs: null as unknown[] | null,
+    llmCalls: 0,
+  },
   integRef: { gate: null as any, importResult: null as any },
 }))
 
@@ -17,8 +23,14 @@ vi.mock('../../../../../../../lib/server/request-auth', () => ({
 }))
 vi.mock('../../../../../../../lib/importer', () => ({
   getImportUrlError: vi.fn(() => importerRef.urlError),
-  analyzeSite: vi.fn(async () => importerRef.result),
-  llmExtractOffers: vi.fn(async () => importerRef.offers),
+  analyzeSite: vi.fn(async (...args: unknown[]) => {
+    importerRef.analyzeArgs = args
+    return importerRef.result
+  }),
+  llmExtractOffers: vi.fn(async () => {
+    importerRef.llmCalls += 1
+    return importerRef.offers
+  }),
 }))
 const { credRef } = vi.hoisted(() => ({ credRef: { savedPat: null as string | null, lastInput: null as any } }))
 vi.mock('../../../../../../../lib/server/integration-importers', () => ({
@@ -55,12 +67,21 @@ function midInterviewState(): IntakeState {
   return state
 }
 
-function dbWith(row: any, updates: any[] = []) {
+function dbWith(row: any, updates: any[] = [], planId: 'free' | 'launch' = 'free', planReadError = false) {
   return createSupabaseMock((ctx) => {
     if (ctx.table === 'intake_sessions' && ctx.op === 'select') return { data: row }
     if (ctx.table === 'intake_sessions' && ctx.op === 'update') {
       updates.push(ctx.payload)
       return { data: null }
+    }
+    if (ctx.table === 'platform_admins' || ctx.table === 'promotional_plan_grants') {
+      return planReadError ? { data: null, error: { message: 'plan read failed' } } : { data: ctx.table === 'promotional_plan_grants' ? [] : null }
+    }
+    if (ctx.table === 'billing_subscriptions') {
+      if (planReadError) return { data: null, error: { message: 'plan read failed' } }
+      return planId === 'launch'
+        ? { data: { owner_id: OWNER.id, plan_id: 'launch', status: 'active', trial_ends_at: null, account_origin: 'paid' } }
+        : { data: null }
     }
     return { data: null }
   })
@@ -74,6 +95,8 @@ beforeEach(() => {
   credRef.savedPat = null
   credRef.lastInput = null
   importerRef.offers = [{ name: 'Pasted Offer', description: '', price: '$40', url: '' }]
+  importerRef.analyzeArgs = null
+  importerRef.llmCalls = 0
   importerRef.result = {
     title: 'Apex',
     description: 'D',
@@ -119,16 +142,32 @@ describe('POST /api/agents/intake/threads/[id]/ingest', () => {
     expect(json.state.draft.name).toBe('Apex') // fill-empty fold
     expect(json.state.sources).toHaveLength(2)
     expect(updates).toHaveLength(1)
+    expect(importerRef.analyzeArgs).toEqual(['https://apex.example', null, { skipLlm: true }])
   })
 
-  it('ingests pasted text through the LLM offer extractor (best-effort)', async () => {
+  it('uses pasted-text AI only for an entitled owner', async () => {
     const row = { id: 'sess-1', owner_id: OWNER.id, page_id: null, status: 'active', phase: 'GAP_ANALYSIS', state: midInterviewState() }
-    authRef.result = { supabase: dbWith(row, []), user: OWNER }
+    authRef.result = { supabase: dbWith(row, [], 'launch'), user: OWNER }
     const res = await POST(post({ text: 'We offer haircuts for $40 and beard trims for $20.' }), params)
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.offersFound).toBe(1)
     expect(json.state.draft.services.map((o: any) => o.name)).toContain('Pasted Offer')
+    expect(importerRef.llmCalls).toBe(1)
+  })
+
+  it('keeps pasted text and URL ingestion deterministic when plan state is Free or unreadable', async () => {
+    const row = { id: 'sess-1', owner_id: OWNER.id, page_id: null, status: 'active', phase: 'GAP_ANALYSIS', state: midInterviewState() }
+    authRef.result = { supabase: dbWith(row), user: OWNER }
+    const freeText = await POST(post({ text: 'We offer haircuts for $40.' }), params)
+    expect(freeText.status).toBe(200)
+    expect((await freeText.json()).offersFound).toBe(0)
+    expect(importerRef.llmCalls).toBe(0)
+
+    authRef.result = { supabase: dbWith(row, [], 'free', true), user: OWNER }
+    const unreadableUrl = await POST(post({ url: 'https://apex.example' }), params)
+    expect(unreadableUrl.status).toBe(200)
+    expect(importerRef.analyzeArgs).toEqual(['https://apex.example', null, { skipLlm: true }])
   })
 
   describe('integration sources', () => {

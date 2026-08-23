@@ -54,7 +54,7 @@ const PAGE = {
 
 function db(
   neg: any,
-  billing: any = { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true },
+  billing: any = { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true, stripe_connect_payouts_enabled: true },
   page: any = PAGE,
 ) {
   let updated: any
@@ -190,7 +190,7 @@ describe('POST /api/negotiations/pay', () => {
   it('canceled "pro" subscription reverts to Free 9% commission (status-aware, not raw plan_id)', async () => {
     // A {plan_id:'pro', status:'canceled'} row must NOT keep the 5% rate - commission
     // is resolved via getOwnerPlanId (live-status only), same as entitlements.
-    db(NEG, { plan_id: 'pro', status: 'canceled', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
+    db(NEG, { plan_id: 'pro', status: 'canceled', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true, stripe_connect_payouts_enabled: true })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
     expect(res.status).toBe(200)
     const [params] = (stripeRef.create as any).mock.calls[0]
@@ -205,7 +205,7 @@ describe('POST /api/negotiations/pay', () => {
     ['scale', 300, 2700],
     ['enterprise', 200, 1800],
   ])('snapshots the %s plan economics on negotiation funding', async (planId, commissionBps, expectedFee) => {
-    const getUpdate = db(NEG, { plan_id: planId, status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
+    const getUpdate = db(NEG, { plan_id: planId, status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true, stripe_connect_payouts_enabled: true })
     expect((await POST(post({ negotiationId: 'n1', token: 'tok' }))).status).toBe(200)
     const [params] = (stripeRef.create as any).mock.calls[0]
     expect(params.payment_intent_data.application_fee_amount).toBe(expectedFee)
@@ -232,7 +232,15 @@ describe('POST /api/negotiations/pay', () => {
   })
 
   it('409 owner_not_connected when the Connect account exists but charges are NOT enabled (mid-onboarding)', async () => {
-    db(NEG, { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: false })
+    db(NEG, { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: false, stripe_connect_payouts_enabled: true })
+    const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('owner_not_connected')
+    expect(stripeRef.create).not.toHaveBeenCalled()
+  })
+
+  it('409 owner_not_connected when charges work but payouts are disabled', async () => {
+    db(NEG, { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true, stripe_connect_payouts_enabled: false })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
     expect(res.status).toBe(409)
     expect((await res.json()).code).toBe('owner_not_connected')
@@ -242,7 +250,7 @@ describe('POST /api/negotiations/pay', () => {
   it('funds through the Free fallback when a no-card trial has expired', async () => {
     // Billing expiry no longer suppresses a business. A connected seller remains
     // payable at the Free commission rate while their paid-plan trial is inactive.
-    db(NEG, { plan_id: 'pro', status: 'paused', account_origin: 'trial', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
+    db(NEG, { plan_id: 'pro', status: 'paused', account_origin: 'trial', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true, stripe_connect_payouts_enabled: true })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
     expect(res.status).toBe(200)
     const [params] = (stripeRef.create as any).mock.calls[0]

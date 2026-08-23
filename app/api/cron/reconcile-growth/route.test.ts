@@ -69,7 +69,6 @@ describe('GET /api/cron/reconcile-growth', () => {
         return { data: { id: grant.id }, error: null }
       }
       if (ctx.table === 'pages' && ctx.op === 'select') return { data: pages, error: null }
-      if (ctx.table === 'published_page_grandfather') return { data: [], error: null }
       return { data: null, error: null }
     }) as any)
 
@@ -82,9 +81,10 @@ describe('GET /api/cron/reconcile-growth', () => {
       grantsExpired: 1,
       fallbackListingsApplied: 1,
     })
-    const pageWrite = writes.find((write) => write.table === 'pages' && write.op === 'update')
-    expect(pageWrite?.payload).toEqual({ is_published: false })
-    expect(pageWrite?.calls).toContainEqual(['in', 'id', ['page-1']])
+    // The cron no longer applies the retired grandfather baseline or races page
+    // updates itself. Expiring the grant invokes the canonical DB reconciler,
+    // which preserves page-2 and drafts page-1 under the same transaction lock.
+    expect(writes.some((write) => write.table === 'pages' && write.op === 'update')).toBe(false)
     expect(writes.some((write) => write.table === 'pages' && write.op === 'delete')).toBe(false)
     const grantWrite = writes.find((write) => write.table === 'promotional_plan_grants' && write.op === 'update')
     expect(grantWrite?.payload).toMatchObject({ status: 'expired', fallback_page_id: 'page-2' })

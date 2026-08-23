@@ -1,4 +1,5 @@
 import { createClient } from '../utils/supabase/client'
+import type { StripeConnectReadinessInput } from './stripe-connect-readiness'
 
 // Provider keys persisted in public.user_integrations. Kept narrow so a typo in a
 // caller can't silently create a phantom "connected" row.
@@ -63,5 +64,31 @@ export async function loadIntegrations(): Promise<IntegrationStatusRow[]> {
     return data ?? []
   } catch {
     return []
+  }
+}
+
+/**
+ * Load the signed-in owner's foundational payout state independently from
+ * premium catalog-connector status. Any auth, query, or schema failure returns
+ * null so callers cannot mistake unavailable state for settlement readiness.
+ */
+export async function loadStripeConnectStatus(): Promise<StripeConnectReadinessInput> {
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const { data, error } = await supabase
+      .from('billing_subscriptions')
+      .select('stripe_connect_account_id,stripe_connect_charges_enabled,stripe_connect_payouts_enabled')
+      .eq('owner_id', user.id)
+      .maybeSingle<Exclude<StripeConnectReadinessInput, null | undefined>>()
+
+    if (error) return null
+    return data ?? null
+  } catch {
+    return null
   }
 }

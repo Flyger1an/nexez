@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../../test/dom'
 import { applyIntakeAction, createIntakeState, type IntakeState } from '../../lib/intake'
+import { getPlanFeatureEntitlements, getSerializablePlanLimits, type PlanId } from '../../lib/billing'
+import { PlanProvider } from '../billing/PlanProvider'
 import { IntakeChat } from './IntakeChat'
 
 // ---------------------------------------------------------------------------
@@ -42,6 +44,46 @@ function urlState(): IntakeState {
     if (applied.ok) state = applied.state
   }
   return state
+}
+
+function postureState(): IntakeState {
+  let state = createIntakeState({
+    seed: {
+      name: 'Apex Studio',
+      description: 'Portrait sessions.',
+      website_url: 'https://apex.example',
+      cta_url: 'https://apex.example/book',
+      audience: 'Families',
+      location: 'Austin, TX',
+      contact_email: 'hello@apex.example',
+      industry: 'Studio',
+      services: [{ name: 'Portrait Session', description: 'One hour session', price: '$300', url: '', duration: '1 hour' }],
+    },
+  })
+  for (const action of [
+    { type: 'ADD_SOURCE' as const, source: { id: 's1', kind: 'none' as const, value: '', addedAt: '2026-07-06T00:00:00Z' } },
+    { type: 'ANALYZE_GAPS' as const },
+  ]) {
+    const applied = applyIntakeAction(state, action)
+    if (applied.ok) state = applied.state
+  }
+  const posture = state.gaps.find((gap) => gap.field === 'offerType')
+  if (!posture) throw new Error('posture fixture did not produce an offerType gap')
+  return { ...state, gaps: [posture] }
+}
+
+function withPlan(planId: PlanId, child: React.ReactNode) {
+  return (
+    <PlanProvider
+      entitlements={{
+        planId,
+        features: getPlanFeatureEntitlements(planId),
+        limits: getSerializablePlanLimits(planId),
+      }}
+    >
+      {child}
+    </PlanProvider>
+  )
 }
 
 type Route = { match: (url: string, init?: RequestInit) => boolean; status?: number; body: unknown }
@@ -202,7 +244,7 @@ describe('IntakeChat - interview', () => {
       { match: (url, init) => url.endsWith('/api/agents/intake/threads') && init?.method === 'POST', status: 201, body: { ok: true, id: 'sess-1', state: scratchState() } },
       { match: (url) => url.endsWith('/sess-1/ingest'), body: { ok: true, sourceId: 'si', offersFound: 3, phase: 'GAP_ANALYSIS', state: ingested() } },
     ])
-    render(<IntakeChat />)
+    render(withPlan('pro', <IntakeChat />))
     fireEvent.click(screen.getByText('Start from scratch'))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Nexez intake' })).toBeInTheDocument())
 
@@ -219,6 +261,57 @@ describe('IntakeChat - interview', () => {
     })
     // The imported result is folded into the chat.
     await waitFor(() => expect(screen.getByText(/Connected Calendly — imported 3 offers/)).toBeInTheDocument())
+  })
+
+  it('keeps connector choices visible but locks every credential form below Pro with upgrade guidance', async () => {
+    mockFetch([
+      noSessions,
+      { match: (url, init) => url.endsWith('/api/agents/intake/threads') && init?.method === 'POST', status: 201, body: { ok: true, id: 'sess-1', state: scratchState() } },
+    ])
+    render(<IntakeChat />)
+    fireEvent.click(screen.getByText('Start from scratch'))
+    await waitFor(() => expect(screen.getByText('Connect a booking or store tool')).toBeInTheDocument())
+
+    for (const provider of ['Calendly', 'Shopify manual Admin credentials', 'Square', 'Acuity']) {
+      expect(screen.getByRole('button', { name: provider })).toBeDisabled()
+    }
+    expect(screen.getByText(/installed Shopify app is available on every plan/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Calendly' }))
+    expect(screen.queryByPlaceholderText('Personal Access Token')).not.toBeInTheDocument()
+    expect(screen.getByText('Live catalog connectors')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Upgrade to Pro/ })).toHaveAttribute('href', expect.stringContaining('/dashboard/billing?plan=pro'))
+  })
+
+  it('locks only Open to offers below Pro while Fixed and cleanup remain available', async () => {
+    const calls = mockFetch([
+      noSessions,
+      { match: (url, init) => url.endsWith('/api/agents/intake/threads') && init?.method === 'POST', status: 201, body: { ok: true, id: 'sess-1', state: postureState() } },
+      { match: (url) => url.includes('/threads/sess-1/messages'), body: { ok: true, message: 'Fixed price saved.', cards: [] } },
+    ])
+    render(<IntakeChat />)
+    fireEvent.click(screen.getByText('Start from scratch'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open to offers' })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Open to offers' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Fixed price' })).not.toBeDisabled()
+    expect(screen.getByRole('link', { name: 'Pro' })).toHaveAttribute('href', expect.stringContaining('/dashboard/billing?plan=pro'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fixed price' }))
+    await waitFor(() => expect(calls.some((call) => call.url.includes('/messages'))).toBe(true))
+    expect(calls.find((call) => call.url.includes('/messages'))?.payload.answers[0].fields[0]).toMatchObject({ field: 'offerType', value: 'fixed' })
+  })
+
+  it('enables Open to offers and posts the structured answer on Pro', async () => {
+    const calls = mockFetch([
+      noSessions,
+      { match: (url, init) => url.endsWith('/api/agents/intake/threads') && init?.method === 'POST', status: 201, body: { ok: true, id: 'sess-1', state: postureState() } },
+      { match: (url) => url.includes('/threads/sess-1/messages'), body: { ok: true, message: 'Open to offers saved.', cards: [] } },
+    ])
+    render(withPlan('pro', <IntakeChat />))
+    fireEvent.click(screen.getByText('Start from scratch'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open to offers' })).not.toBeDisabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Open to offers' }))
+    await waitFor(() => expect(calls.some((call) => call.url.includes('/messages'))).toBe(true))
+    expect(calls.find((call) => call.url.includes('/messages'))?.payload.answers[0].fields[0]).toMatchObject({ field: 'offerType', value: 'negotiable' })
   })
 
   it('a URL start shows the source_ingested card with offer count + confidence', async () => {

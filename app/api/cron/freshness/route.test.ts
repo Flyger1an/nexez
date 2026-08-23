@@ -3,7 +3,10 @@ import { createSupabaseMock } from '../../../../test/supabase-mock'
 
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(), hasSupabaseAdminEnv: vi.fn() }))
 // Never hit the network for drift-checks in tests.
-vi.mock('../../../../lib/importer', () => ({ analyzeSite: vi.fn(async () => ({ structuredOffers: [] })) }))
+const { analyzeSiteMock } = vi.hoisted(() => ({
+  analyzeSiteMock: vi.fn(async () => ({ structuredOffers: [] })),
+}))
+vi.mock('../../../../lib/importer', () => ({ analyzeSite: analyzeSiteMock }))
 
 const { sendEmailMock, ownerEmailMock, hasEmailEnvMock, buildMock } = vi.hoisted(() => ({
   sendEmailMock: vi.fn(async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true })),
@@ -79,6 +82,7 @@ describe('GET /api/cron/freshness — stale re-interview nudge', () => {
     expect(sendEmailMock).toHaveBeenCalledTimes(1)
     expect(ownerEmailMock).toHaveBeenCalledWith({ contactEmail: null, ownerId: 'o1' })
     expect(upserts[0]).toMatchObject({ page_id: 'pg1', owner_id: 'o1', nudge_count: 1 })
+    expect(analyzeSiteMock).toHaveBeenCalledWith('https://acme.example.com', null, { skipLlm: true })
   })
 
   it('does NOT nudge a page still inside its cooldown window', async () => {

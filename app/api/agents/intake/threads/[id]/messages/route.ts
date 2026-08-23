@@ -3,6 +3,7 @@ import { handleIntakeTurn } from '../../../../../../../lib/agents/intake'
 import { analyzeSite } from '../../../../../../../lib/importer'
 import type { GapAnswer } from '../../../../../../../lib/intake'
 import { enforceRateLimit } from '../../../../../../../lib/rate-limit'
+import { ownerAllows } from '../../../../../../../lib/server/plan'
 import { resolveRequestAuth } from '../../../../../../../lib/server/request-auth'
 
 // A turn may include an LLM round-trip and (via the ingest_url tool) a crawl.
@@ -36,9 +37,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const { id } = await params
+  const [aiAllowed, negotiationAllowed] = await Promise.all([
+    ownerAllows(supabase, user.id, 'aiFeatures'),
+    ownerAllows(supabase, user.id, 'negotiation'),
+  ])
   const result = await handleIntakeTurn(
-    { db: supabase, user, sessionId: id, content, structuredAnswers: answers },
-    { importSite: (url) => analyzeSite(url) },
+    { db: supabase, user, sessionId: id, content, structuredAnswers: answers, negotiationAllowed },
+    {
+      // Explicit null is the fail-closed signal: a configured deployment model
+      // must not turn a Free seller's deterministic interview into paid AI.
+      llm: aiAllowed ? undefined : null,
+      importSite: (url) => analyzeSite(url, null, { skipLlm: !aiAllowed }),
+    },
   )
   if (!result.ok) {
     return NextResponse.json({ error: result.error, code: result.code }, { status: result.status })

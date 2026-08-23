@@ -61,7 +61,11 @@ function sessionRow(state: IntakeState, overrides: Partial<IntakeSessionRow> = {
 }
 
 /** DB mock serving one intake_sessions row + capturing updates per table. */
-function makeDb(row: IntakeSessionRow | null, captured: { sessions: any[]; pages: any[] } = { sessions: [], pages: [] }) {
+function makeDb(
+  row: IntakeSessionRow | null,
+  captured: { sessions: any[]; pages: any[] } = { sessions: [], pages: [] },
+  pageBaseline: { services: OfferItem[]; products: OfferItem[] } | null = null,
+) {
   const db = createSupabaseMock((ctx) => {
     if (ctx.table === 'intake_sessions' && ctx.op === 'select') return { data: row }
     if (ctx.table === 'intake_sessions' && ctx.op === 'update') {
@@ -72,6 +76,7 @@ function makeDb(row: IntakeSessionRow | null, captured: { sessions: any[]; pages
       captured.pages.push(ctx.payload)
       return { data: null }
     }
+    if (ctx.table === 'pages' && ctx.op === 'select') return { data: pageBaseline }
     return { data: null }
   })
   return { db: db as any, captured }
@@ -102,6 +107,23 @@ describe('handleIntakeTurn - session guards', () => {
 })
 
 describe('handleIntakeTurn - deterministic interviewer (no LLM)', () => {
+  it('an explicit deterministic-only policy suppresses a configured deployment model', async () => {
+    vi.stubEnv('LLM_API_KEY', 'configured-but-not-entitled')
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    try {
+      const { db } = makeDb(sessionRow(analyzedState()))
+      const result = await handleIntakeTurn(
+        { db, user: OWNER, sessionId: 'sess-1', content: 'ready when you are' },
+        { ...ids, llm: null },
+      )
+      expect(result.ok).toBe(true)
+      expect(fetchMock).not.toHaveBeenCalled()
+    } finally {
+      fetchMock.mockRestore()
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('asks the top gap batch verbatim with a gap_batch card and persists', async () => {
     const { db, captured } = makeDb(sessionRow(analyzedState()))
     const result = await handleIntakeTurn({ db, user: OWNER, sessionId: 'sess-1', content: 'ready when you are' }, ids)
@@ -147,6 +169,59 @@ describe('handleIntakeTurn - deterministic interviewer (no LLM)', () => {
     )
     expect(result).toMatchObject({ ok: false, status: 400, code: 'unknown_gap' })
     expect(captured.sessions).toHaveLength(0)
+  })
+
+  it('fails structured Open to offers closed below Pro and allows it with the resolved capability', async () => {
+    const answer = {
+      gapId: 'offer:services-0:posture',
+      answer: 'Open to offers',
+      fields: [{ target: 'offer' as const, offerKey: 'services-0', field: 'offerType' as const, value: 'negotiable' as const }],
+    }
+
+    const blockedDb = makeDb(sessionRow(analyzedState()))
+    const blocked = await handleIntakeTurn(
+      { db: blockedDb.db, user: OWNER, sessionId: 'sess-1', structuredAnswers: [answer] },
+      ids,
+    )
+    expect(blocked).toMatchObject({ ok: false, status: 403, code: 'feature_not_available' })
+    expect(blockedDb.captured.sessions).toHaveLength(0)
+
+    const allowedDb = makeDb(sessionRow(analyzedState()))
+    const allowed = await handleIntakeTurn(
+      {
+        db: allowedDb.db,
+        user: OWNER,
+        sessionId: 'sess-1',
+        structuredAnswers: [answer],
+        negotiationAllowed: true,
+      },
+      ids,
+    )
+    expect(allowed.ok).toBe(true)
+    if (allowed.ok) expect(allowed.state.draft.services[0].offerType).toBe('negotiable')
+  })
+
+  it('accepts structured core offer rules below Pro without opening negotiation', async () => {
+    const db = makeDb(sessionRow(analyzedState()))
+    const result = await handleIntakeTurn({
+      db: db.db,
+      user: OWNER,
+      sessionId: 'sess-1',
+      structuredAnswers: [{
+        gapId: 'volunteered:core-rules',
+        answer: 'Allow four bookings per week and include setup',
+        fields: [{
+          target: 'offer_rules',
+          offerKey: 'services-0',
+          rules: { maxBookingsPerWeek: 4, includedScope: 'Setup' },
+        }],
+      }],
+    }, ids)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.state.draft.services[0].offerType).toBeUndefined()
+    expect(result.state.draft.services[0].rules).toEqual({ maxBookingsPerWeek: 4, includedScope: 'Setup' })
   })
 
   it('auto-advances INGEST sessions through analysis on the first turn', async () => {
@@ -219,6 +294,37 @@ describe('handleIntakeTurn - LLM tool loop (the reducer is the firewall)', () =>
     expect(result.state.draft.services.map((o) => o.name)).toEqual(['Event Catering', 'Drop-off Trays'])
     const secondCallMessages = llm.mock.calls[1][0] as Array<{ role: string; content: string }>
     expect(secondCallMessages.find((m) => m.role === 'tool')?.content).toContain('invented_offer')
+  })
+
+  it('feeds an LLM-derived negotiation attempt back as a Pro rejection below Pro', async () => {
+    const state = analyzedState()
+    const llm = vi
+      .fn()
+      .mockResolvedValueOnce({
+        choices: [{
+          message: {
+            content: null,
+            tool_calls: [toolCall('record_answers', {
+              answers: [{
+                gapId: 'offer:services-0:posture',
+                answer: 'Open to offers',
+                fields: [{ target: 'offer', offerKey: 'services-0', field: 'offerType', value: 'negotiable' }],
+              }],
+            })],
+          },
+        }],
+      })
+      .mockResolvedValueOnce({ choices: [{ message: { content: 'That setting needs Pro, so I kept the listed price fixed.' } }] })
+    const { db } = makeDb(sessionRow(state))
+    const result = await handleIntakeTurn(
+      { db, user: OWNER, sessionId: 'sess-1', content: 'Let buyers make offers.' },
+      { ...ids, llm },
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.state.draft.services[0].offerType).toBeUndefined()
+    const secondRound = llm.mock.calls[1][0] as Array<{ role: string; content: string }>
+    expect(secondRound.find((message) => message.role === 'tool')?.content).toContain('feature_not_available')
   })
 
   it('malformed tool arguments are survivable (bad_arguments fed back, no crash, no state change)', async () => {
@@ -372,6 +478,91 @@ describe('commitIntakeSession - materialization (spec §10)', () => {
     expect(patch.name).toBeUndefined()
     expect(patch.services).toBeUndefined()
     expect(patch.is_published).toBeUndefined()
+  })
+
+  it('normalizes forged new negotiation config below Pro but preserves it for Pro', async () => {
+    const state = committableState()
+    state.draft.services[0] = {
+      ...state.draft.services[0],
+      offerType: 'negotiable',
+      rules: { minPrice: '$900', minNoticeHours: 48 },
+    }
+
+    const freeInserted: any[] = []
+    const freeDb = makeDb(sessionRow(state))
+    const free = await commitIntakeSession({
+      db: freeDb.db,
+      admin: makeAdmin([], freeInserted),
+      user: OWNER,
+      sessionId: 'sess-1',
+    })
+    expect(free.ok).toBe(true)
+    expect(freeInserted[0].services[0]).toMatchObject({ offerType: 'fixed' })
+    expect(freeInserted[0].services[0].rules).toEqual({ minNoticeHours: 48 })
+    expect(freeDb.captured.sessions[0].state.draft.services[0].rules).toEqual({ minNoticeHours: 48 })
+
+    const proInserted: any[] = []
+    const proDb = makeDb(sessionRow(state))
+    const pro = await commitIntakeSession({
+      db: proDb.db,
+      admin: makeAdmin([], proInserted),
+      user: OWNER,
+      sessionId: 'sess-1',
+      negotiationAllowed: true,
+    })
+    expect(pro.ok).toBe(true)
+    expect(proInserted[0].services[0]).toMatchObject({
+      offerType: 'negotiable',
+      rules: { minPrice: '$900', minNoticeHours: 48 },
+    })
+  })
+
+  it('retains a downgraded page contract, restores rule tampering, and permits Fixed cleanup', async () => {
+    const retainedOffer: OfferItem = {
+      name: 'Event Catering',
+      description: 'Full service',
+      price: '$1,200',
+      url: '',
+      offerType: 'negotiable',
+      rules: { minPrice: '$900', minNoticeHours: 48 },
+    }
+    const baseline = { services: [retainedOffer], products: [] }
+
+    const retainedState = committableState()
+    retainedState.draft.services = [{ ...retainedOffer, description: 'Updated copy' }]
+    const retainedDb = makeDb(sessionRow(retainedState, { page_id: 'page-existing' }), undefined, baseline)
+    const retained = await commitIntakeSession({
+      db: retainedDb.db,
+      admin: makeAdmin([], []),
+      user: OWNER,
+      sessionId: 'sess-1',
+    })
+    expect(retained.ok).toBe(true)
+    expect(retainedDb.captured.pages[0].draft.services[0]).toMatchObject({
+      description: 'Updated copy',
+      offerType: 'negotiable',
+      rules: { minPrice: '$900', minNoticeHours: 48 },
+    })
+
+    const tamperedState = committableState()
+    tamperedState.draft.services = [{
+      ...retainedOffer,
+      rules: { minPrice: '$100', minNoticeHours: 72, includedScope: 'Updated scope' },
+    }]
+    const tamperedDb = makeDb(sessionRow(tamperedState, { page_id: 'page-existing' }), undefined, baseline)
+    await commitIntakeSession({ db: tamperedDb.db, admin: makeAdmin([], []), user: OWNER, sessionId: 'sess-1' })
+    expect(tamperedDb.captured.pages[0].draft.services[0].rules).toEqual({
+      minPrice: '$900',
+      minNoticeHours: 72,
+      includedScope: 'Updated scope',
+    })
+
+    const clearedState = committableState()
+    clearedState.draft.services = [{ ...retainedOffer, offerType: 'fixed', rules: undefined }]
+    const clearedDb = makeDb(sessionRow(clearedState, { page_id: 'page-existing' }), undefined, baseline)
+    await commitIntakeSession({ db: clearedDb.db, admin: makeAdmin([], []), user: OWNER, sessionId: 'sess-1' })
+    expect(clearedDb.captured.pages[0].draft.services[0]).toMatchObject({ offerType: 'fixed' })
+    expect(clearedDb.captured.pages[0].draft.services[0].rules).toBeUndefined()
   })
 
   it('is idempotent - a committed session replays to the same page id', async () => {

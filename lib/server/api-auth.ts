@@ -1,6 +1,7 @@
 import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { hashApiKey, parseBearer } from '../api-keys'
+import { minPlanForFeature } from '../billing'
 import { ownerAllows } from './plan'
 
 export type ApiAuthOk = { ok: true; ownerId: string; keyId: string }
@@ -46,7 +47,8 @@ export async function authenticateApiKey(request: Request): Promise<ApiAuthResul
   // must stop working once the owner drops below Pro (the only enforcement otherwise
   // was at mint time - gating-review HIGH).
   if (!(await ownerAllows(admin, data.owner_id, 'apiAccess'))) {
-    return { ok: false, error: 'API access requires the Pro plan. Upgrade to use the API.', status: 402 }
+    const required = minPlanForFeature('apiAccess')
+    return { ok: false, error: `API access requires the ${required.name} plan. Upgrade to use the API.`, status: 402 }
   }
 
   // Best-effort usage tracking; never blocks the request.

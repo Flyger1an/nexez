@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { generateApiKey } from '../../../../lib/api-keys'
+import { minPlanForFeature } from '../../../../lib/billing'
 import { ownerAllows } from '../../../../lib/server/plan'
 
 /**
@@ -17,10 +18,16 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  // Plan gate: programmatic API access is a Pro feature. Minting is the chokepoint -
-  // keys can't exist without it, so gating here is sufficient.
+  // Plan gate: programmatic API access is a Pro feature. Minting is gated here;
+  // lib/server/api-auth.ts also rechecks the owner's current apiAccess
+  // entitlement on every authenticated request. After a downgrade, retained
+  // keys remain visible/revocable but stop authorizing API traffic immediately.
   if (!(await ownerAllows(supabase, user.id, 'apiAccess'))) {
-    return NextResponse.json({ error: 'API access is available on the Pro plan and up.', upgrade: 'pro' }, { status: 402 })
+    const required = minPlanForFeature('apiAccess')
+    return NextResponse.json(
+      { error: `API access is available on the ${required.name} plan and up.`, upgrade: required.id },
+      { status: 402 },
+    )
   }
 
   let name = 'API key'

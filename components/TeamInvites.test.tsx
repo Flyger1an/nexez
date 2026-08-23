@@ -75,6 +75,15 @@ describe('TeamInvites', () => {
     })
   })
 
+  it('describes listing-side collaborator access without promising owner-only lifecycle authority', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    render(<TeamInvites />)
+
+    expect(await screen.findByText(/editors can update listing content and page-scoped configuration under your plan/i)).toBeInTheDocument()
+    expect(screen.getByText(/Account and storefront administration, transaction decisions, money movement, negotiation lifecycle, and final approvals remain owner-only/i)).toBeInTheDocument()
+    expect(screen.queryByText(/access to your listings and negotiations/i)).not.toBeInTheDocument()
+  })
+
   it('requires confirmation before revoking an invitation', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({
       ok: true,
@@ -90,6 +99,23 @@ describe('TeamInvites', () => {
     await waitFor(() => expect(screen.getByText('Access removed')).toBeInTheDocument())
     const revokeRequest = fetchMock.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit]
     expect(JSON.parse(String(revokeRequest[1]?.body))).toEqual({ id: 'invite-1', action: 'revoke' })
+  })
+
+  it('keeps downgrade cleanup visible while disabling new invitations and role changes', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      ok: true,
+      invite: { ...refs.invites[0], status: 'revoked' },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<TeamInvites collaborationEnabled={false} />)
+
+    expect(await screen.findByText(/Collaboration is inactive/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Invite' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Role for teammate@example.com' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke access' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm revoke' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
   })
 
   it('reports load failures instead of presenting an empty team as fact', async () => {

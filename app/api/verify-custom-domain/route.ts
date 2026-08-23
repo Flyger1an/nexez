@@ -2,11 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import dns from 'dns'
 import { promisify } from 'util'
-import { ownerAllows } from '../../../lib/server/plan'
+import { getOwnerPlanId } from '../../../lib/server/plan'
+import { getBillingPlan, getFeatureUpgradeDecision, getLimitUpgradeDecision } from '../../../lib/billing'
 import { requirePageAccess } from '../../../lib/server/require-page-access'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { findDoubledRecordMessage } from '../../../lib/server/doubled-txt-probe'
 import { getDomainStatus, isVercelDomainConfigured } from '../../../lib/vercel-domains'
+import {
+  entitlementAllocationRetryBody,
+  entitlementAllocationRetryInit,
+  isEntitlementAllocationRetry,
+} from '../../../lib/entitlement-allocation-error'
+
+function allocationRetryResponse() {
+  return NextResponse.json(entitlementAllocationRetryBody, entitlementAllocationRetryInit)
+}
 
 const resolveTxt = promisify(dns.resolveTxt)
 
@@ -87,8 +97,14 @@ export async function POST(request: NextRequest) {
 
   // Plan gate: verifying (enabling) a custom domain requires Launch+ - gated on the
   // PAGE OWNER's plan (the collaborator inherits it), not the logged-in caller.
-  if (!(await ownerAllows(admin, access.ownerId, 'customDomain'))) {
-    return NextResponse.json({ error: 'Custom domains are available on the Launch plan and up.', upgrade: 'launch' }, { status: 402 })
+  const planId = await getOwnerPlanId(admin, access.ownerId)
+  const featureDecision = getFeatureUpgradeDecision(planId, 'customDomain')
+  if (!featureDecision.allowed) {
+    const required = getBillingPlan(featureDecision.minimumPlanId)
+    return NextResponse.json(
+      { error: `Custom domains are available on the ${required?.name ?? 'required'} plan and up.`, code: 'plan_feature_required', upgrade: featureDecision.upgradePlanId },
+      { status: 402 },
+    )
   }
 
   const { data: page, error: pageError } = await admin
@@ -104,6 +120,33 @@ export async function POST(request: NextRequest) {
   }
   if (!page) {
     return NextResponse.json({ error: 'Save this domain on a page you own before verifying it.' }, { status: 403 })
+  }
+
+  const { data: verifiedDomains } = await admin
+    .from('pages')
+    .select('custom_domain')
+    .eq('owner_id', access.ownerId)
+    .not('custom_domain', 'is', null)
+    .not('custom_domain_verified', 'is', null)
+    .neq('custom_domain', domain)
+    .returns<Array<{ custom_domain: string | null }>>()
+  const distinctVerified = new Set(
+    (verifiedDomains ?? []).map((row) => row.custom_domain).filter(Boolean) as string[],
+  )
+  const limitDecision = getLimitUpgradeDecision(planId, 'customDomains', distinctVerified.size + 1)
+  const quotaRaceUpgrade = limitDecision.currentLimit === null
+    ? null
+    : getLimitUpgradeDecision(planId, 'customDomains', limitDecision.currentLimit + 1).upgradePlanId
+  if (!limitDecision.allowed) {
+    return NextResponse.json(
+      {
+        error: `Your plan includes ${limitDecision.currentLimit} active custom domain${limitDecision.currentLimit === 1 ? '' : 's'}.`,
+        code: 'plan_limit_reached',
+        limit: limitDecision.currentLimit,
+        upgrade: limitDecision.upgradePlanId,
+      },
+      { status: 402 },
+    )
   }
 
   // A subdomain served through Vercel's CNAME path proves ownership through its
@@ -160,6 +203,13 @@ export async function POST(request: NextRequest) {
         .eq('custom_domain', domain)
 
       if (verifyError) {
+        if (isEntitlementAllocationRetry(verifyError)) return allocationRetryResponse()
+        if (verifyError.code === '23514' || /custom domain limit/i.test(verifyError.message)) {
+          return NextResponse.json(
+            { error: 'Your custom-domain limit was reached. Refresh your plan and try again.', code: 'plan_limit_reached', upgrade: quotaRaceUpgrade },
+            { status: 402 },
+          )
+        }
         return NextResponse.json({ error: 'DNS verified, but saving verification failed.' }, { status: 500 })
       }
 

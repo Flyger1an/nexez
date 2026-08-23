@@ -6,6 +6,18 @@ const password = process.env.E2E_PASSWORD
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
+function hasRealSettingsFixtureConfig() {
+  if (!email || !password || !supabaseUrl || !supabaseKey || supabaseKey.length < 20) return false
+  try {
+    const url = new URL(supabaseUrl)
+    const candidate = `${url.hostname} ${supabaseKey}`.toLowerCase()
+    return (url.protocol === 'https:' || url.protocol === 'http:')
+      && !/(?:placeholder|example|your[-_. ]?project|change[-_. ]?me|dummy)/.test(candidate)
+  } catch {
+    return false
+  }
+}
+
 const UUID_DASHBOARD_LINK = /^\/dashboard\/[0-9a-f-]{36}$/
 
 let disposablePageId: string | null = null
@@ -181,6 +193,14 @@ test.describe('page settings', () => {
   test('account settings uses the wide control-center architecture without mobile overflow', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(String(error)))
+
+    // Skip before fixture creation: a browser-login skip inside
+    // loginToDashboard is too late once placeholder/missing public connection
+    // values have already been handed to the Supabase fixture client.
+    test.skip(
+      !hasRealSettingsFixtureConfig(),
+      'set E2E_EMAIL, E2E_PASSWORD, and real non-placeholder public Supabase connection keys to run account settings E2E',
+    )
 
     // Prepare the fixture owner before browser sign-in so its fresh auth token
     // includes the temporary Free workspace selection used by dashboard gating.

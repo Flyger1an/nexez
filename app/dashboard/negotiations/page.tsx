@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { UpgradeBanner } from '../../../components/billing/PlanGate'
-import { usePlan } from '../../../components/billing/PlanProvider'
+import { usePlanEntitlements } from '../../../components/billing/PlanProvider'
 import {
   AgentNegotiation,
   NegotiationStatus,
@@ -25,6 +25,7 @@ import {
   getAllowedNegotiationTransitions,
   getNegotiationStatusLabel,
   getNegotiationStatusTone,
+  isNegotiationExpansionAction,
   isMissingTableError,
   summarizeNegotiations,
 } from '../../../lib/negotiations'
@@ -87,7 +88,9 @@ function transitionIcon(to: NegotiationStatus) {
 
 export default function NegotiationsInbox() {
   const router = useRouter()
-  const plan = usePlan()
+  const entitlements = usePlanEntitlements()
+  const plan = entitlements.planId
+  const negotiationExpansionEnabled = entitlements.features.negotiation === true
   const [negotiations, setNegotiations] = useState<InboxNegotiation[]>([])
   const [report, setReport] = useState<NegotiationRollup | null>(null)
   const [loading, setLoading] = useState(true)
@@ -334,7 +337,7 @@ export default function NegotiationsInbox() {
             feature="negotiation"
             currentPlan={plan}
             title="Negotiation & smart pricing"
-            description="let agents make offers, set auto-accept rules, and run counter-offers - on the Pro plan and up."
+            description="New offers, counters, clarification, resumed threads, and term changes require Pro. You can still close or settle existing deals after a downgrade."
             className="mb-6"
           />
           <header className="surface-masthead flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
@@ -451,6 +454,7 @@ export default function NegotiationsInbox() {
                   key={item.id}
                   item={item}
                   updating={updatingId === item.id}
+                  expansionEnabled={negotiationExpansionEnabled}
                   onTransition={(to) => void updateStatus(item, to)}
                   onEscrow={(action) => void runEscrow(item, action)}
                   onSaveAmount={(dollars) => void saveAmount(item, dollars)}
@@ -494,6 +498,7 @@ function Kpi({
 function NegotiationCard({
   item,
   updating,
+  expansionEnabled,
   onTransition,
   onEscrow,
   onSaveAmount,
@@ -501,6 +506,7 @@ function NegotiationCard({
 }: {
   item: InboxNegotiation
   updating: boolean
+  expansionEnabled: boolean
   onTransition: (to: NegotiationStatus) => void
   onEscrow: (action: 'approve' | 'capture' | 'cancel' | 'refund', amount?: number) => void
   onSaveAmount: (dollars: number) => void
@@ -532,6 +538,14 @@ function NegotiationCard({
   const [refundAmount, setRefundAmount] = useState('')
   const [manualError, setManualError] = useState('')
   const [manualSaving, setManualSaving] = useState(false)
+  const defaultManualAction = item.status === 'paused'
+    ? (expansionEnabled ? 'resume' : 'reject')
+    : (expansionEnabled ? 'counter' : 'accept')
+  const [manualAction, setManualAction] = useState(defaultManualAction)
+
+  useEffect(() => {
+    setManualAction(defaultManualAction)
+  }, [defaultManualAction])
 
   function submitRefund() {
     const entered = Number(refundAmount)
@@ -563,6 +577,12 @@ function NegotiationCard({
   function iconFor(to: NegotiationStatus) {
     if (isEscrowCapture(to)) return <CheckCircle2 className="size-3.5" />
     return transitionIcon(to)
+  }
+
+  function transitionNeedsExpansion(to: NegotiationStatus): boolean {
+    return item.status === 'paused'
+      && to === 'negotiation'
+      && isNegotiationExpansionAction('resume')
   }
 
   return (
@@ -629,7 +649,12 @@ function NegotiationCard({
 
       {/* Agreed amount - owner can confirm/adjust before approval or buyer payment. */}
       {item.status === 'agreement_proposed' && (
-        <AmountEditor item={item} disabled={updating} onSave={onSaveAmount} />
+        <AmountEditor
+          item={item}
+          disabled={updating}
+          expansionEnabled={expansionEnabled}
+          onSave={onSaveAmount}
+        />
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
@@ -665,12 +690,13 @@ function NegotiationCard({
           ownerTransitions.map((to) => (
             <button
               key={to}
-              disabled={updating}
+              disabled={updating || (!expansionEnabled && transitionNeedsExpansion(to))}
               onClick={() => handleAction(to)}
+              title={!expansionEnabled && transitionNeedsExpansion(to) ? 'Upgrade to Pro to resume this negotiation.' : undefined}
               className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition disabled:opacity-50 ${transitionTone(to)}`}
             >
               {updating ? <Loader2 className="size-3.5 animate-spin" /> : iconFor(to)}
-              {labelFor(to)}
+              {labelFor(to)}{!expansionEnabled && transitionNeedsExpansion(to) ? ' · Pro' : ''}
             </button>
           ))
         )}
@@ -771,7 +797,7 @@ function NegotiationCard({
                 setManualError('')
                 const form = e.currentTarget as HTMLFormElement
                 const formData = new FormData(form)
-                const action = (formData.get('action') as string) || 'counter'
+                const action = (formData.get('action') as string) || defaultManualAction
                 const reasoning = (formData.get('reasoning') as string) || 'Manual owner response.'
                 const internalNotes = (formData.get('internal_notes') as string) || undefined
 
@@ -784,7 +810,8 @@ function NegotiationCard({
                   .map((value) => value.trim())
                   .filter(Boolean)
 
-                if ((action === 'accept' || action === 'counter') && (amountCents == null || amountCents < 50)) {
+                const acceptNeedsAmount = action === 'accept' && item.amount_cents == null
+                if ((action === 'counter' || acceptNeedsAmount) && (amountCents == null || amountCents < 50)) {
                   setManualError(`Enter an amount of at least 0.50 ${item.currency.toUpperCase()}.`)
                   return
                 }
@@ -829,6 +856,7 @@ function NegotiationCard({
                     return
                   }
                   form.reset()
+                  setManualAction(defaultManualAction)
                   if (onRefresh) onRefresh()
                   else window.location.reload()
                 } catch (error) {
@@ -839,33 +867,59 @@ function NegotiationCard({
               }}
             >
               <div className="flex gap-2">
-                <select name="action" aria-label="Owner decision" className="input text-xs py-1" defaultValue={item.status === 'paused' ? 'resume' : 'counter'}>
+                <select
+                  name="action"
+                  aria-label="Owner decision"
+                  className="input text-xs py-1"
+                  value={manualAction}
+                  onChange={(event) => setManualAction(event.target.value)}
+                >
                   {item.status === 'paused' ? (
                     <>
-                      <option value="resume">Resume</option>
+                      <option value="resume" disabled={!expansionEnabled}>Resume{!expansionEnabled ? ' (Pro)' : ''}</option>
                       <option value="reject">Reject</option>
                     </>
                   ) : (
                     <>
                       <option value="accept">Accept</option>
-                      <option value="counter">Counter</option>
+                      <option value="counter" disabled={!expansionEnabled}>Counter{!expansionEnabled ? ' (Pro)' : ''}</option>
                       <option value="reject">Reject</option>
-                      <option value="clarify">Request Clarification</option>
+                      <option value="clarify" disabled={!expansionEnabled}>Request Clarification{!expansionEnabled ? ' (Pro)' : ''}</option>
                       <option value="pause">Pause</option>
                     </>
                   )}
                 </select>
-                <input name="proposed_price" aria-label={`Amount in ${item.currency.toUpperCase()}`} type="number" min="0.50" step="0.01" placeholder={`Amount in ${item.currency.toUpperCase()} (accept/counter)`} className="input text-xs py-1 flex-1" />
+                <input
+                  name="proposed_price"
+                  aria-label={`Amount in ${item.currency.toUpperCase()}`}
+                  type="number"
+                  min="0.50"
+                  step="0.01"
+                  defaultValue={item.amount_cents != null ? item.amount_cents / 100 : undefined}
+                  disabled={manualAction !== 'accept' && manualAction !== 'counter'}
+                  readOnly={!expansionEnabled && manualAction === 'accept' && item.amount_cents != null}
+                  placeholder={`Amount in ${item.currency.toUpperCase()} (accept/counter)`}
+                  className="input text-xs py-1 flex-1 disabled:opacity-50 read-only:opacity-70"
+                />
               </div>
               <textarea name="reasoning" aria-label="Reasoning shown to the buyer" rows={2} placeholder="Reasoning (shown to agent)" className="input text-xs" required defaultValue="Manual response from owner." />
-              <input name="proposed_date" aria-label="Proposed date or timeline" placeholder="Proposed date/timeline (if counter)" className="input text-xs py-1" />
-              <input name="scope_notes" aria-label="Scope adjustments" placeholder="Scope adjustments (if counter)" className="input text-xs py-1" />
-              <input name="clarification_questions" aria-label="Clarification questions" placeholder="Questions comma-separated (if clarify)" className="input text-xs py-1" />
+              <input name="proposed_date" aria-label="Proposed date or timeline" disabled={manualAction !== 'counter' || !expansionEnabled} placeholder="Proposed date/timeline (if counter)" className="input text-xs py-1 disabled:opacity-50" />
+              <input name="scope_notes" aria-label="Scope adjustments" disabled={manualAction !== 'counter' || !expansionEnabled} placeholder="Scope adjustments (if counter)" className="input text-xs py-1 disabled:opacity-50" />
+              <input name="clarification_questions" aria-label="Clarification questions" disabled={manualAction !== 'clarify' || !expansionEnabled} placeholder="Questions comma-separated (if clarify)" className="input text-xs py-1 disabled:opacity-50" />
               <textarea name="internal_notes" aria-label="Private internal notes" rows={1} placeholder="Internal notes (owner only, not sent to agent)" className="input text-xs" />
               {manualError ? <p role="alert" className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-red-200">{manualError}</p> : null}
-              <button type="submit" disabled={updating || manualSaving} className="btn-secondary text-xs py-1">
+              <button
+                type="submit"
+                disabled={updating || manualSaving || (!expansionEnabled && isNegotiationExpansionAction(manualAction))}
+                className="btn-secondary text-xs py-1"
+              >
                 {updating || manualSaving ? 'Saving...' : 'Send owner response'}
               </button>
+              {!expansionEnabled ? (
+                <p className="text-[10px] text-[var(--amber)]/80">
+                  Counter, clarification, resume, and amount changes require Pro. Accept, reject, pause, settlement, cancellation, and refunds remain available.
+                </p>
+              ) : null}
               <p className="text-[10px] text-zinc-500">This appears in the persistent /negotiate thread for the agent with full history.</p>
             </form>
           </details>
@@ -890,10 +944,12 @@ function Field({ label, value, full }: { label: string; value: string | null; fu
 function AmountEditor({
   item,
   disabled,
+  expansionEnabled,
   onSave,
 }: {
   item: InboxNegotiation
   disabled: boolean
+  expansionEnabled: boolean
   onSave: (dollars: number) => void
 }) {
   const [value, setValue] = useState(item.amount_cents != null ? (item.amount_cents / 100).toString() : '')
@@ -903,7 +959,7 @@ function AmountEditor({
   return (
     <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/10 pt-4">
       <label className="text-[11px] text-zinc-400">
-        Agreed amount ({item.currency.toUpperCase()})
+        Agreed amount ({item.currency.toUpperCase()}){!expansionEnabled ? ' · Pro to adjust' : ''}
         <div className="mt-1 flex items-center gap-1.5">
           <span className="text-sm text-zinc-500">$</span>
           <input
@@ -912,18 +968,20 @@ function AmountEditor({
             min="0.5"
             value={value}
             onChange={(e) => setValue(e.target.value)}
+            disabled={!expansionEnabled}
+            aria-label={`Agreed amount in ${item.currency.toUpperCase()}`}
             placeholder="e.g. 800"
-            className="input w-32 py-1 text-sm"
+            className="input w-32 py-1 text-sm disabled:opacity-60"
           />
         </div>
       </label>
       <button
         type="button"
-        disabled={disabled || !valid}
+        disabled={disabled || !valid || !expansionEnabled}
         onClick={() => onSave(dollars)}
         className="inline-flex min-h-[36px] items-center rounded-lg border border-white/15 px-3 text-xs font-medium text-zinc-200 transition hover:bg-white/10 disabled:opacity-50"
       >
-        Save amount
+        {expansionEnabled ? 'Save amount' : 'Save amount · Pro'}
       </button>
       {item.amount_cents == null && (
         <span className="text-[11px] text-[var(--amber)]/80">Set this to enable the escrow hold.</span>

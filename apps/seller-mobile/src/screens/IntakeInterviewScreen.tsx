@@ -16,8 +16,13 @@ import {
   sendIntakeTurn,
   startIntakeSession,
 } from '@/src/lib/api'
+import { getMyPlanEntitlements } from '@/src/lib/data'
+import { mobileEntitlementSnapshotExpiresAt } from '@/src/lib/entitlement-snapshot'
+import { buildMobileIntakeQuickAnswers, mobileIntakeNegotiationAllowed } from '@/src/lib/intake-entitlements'
+import { useSession } from '@/src/hooks/useSession'
 import { colors, fonts, radii } from '@/src/theme/colors'
 import type { IntakeCard, IntakeGap, IntakeGapAnswer, IntakeSessionState } from '@/src/types/intake'
+import type { OwnerPlanEntitlements } from '@/src/types/nexez'
 
 type ChatMessage = {
   id: string
@@ -30,6 +35,7 @@ type SetupPhase = 'loading' | 'setup' | 'starting' | 'chat'
 
 export function IntakeInterviewScreen() {
   const router = useRouter()
+  const { user } = useSession()
   // Re-interview an EXISTING listing (/intake?pageId=… from listing detail):
   // the session seeds from the page; commit stages onto its draft.
   const { pageId } = useLocalSearchParams<{ pageId?: string }>()
@@ -43,6 +49,13 @@ export function IntakeInterviewScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  // Fail closed until a fresh authenticated, DB-authoritative snapshot resolves.
+  const [entitlementResult, setEntitlementResult] = useState<{
+    viewerId: string
+    snapshot: OwnerPlanEntitlements | null
+    state: 'ready' | 'unavailable'
+  } | null>(null)
+  const [entitlementNow, setEntitlementNow] = useState(() => Date.now())
   const sessionIdRef = useRef<string | null>(null)
   const scrollRef = useRef<ScrollView>(null)
   const idRef = useRef(0)
@@ -61,6 +74,43 @@ export function IntakeInterviewScreen() {
       hide.remove()
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const viewerId = user?.id
+    if (!viewerId) return () => { cancelled = true }
+    getMyPlanEntitlements(viewerId)
+      .then((snapshot) => {
+        if (cancelled) return
+        setEntitlementNow(Date.now())
+        setEntitlementResult({ viewerId, snapshot, state: 'ready' })
+      })
+      .catch(() => {
+        if (!cancelled) setEntitlementResult({ viewerId, snapshot: null, state: 'unavailable' })
+      })
+    return () => { cancelled = true }
+  }, [user?.id])
+
+  const activeEntitlementResult = entitlementResult?.viewerId === user?.id
+    ? entitlementResult
+    : null
+  const entitlementExpiresAt = mobileEntitlementSnapshotExpiresAt(activeEntitlementResult?.snapshot)
+
+  useEffect(() => {
+    if (entitlementExpiresAt == null) return
+    const timer = setTimeout(
+      () => setEntitlementNow(Date.now()),
+      Math.max(0, entitlementExpiresAt - Date.now() + 1),
+    )
+    return () => clearTimeout(timer)
+  }, [entitlementExpiresAt])
+
+  const negotiationAllowed = activeEntitlementResult?.state === 'ready'
+    && mobileIntakeNegotiationAllowed(
+      activeEntitlementResult.snapshot,
+      user?.id,
+      new Date(entitlementNow),
+    )
 
   const nextId = () => `m-${++idRef.current}`
 
@@ -274,7 +324,9 @@ export function IntakeInterviewScreen() {
                   key={`${message.id}-card-${index}`}
                   card={card}
                   busy={busy}
+                  negotiationAllowed={negotiationAllowed}
                   onAnswer={(answer, echo) => void runTurn({ answers: [answer] }, echo)}
+                  onUpgradeNegotiation={() => router.push('/tools/billing')}
                   onCommit={() => void commit()}
                 />
               ))}
@@ -308,12 +360,16 @@ export function IntakeInterviewScreen() {
 function IntakeCardView({
   card,
   busy,
+  negotiationAllowed,
   onAnswer,
+  onUpgradeNegotiation,
   onCommit,
 }: {
   card: IntakeCard
   busy: boolean
+  negotiationAllowed: boolean
   onAnswer: (answer: IntakeGapAnswer, echo: string) => void
+  onUpgradeNegotiation: () => void
   onCommit: () => void
 }) {
   if (card.type === 'source_ingested') {
@@ -337,7 +393,14 @@ function IntakeCardView({
     return (
       <Glass style={st.cardStretch} tone="group" radius={16} contentStyle={st.gapCard}>
         {card.gaps.map((gap) => (
-          <GapRow key={gap.id} gap={gap} busy={busy} onAnswer={onAnswer} />
+          <GapRow
+            key={gap.id}
+            gap={gap}
+            busy={busy}
+            negotiationAllowed={negotiationAllowed}
+            onAnswer={onAnswer}
+            onUpgradeNegotiation={onUpgradeNegotiation}
+          />
         ))}
       </Glass>
     )
@@ -383,15 +446,20 @@ function IntakeCardView({
   )
 }
 
-function GapRow({ gap, busy, onAnswer }: { gap: IntakeGap; busy: boolean; onAnswer: (answer: IntakeGapAnswer, echo: string) => void }) {
-  const chips: Array<{ label: string; answer: IntakeGapAnswer }> = []
-  if (gap.field === 'offerType' && gap.offerKey) {
-    chips.push(
-      { label: 'Fixed price', answer: { gapId: gap.id, answer: 'Fixed price', fields: [{ target: 'offer', offerKey: gap.offerKey, field: 'offerType', value: 'fixed' }] } },
-      { label: 'Open to offers', answer: { gapId: gap.id, answer: 'Open to offers', fields: [{ target: 'offer', offerKey: gap.offerKey, field: 'offerType', value: 'negotiable' }] } },
-    )
-  }
-  chips.push({ label: 'Skip', answer: { gapId: gap.id, answer: 'skip', skipped: true } })
+function GapRow({
+  gap,
+  busy,
+  negotiationAllowed,
+  onAnswer,
+  onUpgradeNegotiation,
+}: {
+  gap: IntakeGap
+  busy: boolean
+  negotiationAllowed: boolean
+  onAnswer: (answer: IntakeGapAnswer, echo: string) => void
+  onUpgradeNegotiation: () => void
+}) {
+  const chips = buildMobileIntakeQuickAnswers(gap, negotiationAllowed)
 
   return (
     <View style={st.gapRow}>
@@ -406,11 +474,15 @@ function GapRow({ gap, busy, onAnswer }: { gap: IntakeGap; busy: boolean; onAnsw
         {chips.map((chip) => (
           <Pressable
             key={chip.label}
-            onPress={() => onAnswer(chip.answer, `${chip.label}${chip.label === 'Skip' ? `: ${gap.question}` : ''}`)}
+            onPress={() => {
+              if (chip.locked) onUpgradeNegotiation()
+              else onAnswer(chip.answer, `${chip.label}${chip.label === 'Skip' ? `: ${gap.question}` : ''}`)
+            }}
             disabled={busy}
-            style={({ pressed }) => [st.chip, busy ? st.disabled : pressed ? st.pressed : null]}
+            accessibilityHint={chip.locked ? 'Upgrade to Pro to enable open-to-offers pricing' : undefined}
+            style={({ pressed }) => [st.chip, chip.locked ? st.lockedChip : null, busy ? st.disabled : pressed ? st.pressed : null]}
           >
-            <Text style={st.chipText}>{chip.label}</Text>
+            <Text style={st.chipText}>{chip.label}{chip.locked ? ' · Pro' : ''}</Text>
           </Pressable>
         ))}
       </View>
@@ -461,6 +533,7 @@ const st = StyleSheet.create({
   gapWhy: { color: colors.textTertiary, fontFamily: fonts.body, fontSize: 11.5, lineHeight: 16, marginTop: 2 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingLeft: 15 },
   chip: { borderWidth: 1, borderColor: colors.neutralBorder, backgroundColor: colors.neutralBg, borderRadius: radii.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  lockedChip: { borderColor: colors.ringBorder, backgroundColor: colors.ringBg },
   chipText: { color: colors.body, fontFamily: fonts.bodyMedium, fontSize: 12 },
   summaryCard: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 13 },
   commitBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 9, backgroundColor: colors.ringBg, borderWidth: 1, borderColor: colors.ringBorder, borderRadius: radii.pillSm, paddingHorizontal: 12, paddingVertical: 8 },

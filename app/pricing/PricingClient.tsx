@@ -1,10 +1,29 @@
 'use client'
 
 import React from 'react'
-import { Check, Star } from 'lucide-react'
-import { billingPlans } from '../../lib/billing'
+import { Check, Minus, Star } from 'lucide-react'
+import {
+  FEATURE_LABELS,
+  PLAN_FEATURES,
+  PLAN_FEATURE_MATRIX,
+  billingPlans,
+  type BillingPlan,
+  type PlanLimit,
+} from '../../lib/billing'
 import { pricingFaqs } from '../../lib/marketing-content'
 import { appUrl } from '../../lib/site'
+
+const LIMIT_ROWS: Array<{ key: PlanLimit; label: string }> = [
+  { key: 'publishedListings', label: 'Published listings' },
+  { key: 'storefronts', label: 'Storefronts' },
+  { key: 'customDomains', label: 'Active custom domains' },
+  { key: 'teamSeats', label: 'Team seats' },
+]
+
+function formatPlanLimit(plan: BillingPlan, key: PlanLimit) {
+  const value = plan.limits[key]
+  return Number.isFinite(value) ? value.toLocaleString() : 'Custom'
+}
 
 export default function PricingClient() {
   const tiers = billingPlans
@@ -17,7 +36,10 @@ export default function PricingClient() {
           <div className="eyebrow justify-center">Plans &amp; pricing</div>
           <h1 className="display mt-4">Simple, transparent pricing.</h1>
           <p className="lede mx-auto mt-4 text-center">
-            Start on Free with no time limit. Verify and publish your business to unlock six complimentary months of Launch access.
+            Start on Free with no time limit. Eligible verified businesses can receive six complimentary months of Launch access while the campaign is available.
+          </p>
+          <p className="mx-auto mt-3 max-w-3xl text-sm text-[#9CA3AF]">
+            Every plan includes discovery and commerce when your business is operationally ready. Upgrade for intelligence, automation, collaboration, capacity, support, and lower fees.
           </p>
           <div className="mt-4 text-sm" style={{ color: 'var(--ready)' }}>No card required. No automatic promotional renewal.</div>
         </div>
@@ -107,6 +129,64 @@ export default function PricingClient() {
           })}
         </div>
 
+        <section className="glass mb-16 overflow-hidden rounded-3xl" aria-labelledby="plan-comparison-title">
+          <div className="border-b border-white/10 p-6 md:p-8">
+            <h2 id="plan-comparison-title" className="text-2xl font-semibold">Complete plan comparison</h2>
+            <p className="mt-2 text-sm text-[#9CA3AF]">One allocation contract drives these rows, dashboard gates, API decisions, and database limits.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-left">
+                  <th scope="col" className="sticky left-0 z-10 bg-[#11151d] px-6 py-4 font-medium text-[#9CA3AF]">Capability</th>
+                  {billingPlans.map((plan) => <th key={plan.id} scope="col" className="px-4 py-4 text-center font-semibold">{plan.name}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-white/[0.06]">
+                  <th scope="row" className="sticky left-0 bg-[#11151d] px-6 py-3 text-left font-medium">Discovery &amp; commerce readiness</th>
+                  {billingPlans.map((plan) => (
+                    <td key={plan.id} className="px-4 py-3 text-center">
+                      <Check className="mx-auto size-4 text-[var(--ready)]" aria-hidden="true" /><span className="sr-only">Included</span>
+                    </td>
+                  ))}
+                </tr>
+                <tr className="border-b border-white/[0.06]">
+                  <th scope="row" className="sticky left-0 bg-[#11151d] px-6 py-3 text-left font-medium">Installed Shopify App Store connector</th>
+                  {billingPlans.map((plan) => (
+                    <td key={plan.id} className="px-4 py-3 text-center">
+                      <Check className="mx-auto size-4 text-[var(--ready)]" aria-hidden="true" /><span className="sr-only">Included</span>
+                    </td>
+                  ))}
+                </tr>
+                {LIMIT_ROWS.map((row) => (
+                  <tr key={row.key} className="border-b border-white/[0.06]">
+                    <th scope="row" className="sticky left-0 bg-[#11151d] px-6 py-3 text-left font-medium">{row.label}</th>
+                    {billingPlans.map((plan) => <td key={plan.id} className="px-4 py-3 text-center text-[#D1D5DB]">{formatPlanLimit(plan, row.key)}</td>)}
+                  </tr>
+                ))}
+                {PLAN_FEATURES.map((feature) => (
+                  <tr key={feature} className="border-b border-white/[0.06]">
+                    <th scope="row" className="sticky left-0 bg-[#11151d] px-6 py-3 text-left font-medium">{FEATURE_LABELS[feature]}</th>
+                    {billingPlans.map((plan) => {
+                      const included = PLAN_FEATURE_MATRIX[plan.id][feature]
+                      return (
+                        <td key={plan.id} className="px-4 py-3 text-center">
+                          {included ? <Check className="mx-auto size-4 text-[var(--ready)]" aria-label="Included" /> : <Minus className="mx-auto size-4 text-zinc-600" aria-label="Not included" />}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+                <tr>
+                  <th scope="row" className="sticky left-0 bg-[#11151d] px-6 py-3 text-left font-medium">Nexez settlement commission</th>
+                  {billingPlans.map((plan) => <td key={plan.id} className="px-4 py-3 text-center font-medium">{plan.id === 'enterprise' ? '2% default; 1–2% negotiated' : `${plan.commissionPercent}%`}</td>)}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <div className="glass mb-16 rounded-3xl p-8 md:p-12">
           <div className="grid items-center gap-8 md:grid-cols-2">
             <div>
@@ -191,7 +271,7 @@ export default function PricingClient() {
           <a href={appUrl('/onboard?plan=free')} className="btn-primary">
             Start Free
           </a>
-          <p className="mt-2 text-xs text-zinc-500">Publish and verify to activate six complimentary months of Launch.</p>
+          <p className="mt-2 text-xs text-zinc-500">Eligible verified businesses can receive complimentary Launch access while the campaign is available.</p>
         </div>
       </div>
     </main>

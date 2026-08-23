@@ -1,13 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { dbRef } = vi.hoisted(() => ({
+const { dbRef, entitlementRef } = vi.hoisted(() => ({
   dbRef: { handler: (_c: any) => ({ data: null, error: null }) as { data?: any; error?: any } },
+  entitlementRef: { hasAdmin: false, allowed: true },
 }))
 
 vi.mock('../../../lib/supabase', async () => {
   const { createSupabaseMock } = await import('../../../test/supabase-mock')
   return { supabase: createSupabaseMock((c) => dbRef.handler(c)) }
 })
+vi.mock('../../../utils/supabase/admin', () => ({
+  hasSupabaseAdminEnv: () => entitlementRef.hasAdmin,
+  createAdminClient: () => ({}),
+}))
+vi.mock('../../../lib/server/page-private-meta', () => ({
+  getPagePrivateMeta: async () => ({ ownerId: 'o1' }),
+}))
+vi.mock('../../../lib/server/plan', () => ({
+  ownerAllows: async () => entitlementRef.allowed,
+}))
 
 import { GET } from './route'
 
@@ -33,6 +44,8 @@ const ctx = (slug: string) => ({ params: Promise.resolve({ slug }) })
 describe('GET /[slug]/openapi.json', () => {
   beforeEach(() => {
     dbRef.handler = () => ({ data: null, error: null })
+    entitlementRef.hasAdmin = false
+    entitlementRef.allowed = true
   })
 
   it('404s when no published page matches', async () => {
@@ -61,7 +74,23 @@ describe('GET /[slug]/openapi.json', () => {
     expect(spec.components.schemas.AgentNegotiationResponse).toBeUndefined()
   })
 
-  it('advertises negotiation when a negotiable offer exists (fails open without admin env)', async () => {
+  it('does not advertise negotiation when owner entitlement cannot be verified', async () => {
+    dbRef.handler = () => ({
+      data: {
+        ...demoPage,
+        services: [{ name: 'Consult', price: '$100', description: '', url: '', offerType: 'negotiable' }],
+      },
+      error: null,
+    })
+    const res = await GET(req(), ctx('demo'))
+    const spec = await res.json()
+    expect(spec.paths['/api/negotiations']).toBeUndefined()
+    expect(spec.components.schemas.AgentNegotiationResponse).toBeUndefined()
+  })
+
+  it('advertises negotiation when a negotiable offer exists and the owner is entitled', async () => {
+    entitlementRef.hasAdmin = true
+    entitlementRef.allowed = true
     dbRef.handler = () => ({
       data: {
         ...demoPage,

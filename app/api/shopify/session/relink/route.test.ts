@@ -10,6 +10,7 @@ vi.mock('../../../../../lib/server/shopify-install', () => ({
   getInstallByShop: vi.fn(),
   issueShopifyLinkToken: vi.fn(async () => 'relink-token'),
 }))
+vi.mock('../../../../../lib/server/plan', () => ({ ownerAllows: vi.fn(async () => true) }))
 vi.mock('../../../../../utils/supabase/admin', () => ({
   createAdminClient: vi.fn(),
   hasSupabaseAdminEnv: vi.fn(() => true),
@@ -19,6 +20,7 @@ import { POST } from './route'
 import { verifyShopifySessionToken } from '../../../../../lib/server/shopify'
 import { getInstallByShop, issueShopifyLinkToken } from '../../../../../lib/server/shopify-install'
 import { createAdminClient } from '../../../../../utils/supabase/admin'
+import { ownerAllows } from '../../../../../lib/server/plan'
 
 const request = () => new Request('https://app.nexez.ai/api/shopify/session/relink', {
   method: 'POST',
@@ -62,6 +64,45 @@ describe('POST /api/shopify/session/relink', () => {
 
   it('fails closed when the shop is not installed', async () => {
     vi.mocked(getInstallByShop).mockResolvedValue(null)
+    expect((await POST(request())).status).toBe(409)
+    expect(issueShopifyLinkToken).not.toHaveBeenCalled()
+  })
+
+  it('keeps installed-app relinking available after a downgrade', async () => {
+    vi.mocked(ownerAllows).mockResolvedValueOnce(false)
+
+    const response = await POST(request())
+
+    expect(response.status).toBe(200)
+    expect(ownerAllows).not.toHaveBeenCalled()
+    expect(issueShopifyLinkToken).toHaveBeenCalledWith(expect.anything(), 'demo.myshopify.com')
+  })
+
+  it('does not issue a relink token for an unlinked install', async () => {
+    vi.mocked(getInstallByShop).mockResolvedValueOnce({
+      shop_domain: 'demo.myshopify.com',
+      owner_id: null,
+      page_id: null,
+      scope: 'read_products,write_app_proxy',
+      uninstalled_at: null,
+    })
+
+    expect((await POST(request())).status).toBe(409)
+    expect(ownerAllows).not.toHaveBeenCalled()
+    expect(issueShopifyLinkToken).not.toHaveBeenCalled()
+  })
+
+  it('does not issue another relink token while a mapping change is active', async () => {
+    vi.mocked(getInstallByShop).mockResolvedValueOnce({
+      shop_domain: 'demo.myshopify.com',
+      owner_id: 'owner-1',
+      page_id: 'page-1',
+      scope: 'read_products,write_app_proxy',
+      uninstalled_at: null,
+      mapping_generation: 4,
+      mapping_transition_token: 'lease-1',
+    })
+
     expect((await POST(request())).status).toBe(409)
     expect(issueShopifyLinkToken).not.toHaveBeenCalled()
   })

@@ -282,6 +282,7 @@ describe('resolveSettlementContext — lifted account gates', () => {
     account_origin: 'legacy',
     stripe_connect_account_id: 'acct_seller',
     stripe_connect_charges_enabled: true,
+    stripe_connect_payouts_enabled: true,
   }
 
   it('resolves a live, connected seller to a ready context with the plan commission', async () => {
@@ -312,6 +313,14 @@ describe('resolveSettlementContext — lifted account gates', () => {
   it('blocks a seller whose Connect account cannot accept charges', async () => {
     const res = await resolveSettlementContext(
       fakeAdmin({ sub: { ...CONNECTED, stripe_connect_charges_enabled: false } }),
+      { pageId: 'page_1', ownerId: 'owner_1' },
+    )
+    expect(res).toMatchObject({ ok: false, code: 'no_connect' })
+  })
+
+  it('blocks a seller whose Connect account cannot receive payouts', async () => {
+    const res = await resolveSettlementContext(
+      fakeAdmin({ sub: { ...CONNECTED, stripe_connect_payouts_enabled: false } }),
       { pageId: 'page_1', ownerId: 'owner_1' },
     )
     expect(res).toMatchObject({ ok: false, code: 'no_connect' })

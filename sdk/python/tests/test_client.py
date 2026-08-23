@@ -128,6 +128,7 @@ class NexezPythonSdkTest(unittest.TestCase):
             min_readiness=75,
             min_trust=70,
             verified=True,
+            nexez_checkout_ready=True,
             supports_checkout=True,
             supports_negotiation=False,
             price_band="500_2000",
@@ -138,6 +139,7 @@ class NexezPythonSdkTest(unittest.TestCase):
         self.assertIn("min_readiness=75", transport.calls[0]["url"])
         self.assertIn("min_trust=70", transport.calls[0]["url"])
         self.assertIn("verified=true", transport.calls[0]["url"])
+        self.assertIn("nexez_checkout_ready=true", transport.calls[0]["url"])
         self.assertIn("supports_checkout=true", transport.calls[0]["url"])
         self.assertIn("supports_negotiation=false", transport.calls[0]["url"])
         self.assertIn("price_band=500_2000", transport.calls[0]["url"])

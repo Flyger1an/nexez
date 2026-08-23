@@ -266,7 +266,8 @@ export function buildOpenApiSpec() {
             { name: 'min_readiness', in: 'query', required: false, schema: { type: 'integer', minimum: 0, maximum: 100 } },
             { name: 'min_trust', in: 'query', required: false, schema: { type: 'integer', minimum: 0, maximum: 100 } },
             { name: 'verified', in: 'query', required: false, schema: { type: 'boolean' } },
-            { name: 'supports_checkout', in: 'query', required: false, schema: { type: 'boolean' } },
+            { name: 'nexez_checkout_ready', in: 'query', required: false, description: 'Require private payout and Nexez-settlement readiness.', schema: { type: 'boolean' } },
+            { name: 'supports_checkout', in: 'query', required: false, deprecated: true, description: 'Compatibility filter for any actionable offer or external handoff.', schema: { type: 'boolean' } },
             { name: 'supports_negotiation', in: 'query', required: false, schema: { type: 'boolean' } },
             {
               name: 'price_band',

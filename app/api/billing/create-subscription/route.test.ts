@@ -34,6 +34,7 @@ vi.mock('../../../../lib/billing', () => ({
   getPlanPriceId: vi.fn(),
   isSelfServePlanId: (value: unknown) => ['launch', 'pro', 'scale'].includes(String(value)),
   isStripePriceId: (value: string | null | undefined) => typeof value === 'string' && value.trim().startsWith('price_'),
+  isUniqueSelfServePlanPrice: vi.fn(() => true),
 }))
 vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({
   claimBillingCheckoutAttempt: billingAttempt.claim,
@@ -45,7 +46,7 @@ vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({
 
 import { POST } from './route'
 import { createClient } from '../../../../utils/supabase/server'
-import { getBillingPlan, getPlanPriceId } from '../../../../lib/billing'
+import { getBillingPlan, getPlanPriceId, isUniqueSelfServePlanPrice } from '../../../../lib/billing'
 
 const jsonRequest = (body: Record<string, unknown>) =>
   new Request('https://nexez.test/api/billing/create-subscription', {
@@ -57,6 +58,7 @@ const jsonRequest = (body: Record<string, unknown>) =>
 describe('POST /api/billing/create-subscription', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(isUniqueSelfServePlanPrice).mockReturnValue(true)
     // Default: the customer has NO live subscription, so create-subscription proceeds
     // to mint the first one. Tests exercising a plan change override this.
     subscriptionsList.mockResolvedValue({ data: [] })
@@ -110,6 +112,21 @@ describe('POST /api/billing/create-subscription', () => {
 
     expect(res.status).toBe(412)
     expect(body.error).toContain('Price ID')
+    expect(subscriptionsCreate).not.toHaveBeenCalled()
+  })
+
+  it('rejects a Stripe Price mapped to more than one self-serve plan', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_shared')
+    vi.mocked(isUniqueSelfServePlanPrice).mockReturnValue(false)
+    vi.mocked(createClient).mockReturnValue(createSupabaseMock(() => ({ data: null }), { user: { id: 'u1', email: 'a@b.c' } }) as any)
+
+    const res = await POST(jsonRequest({ plan: 'pro' }))
+    const body = await res.json()
+
+    expect(res.status).toBe(412)
+    expect(body.error).toContain('distinct Price ID')
     expect(subscriptionsCreate).not.toHaveBeenCalled()
   })
 

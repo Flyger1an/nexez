@@ -10,6 +10,8 @@ const {
   adminFrom,
   adminUpsert,
   adminInsert,
+  getOwnerPlanIds,
+  planRef,
 } = vi.hoisted(() => ({
   constructEvent: vi.fn(),
   retrieveSubscription: vi.fn(),
@@ -19,6 +21,8 @@ const {
   adminFrom: vi.fn(),
   adminUpsert: vi.fn(),
   adminInsert: vi.fn(),
+  getOwnerPlanIds: vi.fn(),
+  planRef: { deniedOwners: new Set<string>() },
 }))
 vi.mock('stripe', () => ({
   default: class {
@@ -28,6 +32,7 @@ vi.mock('stripe', () => ({
   },
 }))
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient, hasSupabaseAdminEnv }))
+vi.mock('../../../../lib/server/plan', () => ({ getOwnerPlanIds }))
 
 // Cancel-on-refund runs inside next/server `after`. Make `after` record-only so
 // other tests are unaffected (callbacks simply never run unless a test drains
@@ -63,6 +68,10 @@ describe('POST /api/webhooks/stripe', () => {
     adminInsert.mockResolvedValue({ error: null })
     adminFrom.mockReturnValue({ upsert: adminUpsert, insert: adminInsert })
     createAdminClient.mockReturnValue({ from: adminFrom })
+    planRef.deniedOwners.clear()
+    getOwnerPlanIds.mockImplementation(async (_admin: unknown, ownerIds: string[]) => Object.fromEntries(
+      ownerIds.map((ownerId) => [ownerId, planRef.deniedOwners.has(ownerId) ? 'free' : 'pro']),
+    ))
   })
   afterEach(() => vi.unstubAllEnvs())
 
@@ -709,6 +718,31 @@ describe('POST /api/webhooks/stripe', () => {
       expect(audit.payload.metadata.changes).toEqual([{ name: 'Deep Clean', from: '$40', to: '$55' }])
     })
 
+    it('acknowledges a connected event without provider or page access after downgrade', async () => {
+      planRef.deniedOwners.add('owner-1')
+      const contexts = withDb((ctx) => {
+        if (ctx.table === 'billing_subscriptions') return { data: { owner_id: 'owner-1' }, error: null }
+        return undefined
+      })
+      constructEvent.mockReturnValue({
+        id: 'evt_product_downgraded',
+        type: 'product.updated',
+        account: 'acct_1',
+        data: {
+          object: { id: 'prod_1', default_price: 'price_new' },
+          previous_attributes: { default_price: 'price_old' },
+        },
+      })
+
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ skipped: 'plan not eligible' })
+      expect(retrievePrice).not.toHaveBeenCalled()
+      expect(contexts.some((ctx) => ctx.table === 'pages')).toBe(false)
+      expect(contexts.some((ctx) => ctx.table === 'stripe_webhook_events' && ctx.op === 'insert')).toBe(true)
+    })
+
     it('price.created reaches product-keyed offers via the stripe_product_id fallback', async () => {
       const page = {
         id: 'pg3',
@@ -807,6 +841,42 @@ describe('POST /api/webhooks/stripe', () => {
       const update = contexts.find((c) => c.table === 'pages' && c.op === 'update')!
       expect(update.payload.products[0].price).toBe('$55 / month')
       expect(update.payload.products[0].tiers[0].price).toBe('$55 / month')
+    })
+
+    it('updates only entitled owners for a platform price event', async () => {
+      planRef.deniedOwners.add('owner-denied')
+      const allowedPage = {
+        id: 'pg-allowed',
+        slug: 'allowed',
+        owner_id: 'owner-allowed',
+        services: [stripeOffer()],
+        products: [],
+      }
+      const deniedPage = {
+        id: 'pg-denied',
+        slug: 'denied',
+        owner_id: 'owner-denied',
+        services: [stripeOffer()],
+        products: [],
+      }
+      const contexts = withDb((ctx) => {
+        if (ctx.table === 'pages' && ctx.op === 'select') {
+          return { data: containsColumn(ctx) === 'services' ? [allowedPage, deniedPage] : [], error: null }
+        }
+        return undefined
+      })
+      constructEvent.mockReturnValue(priceEvent())
+
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+
+      expect(await res.json()).toMatchObject({
+        offersUpdated: 1,
+        pagesTouched: 1,
+        entitlementSkipped: 1,
+      })
+      const pageUpdates = contexts.filter((ctx) => ctx.table === 'pages' && ctx.op === 'update')
+      expect(pageUpdates).toHaveLength(1)
+      expect(pageUpdates[0].eqs.id).toBe('pg-allowed')
     })
 
     it('inactive price → skipped, listings keep the last synced price', async () => {

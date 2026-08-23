@@ -13,6 +13,8 @@ import {
   type AgentLabResearchRow,
 } from '../../../lib/agent-lab-research'
 import { createClient } from '../../../utils/supabase/server'
+import { minPlanForFeature } from '../../../lib/billing'
+import { ownerAllows } from '../../../lib/server/plan'
 
 // Deterministic multi-page crawl; give headroom but stay well under the demo's
 // own timeout race below.
@@ -49,6 +51,24 @@ export async function POST(request: Request) {
     const supabase = createClient(cookieStore)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Sign in to save URL research.' }, { status: 401 })
+
+    // The deterministic scan is a public core demo, but creating a durable,
+    // owner-private research report is a Launch AI-workspace entitlement. Resolve
+    // it server-side at the moment of persistence; read failures fail closed
+    // without affecting ordinary unsaved scans.
+    let canSaveResearch = false
+    try {
+      canSaveResearch = await ownerAllows(supabase, user.id, 'aiFeatures')
+    } catch {
+      canSaveResearch = false
+    }
+    if (!canSaveResearch) {
+      const required = minPlanForFeature('aiFeatures')
+      return NextResponse.json({
+        error: `Saving private URL research requires the ${required.name} plan or higher. Unsaved URL scans remain available.`,
+        upgrade: required.id,
+      }, { status: 402 })
+    }
     saveContext = { supabase, userId: user.id }
   }
 

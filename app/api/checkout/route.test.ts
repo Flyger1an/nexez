@@ -35,6 +35,11 @@ vi.mock('../../../utils/supabase/admin', async () => {
 vi.mock('../../../lib/server/log-checkout-event', () => ({
   logCheckoutEvent: vi.fn(async () => ({ ok: true })),
 }))
+vi.mock('../../../lib/rate-limit', () => ({
+  // Rate limiting has its own contract suite. Keep checkout behavior tests
+  // isolated from the process-global fallback limiter and test order.
+  enforceRateLimit: vi.fn(async () => null),
+}))
 vi.mock('../../../lib/server/page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => credRef.configured,
   getCalendlyPat: async () => { credRef.patCalls += 1; return credRef.pat },
@@ -184,6 +189,24 @@ describe('POST /api/checkout - agent action safety', () => {
     })
     expect(stripeCalls).toEqual([])
   })
+
+  it('rejects a sold-out offer before approval, provider, or payment work', async () => {
+    adminRef.handler = (c: QueryContext) => c.table === 'pages'
+      ? {
+          data: {
+            ...fixedPage(),
+            services: [{ ...fixedPage().services[0], availability: 'sold_out' }],
+          },
+          error: null,
+        }
+      : { data: null, error: null, count: 0 }
+
+    const res = await POST(post({ slug: 'demo', offer: 'services-0', dryRun: true }))
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'offer_unavailable' })
+    expect(stripeCalls).toEqual([])
+  })
 })
 
 describe('POST /api/checkout - Smart Rules calendar protection', () => {
@@ -250,7 +273,7 @@ describe('POST /api/checkout - Smart Rules calendar protection', () => {
 })
 
 describe('POST /api/checkout - buyer identity propagation', () => {
-  // Connect-ready seller so the live Stripe branch runs (page + a charges-enabled
+  // Connect-ready seller so the live Stripe branch runs (page + a charge-and-payout-ready
   // billing_subscriptions row, both on the service-role client).
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -261,7 +284,7 @@ describe('POST /api/checkout - buyer identity propagation', () => {
     adminRef.handler = (c: QueryContext) => {
       if (c.table === 'pages') return { data: fixedPage(), error: null }
       if (c.table === 'billing_subscriptions')
-        return { data: { plan_id: 'free', status: 'active', stripe_connect_account_id: 'acct_test', stripe_connect_charges_enabled: true }, error: null }
+        return { data: { plan_id: 'free', status: 'active', stripe_connect_account_id: 'acct_test', stripe_connect_charges_enabled: true, stripe_connect_payouts_enabled: true }, error: null }
       return { data: null, error: null, count: 0 }
     }
   })
@@ -331,7 +354,7 @@ describe('POST /api/checkout - buyer identity propagation', () => {
     adminRef.handler = (c: QueryContext) => {
       if (c.table === 'pages') return { data: fixedPage(), error: null }
       if (c.table === 'billing_subscriptions') {
-        return { data: { plan_id: planId, status: 'active', stripe_connect_account_id: 'acct_test', stripe_connect_charges_enabled: true }, error: null }
+        return { data: { plan_id: planId, status: 'active', stripe_connect_account_id: 'acct_test', stripe_connect_charges_enabled: true, stripe_connect_payouts_enabled: true }, error: null }
       }
       return { data: null, error: null, count: 0 }
     }
@@ -375,6 +398,7 @@ describe('POST /api/checkout - buyer identity propagation', () => {
             status: 'active',
             stripe_connect_account_id: 'acct_test',
             stripe_connect_charges_enabled: true,
+            stripe_connect_payouts_enabled: true,
           },
           error: null,
         }
@@ -411,6 +435,7 @@ describe('POST /api/checkout - buyer identity propagation', () => {
             status: 'active',
             stripe_connect_account_id: 'acct_test',
             stripe_connect_charges_enabled: true,
+            stripe_connect_payouts_enabled: true,
           },
           error: null,
         }
@@ -443,7 +468,13 @@ describe('POST /api/checkout - single-use Calendly links', () => {
     credRef.patCalls = 0
     const { hasSupabaseAdminEnv } = await import('../../../utils/supabase/admin')
     vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
-    adminRef.handler = (c: QueryContext) => (c.table === 'pages' ? { data: calendlyPage(), error: null } : { data: null, error: null, count: 0 })
+    adminRef.handler = (c: QueryContext) => {
+      if (c.table === 'pages') return { data: calendlyPage(), error: null }
+      if (c.table === 'billing_subscriptions') {
+        return { data: { plan_id: 'pro', status: 'active', trial_ends_at: null }, error: null }
+      }
+      return { data: null, error: null, count: 0 }
+    }
   })
   afterEach(() => vi.unstubAllEnvs())
 
@@ -472,10 +503,25 @@ describe('POST /api/checkout - single-use Calendly links', () => {
     expect((await res.json()).url).toBe('https://calendly.com/acme/intro')
   })
 
+  it('does not read the PAT or call Calendly after an integrations downgrade', async () => {
+    adminRef.handler = (c: QueryContext) => {
+      if (c.table === 'pages') return { data: calendlyPage(), error: null }
+      if (c.table === 'billing_subscriptions') {
+        return { data: { plan_id: 'launch', status: 'active', trial_ends_at: null }, error: null }
+      }
+      return { data: null, error: null, count: 0 }
+    }
+
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+
+    expect((await res.json()).url).toBe('https://calendly.com/acme/intro')
+    expect(credRef.patCalls).toBe(0)
+  })
+
   it('never mints for a non-Calendly offer or an offer missing the event-type URI', async () => {
     adminRef.handler = (c: QueryContext) => (c.table === 'pages' ? { data: calendlyPage({ source: 'shopify', metadata: {} }), error: null } : { data: null, error: null, count: 0 })
     const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
-    expect((await res.json()).url).toBe('https://calendly.com/acme/intro')
+    expect(await res.json()).toMatchObject({ url: 'https://calendly.com/acme/intro' })
     expect(credRef.patCalls).toBe(0)
   })
 })

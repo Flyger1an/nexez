@@ -81,6 +81,53 @@ export function parseOfferLines(value: string): OfferItem[] {
   })
 }
 
+function normalizedOfferName(value: string | null | undefined) {
+  return (value ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+/**
+ * Apply edits from the compact four-column mobile editor without replacing the
+ * original offer objects. Exact-name matching preserves metadata through row
+ * reordering; same-index fallback preserves it through a rename when the row
+ * count is unchanged. New rows start clean and deleted rows stay deleted.
+ */
+export function mergeOfferLines(
+  value: string,
+  originals: OfferItem[] | null | undefined,
+): OfferItem[] {
+  const edited = parseOfferLines(value)
+  const source = originals ?? []
+  const sourceByName = new Map<string, number[]>()
+  source.forEach((offer, index) => {
+    const key = normalizedOfferName(offer.name)
+    if (!key) return
+    sourceByName.set(key, [...(sourceByName.get(key) ?? []), index])
+  })
+
+  const matchedSourceIndexes = new Set<number>()
+  const matches = new Map<number, number>()
+  edited.forEach((offer, editedIndex) => {
+    const candidates = sourceByName.get(normalizedOfferName(offer.name)) ?? []
+    const sourceIndex = candidates.find((candidate) => !matchedSourceIndexes.has(candidate))
+    if (sourceIndex === undefined) return
+    matchedSourceIndexes.add(sourceIndex)
+    matches.set(editedIndex, sourceIndex)
+  })
+
+  if (edited.length === source.length) {
+    edited.forEach((_offer, index) => {
+      if (matches.has(index) || matchedSourceIndexes.has(index)) return
+      matchedSourceIndexes.add(index)
+      matches.set(index, index)
+    })
+  }
+
+  return edited.map((offer, index) => {
+    const sourceIndex = matches.get(index)
+    return sourceIndex === undefined ? offer : { ...source[sourceIndex], ...offer }
+  })
+}
+
 export function formatOfferLines(items: OfferItem[] | null | undefined) {
   return (items ?? []).map((item) => [item.name, item.price ?? '', item.description ?? '', item.url ?? ''].join(' | ')).join('\n')
 }

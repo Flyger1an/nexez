@@ -7,6 +7,7 @@ const refs = vi.hoisted(() => ({
   insert: { data: { id: 'inv1', email: 'mate@example.com', role: 'editor', status: 'pending', created_at: 'now' }, error: null } as any,
   update: { data: { id: 'inv1', email: 'mate@example.com', role: 'viewer', status: 'pending', created_at: 'now' }, error: null } as any,
   sent: [] as any[],
+  plan: 'pro' as 'free' | 'launch' | 'pro' | 'scale' | 'enterprise',
 }))
 
 vi.mock('next/server', async (importOriginal) => {
@@ -17,6 +18,7 @@ vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [],
 vi.mock('../../../../utils/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => null) }))
 vi.mock('../../../../lib/site', () => ({ appUrl: (p: string) => `https://app.nexez.ai${p}` }))
+vi.mock('../../../../lib/server/plan', () => ({ getOwnerPlanId: vi.fn(async () => refs.plan) }))
 vi.mock('../../../../lib/email', () => ({
   hasEmailEnv: vi.fn(() => true),
   sendEmail: vi.fn(async (m: any) => { refs.sent.push(m); return { ok: true } }),
@@ -60,6 +62,7 @@ describe('POST /api/team/invite', () => {
     refs.insert = { data: { id: 'inv1', email: 'mate@example.com', role: 'editor', status: 'pending', created_at: 'now' }, error: null }
     refs.update = { data: { id: 'inv1', email: 'mate@example.com', role: 'viewer', status: 'pending', created_at: 'now' }, error: null }
     refs.sent = []
+    refs.plan = 'pro'
     wire()
   })
 
@@ -93,6 +96,15 @@ describe('POST /api/team/invite', () => {
     wire()
     const res = await POST(post({ email: 'mate@example.com', role: 'editor' }))
     expect(res.status).toBe(402)
+  })
+
+  it('409 retryable when another plan allocation owns the serialization lock', async () => {
+    refs.insert = { data: null, error: { code: '40001', message: 'NEXEZ_ENTITLEMENT_ALLOCATION_RETRY' } }
+    wire()
+    const res = await POST(post({ email: 'mate@example.com', role: 'editor' }))
+    expect(res.status).toBe(409)
+    expect(res.headers.get('retry-after')).toBe('1')
+    expect(await res.json()).toMatchObject({ code: 'entitlement_allocation_retry', retryable: true })
   })
 
   it('creates the invite and emails the invitee', async () => {
@@ -133,6 +145,17 @@ describe('POST /api/team/invite', () => {
     wire()
     expect((await PATCH(patch({ id: 'inv1', action: 'revoke' }))).status).toBe(200)
     expect((await PATCH(patch({ id: 'inv1', action: 'delete-forever' }))).status).toBe(400)
+  })
+
+  it('blocks role changes after downgrade but keeps revocation available', async () => {
+    refs.plan = 'free'
+    const roleRes = await PATCH(patch({ id: 'inv1', action: 'role', role: 'viewer' }))
+    expect(roleRes.status).toBe(402)
+    expect(await roleRes.json()).toMatchObject({ code: 'plan_feature_required', upgrade: 'pro' })
+
+    refs.update = { data: { id: 'inv1', email: 'mate@example.com', role: 'editor', status: 'revoked', created_at: 'now' }, error: null }
+    wire()
+    expect((await PATCH(patch({ id: 'inv1', action: 'revoke' }))).status).toBe(200)
   })
 
   it('does not reveal or mutate another owner\'s invite', async () => {

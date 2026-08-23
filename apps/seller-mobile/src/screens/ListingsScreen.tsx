@@ -1,13 +1,12 @@
 import { useRouter } from 'expo-router'
 import { Plus, Search } from 'lucide-react-native'
-import * as WebBrowser from 'expo-web-browser'
 import { useMemo, useState } from 'react'
 import { Pressable, Text, TextInput, View } from 'react-native'
 import { AppButton, Badge, EmptyState, ErrorState, Header, IconButton, LoadingState, Screen } from '@/src/components/ui'
 import { formatDate } from '@/src/lib/format'
-import { publicPageUrl } from '@/src/lib/config'
 import { getOfferCount, getReadinessScore } from '@/src/lib/agent-page'
 import { publishPage } from '@/src/lib/data'
+import { listingWriteErrorMessage } from '@/src/lib/listing-write-error'
 import { useToast } from '@/src/components/Toast'
 import { colors, fonts, radii, readinessColor } from '@/src/theme/colors'
 import { useListingsBoard } from '@/src/hooks/useListings'
@@ -20,8 +19,9 @@ export function ListingsScreen() {
   const toast = useToast()
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
+  const [pendingPageId, setPendingPageId] = useState<string | null>(null)
 
-  const pages = data?.pages ?? []
+  const pages = useMemo(() => data?.pages ?? [], [data?.pages])
   const counts = useMemo(
     () => ({
       all: pages.length,
@@ -44,9 +44,17 @@ export function ListingsScreen() {
   if (error || !data) return <ErrorState message={error || 'Listings unavailable.'} onRetry={reload} />
 
   async function toggle(id: string, value: boolean) {
-    await publishPage(id, value)
-    toast(value ? 'Listing published' : 'Listing unpublished', 'success')
-    await reload()
+    if (pendingPageId) return
+    setPendingPageId(id)
+    try {
+      await publishPage(id, value)
+      toast(value ? 'Listing published' : 'Listing unpublished', 'success')
+      await reload()
+    } catch (error) {
+      toast(listingWriteErrorMessage(error), 'danger')
+    } finally {
+      setPendingPageId(null)
+    }
   }
 
   return (
@@ -108,10 +116,11 @@ export function ListingsScreen() {
                 </Pressable>
                 <Pressable
                   onPress={() => void toggle(page.id, !page.is_published)}
+                  disabled={pendingPageId !== null}
                   style={[styles.actionBtn, page.is_published ? null : styles.publishBtn]}
                 >
                   <Text style={[styles.actionText, page.is_published ? { color: colors.textSecondary } : { color: colors.persimmon }]}>
-                    {page.is_published ? 'Unpublish' : 'Publish'}
+                    {pendingPageId === page.id ? 'Saving…' : page.is_published ? 'Unpublish' : 'Publish'}
                   </Text>
                 </Pressable>
               </View>

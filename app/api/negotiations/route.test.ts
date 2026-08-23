@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { QueryContext } from '../../../test/supabase-mock'
 
-// lib/supabase is a module singleton, so route the mock through a hoisted,
-// per-test-mutable handler.
+// Route database access through a hoisted, per-test-mutable handler.
 const { dbRef } = vi.hoisted(() => ({
   dbRef: { handler: (_ctx: any) => ({ data: null, error: null }) as { data?: any; error?: any } },
 }))
@@ -21,13 +20,12 @@ vi.mock('../../../lib/email', () => ({
 vi.mock('../../../lib/rate-limit', () => ({
   enforceNegotiationRateLimit: () => null,
 }))
-// Admin + plan surface. Defaults keep the local no-admin-env path (admin=null →
-// plan/pause gates skipped) so the existing routing tests are unaffected; the
-// pause-gate tests flip these refs to exercise the prod path.
-const { adminRef } = vi.hoisted(() => ({ adminRef: { hasEnv: false, allowed: true, paused: false } }))
+// Admin + plan surface. Paid public capabilities require this authoritative
+// resolver; a missing service-role environment is tested as a fail-closed 503.
+const { adminRef } = vi.hoisted(() => ({ adminRef: { hasEnv: true, allowed: true, paused: false } }))
 vi.mock('../../../utils/supabase/admin', async () => {
-  // Back the admin client with the same dbRef handler so getPublishedPage's
-  // admin-env read resolves to the same mocked page rows.
+  // Back the admin client with the dbRef handler so the route's page and billing
+  // reads resolve to the per-test rows.
   const { createSupabaseMock } = await import('../../../test/supabase-mock')
   return {
     createAdminClient: () => createSupabaseMock((ctx) => dbRef.handler(ctx)),
@@ -96,7 +94,7 @@ describe('POST /api/negotiations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     dbRef.handler = () => ({ data: null, error: null })
-    adminRef.hasEnv = false
+    adminRef.hasEnv = true
     adminRef.allowed = true
     adminRef.paused = false
   })
@@ -132,6 +130,15 @@ describe('POST /api/negotiations', () => {
       const { negotiationService } = await import('../../../lib/negotiation.service')
       expect(negotiationService.submitProposal).toHaveBeenCalled()
     })
+  })
+
+  it('503 when owner entitlement cannot be verified', async () => {
+    adminRef.hasEnv = false
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect(res.status).toBe(503)
+    expect(await res.json()).toMatchObject({ code: 'entitlement_unavailable' })
+    const { negotiationService } = await import('../../../lib/negotiation.service')
+    expect(negotiationService.submitProposal).not.toHaveBeenCalled()
   })
 
   it('400 when slug or offer is missing', async () => {

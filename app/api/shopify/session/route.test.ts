@@ -90,4 +90,21 @@ describe('POST /api/shopify/session', () => {
     })
     expect(issueShopifyLinkToken).not.toHaveBeenCalled()
   })
+
+  it('fails closed while a mapping lifecycle transition is still finishing', async () => {
+    vi.mocked(ensureShopifySessionInstall).mockResolvedValue({
+      shop_domain: 'demo.myshopify.com',
+      owner_id: 'owner-1',
+      page_id: 'page-1',
+      scope: 'read_products,write_app_proxy',
+      uninstalled_at: null,
+      mapping_generation: 5,
+      mapping_transition_token: 'lease-1',
+    })
+
+    const response = await POST(request())
+
+    expect(response.status).toBe(409)
+    expect(issueShopifyLinkToken).not.toHaveBeenCalled()
+  })
 })

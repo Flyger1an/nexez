@@ -833,7 +833,7 @@ export default function BillingDashboardClient({
 
         {/* Beautiful plan comparison cards */}
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-          {billingPlans.map((plan) => {
+          {billingPlans.map((plan, planIndex) => {
             const isCurrent = plan.id === currentId
             const isLoadingThis = checkoutLoading === plan.id
             const isSelected = selectedPlanId === plan.id
@@ -878,6 +878,12 @@ export default function BillingDashboardClient({
                 )}
 
                 <ul className="mt-6 space-y-2.5 text-sm flex-1 text-[var(--fg-muted)]">
+                  {planIndex > 0 ? (
+                    <li className="flex items-start gap-2.5 font-medium text-white">
+                      <Check className="mt-1 size-3.5 text-[var(--ready)]/90 shrink-0" />
+                      <span>Everything in {billingPlans[planIndex - 1].name}, plus:</span>
+                    </li>
+                  ) : null}
                   {plan.features.map((f, idx) => (
                     <li key={idx} className="flex items-start gap-2.5">
                       <Check className="mt-1 size-3.5 text-[var(--ready)]/90 shrink-0" />

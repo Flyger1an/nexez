@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { dbRef, demandRef, llmRef } = vi.hoisted(() => ({
+const { dbRef, demandRef, llmRef, commerceRef } = vi.hoisted(() => ({
   dbRef: { handler: (_c: any) => ({ data: [] as any[], error: null }) as { data?: any; error?: any } },
   demandRef: { signals: [] as any[] },
   llmRef: {
@@ -8,6 +8,12 @@ const { dbRef, demandRef, llmRef } = vi.hoisted(() => ({
     response: null as string | null,
     lastPrompt: null as string | null,
     lastOptions: null as Record<string, unknown> | null,
+  },
+  commerceRef: {
+    resolve: vi.fn(async () => ({
+      negotiationEligibleSlugs: new Set<string>(),
+      checkoutReadySlugs: new Set<string>(),
+    })),
   },
 }))
 
@@ -29,8 +35,18 @@ vi.mock('../../../lib/llm', () => ({
     return llmRef.response
   }),
 }))
+vi.mock('../../../lib/server/plan', () => ({
+  // Public buyer discovery is platform-funded and intentionally has no owner
+  // entitlement lookup. Keep this mock false so a future accidental gate is
+  // caught by the explicit exception test below.
+  ownerAllows: vi.fn(async () => false),
+}))
+vi.mock('../../../lib/server/public-commerce-capabilities', () => ({
+  resolvePublicCommerceCapabilities: commerceRef.resolve,
+}))
 
 import { POST } from './route'
+import { ownerAllows } from '../../../lib/server/plan'
 
 const post = (body: unknown) =>
   new Request('https://nexez.test/api/public-simulate', {
@@ -120,6 +136,7 @@ const tutorPage = {
 
 describe('POST /api/public-simulate', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     llmRef.configured = false
     llmRef.response = null
     llmRef.lastPrompt = null
@@ -163,6 +180,7 @@ describe('POST /api/public-simulate', () => {
     expect(body.matchedBusiness.matchType).toBe('strong')
     expect(body.matchedBusiness).not.toHaveProperty('score')
     expect(body.matchedBusiness).not.toHaveProperty('matchReasons')
+    expect(commerceRef.resolve).toHaveBeenCalledWith(['kismetpros', 'strategy-studio'])
     expect(body.decisionPath).toEqual([
       expect.objectContaining({ key: 'intent', status: 'understood' }),
       expect.objectContaining({ key: 'supply', status: 'live', detail: 'Kismet Pros' }),
@@ -653,6 +671,7 @@ describe('POST /api/public-simulate', () => {
     expect(body.mode).toBe('simulation')
     expect(body.llmEnhanced).toBe(true)
     expect(body.naturalLanguage).toBe(llmRef.response)
+    expect(ownerAllows).not.toHaveBeenCalled()
   })
 
   it('returns a truthful coverage gap instead of inventing a merchant or unrelated library scenario', async () => {

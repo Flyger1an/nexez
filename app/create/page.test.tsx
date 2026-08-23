@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../../test/dom'
 import CreatePage from './page'
 import { NEXEZ_INDUSTRIES } from '../../lib/industry-catalog'
-import { agentRuntimeUrl } from '../../lib/site'
+import { agentRuntimeUrl, appUrl } from '../../lib/site'
+import { PlanProvider } from '../../components/billing/PlanProvider'
+import { getPlanFeatureEntitlements, getSerializablePlanLimits } from '../../lib/billing'
 
 const routerMock = vi.hoisted(() => ({
   push: vi.fn(),
@@ -295,6 +297,51 @@ describe('CreatePage guided import review', () => {
     const options = document.querySelectorAll('#nexez-industry-suggestions option')
     expect(options).toHaveLength(NEXEZ_INDUSTRIES.length)
     expect(Array.from(options).some((option) => option.getAttribute('value') === 'Immigration Law')).toBe(true)
+  })
+
+  it('does not expose paid AI optimization before an owner plan is resolved', () => {
+    render(<CreatePage />)
+
+    expect(screen.queryByRole('button', { name: 'Agent Optimize' })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Business Name'), { target: { value: 'Manual Draft' } })
+    fireEvent.change(screen.getByLabelText('Short Description'), { target: { value: 'Manual seller copy.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    expect(screen.queryByRole('button', { name: 'Enhance All' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Optimize Offers' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Enhance' })).not.toBeInTheDocument()
+    expect(screen.queryByText('AI Co-Pilot')).not.toBeInTheDocument()
+    expect(screen.getByText(/AI Optimize, bulk rewrite, and Co-Pilot tools unlock on Launch/i)).toBeInTheDocument()
+  })
+
+  it('keeps CSV import available while gating premium imports below Pro', () => {
+    render(<CreatePage />)
+
+    expect(screen.getByRole('button', { name: 'Upload CSV' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Import Stripe' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Import Calendly' })).not.toBeInTheDocument()
+    expect(screen.getByText('Stripe & Calendly imports')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Upgrade to Pro/ })).toHaveAttribute('href', appUrl('/dashboard/billing?plan=pro'))
+  })
+
+  it('shows Stripe and Calendly import forms when the resolved plan allows integrations', () => {
+    render(
+      <PlanProvider
+        entitlements={{
+          planId: 'pro',
+          features: getPlanFeatureEntitlements('pro'),
+          limits: getSerializablePlanLimits('pro'),
+        }}
+      >
+        <CreatePage />
+      </PlanProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import Stripe' }))
+    expect(screen.getByText('Stripe Product or Price Import')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Import Calendly' }))
+    expect(screen.getByText('Calendly Bookings Import')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upload CSV' })).toBeInTheDocument()
   })
 
   it.each(refinementScenarios)('runs the refinement loop for $name offers', async (scenario) => {

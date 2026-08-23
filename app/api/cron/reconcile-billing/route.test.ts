@@ -92,7 +92,7 @@ describe('GET /api/cron/reconcile-billing - trial-expiry fallback pass', () => {
     expect(body.unchanged).toBe(1)
   })
 
-  it('does NOT null an active subscriber plan when the Stripe price is unmapped — uses the metadata fallback (webhook parity)', async () => {
+  it('fails closed when an active subscription has a concrete unknown Stripe Price instead of trusting metadata', async () => {
     const upserts: any[] = []
     vi.mocked(createAdminClient).mockReturnValue(
       createSupabaseMock((ctx) => {
@@ -107,8 +107,9 @@ describe('GET /api/cron/reconcile-billing - trial-expiry fallback pass', () => {
         return { data: [] } // no expired trials
       }) as any,
     )
-    // Live active sub, but its price id maps to NO local plan (a plan Price-ID env drift).
-    // metadata still carries the plan chosen at creation.
+    // Live active sub, but its concrete Price maps to no local plan. Metadata
+    // claims Pro, but a concrete unknown Price is authoritative and must not be
+    // converted into a paid-plan grant from metadata.
     subscriptionsList.mockResolvedValue({
       data: [{
         id: 'sub1', status: 'active', customer: 'cus_x',
@@ -122,11 +123,16 @@ describe('GET /api/cron/reconcile-billing - trial-expiry fallback pass', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    // Rebuilt plan_id resolves to 'pro' via the metadata fallback (not null), matching the
-    // row → treated as unchanged, NO plan-nulling upsert. Without the fallback this would
-    // have upserted plan_id=null (entitlement dropped, commission spiked to 9%) hourly.
-    expect(body.unchanged).toBe(1)
-    expect(upserts.every((p) => p.plan_id !== null)).toBe(true)
+    expect(body.unchanged).toBe(0)
+    expect(body.healed).toBe(1)
+    expect(upserts).toHaveLength(1)
+    expect(upserts[0]).toMatchObject({
+      owner_id: 'sub-owner',
+      stripe_subscription_id: 'sub1',
+      stripe_price_id: 'price_unmapped_env',
+      plan_id: null,
+      status: 'active',
+    })
   })
 
   it('heals a scheduled-cancellation flag that drifted from Stripe', async () => {

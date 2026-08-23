@@ -31,6 +31,7 @@ export function DomainConnectionPanel({
   publicUrl,
   status,
   domainVerified,
+  activationAllowed,
   busy,
   attachIsNext,
   onAction,
@@ -42,10 +43,12 @@ export function DomainConnectionPanel({
   status: DomainConnectionStatus | null
   /** Verified AND the proof belongs to the currently typed domain (page-derived). */
   domainVerified: boolean
+  /** Current owner plan can actively route a custom domain. Cleanup stays open when false. */
+  activationAllowed: boolean
   busy: boolean
   /** Highlights attach as the recommended next step; derived by the page. */
   attachIsNext: boolean
-  onAction: (action: 'attach' | 'status') => void
+  onAction: (action: 'attach' | 'status' | 'remove') => void
   onMessage: (message: string) => void
 }) {
   const [crawlLoading, setCrawlLoading] = useState(false)
@@ -100,18 +103,20 @@ export function DomainConnectionPanel({
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-zinc-200">Connection & SSL</p>
         <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onAction('attach')}
-            className={`rounded px-2.5 py-1 text-[11px] disabled:opacity-50 ${
-              attachIsNext
-                ? 'settings-emphasis-action'
-                : 'border border-[var(--line)] text-[var(--fg)] hover:bg-[var(--fill-1)]'
-            }`}
-          >
-            {busy ? 'Working…' : 'Attach & detect DNS'}
-          </button>
+          {activationAllowed ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onAction('attach')}
+              className={`rounded px-2.5 py-1 text-[11px] disabled:opacity-50 ${
+                attachIsNext
+                  ? 'settings-emphasis-action'
+                  : 'border border-[var(--line)] text-[var(--fg)] hover:bg-[var(--fill-1)]'
+              }`}
+            >
+              {busy ? 'Working…' : 'Attach & detect DNS'}
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={busy}
@@ -120,18 +125,33 @@ export function DomainConnectionPanel({
           >
             Check status
           </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onAction('remove')}
+            className="rounded border border-[var(--amber)]/30 px-2.5 py-1 text-[11px] text-[var(--amber)] hover:bg-[var(--amber)]/10 disabled:opacity-50"
+          >
+            Detach domain
+          </button>
         </div>
       </div>
 
+      {!activationAllowed && domainVerified ? (
+        <p role="status" className="mt-2 rounded border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-2 text-[11px] text-[var(--amber)]">
+          DNS ownership proof is retained, but custom-domain routing is paused by your current plan. Detach remains available.
+        </p>
+      ) : null}
+
       {(() => {
-        const currentState =
-          status?.state ?? (domainVerified ? 'verifying' : 'pending_dns')
+        const currentState = !activationAllowed && domainVerified
+          ? 'paused_plan'
+          : status?.state ?? (domainVerified ? 'verifying' : 'pending_dns')
         const steps = [
           { key: 'pending_dns', label: 'Pending DNS' },
           { key: 'verifying', label: 'Verifying' },
           { key: 'live', label: 'Live' },
         ]
-        const order: Record<string, number> = { pending_dns: 0, verifying: 1, ssl_issuing: 1, live: 2 }
+        const order: Record<string, number> = { pending_dns: 0, verifying: 1, ssl_issuing: 1, paused_plan: 1, live: 2 }
         const activeIdx = order[currentState] ?? 0
         const isError = currentState === 'error'
         return (
@@ -160,7 +180,9 @@ export function DomainConnectionPanel({
         )
       })()}
 
-      {status ? (
+      {!activationAllowed && domainVerified ? (
+        <p className="mt-2 text-[11px] text-zinc-400">Upgrade to Launch or detach this retained hostname. It is not serving through Nexez.</p>
+      ) : status ? (
         <p className="mt-2 text-[11px] text-zinc-400">{status.detail}</p>
       ) : (
         <p className="mt-2 text-[11px] text-zinc-500">

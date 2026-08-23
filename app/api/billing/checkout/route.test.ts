@@ -23,6 +23,7 @@ vi.mock('../../../../lib/billing', () => ({
   getPlanPriceId: vi.fn(),
   isSelfServePlanId: (value: unknown) => ['launch', 'pro', 'scale'].includes(String(value)),
   isStripePriceId: (value: string | null | undefined) => typeof value === 'string' && value.trim().startsWith('price_'),
+  isUniqueSelfServePlanPrice: vi.fn(() => true),
 }))
 vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({
   claimBillingCheckoutAttempt: billingAttempt.claim,
@@ -34,7 +35,7 @@ vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({
 
 import { POST } from './route'
 import { createClient } from '../../../../utils/supabase/server'
-import { getBillingPlan, getPlanPriceId } from '../../../../lib/billing'
+import { getBillingPlan, getPlanPriceId, isUniqueSelfServePlanPrice } from '../../../../lib/billing'
 
 const form = (plan: string) =>
   new Request('https://nexez.test/api/billing/checkout', {
@@ -46,6 +47,7 @@ const form = (plan: string) =>
 describe('POST /api/billing/checkout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(isUniqueSelfServePlanPrice).mockReturnValue(true)
     // Default: no live subscription -> a first purchase creates a Checkout Session.
     subscriptionsList.mockResolvedValue({ data: [] })
     billingAttempt.claim.mockResolvedValue({ ok: true, attempt: { attempt_key: 'attempt-1' }, reused: false })
@@ -89,6 +91,20 @@ describe('POST /api/billing/checkout', () => {
 
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toContain('error=bad_price_id')
+    expect(checkoutSessionsCreate).not.toHaveBeenCalled()
+  })
+
+  it('rejects a Stripe Price mapped to more than one self-serve plan', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_shared' as any)
+    vi.mocked(isUniqueSelfServePlanPrice).mockReturnValue(false)
+    vi.mocked(createClient).mockReturnValue(createSupabaseMock(() => ({ data: null }), { user: { id: 'u1', email: 'a@b.c' } }) as any)
+
+    const res = await POST(form('pro'))
+
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toContain('error=duplicate_price_id')
     expect(checkoutSessionsCreate).not.toHaveBeenCalled()
   })
 

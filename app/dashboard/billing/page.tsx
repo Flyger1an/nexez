@@ -1,9 +1,9 @@
 import Stripe from 'stripe'
 import { cookies } from 'next/headers'
 import { AgentPage, OWNER_PAGE_SELECT, getOfferCount } from '../../../lib/agent-page'
-import { billingPlans, getCommissionBpsForPlan, getPlanLimits } from '../../../lib/billing'
+import { billingPlans, getPlanLimits } from '../../../lib/billing'
 import { getStripeBillingReadiness } from '../../../lib/server/billing-readiness'
-import { getOwnerBillingState, getOwnerCommission } from '../../../lib/server/plan'
+import { getCommercialPlanDefaultCommission, getOwnerBillingState, getOwnerCommission } from '../../../lib/server/plan'
 import {
   BillingSubscription,
   LIVE_SUBSCRIPTION_STATUSES,
@@ -97,7 +97,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   const stripeReady = stripeReadiness.subscriptionCheckoutReady
   const configuredPlanIds = stripeReadiness.configuredPlans.map((plan) => plan.id)
   // Show the effective entitlement plan, not merely the paid Stripe row. This matters
-  // for platform-admin/grandfathered Enterprise accounts, whose separate self-serve
+  // for platform-admin or Enterprise accounts, whose separate self-serve
   // subscription must never make the dashboard claim their access is Free or Launch.
   const activePlan = billingPlans.find((plan) => plan.id === trialState.planId)
   const hasEnterpriseOverride = trialState.planId === 'enterprise' && billingState?.plan_id !== 'enterprise'
@@ -111,12 +111,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   // render accurately without exposing the commercial-terms table to the browser.
   const commission = hasSupabaseAdminEnv()
     ? await getOwnerCommission(createAdminClient(), user.id, trialState)
-    : {
-        planId: trialState.planId,
-        basisPoints: getCommissionBpsForPlan(trialState.planId),
-        percent: getCommissionBpsForPlan(trialState.planId) / 100,
-        source: 'plan_default' as const,
-      }
+    : getCommercialPlanDefaultCommission(trialState)
   const commissionPct = commission.percent
 
   // Durable, Stripe-proven money rows are the source of GMV and Nexez fees. Checkout

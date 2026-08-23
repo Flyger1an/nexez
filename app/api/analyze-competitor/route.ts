@@ -6,6 +6,7 @@ import { createAdminClient } from '@/utils/supabase/admin'
 import { PUBLIC_PAGE_SELECT, getReadinessScore, getTrustScore, getOfferCount } from '@/lib/agent-page'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { ownerAllows } from '@/lib/server/plan'
+import { minPlanForFeature } from '@/lib/billing'
 import { resolveFeatureOwner } from '@/lib/server/page-access'
 import {
   AGENT_LAB_RESEARCH_SELECT,
@@ -66,7 +67,11 @@ export async function POST(request: Request) {
     )
   }
   if (!(await ownerAllows(access.scoped ? createAdminClient() : supabase, access.ownerId, 'aiFeatures'))) {
-    return NextResponse.json({ error: 'Competitor analysis is an AI feature. Upgrade to the Launch plan or higher to unlock it.', upgrade: 'launch' }, { status: 402 })
+    const required = minPlanForFeature('aiFeatures')
+    return NextResponse.json(
+      { error: `Competitor analysis is an AI feature. Upgrade to the ${required.name} plan or higher to unlock it.`, upgrade: required.id },
+      { status: 402 },
+    )
   }
 
   try {

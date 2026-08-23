@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { fireOutboundWebhook, getWebhookEndpointError, OutboundWebhookPayload } from '../../../lib/webhooks'
 import { createClient } from '../../../utils/supabase/server'
 import { ownerAllows } from '../../../lib/server/plan'
+import { minPlanForFeature } from '../../../lib/billing'
 
 /**
  * Test Outbound Webhook (Phase 3)
@@ -27,8 +28,9 @@ export async function POST(request: NextRequest) {
   // Outbound webhooks are a Pro (`outboundWebhooks`) capability - gate the test
   // sender too, so it can't be used to fire arbitrary webhooks below Pro.
   if (!(await ownerAllows(supabase, user.id, 'outboundWebhooks'))) {
+    const required = minPlanForFeature('outboundWebhooks')
     return NextResponse.json(
-      { error: 'Outbound webhooks are available on the Pro plan and up.', upgrade: 'pro' },
+      { error: `Outbound webhooks are available on the ${required.name} plan and up.`, upgrade: required.id },
       { status: 402 },
     )
   }

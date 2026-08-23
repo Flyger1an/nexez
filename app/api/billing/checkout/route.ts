@@ -2,7 +2,7 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { appUrl } from '../../../../lib/site'
-import { getBillingPlan, getPlanPriceId, isSelfServePlanId, isStripePriceId } from '../../../../lib/billing'
+import { getBillingPlan, getPlanPriceId, isSelfServePlanId, isStripePriceId, isUniqueSelfServePlanPrice } from '../../../../lib/billing'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { getSubscriptionPriceId, pickLiveStripeSubscription } from '../../../../lib/stripe-billing'
@@ -44,6 +44,9 @@ export async function POST(request: Request) {
 
   if (!isStripePriceId(priceId)) {
     return NextResponse.redirect(appUrl('/dashboard/billing?error=bad_price_id'), 303)
+  }
+  if (!isUniqueSelfServePlanPrice(plan)) {
+    return NextResponse.redirect(appUrl('/dashboard/billing?error=duplicate_price_id'), 303)
   }
 
   const { data: billingState } = await supabase

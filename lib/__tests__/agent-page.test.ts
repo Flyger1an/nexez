@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { parseOfferLines, formatOfferLines, getCheckoutOffer, getRequestBaseUrl, getBaseUrl, resolvePreferredContact, type OfferItem } from '../agent-page'
+import { parseOfferLines, formatOfferLines, getCheckoutOffer, getRequestBaseUrl, getBaseUrl, isOfferActionAvailable, resolvePreferredContact, type OfferItem } from '../agent-page'
+
+describe('offer action availability', () => {
+  it('allows available/limited offers and rejects sold-out offers', () => {
+    expect(isOfferActionAvailable({ availability: 'available' })).toBe(true)
+    expect(isOfferActionAvailable({ availability: 'limited' })).toBe(true)
+    expect(isOfferActionAvailable({})).toBe(true)
+    expect(isOfferActionAvailable({ availability: 'sold_out' })).toBe(false)
+  })
+})
 
 describe('resolvePreferredContact', () => {
   const base = { contact_email: 'hi@acme.com', cta_url: 'https://acme.com/book', website_url: 'https://acme.com', preferred_contact: null }

@@ -1,3 +1,5 @@
+import type { SupportQueueProjection } from './support-routing'
+
 export type LaunchStatus = 'ready' | 'attention' | 'blocked' | 'unknown'
 
 export type LaunchCheck = {
@@ -118,6 +120,7 @@ export type LaunchControlSnapshot = {
   summary: LaunchSummary
   metrics: LaunchMetrics
   sources: LaunchSourceAvailability
+  supportQueue: SupportQueueProjection[]
   incidents: LaunchIncident[]
 }
 

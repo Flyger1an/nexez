@@ -205,6 +205,7 @@ class NexezClient:
         min_readiness: Optional[int] = None,
         min_trust: Optional[int] = None,
         verified: Optional[bool] = None,
+        nexez_checkout_ready: Optional[bool] = None,
         supports_checkout: Optional[bool] = None,
         supports_negotiation: Optional[bool] = None,
         price_band: Optional[str] = None,
@@ -227,6 +228,7 @@ class NexezClient:
         _optional_score(min_trust, "min_trust")
         for value, label in (
             (verified, "verified"),
+            (nexez_checkout_ready, "nexez_checkout_ready"),
             (supports_checkout, "supports_checkout"),
             (supports_negotiation, "supports_negotiation"),
         ):
@@ -256,6 +258,8 @@ class NexezClient:
             params["min_trust"] = min_trust
         if verified is not None:
             params["verified"] = str(verified).lower()
+        if nexez_checkout_ready is not None:
+            params["nexez_checkout_ready"] = str(nexez_checkout_ready).lower()
         if supports_checkout is not None:
             params["supports_checkout"] = str(supports_checkout).lower()
         if supports_negotiation is not None:
@@ -527,6 +531,7 @@ def search_nexez(
     min_readiness: Optional[int] = None,
     min_trust: Optional[int] = None,
     verified: Optional[bool] = None,
+    nexez_checkout_ready: Optional[bool] = None,
     supports_checkout: Optional[bool] = None,
     supports_negotiation: Optional[bool] = None,
     price_band: Optional[str] = None,
@@ -547,6 +552,7 @@ def search_nexez(
         min_readiness=min_readiness,
         min_trust=min_trust,
         verified=verified,
+        nexez_checkout_ready=nexez_checkout_ready,
         supports_checkout=supports_checkout,
         supports_negotiation=supports_negotiation,
         price_band=price_band,

@@ -4,7 +4,6 @@ import { createSupabaseMock } from '../../test/supabase-mock'
 const h = vi.hoisted(() => ({
   configured: true,
   calendlyPat: 'pat' as string | null,
-  installedShopify: null as { shop: string; accessToken: string } | null,
   shopifyCreds: { shop: 'acme.myshopify.com', token: 'shpat_x' } as { shop: string; token: string } | null,
   squareCreds: { accessToken: 'sq_x' } as { accessToken: string } | null,
   acuityCreds: { userId: 'u', apiKey: 'k' } as { userId: string; apiKey: string } | null,
@@ -14,8 +13,8 @@ const h = vi.hoisted(() => ({
   page: { id: 'pg1', slug: 'acme', services: [] as any[], next_available: null } as any,
   pagesUpdate: null as any,
   secretsUpdate: null as any,
-  shopifySyncedAt: null as string | null,
-  shopifySyncOptions: null as any,
+  shopifyCommitResult: 'written' as 'written' | 'mapping_stale' | 'page_conflict',
+  shopifyCommitInput: null as any,
   pagesWriteConflict: false,
 }))
 
@@ -30,10 +29,9 @@ vi.mock('./page-integration-credentials', () => ({
 vi.mock('./calendly-write', () => ({ fetchCalendlyEventTypeAvailability: async () => h.availability }))
 vi.mock('../observability', () => ({ captureEvent: vi.fn() }))
 vi.mock('./shopify-install', () => ({
-  getShopifyInstallCredentials: async () => h.installedShopify,
-  markShopifySynced: async (_admin: unknown, _pageId: string, at: string, options: unknown) => {
-    h.shopifySyncedAt = at
-    h.shopifySyncOptions = options
+  commitShopifyCatalogSync: async (_admin: unknown, input: unknown) => {
+    h.shopifyCommitInput = input
+    return h.shopifyCommitResult
   },
 }))
 
@@ -64,7 +62,6 @@ describe('syncPageIntegration', () => {
   beforeEach(() => {
     h.configured = true
     h.calendlyPat = 'pat'
-    h.installedShopify = null
     h.shopifyCreds = { shop: 'acme.myshopify.com', token: 'shpat_x' }
     h.imported = { ok: true, offers: [calOffer()], note: 'Imported 1' }
     h.importInput = null
@@ -72,8 +69,8 @@ describe('syncPageIntegration', () => {
     h.page = { id: 'pg1', slug: 'acme', services: [{ name: 'Existing', price: '$99', description: '', url: '' }], next_available: null, updated_at: '2026-07-13T12:00:00Z' }
     h.pagesUpdate = null
     h.secretsUpdate = null
-    h.shopifySyncedAt = null
-    h.shopifySyncOptions = null
+    h.shopifyCommitResult = 'written'
+    h.shopifyCommitInput = null
     h.pagesWriteConflict = false
   })
 
@@ -100,7 +97,7 @@ describe('syncPageIntegration', () => {
     const result = await syncPageIntegration(admin(), 'shopify', 'pg1')
 
     expect(result).toMatchObject({ ok: false, status: 409 })
-    expect(h.shopifySyncedAt).toBeNull()
+    expect(h.shopifyCommitInput).toBeNull()
   })
 
   it('calendly: imports offers (preserving existing), syncs availability windows + stamps the cursor', async () => {
@@ -113,20 +110,54 @@ describe('syncPageIntegration', () => {
     expect(h.secretsUpdate.calendly_synced_at).toBeTruthy()
   })
 
-  it('shopify: prefers the installed OAuth credential and records the successful sync', async () => {
-    h.installedShopify = { shop: 'oauth-shop.myshopify.com', accessToken: 'oauth-token' }
+  it('shopify: commits an installed OAuth sync under the exact mapping generation', async () => {
     h.shopifyCreds = null
     h.imported = { ok: true, offers: [shopOffer()], note: 'Imported 1' }
-    const r = await syncPageIntegration(admin(), 'shopify', 'pg1')
+    const mapping = { shop: 'oauth-shop.myshopify.com', ownerId: 'owner-1', pageId: 'pg1', generation: 7 }
+    const credentials = { shop: mapping.shop, accessToken: 'oauth-token' }
+    const r = await syncPageIntegration(admin(), 'shopify', 'pg1', {
+      shopifyCredentials: credentials,
+      shopifyMapping: mapping,
+      clearShopifyCatalogSyncState: true,
+    })
     expect(r).toMatchObject({ ok: true, provider: 'shopify', imported: 1, availabilitySynced: false })
-    expect(h.pagesUpdate.services.find((o: any) => o.name === 'Existing')).toBeTruthy()
-    expect(h.pagesUpdate.products.find((o: any) => o.name === 'Mug').source).toBe('shopify')
-    expect(h.pagesUpdate.services.find((o: any) => o.name === 'Mug')).toBeUndefined()
-    expect('next_available' in h.pagesUpdate).toBe(false)
+    expect(h.pagesUpdate).toBeNull()
     expect(h.secretsUpdate).toBeNull() // shopify doesn't touch the calendly cursor
-    expect(h.shopifySyncedAt).toBeTruthy()
-    expect(h.shopifySyncOptions).toEqual({ shop: 'oauth-shop.myshopify.com', clearCatalogSyncState: true })
+    expect(h.shopifyCommitInput).toMatchObject({
+      mapping,
+      expectedPageUpdatedAt: '2026-07-13T12:00:00Z',
+      clearCatalogSyncState: true,
+      services: expect.arrayContaining([expect.objectContaining({ name: 'Existing' })]),
+      products: expect.arrayContaining([expect.objectContaining({ name: 'Mug', source: 'shopify' })]),
+    })
     expect(h.importInput).toEqual({ provider: 'shopify', shop: 'oauth-shop.myshopify.com', accessToken: 'oauth-token', limit: 250 })
+  })
+
+  it('never falls back to a manual token when an installed credential lacks its mapping proof', async () => {
+    h.shopifyCreds = { shop: 'manual.myshopify.com', token: 'manual-token' }
+    const result = await syncPageIntegration(admin(), 'shopify', 'pg1', {
+      shopifyCredentials: { shop: 'oauth.myshopify.com', accessToken: 'oauth-token' },
+    })
+
+    expect(result).toMatchObject({ ok: false, status: 409 })
+    expect(h.importInput).toBeNull()
+    expect(h.pagesUpdate).toBeNull()
+  })
+
+  it('rejects an in-flight installed sync after a relink generation wins the race', async () => {
+    h.shopifyCreds = null
+    h.imported = { ok: true, offers: [shopOffer()], note: 'Imported 1' }
+    h.shopifyCommitResult = 'mapping_stale'
+    const mapping = { shop: 'oauth.myshopify.com', ownerId: 'owner-1', pageId: 'pg1', generation: 7 }
+
+    const result = await syncPageIntegration(admin(), 'shopify', 'pg1', {
+      shopifyCredentials: { shop: mapping.shop, accessToken: 'oauth-token' },
+      shopifyMapping: mapping,
+    })
+
+    expect(result).toMatchObject({ ok: false, status: 409 })
+    expect((result as { error: string }).error).toMatch(/connection changed during sync/i)
+    expect(h.pagesUpdate).toBeNull()
   })
 
   it('calendly: preserves a hand-written availability note', async () => {

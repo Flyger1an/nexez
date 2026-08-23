@@ -5,15 +5,14 @@ export function isSelfServePlanId(value: unknown): value is SelfServePlanId {
   return value === 'launch' || value === 'pro' || value === 'scale'
 }
 
-// Gateable capabilities. A feature unlocks at a minimum plan RANK (see
-// FEATURE_MIN_RANK) and is cumulative - every higher tier inherits it. Add a new
-// capability here + one line in FEATURE_MIN_RANK/FEATURE_LABELS and it's gated
-// everywhere via planAllows().
+// Gateable capabilities. Commerce participation is deliberately not represented
+// here: operational readiness decides whether a merchant can transact, while a
+// subscription controls the leverage, automation, and capacity around commerce.
 export const PLAN_FEATURES = [
   'customDomain',
-  'aiFeatures', // LLM-enhanced simulator, AI optimize, credential review, agent memory
+  'aiFeatures', // Merchant AI refinement: private analysis, optimize, credential review, agent memory
   'removeBadge',
-  'integrations', // Calendly / Stripe / Shopify / Square import + sync
+  'integrations', // Premium connectors; Stripe payouts + installed Shopify OAuth remain core
   'outboundWebhooks',
   'apiAccess',
   'negotiation', // make-an-offer + smart pricing rules
@@ -22,38 +21,93 @@ export const PLAN_FEATURES = [
   'whiteLabel',
   'prioritySupport',
   'sso',
-  'agenticCheckout', // foundational commerce capability; retained as a compatibility gate
 ] as const
 
 export type PlanFeature = (typeof PLAN_FEATURES)[number]
 
-/** Minimum plan rank that unlocks each feature. Free=0, Launch=1, Pro=2, Scale=3, Enterprise=4. */
-const FEATURE_MIN_RANK: Record<PlanFeature, number> = {
-  customDomain: 1,
-  aiFeatures: 1,
-  removeBadge: 1,
-  integrations: 2,
-  outboundWebhooks: 2,
-  apiAccess: 2,
-  negotiation: 2,
-  analyticsHistory: 2,
-  // Pro is the "almost everything" tier - team collaboration + white-label moved down
-  // from Scale (rank 3 → 2). Scale/Enterprise now differ mainly by LIMITS (seats, listings,
-  // domains) + SSO, not by exclusive features.
-  teamCollaboration: 2,
-  whiteLabel: 2,
-  prioritySupport: 3,
-  sso: 4,
-  // Agentic checkout is foundational when the merchant is commerce-ready. Keep
-  // the key temporarily so existing callers do not need a simultaneous refactor.
-  agenticCheckout: 0,
-}
+/**
+ * Canonical plan × feature contract. Every plan and feature is written out so a
+ * review can see the complete allocation and TypeScript fails when either axis is
+ * extended without an explicit product decision.
+ */
+export const PLAN_FEATURE_MATRIX = {
+  free: {
+    customDomain: false,
+    aiFeatures: false,
+    removeBadge: false,
+    integrations: false,
+    outboundWebhooks: false,
+    apiAccess: false,
+    negotiation: false,
+    analyticsHistory: false,
+    teamCollaboration: false,
+    whiteLabel: false,
+    prioritySupport: false,
+    sso: false,
+  },
+  launch: {
+    customDomain: true,
+    aiFeatures: true,
+    removeBadge: true,
+    integrations: false,
+    outboundWebhooks: false,
+    apiAccess: false,
+    negotiation: false,
+    analyticsHistory: false,
+    teamCollaboration: false,
+    whiteLabel: true,
+    prioritySupport: false,
+    sso: false,
+  },
+  pro: {
+    customDomain: true,
+    aiFeatures: true,
+    removeBadge: true,
+    integrations: true,
+    outboundWebhooks: true,
+    apiAccess: true,
+    negotiation: true,
+    analyticsHistory: true,
+    teamCollaboration: true,
+    whiteLabel: true,
+    prioritySupport: false,
+    sso: false,
+  },
+  scale: {
+    customDomain: true,
+    aiFeatures: true,
+    removeBadge: true,
+    integrations: true,
+    outboundWebhooks: true,
+    apiAccess: true,
+    negotiation: true,
+    analyticsHistory: true,
+    teamCollaboration: true,
+    whiteLabel: true,
+    prioritySupport: true,
+    sso: false,
+  },
+  enterprise: {
+    customDomain: true,
+    aiFeatures: true,
+    removeBadge: true,
+    integrations: true,
+    outboundWebhooks: true,
+    apiAccess: true,
+    negotiation: true,
+    analyticsHistory: true,
+    teamCollaboration: true,
+    whiteLabel: true,
+    prioritySupport: true,
+    sso: true,
+  },
+} as const satisfies Record<PlanId, Record<PlanFeature, boolean>>
 
 export const FEATURE_LABELS: Record<PlanFeature, string> = {
   customDomain: 'Custom domain',
-  aiFeatures: 'AI features (LLM simulator, optimize, credential review)',
+  aiFeatures: 'Merchant AI refinement (private analysis, optimize, credential review)',
   removeBadge: 'Remove Nexez badge',
-  integrations: 'Integrations (Calendly, Stripe, Shopify, Square)',
+  integrations: 'Premium integrations (excluding installed Shopify OAuth)',
   outboundWebhooks: 'Outbound webhooks',
   apiAccess: 'API access',
   negotiation: 'Negotiation & smart-pricing rules',
@@ -61,17 +115,38 @@ export const FEATURE_LABELS: Record<PlanFeature, string> = {
   teamCollaboration: 'Team collaboration & approvals',
   whiteLabel: 'White-label branding',
   prioritySupport: 'Priority support',
-  sso: 'SSO / SAML',
-  agenticCheckout: 'Sell through ChatGPT & Google (agentic checkout)',
+  sso: 'SSO / SAML (sales-assisted)',
 }
 
-export type PlanLimits = {
-  /** Max published listings. Use Number.POSITIVE_INFINITY for unlimited. */
+export const PLAN_LIMITS = ['publishedListings', 'customDomains', 'teamSeats', 'storefronts'] as const
+export type PlanLimit = (typeof PLAN_LIMITS)[number]
+export type CanonicalPlanLimits = Record<PlanLimit, number>
+
+/** Canonical plan × limit contract. Number.POSITIVE_INFINITY means negotiated/unlimited. */
+export const PLAN_LIMIT_MATRIX = {
+  free: { publishedListings: 1, customDomains: 0, teamSeats: 0, storefronts: 1 },
+  launch: { publishedListings: 3, customDomains: 1, teamSeats: 0, storefronts: 1 },
+  pro: { publishedListings: 25, customDomains: 5, teamSeats: 3, storefronts: 3 },
+  scale: { publishedListings: 100, customDomains: 25, teamSeats: 10, storefronts: 10 },
+  enterprise: {
+    publishedListings: Number.POSITIVE_INFINITY,
+    customDomains: Number.POSITIVE_INFINITY,
+    teamSeats: Number.POSITIVE_INFINITY,
+    storefronts: Number.POSITIVE_INFINITY,
+  },
+} as const satisfies Record<PlanId, CanonicalPlanLimits>
+
+export type PlanLimits = CanonicalPlanLimits & {
+  /** @deprecated Use publishedListings. Retained while existing consumers migrate. */
   pages: number
-  /** Max verified custom domains. */
-  customDomains: number
-  /** Max team-collaboration seats (non-revoked invites). 0 = feature not available. */
-  teamSeats: number
+}
+
+/** JSON-safe limits used by server DTOs; null means negotiated/unlimited. */
+export type SerializablePlanLimits = Record<PlanLimit, number | null>
+
+function limitsForPlan(id: PlanId): PlanLimits {
+  const limits = PLAN_LIMIT_MATRIX[id]
+  return { ...limits, pages: limits.publishedListings }
 }
 
 export type BillingPlan = {
@@ -98,7 +173,6 @@ export type BillingPlan = {
   commissionPercent: number
 }
 
-const UNLIMITED = Number.POSITIVE_INFINITY
 export const BASIS_POINTS_PER_PERCENT = 100
 export const BASIS_POINTS_PER_WHOLE = 10_000
 
@@ -114,7 +188,7 @@ export const billingPlans: BillingPlan[] = [
     envVar: '', // no price for free
     blurb: 'Try Nexez with one agent listing and the core toolkit.',
     features: ['1 published listing', 'agent.json · llms.txt · MCP', 'Directory listing', 'Deterministic simulator', 'Agentic checkout'],
-    limits: { pages: 1, customDomains: 0, teamSeats: 0 },
+    limits: limitsForPlan('free'),
     commissionPercent: 9, // Free pays the highest commission, no subscription fee
   },
   {
@@ -126,8 +200,8 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_LAUNCH',
     blurb: 'For a solo pro turning agent traffic into bookings.',
-    features: ['3 published listings', 'Custom domain', 'AI simulator & optimize', 'Remove Nexez badge'],
-    limits: { pages: 3, customDomains: 1, teamSeats: 0 },
+    features: ['3 published listings', 'Custom domain', 'AI refinement & optimization', 'Custom branding', 'Remove Nexez badge'],
+    limits: limitsForPlan('launch'),
     commissionPercent: 7,
   },
   {
@@ -139,8 +213,8 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_PRO',
     blurb: 'For teams running services, bookings, and paid offers.',
-    features: ['25 published listings', 'Team collaboration (3 seats)', 'White-label branding', 'Integrations, webhooks & API', 'Negotiation & smart pricing'],
-    limits: { pages: 25, customDomains: 5, teamSeats: 3 },
+    features: ['25 published listings', '3 storefronts', 'Team collaboration (3 seats)', 'Integrations, webhooks & API', 'Negotiation & smart pricing'],
+    limits: limitsForPlan('pro'),
     commissionPercent: 5,
   },
   {
@@ -152,8 +226,8 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_SCALE',
     blurb: 'For agencies and operators managing many agent listings.',
-    features: ['100 published listings', '10 team seats', '25 custom domains', 'Priority support'],
-    limits: { pages: 100, customDomains: 25, teamSeats: 10 },
+    features: ['100 published listings', '10 storefronts', '10 team seats', '25 custom domains', 'Priority support'],
+    limits: limitsForPlan('scale'),
     commissionPercent: 3,
   },
   {
@@ -165,8 +239,8 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_ENTERPRISE',
     blurb: 'For large organizations with custom needs and SLAs.',
-    features: ['Unlimited listings, seats & domains', 'SSO / SAML', 'Dedicated support & SLAs', 'Volume discounts'],
-    limits: { pages: UNLIMITED, customDomains: UNLIMITED, teamSeats: UNLIMITED },
+    features: ['Unlimited listings, storefronts, seats & domains', 'Sales-assisted SSO / SAML', 'Dedicated support & SLAs', 'Volume discounts'],
+    limits: limitsForPlan('enterprise'),
     commissionPercent: 2, // custom in practice
   },
 ]
@@ -203,15 +277,102 @@ export function getPlanLimits(id: string | null | undefined): PlanLimits {
   return (getBillingPlan(id) ?? defaultPlan()).limits
 }
 
-/** True when the given plan unlocks `feature` (cumulative by rank). */
+/** JSON-safe limits for API/server DTOs. `null` represents unlimited. */
+export function getSerializablePlanLimits(id: string | null | undefined): SerializablePlanLimits {
+  const limits = getPlanLimits(id)
+  return {
+    publishedListings: Number.isFinite(limits.publishedListings) ? limits.publishedListings : null,
+    customDomains: Number.isFinite(limits.customDomains) ? limits.customDomains : null,
+    teamSeats: Number.isFinite(limits.teamSeats) ? limits.teamSeats : null,
+    storefronts: Number.isFinite(limits.storefronts) ? limits.storefronts : null,
+  }
+}
+
+/** Complete feature decisions for one plan, copied so callers cannot mutate the catalog. */
+export function getPlanFeatureEntitlements(id: string | null | undefined): Record<PlanFeature, boolean> {
+  const planId = getBillingPlan(id)?.id ?? 'free'
+  return { ...PLAN_FEATURE_MATRIX[planId] }
+}
+
+/** True when the given plan unlocks `feature`. */
 export function planAllows(id: string | null | undefined, feature: PlanFeature): boolean {
-  return getPlanRank(id) >= FEATURE_MIN_RANK[feature]
+  const planId = getBillingPlan(id)?.id ?? 'free'
+  return PLAN_FEATURE_MATRIX[planId][feature]
 }
 
 /** The lowest-priced plan that unlocks `feature` - used for "Upgrade to X" prompts. */
 export function minPlanForFeature(feature: PlanFeature): BillingPlan {
-  const minRank = FEATURE_MIN_RANK[feature]
-  return billingPlans.find((p) => p.rank >= minRank) ?? billingPlans[billingPlans.length - 1]
+  return billingPlans.find((plan) => PLAN_FEATURE_MATRIX[plan.id][feature]) ?? billingPlans[billingPlans.length - 1]
+}
+
+export type FeatureUpgradeDecision = {
+  kind: 'feature'
+  feature: PlanFeature
+  currentPlanId: PlanId
+  allowed: boolean
+  minimumPlanId: PlanId
+  upgradePlanId: PlanId | null
+}
+
+/** Shared, serializable decision for feature gates and their upgrade prompts. */
+export function getFeatureUpgradeDecision(
+  id: string | null | undefined,
+  feature: PlanFeature,
+): FeatureUpgradeDecision {
+  const currentPlanId = getBillingPlan(id)?.id ?? 'free'
+  const minimumPlanId = minPlanForFeature(feature).id
+  const allowed = planAllows(currentPlanId, feature)
+  return {
+    kind: 'feature',
+    feature,
+    currentPlanId,
+    allowed,
+    minimumPlanId,
+    upgradePlanId: allowed ? null : minimumPlanId,
+  }
+}
+
+export type LimitUpgradeDecision = {
+  kind: 'limit'
+  limit: PlanLimit
+  currentPlanId: PlanId
+  currentLimit: number | null
+  requestedUsage: number
+  allowed: boolean
+  minimumPlanId: PlanId
+  upgradePlanId: PlanId | null
+}
+
+/**
+ * Shared, serializable decision for a post-action usage value. The upgrade target
+ * is the lowest plan that can actually contain that usage, not merely the next
+ * plan in the ladder.
+ */
+export function getLimitUpgradeDecision(
+  id: string | null | undefined,
+  limit: PlanLimit,
+  requestedUsage: number,
+): LimitUpgradeDecision {
+  if (!Number.isInteger(requestedUsage) || requestedUsage < 0) {
+    throw new RangeError('requestedUsage must be a non-negative integer')
+  }
+
+  const currentPlanId = getBillingPlan(id)?.id ?? 'free'
+  const currentLimitValue = PLAN_LIMIT_MATRIX[currentPlanId][limit]
+  const minimumPlan = billingPlans.find((plan) => PLAN_LIMIT_MATRIX[plan.id][limit] >= requestedUsage)
+    ?? billingPlans[billingPlans.length - 1]
+  const allowed = currentLimitValue >= requestedUsage
+
+  return {
+    kind: 'limit',
+    limit,
+    currentPlanId,
+    currentLimit: Number.isFinite(currentLimitValue) ? currentLimitValue : null,
+    requestedUsage,
+    allowed,
+    minimumPlanId: minimumPlan.id,
+    upgradePlanId: allowed ? null : minimumPlan.id,
+  }
 }
 
 export function getPlanPriceId(plan: BillingPlan) {
@@ -223,6 +384,20 @@ export function getPlanPriceId(plan: BillingPlan) {
 
 export function isStripePriceId(value: string | null | undefined) {
   return typeof value === 'string' && value.trim().startsWith('price_')
+}
+
+/**
+ * A self-serve plan Price must identify exactly one plan. Duplicate environment
+ * mappings are unsafe: selecting two different plans would charge the same
+ * Stripe Price while metadata asks the webhook to grant different access.
+ */
+export function isUniqueSelfServePlanPrice(plan: BillingPlan): boolean {
+  if (!isSelfServePlanId(plan.id)) return false
+  const priceId = getPlanPriceId(plan)
+  if (!isStripePriceId(priceId)) return false
+  return billingPlans.filter((candidate) => (
+    isSelfServePlanId(candidate.id) && getPlanPriceId(candidate) === priceId
+  )).length === 1
 }
 
 // NOTE: Stripe billing READINESS checks (which read the secret env vars) live in

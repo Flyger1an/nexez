@@ -47,7 +47,10 @@ afterAll(() => {
  * flow. negotiation_messages accumulate across both phases; the atomic claim
  * (UPDATE ... WHERE decision_pending=true) returns the row exactly once.
  */
-function seedNegotiationDb(page: any, opts: { llmFails?: boolean } = {}) {
+function seedNegotiationDb(
+  page: any,
+  opts: { llmFails?: boolean; ownerPlan?: 'free' | 'launch' | 'error' } = {},
+) {
   const state = {
     inserted: null as any,
     messages: [] as any[],
@@ -58,6 +61,36 @@ function seedNegotiationDb(page: any, opts: { llmFails?: boolean } = {}) {
 
   const handler = (ctx: QueryContext) => {
     if (ctx.table === 'pages') return { data: page, error: null }
+
+    // Negotiation AI is resolved against the current page owner's plan at
+    // decision time. Keep existing LLM-path tests on Launch by default, while
+    // allowing downgrade and read-failure regressions to exercise fail-closed
+    // deterministic completion.
+    if (ctx.table === 'platform_admins') {
+      return opts.ownerPlan === 'error'
+        ? { data: null, error: { message: 'plan read failed' } }
+        : { data: null, error: null }
+    }
+    if (ctx.table === 'billing_subscriptions') {
+      if (opts.ownerPlan === 'error') return { data: null, error: { message: 'plan read failed' } }
+      return opts.ownerPlan === 'free'
+        ? { data: null, error: null }
+        : {
+            data: {
+              owner_id: page.owner_id,
+              plan_id: 'launch',
+              status: 'active',
+              trial_ends_at: null,
+              account_origin: 'subscription',
+            },
+            error: null,
+          }
+    }
+    if (ctx.table === 'promotional_plan_grants') {
+      return opts.ownerPlan === 'error'
+        ? { data: null, error: { message: 'plan read failed' } }
+        : { data: [], error: null }
+    }
 
     if (ctx.table === 'rpc:nz_create_negotiation_with_buyer_turn') {
       state.inserted = ctx.payload?.p_negotiation
@@ -439,6 +472,46 @@ describe('NegotiationService.runDecision (async phase - LLM + claim)', () => {
     expect(llm.negotiate).not.toHaveBeenCalled()
     const seller = state.messages.find((m) => m.role === 'seller_llm')
     expect(seller?.content?.decision?.action).toBe('reject')
+  })
+
+  it('pauses paid AI after a downgrade while still completing the queued decision', async () => {
+    const state = seedNegotiationDb(
+      demoPage({ services: [{ name: 'Svc', price: '$1000', offerType: 'negotiable', rules: { minPrice: '800' } }] }),
+      { ownerPlan: 'free' },
+    )
+    const llm = okLLM({ action: 'accept', reasoning: 'should-not-run' })
+    const service = new NegotiationService(llm as any)
+    const submitted = await service.submitProposal({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 50000 },
+    })
+
+    await service.runDecision(submitted.negotiationId)
+
+    expect(llm.negotiate).not.toHaveBeenCalled()
+    expect(state.messages.find((message) => message.role === 'seller_llm')?.content?.decision?.action).toBe('reject')
+    expect(state.finalUpdates.at(-1)).toMatchObject({ decision_pending: false, decision_seq: 1 })
+  })
+
+  it('fails closed to deterministic completion when the owner plan cannot be read', async () => {
+    const state = seedNegotiationDb(
+      demoPage({ services: [{ name: 'Svc', price: '$1000', offerType: 'negotiable', rules: { minPrice: '800' } }] }),
+      { ownerPlan: 'error' },
+    )
+    const llm = okLLM({ action: 'accept', reasoning: 'should-not-run' })
+    const service = new NegotiationService(llm as any)
+    const submitted = await service.submitProposal({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 50000 },
+    })
+
+    await service.runDecision(submitted.negotiationId)
+
+    expect(llm.negotiate).not.toHaveBeenCalled()
+    expect(state.messages.find((message) => message.role === 'seller_llm')?.content?.decision?.action).toBe('reject')
+    expect(state.finalUpdates.at(-1)).toMatchObject({ decision_pending: false, decision_seq: 1 })
   })
 
   it('never persists the offer private pricing rules into negotiation_messages', async () => {

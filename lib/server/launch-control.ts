@@ -22,6 +22,13 @@ import { getMarketplaceCurationQueue } from './marketplace-curation'
 import { hasSecretCryptoKey } from './secret-crypto'
 import { hasReleaseCertificationSecret } from './release-certification-auth'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+import { getOwnerPlanIds } from './plan'
+import {
+  isSupportIncident,
+  projectSupportQueue,
+  routeSupportQueue,
+  type RoutedSupportTicket,
+} from '../support-routing'
 
 type Source<T> = { available: true; rows: T[] } | { available: false; rows: T[] }
 
@@ -84,11 +91,13 @@ type OutboundWebhookRow = {
 }
 type SupportRow = {
   id: string
+  owner_id: string
   subject: string
   priority: string
   status: string
   created_at: string
 }
+type RoutedSupportRow = RoutedSupportTicket<SupportRow>
 type CheckoutSessionRow = {
   id: string
   channel: string
@@ -138,6 +147,7 @@ export async function getLaunchControlSnapshot(): Promise<LaunchControlSnapshot>
     summary,
     metrics,
     sources: availability,
+    supportQueue: projectSupportQueue(sources.support.rows),
     incidents: buildIncidents(sources, generatedAt),
   }
 }
@@ -151,8 +161,9 @@ async function getConfigurationInput(): Promise<LaunchConfigurationInput> {
       ? 'test'
       : 'unknown'
   const plans = billingPlans.filter((plan) => plan.envVar && plan.id !== 'enterprise')
-  const priceIds = plans.map((plan) => getPlanPriceId(plan))
-  const stripeCatalog = await verifyStripeCatalog(key, stripeMode, priceIds)
+  const planPrices = plans.map((plan) => ({ plan, priceId: getPlanPriceId(plan) }))
+  const priceIds = planPrices.map(({ priceId }) => priceId)
+  const stripeCatalog = await verifyStripeCatalog(key, stripeMode, planPrices)
 
   return {
     supabasePublic: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
@@ -180,38 +191,54 @@ async function getConfigurationInput(): Promise<LaunchConfigurationInput> {
 async function verifyStripeCatalog(
   secretKey: string,
   mode: LaunchConfigurationInput['stripeMode'],
-  priceIds: string[],
+  planPrices: Array<{
+    plan: (typeof billingPlans)[number]
+    priceId: string
+  }>,
 ): Promise<{ verified: boolean | null; detail: string }> {
   if (!secretKey || mode === 'unknown') {
     return { verified: null, detail: 'Stripe key is unavailable, so catalog mode could not be verified.' }
   }
-  if (priceIds.some((priceId) => !isStripePriceId(priceId))) {
+  if (planPrices.some(({ priceId }) => !isStripePriceId(priceId))) {
     return { verified: false, detail: 'One or more self-serve plans are missing a valid price_ identifier.' }
+  }
+  if (new Set(planPrices.map(({ priceId }) => priceId)).size !== planPrices.length) {
+    return { verified: false, detail: 'Launch, Pro, and Scale must each use a distinct Stripe Price.' }
   }
 
   try {
     const expectedLive = mode === 'live'
-    const results = await Promise.all(priceIds.map(async (priceId) => {
+    const results = await Promise.all(planPrices.map(async ({ plan, priceId }) => {
       const response = await fetch(`https://api.stripe.com/v1/prices/${encodeURIComponent(priceId)}`, {
         headers: { Authorization: `Bearer ${secretKey}` },
         cache: 'no-store',
         signal: AbortSignal.timeout(5_000),
       })
-      if (!response.ok) return { ok: false, mode: false, active: false, recurring: false }
-      const body = await response.json() as { livemode?: boolean; active?: boolean; type?: string }
+      if (!response.ok) return { ok: false }
+      const body = await response.json() as {
+        livemode?: boolean
+        active?: boolean
+        type?: string
+        currency?: string
+        unit_amount?: number | null
+        recurring?: { interval?: string; interval_count?: number } | null
+      }
       return {
-        ok: true,
-        mode: body.livemode === expectedLive,
-        active: body.active === true,
-        recurring: body.type === 'recurring',
+        ok: body.livemode === expectedLive
+          && body.active === true
+          && body.type === 'recurring'
+          && body.currency?.toLowerCase() === 'usd'
+          && body.unit_amount === plan.monthlyPriceCents
+          && body.recurring?.interval === 'month'
+          && body.recurring?.interval_count === 1,
       }
     }))
-    const verified = results.every((result) => result.ok && result.mode && result.active && result.recurring)
+    const verified = results.every((result) => result.ok)
     return {
       verified,
       detail: verified
-        ? `${priceIds.length} active recurring Prices match the ${mode} Stripe key.`
-        : 'At least one Price is missing, inactive, non-recurring, or belongs to the other Stripe mode.',
+        ? `${planPrices.length} distinct monthly USD Prices match the approved plan amounts and ${mode} Stripe key.`
+        : 'At least one Price has the wrong mode, amount, currency, cadence, activity state, or identifier.',
     }
   } catch {
     return {
@@ -262,7 +289,7 @@ async function loadOperationalSources(nowIso: string) {
   const admin = createAdminClient()
   const since24h = new Date(Date.parse(nowIso) - 24 * 60 * 60_000).toISOString()
 
-  const [stripeWebhooks, checkoutEvents, orders, negotiations, billing, shopify, outboundWebhooks, support, checkoutSessions] = await Promise.all([
+  const [stripeWebhooks, checkoutEvents, orders, negotiations, billing, shopify, outboundWebhooks, rawSupport, checkoutSessions] = await Promise.all([
     safeSource<StripeWebhookRow>('stripe webhook ledger', async () => admin
       .from('stripe_webhook_events')
       .select('event_id,type,account,received_at')
@@ -308,7 +335,7 @@ async function loadOperationalSources(nowIso: string) {
       .returns<OutboundWebhookRow[]>()),
     safeSource<SupportRow>('support queue', async () => admin
       .from('support_tickets')
-      .select('id,subject,priority,status,created_at')
+      .select('id,owner_id,subject,priority,status,created_at')
       .in('status', ['open', 'waiting_on_user', 'in_review'])
       .order('created_at', { ascending: false })
       .limit(500)
@@ -322,7 +349,28 @@ async function loadOperationalSources(nowIso: string) {
       .returns<CheckoutSessionRow[]>()),
   ])
 
+  // Paid support routing is a live entitlement, never a client-controlled
+  // ticket attribute. Batch-resolve every ticket owner now so a downgrade takes
+  // effect immediately and direct metadata writes cannot jump the queue.
+  const support = await routeCurrentSupportQueue(admin, rawSupport)
+
   return { stripeWebhooks, checkoutEvents, orders, negotiations, billing, shopify, outboundWebhooks, support, checkoutSessions }
+}
+
+async function routeCurrentSupportQueue(
+  admin: ReturnType<typeof createAdminClient>,
+  source: Source<SupportRow>,
+): Promise<Source<RoutedSupportRow>> {
+  if (!source.available) return { available: false, rows: [] }
+
+  let plansByOwner: Record<string, string> = {}
+  try {
+    plansByOwner = await getOwnerPlanIds(admin, source.rows.map((ticket) => ticket.owner_id))
+  } catch {
+    // Fail closed: routeSupportQueue treats every missing owner as Free/standard.
+  }
+
+  return { available: true, rows: routeSupportQueue(source.rows, plansByOwner) }
 }
 
 async function safeSource<T>(
@@ -352,7 +400,7 @@ function emptySources() {
     billing: unavailable<BillingRow>(),
     shopify: unavailable<ShopifyRow>(),
     outboundWebhooks: unavailable<OutboundWebhookRow>(),
-    support: unavailable<SupportRow>(),
+    support: unavailable<RoutedSupportRow>(),
     checkoutSessions: unavailable<CheckoutSessionRow>(),
   }
 }
@@ -489,11 +537,12 @@ function buildIncidents(sources: OperationalSources, nowIso: string): LaunchInci
       href: '/dashboard/tools',
     })
   }
-  for (const row of sources.support.rows.filter((item) => item.priority === 'urgent').slice(0, 4)) {
+  for (const row of sources.support.rows.filter(isSupportIncident).slice(0, 4)) {
+    const paidPriority = row.supportService.priorityRouting
     incidents.push({
       id: `support-${row.id}`,
-      title: 'Urgent support ticket',
-      detail: cleanText(row.subject),
+      title: paidPriority ? 'Priority support ticket' : 'Urgent support ticket',
+      detail: `${paidPriority ? 'Priority service' : 'Standard service'} · ${cleanText(row.subject)}`,
       occurredAt: row.created_at,
       status: 'attention',
       href: '/support',

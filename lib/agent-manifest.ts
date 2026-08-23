@@ -9,6 +9,7 @@ import {
   getCertification,
   getOfferDestination,
   getPreferredOriginalOfferUrl,
+  isOfferActionAvailable,
   parseAvailabilityWindows,
   resolvePreferredContact,
 } from './agent-page'
@@ -148,7 +149,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
     },
     ...(configuration ? { configuration } : {}),
     action: {
-          available: true,
+          available: isOfferActionAvailable(offer),
           method: 'POST',
           endpoint: `${platformBase}${actionPath}`,
           content_type: 'application/json',

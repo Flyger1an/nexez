@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { Loader2, Upload, X } from 'lucide-react'
 import type { CredentialRecord } from '../lib/agent-page'
+import { minPlanForFeature } from '../lib/billing'
 
 type Doc = string | CredentialRecord
 
@@ -12,10 +13,10 @@ const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   rejected: { label: 'Not accepted', cls: 'bg-[var(--danger-fill)] text-[var(--danger)]' },
 }
 
-// Owner-facing credential manager: upload a document → it receives an automated
-// review. A `verified` review status is descriptive metadata only; it does not
-// independently verify the seller or affect Trust Score. Owners can optionally
-// expose a reviewed document publicly (per credential).
+// Owner-facing credential manager. Uploading and private storage are available
+// independently of automated review; below the AI entitlement, new documents
+// remain pending. A `verified` review status is descriptive metadata only; it
+// does not independently verify the seller or affect Trust Score.
 export function CredentialsManager({
   pageId,
   docs,
@@ -28,6 +29,7 @@ export function CredentialsManager({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const automatedReviewPlan = minPlanForFeature('aiFeatures').name
 
   async function upload(file: File) {
     setBusy(true)
@@ -73,7 +75,7 @@ export function CredentialsManager({
 
   return (
     <div>
-      <div className="text-xs mb-1">Credentials / licenses (uploaded &amp; reviewed)</div>
+      <div className="text-xs mb-1">Credentials / licenses</div>
 
       <div className="space-y-2">
         {docs.length === 0 && <span className="text-[10px] text-[var(--fg-muted-2)]">None uploaded yet</span>}
@@ -124,13 +126,13 @@ export function CredentialsManager({
           className="inline-flex items-center gap-1.5 rounded border border-white/20 px-3 py-1 text-xs hover:bg-white/5 disabled:opacity-50"
         >
           {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
-          {busy ? 'Reviewing…' : 'Upload credential'}
+          {busy ? 'Uploading…' : 'Upload credential'}
         </button>
         <span className="text-[10px] text-[var(--fg-muted-2)]">PNG/JPEG/WebP or PDF, max 8MB</span>
       </div>
       {error ? <p className="mt-1 text-[10px] text-[var(--danger)]">{error}</p> : null}
       <p className="mt-1.5 text-[10px] text-[var(--fg-muted-2)]">
-        Each upload receives an automated document review (type, issuer, holder match, and expiry). Review results add context, but do not independently verify your identity or affect Trust Score. Documents stay private unless you tick “show publicly.”
+        Uploads are stored privately. Automated review (type, issuer, holder match, and expiry) is available on {automatedReviewPlan} and above; otherwise a file remains Pending review. Review results add context, but do not independently verify your identity or affect Trust Score. Documents stay private unless you tick “show publicly.”
       </p>
     </div>
   )

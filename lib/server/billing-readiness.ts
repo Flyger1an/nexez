@@ -19,6 +19,10 @@ export function getStripeBillingReadiness() {
   const invalidPlanEnvVars = planPriceEntries
     .filter((entry) => entry.priceId && !isStripePriceId(entry.priceId))
     .map((entry) => entry.plan.envVar)
+  const configuredPriceIds = planPriceEntries
+    .map((entry) => entry.priceId)
+    .filter(isStripePriceId)
+  const priceIdsDistinct = new Set(configuredPriceIds).size === configuredPriceIds.length
   const secretKeyConfigured = Boolean(process.env.STRIPE_SECRET_KEY)
   const webhookSecretConfigured = Boolean(process.env.STRIPE_WEBHOOK_SECRET)
   const serviceRoleConfigured = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
@@ -30,9 +34,10 @@ export function getStripeBillingReadiness() {
     configuredPlans,
     missingPlanEnvVars,
     invalidPlanEnvVars,
-    subscriptionCheckoutReady: secretKeyConfigured && configuredPlans.length > 0,
+    priceIdsDistinct,
+    subscriptionCheckoutReady: secretKeyConfigured && configuredPlans.length > 0 && priceIdsDistinct,
     webhookSyncReady: webhookSecretConfigured && serviceRoleConfigured,
-    productionReady: secretKeyConfigured && webhookSecretConfigured && serviceRoleConfigured && missingPlanEnvVars.length === 0 && invalidPlanEnvVars.length === 0,
+    productionReady: secretKeyConfigured && webhookSecretConfigured && serviceRoleConfigured && missingPlanEnvVars.length === 0 && invalidPlanEnvVars.length === 0 && priceIdsDistinct,
   }
 }
 

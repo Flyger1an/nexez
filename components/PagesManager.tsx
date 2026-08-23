@@ -41,12 +41,11 @@ export function PagesManager({
     [pages],
   )
 
-  // Published-page usage meter. The real limit can be raised by a grandfathered
-  // baseline the client can't see, so only show the "of N" cap when we're within
-  // the plan limit; once over (grandfathered) just show the count. Enforcement is
-  // server-side (DB trigger) - this is purely the heads-up + upgrade nudge.
+  // Published-page usage meter. The canonical plan allocation is exact and the
+  // database reconciles overflow on every entitlement change; this is the matching
+  // client-side heads-up while the serialized database trigger stays authoritative.
   const publishedLimit = getPlanLimits(plan).pages
-  const showCap = Number.isFinite(publishedLimit) && counts.published <= publishedLimit
+  const showCap = Number.isFinite(publishedLimit)
   const atCap = showCap && counts.published >= publishedLimit
 
   const filtered = useMemo(() => {
@@ -103,9 +102,8 @@ export function PagesManager({
   async function togglePublished(id: string, current: boolean) {
     setLimitMsg(null)
     const supabase = createClient()
-    // The published-page limit is enforced server-side by a DB trigger (plan limit
-    // + grandfathered baseline), so we attempt the write and surface its verdict -
-    // this stays correct for grandfathered owners the client can't reason about.
+    // The exact published-page limit is enforced server-side by a serialized DB
+    // trigger, so we attempt the write and surface its authoritative verdict.
     const { error } = await supabase.from('pages').update({ is_published: !current }).eq('id', id)
     if (error) {
       setLimitMsg(publishErrorMessage(error))
@@ -137,7 +135,7 @@ export function PagesManager({
       .from('pages')
       .insert(buildDuplicatePayload(page, user.id, pages.map((p) => p.slug)))
     if (error) {
-      alert(`Could not duplicate this listing: ${error.message}`)
+      alert(publishErrorMessage(error))
       return
     }
     reload()
@@ -166,7 +164,7 @@ export function PagesManager({
       })
     if (payloads.length) {
       const { error } = await supabase.from('pages').insert(payloads)
-      if (error) alert(`Could not duplicate selected listings: ${error.message}`)
+      if (error) alert(publishErrorMessage(error))
     }
     setBusy(false)
     reload()

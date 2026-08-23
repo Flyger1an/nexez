@@ -32,6 +32,7 @@ vi.mock('../../../../../utils/supabase/admin', async () => {
   }
 })
 vi.mock('../../../../../lib/server/page-access', () => ({ resolvePageAccess: vi.fn(async () => accessRef.value) }))
+vi.mock('../../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => null) }))
 vi.mock('../../../../../lib/importer', () => ({
   getImportUrlError: () => null,
   getResolvedImportUrlError: async () => null,
@@ -115,6 +116,30 @@ describe('POST /api/pages/[id]/verify-website', () => {
     expect(pageWrite?.eqs).toMatchObject({ id: 'page_1', owner_id: 'owner_1' }) // owner-scoped
     const tokenWrite = adminWrites.find((w) => w.table === 'page_secrets' && w.op === 'update')
     expect(tokenWrite?.payload.website_verification_token).toBeNull()
+  })
+
+  it('maps an entitlement allocation race while saving proof to the retry contract', async () => {
+    setTxt([['nexez-site-verify-abcdef0123456789']])
+    adminRef.handler = (query) => {
+      if (query.table === 'pages' && query.op === 'select') return { data: pageRef.value, error: null }
+      if (query.table === 'page_secrets' && query.op === 'select') {
+        return { data: { website_verification_token: tokenRef.value }, error: null }
+      }
+      if (query.table === 'pages' && query.op === 'update') {
+        return { data: null, error: { code: '40001', message: 'NEXEZ_ENTITLEMENT_ALLOCATION_RETRY' } }
+      }
+      return { data: null, error: null }
+    }
+
+    const res = await POST(post({ method: 'dns' }), ctx)
+
+    expect(res.status).toBe(409)
+    expect(res.headers.get('retry-after')).toBe('1')
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'entitlement_allocation_retry',
+      retryable: true,
+    })
+    expect(adminWrites.some((write) => write.table === 'page_secrets' && write.op === 'update')).toBe(false)
   })
 
   it('meta match verifies via the fetched homepage', async () => {

@@ -5,6 +5,7 @@ import { applyIntakeAction, type IntakeExtraction, type IntakeSource, type Intak
 import { captureEvent } from '../../../../../../../lib/observability'
 import { enforceRateLimit } from '../../../../../../../lib/rate-limit'
 import { resolveRequestAuth } from '../../../../../../../lib/server/request-auth'
+import { ownerAllows } from '../../../../../../../lib/server/plan'
 import {
   gateIntegrationImport,
   importIntegrationOffers,
@@ -96,6 +97,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   let state: IntakeState = sessionState(row)
+  // URL ingestion stays available deterministically on every plan. Pasted-text
+  // structuring and optional website refinement are merchant AI features, so a
+  // missing/unreadable entitlement behaves exactly like an unconfigured model.
+  const aiAllowed = provider ? false : await ownerAllows(supabase, user.id, 'aiFeatures')
   const sourceId = crypto.randomUUID()
   const nowIso = new Date().toISOString()
 
@@ -136,7 +141,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } else if (url) {
     source = { id: sourceId, kind: 'url', value: url, label: url, addedAt: nowIso }
     try {
-      extraction = importResultToExtraction(sourceId, await analyzeSite(url))
+      extraction = importResultToExtraction(
+        sourceId,
+        await analyzeSite(url, null, { skipLlm: !aiAllowed }),
+      )
     } catch (error) {
       return NextResponse.json({ error: error instanceof Error ? error.message : 'Could not ingest that source.' }, { status: 422 })
     }
@@ -145,7 +153,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     try {
       // Pasted text rides the importer's LLM offer extractor (best-effort — []
       // without a configured LLM; the interview simply asks instead).
-      const offers = await llmExtractOffers(text)
+      const offers = aiAllowed ? await llmExtractOffers(text) : []
       extraction = { sourceId, offers, clarifyingQuestions: null }
     } catch (error) {
       return NextResponse.json({ error: error instanceof Error ? error.message : 'Could not ingest that source.' }, { status: 422 })

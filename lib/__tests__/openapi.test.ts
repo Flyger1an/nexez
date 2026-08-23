@@ -35,6 +35,7 @@ describe('buildOpenApiSpec - programmatic API (G21)', () => {
       'min_readiness',
       'min_trust',
       'verified',
+      'nexez_checkout_ready',
       'supports_checkout',
       'supports_negotiation',
       'price_band',

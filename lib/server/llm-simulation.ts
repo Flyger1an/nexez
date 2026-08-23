@@ -35,13 +35,14 @@ export async function runLlmSimulation(
     return { executed: false, model: null, reason: 'listing_not_opted_in', result: null }
   }
 
-  if (hasSupabaseAdminEnv()) {
-    const privateMeta = await getPagePrivateMeta(page.id)
-    const allowed = privateMeta.ownerId
-      ? await ownerAllows(createAdminClient(), privateMeta.ownerId, 'aiFeatures')
-      : false
-    if (!allowed) return { executed: false, model: null, reason: 'plan_not_eligible', result: null }
+  if (!hasSupabaseAdminEnv()) {
+    return { executed: false, model: null, reason: 'entitlement_unavailable', result: null }
   }
+  const privateMeta = await getPagePrivateMeta(page.id)
+  const allowed = privateMeta.ownerId
+    ? await ownerAllows(createAdminClient(), privateMeta.ownerId, 'aiFeatures')
+    : false
+  if (!allowed) return { executed: false, model: null, reason: 'plan_not_eligible', result: null }
 
   const model = process.env.LLM_MODEL || 'platform-llm'
   const schema = buildParsedSchema(page, query, `${model}-Agent`, baseUrl)

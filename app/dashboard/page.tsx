@@ -11,8 +11,7 @@ import { DashboardClient, DashboardInitial } from './DashboardClient'
 import { loadOwnerAnalyticsRollup } from '../../lib/server/analytics-rollup'
 import { loadNegotiationRollup } from '../../lib/negotiation-report'
 import { loadFinanceRollup } from '../../lib/finance-report'
-import { getOwnerPlanId } from '../../lib/server/plan'
-import { getCommissionPercentForPlan } from '../../lib/stripe-billing'
+import { getCommercialPlanDefaultCommission, getOwnerBillingState, getOwnerCommission } from '../../lib/server/plan'
 
 // Server component: authenticates + fetches the dashboard's data in one parallel
 // wave server-side, then hands it to the client island as initial state - so the
@@ -41,10 +40,15 @@ export default async function DashboardPage() {
   // Analytics "Today" view even after the recent-activity samples hit a limit.
   const todayCutoff = analyticsRangeBounds({ range: 'today' }).cutoff.toISOString()
   const financeCutoff = analyticsRangeBounds({ range: '30d' }).cutoff
-  const planPromise = getOwnerPlanId(supabase, user.id)
-  const financePromise = planPromise.then((planId) => loadFinanceRollup(supabase, {
+  const billingStatePromise = getOwnerBillingState(supabase, user.id)
+  const commissionPromise = billingStatePromise.then(async (billingState) => (
+    hasSupabaseAdminEnv()
+      ? getOwnerCommission(createAdminClient(), user.id, billingState)
+      : getCommercialPlanDefaultCommission(billingState)
+  ))
+  const financePromise = commissionPromise.then((commission) => loadFinanceRollup(supabase, {
     from: financeCutoff,
-    fallbackCommissionBps: Math.round(getCommissionPercentForPlan(planId) * 100),
+    fallbackCommissionBps: commission.basisPoints,
   }))
 
   const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes, growthState, analyticsResult, negotiationReport, financeReport] = await Promise.all([

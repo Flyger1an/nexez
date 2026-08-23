@@ -4,6 +4,9 @@ import { createClient } from '../../../utils/supabase/server'
 import { AgentPage, OWNER_PAGE_SELECT } from '../../../lib/agent-page'
 import { EditorInitial } from '../../../components/editor/types'
 import { EditorClient } from './EditorClient'
+import { getOwnerEntitlements } from '../../../lib/server/plan'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { getPageIntegrationConnections } from '../../../lib/server/integration-connections'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -59,7 +62,16 @@ export default async function EditAgentPage({ params }: PageProps) {
     }
   }
 
-  const [secretsRes, calendlyRes, outboundRes, trustRes] = await Promise.all([
+  // The editor must gate paid tools against the PAGE OWNER, not the viewer. An
+  // owner can resolve through their RLS-scoped session; collaborators require
+  // the service-role client. Missing privileged configuration fails closed.
+  const entitlementClient = data.owner_id === user.id
+    ? supabase
+    : hasSupabaseAdminEnv()
+      ? createAdminClient()
+      : null
+
+  const [secretsRes, calendlyRes, outboundRes, trustRes, ownerEntitlements, integrationConnections] = await Promise.all([
     supabase.from('page_secrets').select('outbound_webhooks').eq('page_id', id).maybeSingle(),
     supabase
       .from('checkout_events')
@@ -81,18 +93,36 @@ export default async function EditAgentPage({ params }: PageProps) {
       .eq('slug', data.slug)
       .order('created_at', { ascending: false })
       .limit(20),
+    entitlementClient
+      ? getOwnerEntitlements(entitlementClient, data.owner_id as string)
+      : Promise.resolve(null),
+    getPageIntegrationConnections(id, data.owner_id as string),
   ])
 
   const page = {
     ...data,
     outbound_webhooks: (secretsRes.data as { outbound_webhooks?: unknown } | null)?.outbound_webhooks ?? null,
   } as AgentPage
+  const shopifyConnection = integrationConnections.find(
+    (connection) => connection.provider === 'shopify' && connection.connected,
+  )
 
   const initial: EditorInitial = {
     page,
     recentCalendlyBookings: calendlyRes.data ?? [],
     recentOutboundFires: outboundRes.data ?? [],
     trustEvents: trustRes.data ?? [],
+    aiFeaturesEnabled: ownerEntitlements?.features.aiFeatures === true,
+    integrationsEnabled: ownerEntitlements?.features.integrations === true,
+    outboundWebhooksEnabled: ownerEntitlements?.features.outboundWebhooks === true,
+    teamCollaborationEnabled: ownerEntitlements?.features.teamCollaboration === true,
+    negotiationEnabled: ownerEntitlements?.features.negotiation === true,
+    shopifyConnection: shopifyConnection
+      ? {
+          kind: shopifyConnection.kind === 'oauth' ? 'oauth' : 'token',
+          lastSyncedAt: shopifyConnection.lastSyncedAt,
+        }
+      : null,
   }
 
   return <EditorClient initial={initial} />

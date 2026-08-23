@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { getOwnerPlanId } from '../../../../lib/server/plan'
+import { supportServiceForPlan, type SupportService } from '../../../../lib/support-routing'
 
 type SupportTicketInput = {
   pageId?: string
@@ -12,7 +14,7 @@ type SupportTicketInput = {
   query?: string
   aiResponse?: string
   reference?: string
-  metadata?: Record<string, unknown>
+  metadata?: unknown
 }
 
 type SupabaseLikeError = {
@@ -22,6 +24,18 @@ type SupabaseLikeError = {
 
 const allowedCategories = new Set(['general', 'page_setup', 'agent_visibility', 'integrations', 'billing', 'bug', 'feature_request', 'transaction'])
 const allowedPriorities = new Set(['low', 'normal', 'high', 'urgent'])
+
+export async function GET() {
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  return NextResponse.json({ supportService: await resolveSupportService(supabase, user.id) })
+}
 
 export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, 'support-tickets', 12, 60_000)
@@ -54,6 +68,8 @@ export async function POST(request: Request) {
   if (query.length < 8) {
     return NextResponse.json({ error: 'Question is required.' }, { status: 400 })
   }
+
+  const supportService = await resolveSupportService(supabase, user.id)
 
   let pageName = body.targetName || 'Workspace'
   let pageId: string | null = null
@@ -88,9 +104,15 @@ export async function POST(request: Request) {
     reference,
     ai_response: body.aiResponse || null,
     metadata: {
-      ...(body.metadata || {}),
+      ...safeMetadata(body.metadata),
       user_email: user.email,
       source: 'support_page',
+      // Audit-only submission snapshot. Operator routing always derives the
+      // CURRENT plan independently, so this cannot preserve priority after a
+      // downgrade and a caller cannot self-assign paid routing.
+      entitlement_plan_at_submission: supportService.planId,
+      support_service_tier_at_submission: supportService.tier,
+      priority_support_at_submission: supportService.priorityRouting,
     },
   }
 
@@ -109,6 +131,7 @@ export async function POST(request: Request) {
           persisted: false,
           id: fallbackId,
           status: 'open',
+          supportService,
           message: 'Ticket prepared. Apply the support_tickets migration to persist tickets in Supabase.',
         },
         { status: 202 },
@@ -124,7 +147,24 @@ export async function POST(request: Request) {
     id: data.id,
     status: data.status,
     createdAt: data.created_at,
+    supportService,
   })
+}
+
+async function resolveSupportService(
+  supabase: Parameters<typeof getOwnerPlanId>[0],
+  ownerId: string,
+): Promise<SupportService> {
+  try {
+    return supportServiceForPlan(await getOwnerPlanId(supabase, ownerId))
+  } catch {
+    return supportServiceForPlan(null)
+  }
+}
+
+function safeMetadata(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return value as Record<string, unknown>
 }
 
 function isMissingRelationError(error: SupabaseLikeError) {

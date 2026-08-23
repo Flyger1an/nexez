@@ -12,7 +12,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, CircleCheck, Globe2, ListChecks, Loader2, MessageCircleQuestion, Plug, Sparkles } from 'lucide-react'
 import { AgentChat, type AgentChatController, type AgentChatMessage, type AgentTurnResponse } from '../agent-chat'
+import { PlanBadge, UpgradeBanner } from '../billing/PlanGate'
+import { usePlan } from '../billing/PlanProvider'
 import type { IntakeCard } from '../../lib/agents/intake'
+import { planAllows, type PlanId } from '../../lib/billing'
 import type { Gap, GapAnswer, IntakeState } from '../../lib/intake'
 import { appUrl } from '../../lib/site'
 
@@ -46,6 +49,11 @@ function authNextHref(path: '/onboard' | '/login', returnPath: string): string {
 }
 
 export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl = '', className = '' }: IntakeChatProps) {
+  // /create resolves this effective viewer plan on the server. Re-interviews
+  // are owner-only, so the viewer is also the capability owner.
+  const currentPlan = usePlan()
+  const negotiationAllowed = planAllows(currentPlan, 'negotiation')
+  const integrationsAllowed = planAllows(currentPlan, 'integrations')
   const [phase, setPhase] = useState<SetupPhase>('setup')
   const [sourceUrl, setSourceUrl] = useState(initialSourceUrl)
   const [setupError, setSetupError] = useState('')
@@ -339,6 +347,9 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
             <IntakeCardView
               card={card}
               controller={controller}
+              currentPlan={currentPlan}
+              negotiationAllowed={negotiationAllowed}
+              integrationsAllowed={integrationsAllowed}
               onCommit={commit}
               onAnswers={(answers) => postTurn({ answers })}
               onConnect={postIngest}
@@ -379,18 +390,32 @@ function intakeCardKey(card: IntakeCard): string {
 function IntakeCardView({
   card,
   controller,
+  currentPlan,
+  negotiationAllowed,
+  integrationsAllowed,
   onCommit,
   onAnswers,
   onConnect,
 }: {
   card: IntakeCard
   controller: AgentChatController<IntakeCard>
+  currentPlan: PlanId
+  negotiationAllowed: boolean
+  integrationsAllowed: boolean
   onCommit: () => Promise<AgentTurnResponse<IntakeCard>>
   onAnswers: (answers: GapAnswer[]) => Promise<AgentTurnResponse<IntakeCard>>
   onConnect: (body: Record<string, unknown>) => Promise<AgentTurnResponse<IntakeCard>>
 }) {
   if (card.type === 'integration_connect') {
-    return <IntegrationConnect card={card} controller={controller} onConnect={onConnect} />
+    return (
+      <IntegrationConnect
+        card={card}
+        controller={controller}
+        currentPlan={currentPlan}
+        integrationsAllowed={integrationsAllowed}
+        onConnect={onConnect}
+      />
+    )
   }
 
   if (card.type === 'source_ingested') {
@@ -416,7 +441,13 @@ function IntakeCardView({
     return (
       <article className="space-y-3 rounded-3xl border border-[var(--bd-10)] bg-[var(--ov-04)] p-4 shadow-xl backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04]">
         {card.gaps.map((gap) => (
-          <GapRow key={gap.id} gap={gap} controller={controller} onAnswers={onAnswers} />
+          <GapRow
+            key={gap.id}
+            gap={gap}
+            controller={controller}
+            negotiationAllowed={negotiationAllowed}
+            onAnswers={onAnswers}
+          />
         ))}
       </article>
     )
@@ -480,7 +511,7 @@ function IntakeCardView({
 // used once). Mirrors lib/server/integration-importers INGESTABLE_PROVIDERS.
 const CONNECT_PROVIDERS: Array<{ key: string; label: string; fields: Array<{ name: string; label: string; type: 'text' | 'password' }> }> = [
   { key: 'calendly', label: 'Calendly', fields: [{ name: 'token', label: 'Personal Access Token', type: 'password' }] },
-  { key: 'shopify', label: 'Shopify', fields: [{ name: 'shop', label: 'store.myshopify.com', type: 'text' }, { name: 'accessToken', label: 'Admin API token', type: 'password' }] },
+  { key: 'shopify', label: 'Shopify manual Admin credentials', fields: [{ name: 'shop', label: 'store.myshopify.com', type: 'text' }, { name: 'accessToken', label: 'Admin API token', type: 'password' }] },
   { key: 'square', label: 'Square', fields: [{ name: 'accessToken', label: 'Access token', type: 'password' }] },
   { key: 'acuity', label: 'Acuity', fields: [{ name: 'userId', label: 'User ID', type: 'text' }, { name: 'apiKey', label: 'API key', type: 'password' }] },
 ]
@@ -491,18 +522,29 @@ const CONNECT_PROVIDERS: Array<{ key: string; label: string; fields: Array<{ nam
 function IntegrationConnect({
   card,
   controller,
+  currentPlan,
+  integrationsAllowed,
   onConnect,
 }: {
   card: Extract<IntakeCard, { type: 'integration_connect' }>
   controller: AgentChatController<IntakeCard>
+  currentPlan: PlanId
+  integrationsAllowed: boolean
   onConnect: (body: Record<string, unknown>) => Promise<AgentTurnResponse<IntakeCard>>
 }) {
   const [provider, setProvider] = useState<string | null>(null)
   const [values, setValues] = useState<Record<string, string>>({})
-  const meta = CONNECT_PROVIDERS.find((p) => p.key === provider)
+  const meta = integrationsAllowed ? CONNECT_PROVIDERS.find((p) => p.key === provider) : undefined
   const ready = meta ? meta.fields.every((f) => (values[f.name] || '').trim().length > 0) : false
 
+  useEffect(() => {
+    if (integrationsAllowed) return
+    setProvider(null)
+    setValues({})
+  }, [integrationsAllowed])
+
   function connect(body: Record<string, unknown>) {
+    if (!integrationsAllowed) return
     void controller.runAction('Connecting your tool…', () => onConnect(body))
     setProvider(null)
     setValues({})
@@ -517,7 +559,7 @@ function IntegrationConnect({
         <h3 className="text-sm font-semibold text-[var(--fg)]">Connect a booking or store tool</h3>
       </div>
       <p className="mt-1 text-[11px] leading-4 text-[var(--fg-muted)]">
-        Pull your live offers from Calendly, Shopify, Square, or Acuity. A Pro feature.
+        Pull live offers with seller-supplied Calendly, Shopify Admin, Square, or Acuity credentials. Manual connectors require Pro; the installed Shopify app is available on every plan.
       </p>
 
       {!meta ? (
@@ -527,8 +569,9 @@ function IntegrationConnect({
               <button
                 key={p.key}
                 type="button"
-                disabled={controller.busy}
+                disabled={controller.busy || !integrationsAllowed}
                 onClick={() => setProvider(p.key)}
+                title={integrationsAllowed ? undefined : `${p.label} catalog import requires Pro`}
                 className="rounded-full border border-[var(--bd-15)] bg-[var(--panel)] px-3 py-1.5 text-xs text-[var(--fg-soft)] transition hover:border-[var(--signal)]/40 hover:text-[var(--signal)] disabled:opacity-40 dark:border-white/12 dark:bg-white/[0.04] dark:text-white/70"
               >
                 {p.label}
@@ -538,7 +581,7 @@ function IntegrationConnect({
           {card.calendlyConnected ? (
             <button
               type="button"
-              disabled={controller.busy}
+              disabled={controller.busy || !integrationsAllowed}
               onClick={() => connect({ provider: 'calendly' })}
               className="mt-2 inline-flex items-center gap-1.5 text-xs text-[var(--ready)] transition hover:underline disabled:opacity-40"
             >
@@ -582,6 +625,13 @@ function IntegrationConnect({
           </div>
         </div>
       )}
+      <UpgradeBanner
+        feature="integrations"
+        currentPlan={currentPlan}
+        title="Live catalog connectors"
+        description="Seller-supplied Calendly, Shopify Admin, Square, and Acuity credentials require Pro. The installed Shopify app stays available on every plan, and existing imported offers remain visible."
+        className="mt-3"
+      />
     </article>
   )
 }
@@ -592,13 +642,15 @@ function IntegrationConnect({
 function GapRow({
   gap,
   controller,
+  negotiationAllowed,
   onAnswers,
 }: {
   gap: Gap
   controller: AgentChatController<IntakeCard>
+  negotiationAllowed: boolean
   onAnswers: (answers: GapAnswer[]) => Promise<AgentTurnResponse<IntakeCard>>
 }) {
-  const quickAnswers = gapQuickAnswers(gap)
+  const quickAnswers = gapQuickAnswers(gap, negotiationAllowed)
   return (
     <div>
       <div className="flex items-start gap-2">
@@ -617,21 +669,26 @@ function GapRow({
           <button
             key={qa.label}
             type="button"
-            disabled={controller.busy}
+            disabled={controller.busy || qa.locked}
             onClick={() => void controller.runAction('Recording...', () => onAnswers([qa.answer]))}
+            title={qa.locked ? 'Open-to-offers pricing requires Pro' : undefined}
             className="rounded-full border border-[var(--bd-15)] bg-[var(--panel)] px-3 py-1.5 text-xs text-[var(--fg-soft)] transition hover:border-[var(--signal)]/40 hover:text-[var(--signal)] disabled:opacity-40 dark:border-white/12 dark:bg-white/[0.04] dark:text-white/70"
           >
             {qa.label}
           </button>
         ))}
+        {gap.field === 'offerType' && !negotiationAllowed ? <PlanBadge feature="negotiation" /> : null}
       </div>
     </div>
   )
 }
 
 /** Enumerable quick answers per gap; everything gets Skip. */
-function gapQuickAnswers(gap: Gap): Array<{ label: string; answer: GapAnswer }> {
-  const answers: Array<{ label: string; answer: GapAnswer }> = []
+export function gapQuickAnswers(
+  gap: Gap,
+  negotiationAllowed = false,
+): Array<{ label: string; answer: GapAnswer; locked?: boolean }> {
+  const answers: Array<{ label: string; answer: GapAnswer; locked?: boolean }> = []
   if (gap.field === 'offerType' && gap.offerKey) {
     answers.push(
       {
@@ -640,6 +697,7 @@ function gapQuickAnswers(gap: Gap): Array<{ label: string; answer: GapAnswer }> 
       },
       {
         label: 'Open to offers',
+        locked: !negotiationAllowed,
         answer: { gapId: gap.id, answer: 'Open to offers', fields: [{ target: 'offer', offerKey: gap.offerKey, field: 'offerType', value: 'negotiable' }] },
       },
     )

@@ -3,6 +3,8 @@
 // page (accent color into inline style, logo into <img src>): we never let raw
 // user input become a style or URL without passing these guards.
 
+import { planAllows, type PlanId } from './billing'
+
 export type PageBranding = {
   accent_color: string | null
   logo_url: string | null
@@ -52,4 +54,17 @@ export function normalizeBranding(raw: unknown): PageBranding {
 /** True when any branding has actually been configured. */
 export function hasBranding(b: PageBranding): boolean {
   return Boolean(b.accent_color || b.logo_url || b.brand_name || b.hide_nexez_badge)
+}
+
+/** Apply the subscription contract at the public render boundary. Stored paid
+ * branding is retained across a downgrade, but none of it is publicly emitted
+ * until the corresponding entitlement is live again. */
+export function brandingForPlan(b: PageBranding, planId: PlanId): PageBranding {
+  const whiteLabel = planAllows(planId, 'whiteLabel')
+  return {
+    accent_color: whiteLabel ? b.accent_color : null,
+    logo_url: whiteLabel ? b.logo_url : null,
+    brand_name: whiteLabel ? b.brand_name : null,
+    hide_nexez_badge: planAllows(planId, 'removeBadge') ? b.hide_nexez_badge : false,
+  }
 }

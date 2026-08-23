@@ -68,6 +68,20 @@ jobs:
         run: supabase test db supabase/tests/nexie_approval_security.test.sql --local
       - name: Prove checkout-session privacy and retention boundaries
         run: supabase test db supabase/tests/checkout_session_privacy.test.sql --local
+      - name: Prove the canonical plan entitlement contract
+        run: supabase test db supabase/tests/plan_entitlements.test.sql --local
+      - name: Prove Shopify mapping serialization and lifecycle boundaries
+        run: supabase test db supabase/tests/shopify_mapping_serialization.test.sql --local
+      - name: Prove seller-growth plan lifecycle
+        shell: bash
+        run: |
+          database_url="$(supabase status -o json | jq -er '.DB_URL')"
+          psql "$database_url" -X --set=ON_ERROR_STOP=1 --file=supabase/tests/seller_growth_gauntlet.sql
+      - name: Prove entitlement quota and downgrade concurrency
+        shell: bash
+        run: |
+          database_url="$(supabase status -o json | jq -er '.DB_URL')"
+          DATABASE_URL="$database_url" bash supabase/tests/plan_entitlements_concurrency.sh
       - name: Stop isolated local Supabase
         if: always()
         run: supabase stop --no-backup

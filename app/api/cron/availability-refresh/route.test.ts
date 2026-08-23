@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(), hasSupabaseAdminEnv: vi.fn() }))
+const { planRef } = vi.hoisted(() => ({ planRef: { deniedOwners: new Set<string>() } }))
+vi.mock('../../../../lib/server/plan', () => ({
+  getOwnerPlanIds: vi.fn(async (_admin: unknown, ownerIds: string[]) => Object.fromEntries(
+    ownerIds.map((ownerId) => [ownerId, planRef.deniedOwners.has(ownerId) ? 'free' : 'pro']),
+  )),
+}))
 
 import { GET } from './route'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
@@ -46,7 +52,10 @@ function drive(pages: any[], counts: { checkout?: number; created?: number; canc
 }
 
 describe('GET /api/cron/availability-refresh', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    planRef.deniedOwners.clear()
+  })
   afterEach(() => vi.unstubAllEnvs())
 
   it('401 without the cron secret', async () => {
@@ -58,7 +67,7 @@ describe('GET /api/cron/availability-refresh', () => {
   it('relaxes a stale sold_out back to available when the rolling week frees up', async () => {
     vi.stubEnv('CRON_SECRET', 'topsecret')
     const updates = drive(
-      [{ id: 'pg1', slug: 'acme', services: [managedOffer()], products: [] }],
+      [{ id: 'pg1', owner_id: 'owner-1', slug: 'acme', services: [managedOffer()], products: [] }],
       { created: 0 }, // the sold-out week rolled past the window
     )
     const res = await GET(req('Bearer topsecret'))
@@ -74,6 +83,7 @@ describe('GET /api/cron/availability-refresh', () => {
     const updates = drive([
       {
         id: 'pg1',
+        owner_id: 'owner-1',
         slug: 'acme',
         services: [
           managedOffer({ metadata: {} }), // capped but never webhook-synced -> owner's value
@@ -90,11 +100,47 @@ describe('GET /api/cron/availability-refresh', () => {
   it('leaves already-correct offers unwritten', async () => {
     vi.stubEnv('CRON_SECRET', 'topsecret')
     const updates = drive(
-      [{ id: 'pg1', slug: 'acme', services: [managedOffer()], products: [] }],
+      [{ id: 'pg1', owner_id: 'owner-1', slug: 'acme', services: [managedOffer()], products: [] }],
       { created: 3 }, // still at/over cap -> stays sold_out, nothing to write
     )
     const res = await GET(req('Bearer topsecret'))
     expect(await res.json()).toMatchObject({ ok: true, offersChecked: 1, columnsUpdated: 0 })
+    expect(updates).toHaveLength(0)
+  })
+
+  it('skips managed availability mutation after an integrations downgrade', async () => {
+    vi.stubEnv('CRON_SECRET', 'topsecret')
+    planRef.deniedOwners.add('owner-1')
+    const updates = drive(
+      [{ id: 'pg1', owner_id: 'owner-1', slug: 'acme', services: [managedOffer()], products: [] }],
+      { created: 0 },
+    )
+
+    const res = await GET(req('Bearer topsecret'))
+
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      offersChecked: 0,
+      columnsUpdated: 0,
+      entitlementSkipped: 1,
+    })
+    expect(updates).toHaveLength(0)
+  })
+
+  it('does not count an unmanaged downgraded page as suspended automation', async () => {
+    vi.stubEnv('CRON_SECRET', 'topsecret')
+    planRef.deniedOwners.add('owner-1')
+    const updates = drive([{
+      id: 'pg1',
+      owner_id: 'owner-1',
+      slug: 'acme',
+      services: [managedOffer({ metadata: {} })],
+      products: [],
+    }])
+
+    const res = await GET(req('Bearer topsecret'))
+
+    expect(await res.json()).toMatchObject({ entitlementSkipped: 0, offersChecked: 0 })
     expect(updates).toHaveLength(0)
   })
 })

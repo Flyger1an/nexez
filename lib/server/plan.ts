@@ -1,5 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getCommissionBpsForPlan, getPlanRank, planAllows, type PlanFeature, type PlanId } from '../billing'
+import {
+  getCommissionBpsForPlan,
+  getPlanFeatureEntitlements,
+  getPlanRank,
+  getSerializablePlanLimits,
+  planAllows,
+  type PlanFeature,
+  type PlanId,
+  type SerializablePlanLimits,
+} from '../billing'
 
 // A subscription only confers its plan when it's in a conferring state; an
 // abandoned 'incomplete' or 'canceled' row falls back to Free. subscriptionConfers
@@ -19,6 +28,7 @@ export type PromotionalPlanGrant = {
 }
 
 type PromotionalPlanGrantRow = {
+  owner_id?: string | null
   id: string
   campaign_id: string
   plan_id: string
@@ -28,10 +38,47 @@ type PromotionalPlanGrantRow = {
   fallback_page_id: string | null
 }
 
-function normalizeGrant(row: PromotionalPlanGrantRow | null | undefined): PromotionalPlanGrant | null {
-  if (!row?.plan_id || !VALID_PLANS.has(row.plan_id as PlanId) || row.plan_id === 'free') return null
-  if (new Date(row.starts_at).getTime() > Date.now() || new Date(row.ends_at).getTime() <= Date.now()) return null
+type SubscriptionRow = {
+  owner_id?: string | null
+  plan_id: string | null
+  status: string | null
+  trial_ends_at: string | null
+  account_origin?: string | null
+}
+
+type AdminRow = { user_id: string }
+export type OwnerEntitlementSource = 'free' | 'subscription' | 'promotion' | 'admin_override'
+
+type ResolvedOwnerPlan = {
+  entitlementPlanId: PlanId
+  commercialPlanId: PlanId
+  source: OwnerEntitlementSource
+  adminOverride: boolean
+  subscription: SubscriptionRow | null
+  promotion: PromotionalPlanGrant | null
+}
+
+function isPlanId(value: unknown): value is PlanId {
+  return typeof value === 'string' && VALID_PLANS.has(value as PlanId)
+}
+
+function asRows<T>(data: T | T[] | null | undefined): T[] {
+  if (Array.isArray(data)) return data
+  return data ? [data] : []
+}
+
+function normalizeGrant(
+  row: PromotionalPlanGrantRow | null | undefined,
+  nowMs: number,
+): PromotionalPlanGrant | null {
+  if (!row || !isPlanId(row.plan_id) || row.plan_id === 'free') return null
   if (row.source !== 'welcome' && row.source !== 'referral' && row.source !== 'admin') return null
+
+  const startsAtMs = Date.parse(row.starts_at)
+  const endsAtMs = Date.parse(row.ends_at)
+  if (!Number.isFinite(startsAtMs) || !Number.isFinite(endsAtMs)) return null
+  if (startsAtMs > nowMs || endsAtMs <= nowMs) return null
+
   return {
     id: row.id,
     campaignId: row.campaign_id,
@@ -43,77 +90,225 @@ function normalizeGrant(row: PromotionalPlanGrantRow | null | undefined): Promot
   }
 }
 
+/** Highest plan rank wins; a later expiry deterministically breaks rank ties. */
+function bestPromotionalGrant(
+  rows: PromotionalPlanGrantRow[],
+  nowMs: number,
+): PromotionalPlanGrant | null {
+  const live = rows
+    .map((row) => normalizeGrant(row, nowMs))
+    .filter((grant): grant is PromotionalPlanGrant => Boolean(grant))
+
+  live.sort((left, right) => (
+    getPlanRank(right.planId) - getPlanRank(left.planId)
+    || Date.parse(right.endsAt) - Date.parse(left.endsAt)
+    || left.id.localeCompare(right.id)
+  ))
+  return live[0] ?? null
+}
+
 /**
  * Does this subscription row CONFER its plan right now? active/past_due/unpaid always do.
  * GRACE POLICY (intentional): past_due/unpaid retain access + the plan commission rate
  * through Stripe's dunning window, so a transient payment failure does not instantly
- * downgrade a paying customer. A 'trialing' row confers only while it's inside its window -
+ * downgrade a paying customer. A 'trialing' row confers only while it has a finite,
+ * unexpired window -
  * an expired no-card trial (trial_ends_at in the past) does NOT, so the account falls
  * back to Free or an active promotion. 'paused'/'expired'/'canceled'/'incomplete'
- * never confer. MUST mirror the SQL
- * conferring predicate in 20260627007400 (owner_plan_rank / plan_published_page_limit).
+ * never confer. MUST mirror the canonical SQL entitlement resolver and quota
+ * helpers in the plan-entitlement migration.
  */
 export function subscriptionConfers(status: string | null | undefined, trialEndsAt: string | null | undefined): boolean {
   if (status === 'trialing') {
-    return !trialEndsAt || new Date(trialEndsAt).getTime() >= Date.now()
+    if (!trialEndsAt) return false
+    const endsAt = new Date(trialEndsAt).getTime()
+    // SQL uses a half-open validity window (`now() < trial_ends_at`). Keep the
+    // application resolver exact at the boundary so a trial is no longer
+    // entitled at the instant its expiry timestamp is reached.
+    return Number.isFinite(endsAt) && endsAt > Date.now()
   }
   return status === 'active' || status === 'past_due' || status === 'unpaid'
 }
 
+function subscriptionPlan(row: SubscriptionRow | null | undefined): PlanId {
+  return row?.plan_id && isPlanId(row.plan_id) && subscriptionConfers(row.status, row.trial_ends_at)
+    ? row.plan_id
+    : 'free'
+}
+
+function resolveOwnerPlan(
+  adminOverride: boolean,
+  subscription: SubscriptionRow | null | undefined,
+  grantRows: PromotionalPlanGrantRow[],
+  nowMs: number,
+): ResolvedOwnerPlan {
+  const paidPlanId = subscriptionPlan(subscription)
+  const promotion = bestPromotionalGrant(grantRows, nowMs)
+  const promotionWins = Boolean(
+    promotion && getPlanRank(promotion.planId) > getPlanRank(paidPlanId),
+  )
+  const commercialPlanId = promotionWins && promotion ? promotion.planId : paidPlanId
+
+  return {
+    entitlementPlanId: adminOverride ? 'enterprise' : commercialPlanId,
+    commercialPlanId,
+    source: adminOverride
+      ? 'admin_override'
+      : promotionWins
+        ? 'promotion'
+        : commercialPlanId === 'free'
+          ? 'free'
+          : 'subscription',
+    adminOverride,
+    subscription: subscription ?? null,
+    promotion,
+  }
+}
+
+function neutralResolution(): ResolvedOwnerPlan {
+  return resolveOwnerPlan(false, null, [], Date.now())
+}
+
+async function readOwnerPlanResolution(
+  supabase: Pick<SupabaseClient, 'from'>,
+  ownerId: string | null | undefined,
+): Promise<ResolvedOwnerPlan> {
+  if (!ownerId) return neutralResolution()
+
+  try {
+    const nowMs = Date.now()
+    const now = new Date(nowMs).toISOString()
+    const [adminRes, subRes, grantRes] = await Promise.all([
+      supabase
+        .from('platform_admins')
+        .select('user_id')
+        .eq('user_id', ownerId)
+        .maybeSingle<AdminRow>(),
+      supabase
+        .from('billing_subscriptions')
+        .select('owner_id, plan_id, status, trial_ends_at, account_origin')
+        .eq('owner_id', ownerId)
+        .maybeSingle<SubscriptionRow>(),
+      supabase
+        .from('promotional_plan_grants')
+        .select('owner_id, id, campaign_id, plan_id, source, starts_at, ends_at, fallback_page_id')
+        .eq('owner_id', ownerId)
+        .eq('status', 'active')
+        .lte('starts_at', now)
+        .gt('ends_at', now)
+        .order('ends_at', { ascending: false }),
+    ])
+
+    const adminOverride = !adminRes.error && Boolean(adminRes.data)
+    const subscription = !subRes.error ? subRes.data : null
+    const grantRows = !grantRes.error
+      ? asRows(grantRes.data as PromotionalPlanGrantRow[] | PromotionalPlanGrantRow | null)
+      : []
+    return resolveOwnerPlan(adminOverride, subscription, grantRows, nowMs)
+  } catch {
+    return neutralResolution()
+  }
+}
+
 /**
- * Resolve an owner's effective plan id, server-side, from paid billing plus any
- * active promotional entitlement. Stripe remains the paid source of truth; grants
- * are additive and the higher-ranked live entitlement wins.
- * The single source the gating surfaces read so the "what plan is this user on"
- * decision never drifts. Defaults to 'free' (no/invalid/inactive subscription).
- *
- * Pass any Supabase client that can read the owner's billing_subscriptions row
- * (the authed server client for the owner's own pages, or the admin client when
- * resolving another page's owner - e.g. badge/white-label gating on a public page).
+ * Compatibility wrapper: this is the feature-entitlement plan, including the
+ * platform-admin override. Commission code must use commercialPlanId instead.
  */
 export async function getOwnerPlanId(
   supabase: Pick<SupabaseClient, 'from'>,
   ownerId: string | null | undefined,
 ): Promise<PlanId> {
-  if (!ownerId) return 'free'
+  return (await readOwnerPlanResolution(supabase, ownerId)).entitlementPlanId
+}
+
+export type OwnerEntitlements = {
+  ownerId: string | null
+  planId: PlanId
+  commercialPlanId: PlanId
+  source: OwnerEntitlementSource
+  adminOverride: boolean
+  promotion: PromotionalPlanGrant | null
+  features: Record<PlanFeature, boolean>
+  limits: SerializablePlanLimits
+}
+
+/** Complete JSON-safe entitlement DTO for server components and API responses. */
+export async function getOwnerEntitlements(
+  supabase: Pick<SupabaseClient, 'from'>,
+  ownerId: string | null | undefined,
+): Promise<OwnerEntitlements> {
+  const resolution = await readOwnerPlanResolution(supabase, ownerId)
+  return {
+    ownerId: ownerId ?? null,
+    planId: resolution.entitlementPlanId,
+    commercialPlanId: resolution.commercialPlanId,
+    source: resolution.source,
+    adminOverride: resolution.adminOverride,
+    promotion: resolution.promotion,
+    features: getPlanFeatureEntitlements(resolution.entitlementPlanId),
+    limits: getSerializablePlanLimits(resolution.entitlementPlanId),
+  }
+}
+
+/**
+ * Resolve feature-entitlement plans for many owners with exactly three reads:
+ * admins, subscriptions, and all live grants. Missing/erroring data fails to Free.
+ */
+export async function getOwnerPlanIds(
+  supabase: Pick<SupabaseClient, 'from'>,
+  ownerIds: readonly string[],
+): Promise<Record<string, PlanId>> {
+  const ids = [...new Set(ownerIds.filter(Boolean))]
+  const fallback = Object.fromEntries(ids.map((ownerId) => [ownerId, 'free' as PlanId]))
+  if (ids.length === 0) return fallback
+
   try {
-    // Resolve admin status + subscription + promotion in parallel. A platform admin gets the TOP
-    // tier everywhere (ENTITLEMENTS only - not an RLS/cross-tenant bypass), mirroring
-    // the SQL owner_plan_rank()/plan_published_page_limit() admin short-circuit.
-    // supabase-js surfaces query errors in `.error` (no throw), so a missing
-    // platform_admins table (e.g. pre-migration) just yields null → billing still
-    // resolves normally and gating never breaks.
-    const now = new Date().toISOString()
+    const nowMs = Date.now()
+    const now = new Date(nowMs).toISOString()
     const [adminRes, subRes, grantRes] = await Promise.all([
-      supabase.from('platform_admins').select('user_id').eq('user_id', ownerId).maybeSingle<{ user_id: string }>(),
+      supabase.from('platform_admins').select('user_id').in('user_id', ids),
       supabase
         .from('billing_subscriptions')
-        .select('plan_id, status, trial_ends_at')
-        .eq('owner_id', ownerId)
-        .maybeSingle<{ plan_id: string | null; status: string | null; trial_ends_at: string | null }>(),
+        .select('owner_id, plan_id, status, trial_ends_at, account_origin')
+        .in('owner_id', ids),
       supabase
         .from('promotional_plan_grants')
-        .select('id, campaign_id, plan_id, source, starts_at, ends_at, fallback_page_id')
-        .eq('owner_id', ownerId)
+        .select('owner_id, id, campaign_id, plan_id, source, starts_at, ends_at, fallback_page_id')
+        .in('owner_id', ids)
         .eq('status', 'active')
         .lte('starts_at', now)
         .gt('ends_at', now)
-        .order('ends_at', { ascending: false })
-        .limit(1)
-        .maybeSingle<PromotionalPlanGrantRow>(),
+        .order('ends_at', { ascending: false }),
     ])
-    if (adminRes.data) return 'enterprise'
-    const sub = subRes.data
-    const subscriptionPlan =
-      sub?.plan_id && VALID_PLANS.has(sub.plan_id as PlanId) && subscriptionConfers(sub.status, sub.trial_ends_at)
-        ? (sub.plan_id as PlanId)
-        : 'free'
-    const grantPlan = normalizeGrant(grantRes.data)?.planId ?? 'free'
-    return getPlanRank(grantPlan) > getPlanRank(subscriptionPlan) ? grantPlan : subscriptionPlan
+
+    const adminIds = new Set(
+      (!adminRes.error ? asRows(adminRes.data as AdminRow[] | AdminRow | null) : [])
+        .map((row) => row.user_id),
+    )
+    const subscriptionsByOwner = new Map<string, SubscriptionRow>()
+    for (const row of !subRes.error ? asRows(subRes.data as SubscriptionRow[] | SubscriptionRow | null) : []) {
+      if (row.owner_id && ids.includes(row.owner_id)) subscriptionsByOwner.set(row.owner_id, row)
+    }
+    const grantsByOwner = new Map<string, PromotionalPlanGrantRow[]>()
+    for (const row of !grantRes.error
+      ? asRows(grantRes.data as PromotionalPlanGrantRow[] | PromotionalPlanGrantRow | null)
+      : []) {
+      if (!row.owner_id || !ids.includes(row.owner_id)) continue
+      grantsByOwner.set(row.owner_id, [...(grantsByOwner.get(row.owner_id) ?? []), row])
+    }
+
+    return Object.fromEntries(ids.map((ownerId) => {
+      const resolution = resolveOwnerPlan(
+        adminIds.has(ownerId),
+        subscriptionsByOwner.get(ownerId),
+        grantsByOwner.get(ownerId) ?? [],
+        nowMs,
+      )
+      return [ownerId, resolution.entitlementPlanId]
+    }))
   } catch {
-    // fall through to free on any read error - gating fails safe (most restrictive)
+    return fallback
   }
-  return 'free'
 }
 
 export type CommissionResolution = {
@@ -124,34 +319,28 @@ export type CommissionResolution = {
 }
 
 /**
- * Resolve the commission attached to an owner's EFFECTIVE plan. This deliberately
- * composes getOwnerPlanId() rather than re-reading billing state, so dunning,
- * expired trials, promotions, admins, and fail-safe Free fallback cannot drift
- * between feature entitlement and transaction economics.
- *
- * Enterprise owners may receive a server-controlled override. Missing, inactive,
- * unreadable, or out-of-policy terms fail closed to the Enterprise plan default.
+ * Resolve commission from the commercial plan only. Platform-admin authorization
+ * can unlock product features but can never silently change transaction terms.
  */
 export async function getOwnerCommission(
   supabase: Pick<SupabaseClient, 'from'>,
   ownerId: string | null | undefined,
   resolvedBillingState?: OwnerBillingState,
 ): Promise<CommissionResolution> {
-  const planId = await getOwnerPlanId(supabase, ownerId)
-  const planDefaultBps = getCommissionBpsForPlan(planId)
   const billingState = resolvedBillingState ?? await getOwnerBillingState(supabase, ownerId)
-  const subscriptionPlan =
+  const subscriptionPlanId =
     billingState.chosenPlanId && subscriptionConfers(billingState.status, billingState.trialEndsAt)
       ? billingState.chosenPlanId
       : 'free'
   const promotionWins = Boolean(
     billingState.promotion
-    && billingState.promotion.planId === planId
-    && getPlanRank(billingState.promotion.planId) > getPlanRank(subscriptionPlan),
+    && getPlanRank(billingState.promotion.planId) > getPlanRank(subscriptionPlanId),
   )
+  const planId = billingState.commercialPlanId
+  const planDefaultBps = getCommissionBpsForPlan(planId)
   const defaultSource: CommissionResolution['source'] = promotionWins ? 'promotion' : 'plan_default'
 
-  // Only effective Enterprise owners are eligible for negotiated commercial
+  // Only commercial Enterprise owners are eligible for negotiated commercial
   // terms. Non-Enterprise plans never touch the commercial-terms table.
   if (planId === 'enterprise' && ownerId) {
     try {
@@ -204,87 +393,66 @@ export async function getOwnerCommission(
 }
 
 export type OwnerBillingState = {
-  /** Entitled tier RIGHT NOW (Free when not conferring) - drives feature gating. */
+  /** Feature-entitlement tier right now; includes the admin override. */
   planId: PlanId
-  /** The plan_id on the row, even when paused - for "your {Pro} trial" display copy. */
+  /** Commercial tier used for commission; never includes the admin override. */
+  commercialPlanId: PlanId
+  /** The plan_id on the row, even when paused, for billing lifecycle copy. */
   chosenPlanId: PlanId | null
   status: string | null
-  /** A conferring sub (active/dunning/in-window trial). */
   isLive: boolean
-  /** In-window trial. */
   isTrialing: boolean
-  /** The old all-or-nothing pause state is retained for compatibility but is now
-   * always false. Billing lapses fall back to the usable Free plan. */
   isPaused: boolean
-  /** A no-card paid-plan trial ended and the account fell back to Free/a grant. */
   isTrialExpired: boolean
+  isAdminOverride: boolean
   trialEndsAt: string | null
   origin: string | null
   promotion: PromotionalPlanGrant | null
 }
 
-/**
- * Richer billing state for the dashboard (trial countdown, promotion, and Free
- * fallback). Splits the tier used for gating from the billing lifecycle. A read
- * error returns a neutral Free state; billing state never takes public listings
- * offline.
- */
+/** Fail-safe reporting fallback when privileged commercial-term reads are not
+ * available. It deliberately keys off the commercial plan, never the feature
+ * plan (which may contain a platform-admin Enterprise override). */
+export function getCommercialPlanDefaultCommission(
+  billingState: Pick<OwnerBillingState, 'commercialPlanId'>,
+): CommissionResolution {
+  const basisPoints = getCommissionBpsForPlan(billingState.commercialPlanId)
+  return {
+    planId: billingState.commercialPlanId,
+    basisPoints,
+    percent: basisPoints / 100,
+    source: 'plan_default',
+  }
+}
+
+/** Rich billing lifecycle plus separated entitlement and commercial plans. */
 export async function getOwnerBillingState(
   supabase: Pick<SupabaseClient, 'from'>,
   ownerId: string | null | undefined,
 ): Promise<OwnerBillingState> {
-  const neutral: OwnerBillingState = {
-    planId: 'free', chosenPlanId: null, status: null,
-    isLive: false, isTrialing: false, isPaused: false, isTrialExpired: false,
-    trialEndsAt: null, origin: null, promotion: null,
-  }
-  if (!ownerId) return neutral
-  try {
-    const now = new Date().toISOString()
-    const [adminRes, subRes, grantRes] = await Promise.all([
-      supabase.from('platform_admins').select('user_id').eq('user_id', ownerId).maybeSingle<{ user_id: string }>(),
-      supabase
-        .from('billing_subscriptions')
-        .select('plan_id, status, trial_ends_at, account_origin')
-        .eq('owner_id', ownerId)
-        .maybeSingle<{ plan_id: string | null; status: string | null; trial_ends_at: string | null; account_origin: string | null }>(),
-      supabase
-        .from('promotional_plan_grants')
-        .select('id, campaign_id, plan_id, source, starts_at, ends_at, fallback_page_id')
-        .eq('owner_id', ownerId)
-        .eq('status', 'active')
-        .lte('starts_at', now)
-        .gt('ends_at', now)
-        .order('ends_at', { ascending: false })
-        .limit(1)
-        .maybeSingle<PromotionalPlanGrantRow>(),
-    ])
-    if (adminRes.data) return { ...neutral, planId: 'enterprise', isLive: true }
-    const sub = subRes.data
-    const promotion = normalizeGrant(grantRes.data)
-    const chosen = sub?.plan_id && VALID_PLANS.has(sub.plan_id as PlanId) ? (sub.plan_id as PlanId) : null
-    const conferring = subscriptionConfers(sub?.status, sub?.trial_ends_at)
-    const subscriptionPlan = conferring && chosen ? chosen : 'free'
-    const promotionPlan = promotion?.planId ?? 'free'
-    const planId = getPlanRank(promotionPlan) > getPlanRank(subscriptionPlan) ? promotionPlan : subscriptionPlan
-    const trialing = sub?.status === 'trialing' && conferring
-    const trialExpired =
-      sub?.account_origin === 'trial'
-      && ((sub.status === 'trialing' && !conferring) || sub.status === 'paused' || sub.status === 'expired')
-    return {
-      planId,
-      chosenPlanId: chosen,
-      status: sub?.status ?? null,
-      isLive: conferring || Boolean(promotion),
-      isTrialing: trialing,
-      isPaused: false,
-      isTrialExpired: trialExpired,
-      trialEndsAt: sub?.trial_ends_at ?? null,
-      origin: sub?.account_origin ?? null,
-      promotion,
-    }
-  } catch {
-    return neutral
+  const resolution = await readOwnerPlanResolution(supabase, ownerId)
+  const sub = resolution.subscription
+  const chosen = isPlanId(sub?.plan_id) ? sub.plan_id : null
+  const conferring = subscriptionConfers(sub?.status, sub?.trial_ends_at)
+  const trialing = sub?.status === 'trialing' && conferring
+  const trialExpired = Boolean(
+    sub?.account_origin === 'trial'
+    && ((sub.status === 'trialing' && !conferring) || sub.status === 'paused' || sub.status === 'expired'),
+  )
+
+  return {
+    planId: resolution.entitlementPlanId,
+    commercialPlanId: resolution.commercialPlanId,
+    chosenPlanId: chosen,
+    status: sub?.status ?? null,
+    isLive: resolution.adminOverride || conferring || Boolean(resolution.promotion),
+    isTrialing: trialing,
+    isPaused: false,
+    isTrialExpired: trialExpired,
+    isAdminOverride: resolution.adminOverride,
+    trialEndsAt: sub?.trial_ends_at ?? null,
+    origin: sub?.account_origin ?? null,
+    promotion: resolution.promotion,
   }
 }
 
@@ -296,12 +464,12 @@ export async function isPlatformAdmin(
 ): Promise<boolean> {
   if (!ownerId) return false
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('platform_admins')
       .select('user_id')
       .eq('user_id', ownerId)
-      .maybeSingle<{ user_id: string }>()
-    return Boolean(data)
+      .maybeSingle<AdminRow>()
+    return !error && Boolean(data)
   } catch {
     return false
   }

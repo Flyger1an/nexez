@@ -51,29 +51,6 @@ function persistAbBucket(response: NextResponse, value: string | null): NextResp
   return response
 }
 
-// Small per-instance cache so we don't hit Supabase on every custom-domain
-// request. Edge instances are ephemeral, but this still collapses bursts.
-const domainCache = new Map<string, { pathToSlug: Record<string, string>; expires: number }>()
-const CACHE_TTL_MS = 60_000
-
-// After a failed refresh, wait this long before querying again for the same host.
-// Without it, a SUSTAINED outage makes every request pay the full failure latency
-// and emit a warning, which is worse than the bug this replaced when the failure
-// mode is a timeout rather than a fast ECONNRESET. The stale map keeps serving
-// throughout, and the failure is still never written to domainCache, so the first
-// request after the backoff retries for real.
-const FAILURE_BACKOFF_MS = 3_000
-const failureBackoff = new Map<string, number>()
-
-// Both maps are keyed by host and never expire entries on their own. Edge instances
-// are ephemeral, but a long-lived one serving many hosts would grow without bound,
-// so drop everything once past a generous ceiling rather than tracking LRU order.
-const MAX_TRACKED_HOSTS = 1_000
-function evictIfOversized() {
-  if (domainCache.size > MAX_TRACKED_HOSTS) domainCache.clear()
-  if (failureBackoff.size > MAX_TRACKED_HOSTS) failureBackoff.clear()
-}
-
 /** Best identifier we can print for a failed lookup: PostgREST code, fetch cause, or message. */
 function describeLookupError(err: unknown): string {
   if (!err) return 'unknown'
@@ -81,28 +58,18 @@ function describeLookupError(err: unknown): string {
   return e.code || e.cause?.code || e.message || 'unknown'
 }
 
-// Resolve a host to its { domain_path -> slug } map (all verified, published
-// pages on that domain). Supports multiple pages per domain (C9).
+// Resolve a host to its { domain_path -> slug } map (all verified, published,
+// currently-serving pages on that domain). Supports multiple pages per domain (C9).
 //
-// Failures must never be cached. A single Supabase blip (observed:
-// `TypeError: fetch failed / ECONNRESET`) used to produce an empty map that was
-// then cached for the full TTL, so every custom-domain request on that edge
-// instance served nothing for a minute, silently. A hostname's mapping changes
-// rarely, so stale routing beats no routing: on failure we keep serving the last
-// known map and leave the cache untouched, which also makes the next request
-// retry instead of waiting out a negative cache entry.
+// This lookup is deliberately AUTHORITATIVE on every custom-host request. A cached
+// positive mapping is an authorization revocation bypass: after a downgrade, DNS
+// proof removal, domain reallocation, or storefront suspension, the old host would
+// keep serving until its TTL expired (and formerly indefinitely during lookup
+// failures). `pages_public` materializes those decisions, so routing must read its
+// current state and fail closed when that state cannot be checked.
 async function resolvePathMapForHost(host: string): Promise<Record<string, string>> {
   const key = normalizeHost(host)
   if (!key) return {}
-
-  const cached = domainCache.get(key)
-  if (cached && cached.expires > Date.now()) return cached.pathToSlug
-
-  // Recently failed: serve stale without another round-trip. This is a retry
-  // schedule, NOT a cache of the failure - domainCache is still untouched, so the
-  // next attempt after the window returns real data rather than an empty map.
-  const retryAfter = failureBackoff.get(key)
-  if (retryAfter && retryAfter > Date.now()) return cached?.pathToSlug ?? {}
 
   try {
     const supabase = createServerClient(
@@ -114,12 +81,14 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
     // Read the redacted public view, NOT base `pages`: anon SELECT on `pages` is
     // revoked (owner-private rules redaction), so querying `pages` here silently
     // fails (permission denied) and breaks custom-domain routing. `pages_public`
-    // exposes the slug/domain_path/custom_domain(+verified)/is_published this needs.
+    // exposes the slug/domain_path/custom_domain(+verified)/is_published/serving
+    // fields this authoritative routing decision needs.
     const { data, error } = await supabase
       .from('pages_public')
       .select('slug, domain_path')
       .in('custom_domain', hostLookupCandidates(host))
       .eq('is_published', true)
+      .eq('serving', true)
       .not('custom_domain_verified', 'is', null)
       .returns<Array<{ slug: string; domain_path: string | null }>>()
 
@@ -132,18 +101,13 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
       pathToSlug[normalizeDomainPath(row.domain_path)] = row.slug
     }
 
-    // Only a successful query writes the cache.
-    failureBackoff.delete(key)
-    domainCache.set(key, { pathToSlug, expires: Date.now() + CACHE_TTL_MS })
-    evictIfOversized()
     return pathToSlug
   } catch (err) {
     // Warn, never throw: a hard failure here would take the proxy down for
-    // platform hosts too. Serve the stale map if we have one.
-    failureBackoff.set(key, Date.now() + FAILURE_BACKOFF_MS)
-    evictIfOversized()
+    // platform hosts too. For a custom host, an unverifiable routing grant must
+    // fail closed to the canonical-host redirect below, never to stale content.
     console.warn('[proxy] custom-domain lookup failed for', key, describeLookupError(err))
-    return cached?.pathToSlug ?? {}
+    return {}
   }
 }
 

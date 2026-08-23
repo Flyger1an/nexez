@@ -9,6 +9,7 @@ import {
   type OutboundWebhookPayload,
 } from '../../../../lib/webhooks'
 import { ownerAllows } from '../../../../lib/server/plan'
+import { minPlanForFeature } from '../../../../lib/billing'
 
 // Account-level outbound webhooks for the Tools → Developer platform UI. Owners
 // register endpoints here; Nexez delivers HMAC-signed events to them on bookings
@@ -46,7 +47,11 @@ export async function POST(request: Request) {
 
   // Plan gate: outbound webhooks (create + test) are a Pro automation feature.
   if (!(await ownerAllows(supabase, user.id, 'outboundWebhooks'))) {
-    return NextResponse.json({ error: 'Outbound webhooks are available on the Pro plan and up.', upgrade: 'pro' }, { status: 402 })
+    const required = minPlanForFeature('outboundWebhooks')
+    return NextResponse.json(
+      { error: `Outbound webhooks are available on the ${required.name} plan and up.`, upgrade: required.id },
+      { status: 402 },
+    )
   }
 
   let body: { url?: string; action?: string; id?: string } = {}

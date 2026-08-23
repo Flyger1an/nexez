@@ -4,7 +4,7 @@ import { createSupabaseMock } from '../../../../../test/supabase-mock'
 const { authRef, rateLimitRef, importerRef } = vi.hoisted(() => ({
   authRef: { result: null as any },
   rateLimitRef: { response: null as any },
-  importerRef: { urlError: null as string | null, result: null as any, error: null as Error | null },
+  importerRef: { urlError: null as string | null, result: null as any, error: null as Error | null, analyzeArgs: null as unknown[] | null },
 }))
 
 vi.mock('../../../../../lib/rate-limit', () => ({
@@ -15,7 +15,8 @@ vi.mock('../../../../../lib/server/request-auth', () => ({
 }))
 vi.mock('../../../../../lib/importer', () => ({
   getImportUrlError: vi.fn(() => importerRef.urlError),
-  analyzeSite: vi.fn(async () => {
+  analyzeSite: vi.fn(async (...args: unknown[]) => {
+    importerRef.analyzeArgs = args
     if (importerRef.error) throw importerRef.error
     return importerRef.result
   }),
@@ -25,7 +26,13 @@ import { GET, POST } from './route'
 
 const OWNER = { id: 'owner-1', email: 'o@example.com' }
 
-function makeDb(handlers: { page?: any; onInsert?: (payload: any) => void; sessions?: any[] }) {
+function makeDb(handlers: {
+  page?: any
+  onInsert?: (payload: any) => void
+  sessions?: any[]
+  planId?: 'free' | 'launch'
+  planReadError?: boolean
+}) {
   return createSupabaseMock((ctx) => {
     if (ctx.table === 'pages' && ctx.op === 'select') return { data: handlers.page ?? null }
     if (ctx.table === 'intake_sessions' && ctx.op === 'insert') {
@@ -33,6 +40,15 @@ function makeDb(handlers: { page?: any; onInsert?: (payload: any) => void; sessi
       return { data: { id: 'sess-new', status: 'active', phase: ctx.payload.phase } }
     }
     if (ctx.table === 'intake_sessions' && ctx.op === 'select') return { data: handlers.sessions ?? [] }
+    if (ctx.table === 'platform_admins' || ctx.table === 'promotional_plan_grants') {
+      return handlers.planReadError ? { data: null, error: { message: 'plan read failed' } } : { data: ctx.table === 'promotional_plan_grants' ? [] : null }
+    }
+    if (ctx.table === 'billing_subscriptions') {
+      if (handlers.planReadError) return { data: null, error: { message: 'plan read failed' } }
+      return handlers.planId === 'launch'
+        ? { data: { owner_id: OWNER.id, plan_id: 'launch', status: 'active', trial_ends_at: null, account_origin: 'paid' } }
+        : { data: null }
+    }
     return { data: null }
   })
 }
@@ -47,6 +63,7 @@ beforeEach(() => {
   rateLimitRef.response = null
   importerRef.urlError = null
   importerRef.error = null
+  importerRef.analyzeArgs = null
   importerRef.result = {
     title: 'Apex Catering Co.',
     description: 'Full-service catering.',
@@ -98,6 +115,18 @@ describe('POST /api/agents/intake/threads', () => {
     expect(inserted.state.draft.services).toHaveLength(1)
     expect(inserted.state.phase).toBe('GAP_ANALYSIS')
     expect(inserted.state.extractions).toHaveLength(1)
+    expect(importerRef.analyzeArgs).toEqual(['https://apex.example', null, { skipLlm: true }])
+  })
+
+  it('enables optional URL refinement only for an entitled owner and fails closed on plan-read errors', async () => {
+    authRef.result = { supabase: makeDb({ planId: 'launch' }), user: OWNER }
+    expect((await POST(post({ source_url: 'https://apex.example' }))).status).toBe(201)
+    expect(importerRef.analyzeArgs).toEqual(['https://apex.example', null, { skipLlm: false }])
+
+    importerRef.analyzeArgs = null
+    authRef.result = { supabase: makeDb({ planReadError: true }), user: OWNER }
+    expect((await POST(post({ source_url: 'https://apex.example' }))).status).toBe(201)
+    expect(importerRef.analyzeArgs).toEqual(['https://apex.example', null, { skipLlm: true }])
   })
 
   it('still creates the session when the create-time crawl fails (best-effort extraction)', async () => {

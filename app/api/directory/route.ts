@@ -7,6 +7,7 @@ import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
 import { cleanLocationQuery, filterPagesByLocation, getPageLocationMatch, locationFilterMeta } from '../../../lib/location-filter'
 import { loadReviewSummariesForSlugs } from '../../../lib/server/reviews'
 import { loadStorefrontHandlesForSlugs } from '../../../lib/server/storefront'
+import { resolvePublicCommerceCapabilities } from '../../../lib/server/public-commerce-capabilities'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -57,15 +58,19 @@ export async function GET(request: Request) {
 
   const base = getBaseUrl()
   const readySlugs = ready.map(({ p }) => p.slug)
-  const [storefrontHandles, reviewSummaries] = await Promise.all([
+  const [storefrontHandles, reviewSummaries, commerceCapabilities] = await Promise.all([
     loadStorefrontHandlesForSlugs(readySlugs),
     loadReviewSummariesForSlugs(readySlugs, 0),
+    resolvePublicCommerceCapabilities(readySlugs),
   ])
   const results = ready.map(({ p, readiness }) => {
     const offerCount = (p.services?.length || 0) + (p.products?.length || 0)
     const hasLastBooking = !!p.last_booking
     const verifiedCustom = !!(p as any).custom_domain_verified && !!(p as any).custom_domain
-    const marketplace = summarizeMarketplacePage(p)
+    const marketplace = summarizeMarketplacePage(p, {
+      negotiationAllowed: commerceCapabilities.negotiationEligibleSlugs.has(p.slug),
+      nexezCheckoutReady: commerceCapabilities.checkoutReadySlugs.has(p.slug),
+    })
     const locationMatch = location ? getPageLocationMatch(p, location) : null
     const storefrontHandle = storefrontHandles.get(p.slug)
     const storefront = storefrontHandle ? buildAgentStorefrontRef(storefrontHandle, base) : null
@@ -121,6 +126,8 @@ export async function GET(request: Request) {
       query: q || undefined,
       category,
       minReadiness,
+      negotiationEligibleSlugs: commerceCapabilities.negotiationEligibleSlugs,
+      checkoutReadySlugs: commerceCapabilities.checkoutReadySlugs,
     }),
     results,
     // Helpful for agents consuming the directory

@@ -4,6 +4,7 @@ import {
   getCertification,
   getCheckoutOffers,
   getOfferCount,
+  getPreferredOriginalOfferUrl,
   getReadinessScore,
   getServerVerificationEvidence,
   getTrustScore,
@@ -23,10 +24,28 @@ export type MarketplaceSummary = {
   certified: boolean
   has_credentials: boolean
   has_recent_activity: boolean
+  /** A published offer has an action that a buyer can attempt (Nexez checkout,
+   * booking, or an external provider handoff). This is inventory/actionability,
+   * not proof that Nexez can settle a payment for the owner. */
+  has_actionable_offer: boolean
+  /** The owner has an operational Nexez payout account. Public server callers
+   * must resolve this from private settlement state; seller-authored page JSON
+   * can never turn it on. */
+  nexez_checkout_ready: boolean
+  /** @deprecated Compatibility alias for has_actionable_offer. */
   supports_checkout: boolean
+  /** True only when both the offer configuration and the owner's authoritative
+   * plan entitlement permit negotiation. */
   supports_negotiation: boolean
   price_band: MarketplacePriceBand
   badges: string[]
+}
+
+export type MarketplaceCapabilities = {
+  /** Authoritative owner entitlement, resolved outside the public page record. */
+  negotiationAllowed?: boolean
+  /** Authoritative payout/settlement readiness, resolved from private billing. */
+  nexezCheckoutReady?: boolean
 }
 
 export type MarketplaceIntentPreset = {
@@ -100,7 +119,7 @@ export function classifyMarketplaceCategory(page: Pick<AgentPage, 'industry' | '
 
 export function getMarketplacePriceBand(page: Pick<AgentPage, 'services' | 'products'>): MarketplacePriceBand {
   const prices = getCheckoutOffers(page)
-    .map((offer) => parsePriceCents(offer.price))
+    .map((offer) => parseMarketplacePriceCents(offer.price))
     .filter((value): value is number => typeof value === 'number')
 
   if (!prices.length) return 'custom'
@@ -113,7 +132,10 @@ export function getMarketplacePriceBand(page: Pick<AgentPage, 'services' | 'prod
   return '2000_plus'
 }
 
-export function summarizeMarketplacePage(page: AgentPage): MarketplaceSummary {
+export function summarizeMarketplacePage(
+  page: AgentPage,
+  capabilities: MarketplaceCapabilities = {},
+): MarketplaceSummary {
   const readiness = getReadinessScore(page)
   const trustScore = getTrustScore(page)
   const certification = getCertification(page)
@@ -125,15 +147,34 @@ export function summarizeMarketplacePage(page: AgentPage): MarketplaceSummary {
     Array.isArray(verification.docs_provided) &&
     verification.docs_provided.length > 0
   const verified = getServerVerificationEvidence(page).verified
-  const supportsNegotiation = offers.some((offer) => offer.offerType === 'negotiable')
-  const supportsCheckout = offers.some((offer) => offer.availability !== 'sold_out')
+  const hasNegotiableOffer = offers.some((offer) => offer.offerType === 'negotiable')
+  const supportsNegotiation = hasNegotiableOffer && capabilities.negotiationAllowed === true
+  const availableOffers = offers.filter((offer) => offer.availability !== 'sold_out')
+  // Connect readiness is owner-level, but the public claim is offer-level: at
+  // least one available, positively priced offer must actually be capable of
+  // using the Nexez settlement rail. A forced provider handoff is actionable,
+  // but it is deliberately not labeled Nexez-checkout-ready.
+  const hasNexezSettledOffer = availableOffers.some((offer) => (
+    (parseMarketplacePriceCents(offer.price) ?? 0) > 0
+    && !getPreferredOriginalOfferUrl(page, offer)
+  ))
+  const nexezCheckoutReady = hasNexezSettledOffer && capabilities.nexezCheckoutReady === true
+  const hasActionableOffer = availableOffers.some((offer) => (
+    Boolean(getPreferredOriginalOfferUrl(page, offer))
+    || (offer.offerType === 'negotiable' && capabilities.negotiationAllowed === true)
+    || (
+      offer.offerType !== 'negotiable'
+      && (parseMarketplacePriceCents(offer.price) ?? 0) > 0
+      && capabilities.nexezCheckoutReady === true
+    )
+  ))
 
   const badges = [
     certification.certified ? 'Certified Agent-Ready' : null,
     verified ? 'Verified seller' : null,
     supportsNegotiation ? 'Negotiable' : null,
     page.last_booking ? 'Recent activity' : null,
-    supportsCheckout ? 'Checkout ready' : null,
+    nexezCheckoutReady ? 'Nexez checkout ready' : hasActionableOffer ? 'Actionable offer' : null,
   ].filter(Boolean) as string[]
 
   return {
@@ -146,15 +187,33 @@ export function summarizeMarketplacePage(page: AgentPage): MarketplaceSummary {
     certified: certification.certified,
     has_credentials: hasCredentials,
     has_recent_activity: Boolean(page.last_booking),
-    supports_checkout: supportsCheckout,
+    has_actionable_offer: hasActionableOffer,
+    nexez_checkout_ready: nexezCheckoutReady,
+    supports_checkout: hasActionableOffer,
     supports_negotiation: supportsNegotiation,
     price_band: getMarketplacePriceBand(page),
     badges,
   }
 }
 
-export function buildMarketplaceInsights(pages: AgentPage[], opts: { query?: string; type?: string; category?: string; minReadiness?: number } = {}): MarketplaceInsights {
-  const summaries = pages.map((page) => ({ page, summary: summarizeMarketplacePage(page) }))
+export function buildMarketplaceInsights(
+  pages: AgentPage[],
+  opts: {
+    query?: string
+    type?: string
+    category?: string
+    minReadiness?: number
+    negotiationEligibleSlugs?: ReadonlySet<string>
+    checkoutReadySlugs?: ReadonlySet<string>
+  } = {},
+): MarketplaceInsights {
+  const summaries = pages.map((page) => ({
+    page,
+    summary: summarizeMarketplacePage(page, {
+      negotiationAllowed: opts.negotiationEligibleSlugs?.has(page.slug) === true,
+      nexezCheckoutReady: opts.checkoutReadySlugs?.has(page.slug) === true,
+    }),
+  }))
   const totals = summaries.reduce(
     (acc, item) => {
       acc.pages += 1
@@ -162,7 +221,7 @@ export function buildMarketplaceInsights(pages: AgentPage[], opts: { query?: str
       if (item.summary.certified) acc.certified += 1
       if (item.summary.trust_score >= 80) acc.highTrust += 1
       if (item.summary.supports_negotiation) acc.negotiable += 1
-      if (item.summary.supports_checkout) acc.checkoutReady += 1
+      if (item.summary.nexez_checkout_ready) acc.checkoutReady += 1
       return acc
     },
     { pages: 0, offers: 0, certified: 0, highTrust: 0, negotiable: 0, checkoutReady: 0 },
@@ -291,7 +350,7 @@ function marketplaceHref(opts: { query?: string; type?: string; category?: strin
   return `/discovery${qs ? `?${qs}` : ''}`
 }
 
-function parsePriceCents(value: string | null | undefined): number | null {
+export function parseMarketplacePriceCents(value: string | null | undefined): number | null {
   const raw = (value || '').toLowerCase()
   if (!raw || raw.includes('custom') || raw.includes('quote') || raw.includes('varies')) return null
   if (raw.includes('free')) return 0

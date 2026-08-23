@@ -2,11 +2,14 @@ import { PageEditor } from './usePageEditor'
 
 export function OutboundActivityCard({ e }: { e: PageEditor }) {
   const { recentOutboundFires } = e
+  const active = e.outboundWebhooksEnabled
   return (
     <div className="rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/5 p-4 mb-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-[var(--signal)]">Recent Outbound Webhook Activity</span>
-        <span className="text-[10px] text-[var(--signal)]/70">Automatic on bookings</span>
+        <span className={`text-[10px] ${active ? 'text-[var(--signal)]/70' : 'text-[var(--amber)]'}`}>
+          {active ? 'Automatic on bookings' : 'History retained · delivery paused by plan'}
+        </span>
       </div>
       {recentOutboundFires.length > 0 ? (
         <div className="space-y-1 text-[11px]">
@@ -16,12 +19,16 @@ export function OutboundActivityCard({ e }: { e: PageEditor }) {
               <span className="text-[var(--signal)]/70">{new Date(evt.created_at).toLocaleTimeString()}</span>
             </div>
           ))}
-          <div className="mt-1 text-[9px] text-[var(--signal)]/80">Sent to your configured webhook URLs.</div>
+          <div className="mt-1 text-[9px] text-[var(--signal)]/80">
+            {active ? 'Sent to your configured webhook URLs.' : 'Past deliveries remain visible; new deliveries are paused.'}
+          </div>
         </div>
       ) : (
         <div className="text-[11px] text-[var(--signal)]">
-          Webhook URLs are notified automatically when bookings happen through Nexez or Calendly.
-          Use "Send Test" in Settings to verify instantly.
+          {active
+            ? 'Webhook URLs are notified automatically when bookings happen through Nexez or Calendly.'
+            : 'Configured webhook URLs are retained but will not receive new booking events on this plan.'}
+          {active ? ' Use "Send Test" in Settings to verify instantly.' : null}
         </div>
       )}
       <div className="mt-2 text-[9px] text-[var(--signal)]/70">

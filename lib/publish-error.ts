@@ -1,3 +1,5 @@
+import { isEntitlementAllocationRetry } from './entitlement-allocation-error'
+
 /**
  * Turn a Supabase write error from a publish attempt into a user-facing message.
  * The published-page limit is enforced by a DB trigger that raises a
@@ -13,6 +15,9 @@ export function isPublishLimitError(error: { code?: string; message?: string }):
 }
 
 export function publishErrorMessage(error: { code?: string; message?: string; hint?: string }): string {
+  if (isEntitlementAllocationRetry(error)) {
+    return 'Your plan allocation changed while this update was running. Please try again.'
+  }
   if (isPublishLimitError(error)) return [error.message, error.hint].filter(Boolean).join(' ')
   return `Could not update this page: ${error.message ?? 'unknown error'}`
 }

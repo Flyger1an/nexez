@@ -148,9 +148,9 @@ function normalizeGuidance(input?: string | ImportGuidance | null): ImportGuidan
   }
 }
 
-function guidanceCacheKey(url: string, guidance: ImportGuidance): string {
+function guidanceCacheKey(url: string, guidance: ImportGuidance, skipLlm: boolean): string {
   const key = {
-    llm: isLlmConfigured() ? `${llmProviderName()}:${llmModel()}` : 'deterministic',
+    llm: !skipLlm && isLlmConfigured() ? `${llmProviderName()}:${llmModel()}` : 'deterministic',
     industry: guidance.industry || '',
     targetBuyer: guidance.targetBuyer || '',
     desiredAction: guidance.desiredAction || '',
@@ -471,14 +471,14 @@ const DNS_TIMEOUT_MARKER = 'DNS safety lookup timed out'
 const IMPORT_CACHE = new Map<string, { ts: number; result: ImportResult }>()
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
-function getCached(url: string, guidance: ImportGuidance): ImportResult | null {
-  const key = guidanceCacheKey(url, guidance)
+function getCached(url: string, guidance: ImportGuidance, skipLlm: boolean): ImportResult | null {
+  const key = guidanceCacheKey(url, guidance, skipLlm)
   const hit = IMPORT_CACHE.get(key)
   if (hit && Date.now() - hit.ts < CACHE_TTL_MS) return hit.result
   return null
 }
-function setCached(url: string, guidance: ImportGuidance, result: ImportResult) {
-  const key = guidanceCacheKey(url, guidance)
+function setCached(url: string, guidance: ImportGuidance, skipLlm: boolean, result: ImportResult) {
+  const key = guidanceCacheKey(url, guidance, skipLlm)
   IMPORT_CACHE.set(key, { ts: Date.now(), result })
   // crude size limit
   if (IMPORT_CACHE.size > 50) {
@@ -1523,7 +1523,7 @@ export async function analyzeSite(
   const industry = guidance.industry || null
 
   // Short-TTL cache hit (robustness + speed)
-  const cached = getCached(url, guidance)
+  const cached = getCached(url, guidance, skipLlm)
   if (cached) return cached
 
   const sitemapUrls = await discoverSitemapUrls(url, guidance)
@@ -1798,6 +1798,6 @@ export async function analyzeSite(
     aiStatus,
   }
 
-  setCached(url, guidance, result)
+  setCached(url, guidance, skipLlm, result)
   return result
 }

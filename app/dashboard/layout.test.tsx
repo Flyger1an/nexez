@@ -19,7 +19,17 @@ vi.mock('next/navigation', () => ({ redirect }))
 vi.mock('../../utils/supabase/server', () => ({
   createClient: () => ({ auth: { getUser: async () => ({ data: { user: refs.user }, error: refs.authError }) } }),
 }))
-vi.mock('../../lib/server/plan', () => ({ getOwnerPlanId: vi.fn(async () => refs.plan) }))
+vi.mock('../../lib/server/plan', () => ({
+  getOwnerEntitlements: vi.fn(async () => ({
+    planId: refs.plan,
+    commercialPlanId: refs.plan,
+    source: refs.plan === 'free' ? 'free' : 'subscription',
+    adminOverride: false,
+    promotion: null,
+    features: {},
+    limits: {},
+  })),
+}))
 vi.mock('../../lib/server/trial', () => ({
   ensureBillingSeeded: trial.ensure,
   hasBillingAccount: trial.hasBilling,

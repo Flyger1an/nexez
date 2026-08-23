@@ -3,6 +3,8 @@ import { requirePageAccess } from '../../../../../lib/server/require-page-access
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 import { encryptSecret, hasSecretCryptoKey } from '../../../../../lib/server/secret-crypto'
 import { getCalendlyUser } from '../../../../../lib/server/calendly-write'
+import { ownerAllows } from '../../../../../lib/server/plan'
+import { minPlanForFeature } from '../../../../../lib/billing'
 
 /**
  * Upsert the page's owner-only secrets (domain verification token, Calendly webhook
@@ -12,6 +14,31 @@ import { getCalendlyUser } from '../../../../../lib/server/calendly-write'
  * Only the three known secret columns are accepted (no arbitrary column writes).
  */
 const ALLOWED_KEYS = ['calendly_webhook_secret', 'outbound_webhooks', 'domain_verification_token', 'website_verification_token'] as const
+
+function hasText(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+/** True only when this request would persist a live integration credential.
+ * Empty/incomplete provider payloads are disconnect operations and stay open
+ * after downgrade. */
+function writesIntegrationCredential(body: Record<string, unknown>): boolean {
+  if ('calendly_webhook_secret' in body && body.calendly_webhook_secret != null && body.calendly_webhook_secret !== '') return true
+  if (hasText(body.calendly_pat)) return true
+
+  const shopify = (body.shopify_credentials ?? {}) as Record<string, unknown>
+  if (hasText(shopify.shop) && hasText(shopify.token)) return true
+  const square = (body.square_credentials ?? {}) as Record<string, unknown>
+  if (hasText(square.accessToken)) return true
+  const acuity = (body.acuity_credentials ?? {}) as Record<string, unknown>
+  return hasText(acuity.userId) && hasText(acuity.apiKey)
+}
+
+function writesOutboundEndpoints(body: Record<string, unknown>): boolean {
+  if (!('outbound_webhooks' in body)) return false
+  const value = body.outbound_webhooks
+  return value != null && (!Array.isArray(value) || value.length > 0)
+}
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const limited = await enforceRateLimit(request, 'page-secrets', 30, 60_000)
@@ -24,6 +51,29 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const { access, admin } = gate
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+  const [integrationAllowed, outboundAllowed] = await Promise.all([
+    writesIntegrationCredential(body)
+      ? ownerAllows(admin, access.ownerId, 'integrations')
+      : Promise.resolve(true),
+    writesOutboundEndpoints(body)
+      ? ownerAllows(admin, access.ownerId, 'outboundWebhooks')
+      : Promise.resolve(true),
+  ])
+  if (!integrationAllowed) {
+    const required = minPlanForFeature('integrations')
+    return NextResponse.json(
+      { error: `Live integration credentials require the ${required.name} plan or higher.`, upgrade: required.id },
+      { status: 402 },
+    )
+  }
+  if (!outboundAllowed) {
+    const required = minPlanForFeature('outboundWebhooks')
+    return NextResponse.json(
+      { error: `Outbound webhooks require the ${required.name} plan or higher.`, upgrade: required.id },
+      { status: 402 },
+    )
+  }
+
   // Whitelist: only the known secret columns, never owner_id/page_id from the client.
   const values: Record<string, unknown> = {}
   for (const key of ALLOWED_KEYS) {

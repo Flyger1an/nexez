@@ -6,14 +6,17 @@ import type { AgentPage } from '../../lib/agent-page'
 import type { AgentLabResearchRun } from '../../lib/agent-lab-research'
 import { appUrl } from '../../lib/site'
 import { ResearchArchive } from './ResearchArchive'
+import { PlanGate } from '../billing/PlanGate'
+import { planAllows, type PlanId } from '../../lib/billing'
 
 /**
  * "Compare a competitor" - the signed-in lens of the Agent Lab. Scores any rival
  * site for agent-readiness (trust / parseability / structured-data / clarity),
  * surfaces gaps + recommendations, and (optionally) puts it side-by-side with one
- * of the owner's own pages. Backed by /api/analyze-competitor (auth + LLM, so it
- * stays behind sign-in). Logged-out visitors see a locked teaser - a natural
- * conversion nudge.
+ * of the owner's own pages. Backed by /api/analyze-competitor (auth + Launch-plan
+ * AI entitlement). Logged-out visitors see a sign-in teaser; signed-in owners
+ * below Launch keep access to saved-report replay/removal but cannot run a new
+ * analysis.
  */
 
 type CompetitorAnalysis = {
@@ -45,7 +48,15 @@ function scoreTone(v: number | undefined) {
   return v >= 80 ? 'text-[var(--ready)]' : v >= 55 ? 'text-[var(--amber)]' : 'text-rose-400'
 }
 
-export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean; myPages: AgentPage[] }) {
+export function CompetitorCompare({
+  isLoggedIn,
+  myPages,
+  currentPlan,
+}: {
+  isLoggedIn: boolean
+  myPages: AgentPage[]
+  currentPlan: PlanId
+}) {
   const [url, setUrl] = useState('')
   const [sideSlug, setSideSlug] = useState('')
   const [analysis, setAnalysis] = useState<CompetitorAnalysis | null>(null)
@@ -57,6 +68,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyRefresh, setHistoryRefresh] = useState(0)
+  const canAnalyze = planAllows(currentPlan, 'aiFeatures')
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -99,6 +111,10 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
   }
 
   async function run() {
+    if (!canAnalyze) {
+      setMessage('New competitor analyses require the Launch plan or above. Your saved reports remain available.')
+      return
+    }
     if (!url.trim()) return
     setLoading(true)
     setAnalysis(null)
@@ -205,55 +221,63 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
       </div>
       <p className="mb-4 text-sm text-zinc-400">Score any rival site for agent-readiness, see its gaps, and put it head-to-head with your listing.</p>
 
-      <div className="grid gap-3 md:grid-cols-5">
-        <div className="md:col-span-3">
-          <label htmlFor="competitor-url" className="text-xs text-zinc-400">Competitor website URL</label>
-          <input
-            id="competitor-url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !loading && url.trim()) run() }}
-            placeholder="https://competitor.com or competitor.com/pricing"
-            className="input mt-1 w-full"
-            disabled={loading}
-          />
-        </div>
-        <div className="md:col-span-2">
-          <label htmlFor="competitor-listing" className="text-xs text-zinc-400">Your listing (optional side-by-side)</label>
-          {myPages.length > 0 ? (
-            <select id="competitor-listing" value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} className="input mt-1 w-full" disabled={loading}>
-              <option value="">- none -</option>
-              {myPages.map((p) => (
-                <option key={p.id} value={p.slug}>{p.name} (/{p.slug})</option>
-              ))}
-            </select>
-          ) : (
-            <input id="competitor-listing" value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} placeholder="your-slug" className="input mt-1 w-full" disabled={loading} />
-          )}
-        </div>
-      </div>
+      {canAnalyze ? (
+        <>
+          <div className="grid gap-3 md:grid-cols-5">
+            <div className="md:col-span-3">
+              <label htmlFor="competitor-url" className="text-xs text-zinc-400">Competitor website URL</label>
+              <input
+                id="competitor-url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !loading && url.trim()) run() }}
+                placeholder="https://competitor.com or competitor.com/pricing"
+                className="input mt-1 w-full"
+                disabled={loading}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label htmlFor="competitor-listing" className="text-xs text-zinc-400">Your listing (optional side-by-side)</label>
+              {myPages.length > 0 ? (
+                <select id="competitor-listing" value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} className="input mt-1 w-full" disabled={loading}>
+                  <option value="">- none -</option>
+                  {myPages.map((p) => (
+                    <option key={p.id} value={p.slug}>{p.name} (/{p.slug})</option>
+                  ))}
+                </select>
+              ) : (
+                <input id="competitor-listing" value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} placeholder="your-slug" className="input mt-1 w-full" disabled={loading} />
+              )}
+            </div>
+          </div>
 
-      <div className="mt-3 flex flex-col gap-2 lg:flex-row">
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 text-xs text-zinc-300 lg:min-w-64">
-          <input
-            type="checkbox"
-            checked={saveBenchmark}
-            onChange={(event) => setSaveBenchmark(event.target.checked)}
-            className="size-4 accent-[var(--signal)]"
-          />
-          <Save className="size-3.5 text-[var(--signal)]" /> Save privately after analysis
-        </label>
-        <button onClick={run} disabled={loading || !url.trim()} className="btn-primary min-h-11 flex-1 justify-center">
-          {loading ? <Loader2 className="size-4 animate-spin" /> : <Target className="size-4" />} Analyze competitor
-        </button>
-        {analysis && (
-          <>
-            <button onClick={() => exportReport('md')} className="btn-secondary inline-flex items-center gap-1"><Download className="size-4" /> MD</button>
-            <button onClick={() => exportReport('json')} className="btn-secondary inline-flex items-center gap-1"><Download className="size-4" /> JSON</button>
-          </>
-        )}
-      </div>
-      <p className="mt-2 text-[11px] text-zinc-500">Saving is off by default. Saved reports contain summarized findings and provenance, never fetched HTML.</p>
+          <div className="mt-3 flex flex-col gap-2 lg:flex-row">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 text-xs text-zinc-300 lg:min-w-64">
+              <input
+                type="checkbox"
+                checked={saveBenchmark}
+                onChange={(event) => setSaveBenchmark(event.target.checked)}
+                className="size-4 accent-[var(--signal)]"
+              />
+              <Save className="size-3.5 text-[var(--signal)]" /> Save privately after analysis
+            </label>
+            <button onClick={run} disabled={loading || !url.trim()} className="btn-primary min-h-11 flex-1 justify-center">
+              {loading ? <Loader2 className="size-4 animate-spin" /> : <Target className="size-4" />} Analyze competitor
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] text-zinc-500">Saving is off by default. Saved reports contain summarized findings and provenance, never fetched HTML.</p>
+        </>
+      ) : (
+        <PlanGate
+          feature="aiFeatures"
+          currentPlan={currentPlan}
+          title="New competitor analyses"
+          description="Run new AI competitor analyses. Your saved reports remain available below."
+          variant="inline"
+        >
+          <span />
+        </PlanGate>
+      )}
       {message && <p role="status" className="mt-2 text-xs text-[var(--fg-muted)]">{message}</p>}
 
       <div className="mt-5">
@@ -274,12 +298,18 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
 
       {analysis && (
         <div className="mt-6 border-t border-white/10 pt-5">
-          <p className="mb-4 text-sm text-zinc-400">
-            Analysis for{' '}
-            <a href={analysis.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-zinc-200 underline">
-              {analysis.url} <ExternalLink className="size-3" />
-            </a>
-          </p>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-zinc-400">
+              Analysis for{' '}
+              <a href={analysis.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-zinc-200 underline">
+                {analysis.url} <ExternalLink className="size-3" />
+              </a>
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => exportReport('md')} className="btn-secondary inline-flex items-center gap-1"><Download className="size-4" /> MD</button>
+              <button onClick={() => exportReport('json')} className="btn-secondary inline-flex items-center gap-1"><Download className="size-4" /> JSON</button>
+            </div>
+          </div>
 
           <div className="mb-5 grid gap-2 sm:grid-cols-3">
             <ProvenanceItem label="Method" value={analysis.provenance.analysis === 'deterministic_with_llm' ? 'Rules + LLM refinement' : 'Deterministic rules'} />

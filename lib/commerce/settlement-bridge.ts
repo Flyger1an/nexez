@@ -22,6 +22,7 @@ import { calculateApplicationFeeCentsFromBps } from '../stripe-billing'
 import { getOwnerBillingState, getOwnerCommission } from '../server/plan'
 import { buyerMetadata } from '../buyer-identity'
 import { toStripeDescription } from '../checkout'
+import { getStripeConnectPayoutReadiness } from '../stripe-connect-readiness'
 import {
   CheckoutSession,
   DelegatedPayment,
@@ -234,7 +235,7 @@ export type ResolveSettlementResult =
 /** Lift the direct-checkout route's up-front guards into one shared resolver both
  * protocol adapters call: an explicitly suspended seller is offline; the
  * owner-aware commission comes from the shared resolver; and a charge only
- * ever routes to a Connect account that can actually ACCEPT one (charges_enabled).
+ * ever routes to a Connect account that can accept charges and receive payouts.
  * Keeping this here means an adapter cannot forget the pause/connect gate. Takes an
  * admin (service-role) client; the connect fields live on a service-role-only table.
  */
@@ -253,25 +254,31 @@ export async function resolveSettlementContext(
 
   const commission = await getOwnerCommission(admin, ownerId, billingState)
 
-  // Only route a charge to a Connect account that can ACCEPT one. An owner who
-  // created the account but hasn't finished onboarding has an id but
-  // charges_enabled !== true - treat that as no payout account.
+  // Only route a charge to a Connect account that can accept the charge AND
+  // receive the proceeds. Either capability can be revoked independently by Stripe,
+  // so both must be current at the point of settlement.
   const { data: billing } = await admin
     .from('billing_subscriptions')
-    .select('stripe_connect_account_id, stripe_connect_charges_enabled')
+    .select('stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled')
     .eq('owner_id', ownerId ?? '')
-    .maybeSingle<{ stripe_connect_account_id: string | null; stripe_connect_charges_enabled: boolean | null }>()
+    .maybeSingle<{
+      stripe_connect_account_id: string | null
+      stripe_connect_charges_enabled: boolean | null
+      stripe_connect_payouts_enabled: boolean | null
+    }>()
 
-  if (!billing?.stripe_connect_account_id || billing.stripe_connect_charges_enabled !== true) {
+  if (!getStripeConnectPayoutReadiness(billing).ready) {
     return { ok: false, code: 'no_connect', message: 'This seller has not connected a payout account yet.' }
   }
+
+  const connectAccountId = billing?.stripe_connect_account_id ?? ''
 
   return {
     ok: true,
     context: {
       pageId: input.pageId,
       ownerId,
-      connectAccountId: billing.stripe_connect_account_id,
+      connectAccountId,
       planId: commission.planId,
       commissionBps: commission.basisPoints,
       commissionPercent: commission.percent,

@@ -23,6 +23,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof DomainConnectionPa
     publicUrl: 'https://nexez.app/acme',
     status: STATUS,
     domainVerified: false,
+    activationAllowed: true,
     busy: false,
     attachIsNext: false,
     onAction,
@@ -46,6 +47,7 @@ describe('DomainConnectionPanel', () => {
         publicUrl="https://nexez.app/acme"
         status={null}
         domainVerified={false}
+        activationAllowed
         busy={false}
         attachIsNext={false}
         onAction={vi.fn()}
@@ -55,18 +57,21 @@ describe('DomainConnectionPanel', () => {
     expect(container.textContent).toBe('')
   })
 
-  it('delegates both provider actions upward rather than fetching itself', () => {
+  it('delegates provider and cleanup actions upward rather than fetching itself', () => {
     const { onAction } = setup()
     fireEvent.click(screen.getByText('Attach & detect DNS'))
     expect(onAction).toHaveBeenCalledWith('attach')
     fireEvent.click(screen.getByText('Check status'))
     expect(onAction).toHaveBeenCalledWith('status')
+    fireEvent.click(screen.getByText('Detach domain'))
+    expect(onAction).toHaveBeenCalledWith('remove')
   })
 
   it('disables both actions while one is in flight', () => {
     setup({ busy: true })
     expect((screen.getByText('Working…') as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByText('Check status') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByText('Detach domain') as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('shows the provider detail it was given', () => {
@@ -79,6 +84,16 @@ describe('DomainConnectionPanel', () => {
     // read as "Pending DNS".
     setup({ status: null, domainVerified: true })
     expect(screen.getAllByText('Verifying').length).toBeGreaterThan(0)
+  })
+
+  it('shows retained proof as paused below plan and keeps detach available', () => {
+    const { onAction } = setup({ status: { ...STATUS, state: 'live', label: 'Live' }, domainVerified: true, activationAllowed: false })
+
+    expect(screen.getByRole('status')).toHaveTextContent(/routing is paused by your current plan/i)
+    expect(screen.queryByText('Attach & detect DNS')).not.toBeInTheDocument()
+    expect(screen.getByText(/It is not serving through Nexez/)).toBeVisible()
+    fireEvent.click(screen.getByText('Detach domain'))
+    expect(onAction).toHaveBeenCalledWith('remove')
   })
 
   it('lists routing records on the apex/TXT path', () => {

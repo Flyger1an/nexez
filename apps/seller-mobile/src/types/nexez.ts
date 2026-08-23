@@ -9,6 +9,15 @@ export type OfferRules = {
   maxDiscountPercent?: number
   autoAccept?: boolean
   autoAcceptWithinPercent?: number
+  minNoticeHours?: number
+  blackoutDates?: string[]
+  maxBookingsPerWeek?: number
+  autoCounter?: boolean
+  includedScope?: string
+  excludedScope?: string
+  maxRevisions?: number
+  maxProjectWeeks?: number
+  autoSettleMax?: string
 }
 
 export type OfferItem = {
@@ -22,6 +31,7 @@ export type OfferItem = {
   travelFee?: string
   isMobile?: boolean
   source?: string
+  metadata?: Record<string, unknown>
   availability?: 'available' | 'limited' | 'sold_out'
   offerType?: 'fixed' | 'negotiable'
   rules?: OfferRules
@@ -287,11 +297,62 @@ export type BillingSubscription = {
   current_period_end: string | null
   cancel_at_period_end: boolean
   metadata: Record<string, unknown> | null
+  stripe_connect_account_id?: string | null
   stripe_connect_status?: string | null
   stripe_connect_details_submitted?: boolean | null
   stripe_connect_charges_enabled?: boolean | null
   stripe_connect_payouts_enabled?: boolean | null
   commission_percent?: number | null
+}
+
+export type PlanId = 'free' | 'launch' | 'pro' | 'scale' | 'enterprise'
+
+export type OwnerPlanEntitlements = {
+  schemaVersion: 1
+  evaluatedAt: string
+  ownerId: string
+  featurePlanId: PlanId
+  featurePlanRank: number
+  featurePlanSource: 'admin' | 'subscription' | 'promotion' | 'free'
+  commercialPlanId: PlanId
+  commercialPlanRank: number
+  commercialPlanSource: 'subscription' | 'promotion' | 'free'
+  billing: {
+    chosenPlanId: PlanId | null
+    status: string | null
+    confers: boolean
+    trialEndsAt: string | null
+  }
+  promotion: null | {
+    id: string
+    planId: PlanId
+    source: 'welcome' | 'referral' | 'admin'
+    startsAt: string
+    endsAt: string
+  }
+  /** Null is the wire representation for an unlimited Enterprise limit. */
+  limits: {
+    listings: number | null
+    customDomains: number | null
+    teamSeats: number | null
+    storefronts: number | null
+  }
+  features: {
+    customDomain: boolean
+    aiFeatures: boolean
+    removeBadge: boolean
+    whiteLabel: boolean
+    integrations: boolean
+    outboundWebhooks: boolean
+    apiAccess: boolean
+    negotiation: boolean
+    analyticsHistory: boolean
+    teamCollaboration: boolean
+    prioritySupport: boolean
+    sso: boolean
+  }
+  commissionBps: number
+  commissionSource: 'plan_default' | 'promotion' | 'enterprise_override'
 }
 
 export type ActivityItem = {

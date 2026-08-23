@@ -9,6 +9,7 @@ import {
   getOfferDestination,
   getPreferredOriginalOfferUrl,
   getRequestBaseUrl,
+  isOfferActionAvailable,
 } from '../../../lib/agent-page'
 import { toStripeDescription } from '../../../lib/checkout'
 import { parseBuyerIdentity, buyerMetadata } from '../../../lib/buyer-identity'
@@ -30,6 +31,7 @@ import type { SettlementContext } from '../../../lib/commerce/checkout-session-c
 import { billingPlans } from '../../../lib/billing'
 import { getCalendlyPat, integrationCredentialsConfigured } from '../../../lib/server/page-integration-credentials'
 import { createCalendlySchedulingLink } from '../../../lib/server/calendly-write'
+import { ownerAllows } from '../../../lib/server/plan'
 import { priceOfferConfiguration } from '../../../lib/offer-configuration-pricing'
 import { validateOfferTransactionConfiguration } from '../../../lib/offer-transaction-configuration'
 import {
@@ -101,6 +103,12 @@ export async function POST(request: Request) {
 
   const offer = getCheckoutOffer(page, input.offer)
   if (!offer) return NextResponse.json({ error: 'Checkout offer not found.' }, { status: 404 })
+  if (!isOfferActionAvailable(offer)) {
+    return NextResponse.json(
+      { error: 'This offer is sold out and cannot be purchased or booked.', code: 'offer_unavailable' },
+      { status: 409 },
+    )
+  }
 
   if (getOfferReservableResourceTerms(offer)) {
     return NextResponse.json(
@@ -250,7 +258,7 @@ export async function POST(request: Request) {
   const forceProviderHandoff = Boolean(preferredOriginalUrl)
   let destination = getOfferDestination(page, offer)
   if (!input.dryRun) {
-    destination = (await maybeMintSingleUseCalendlyLink(page.id, offer, destination)) || destination
+    destination = (await maybeMintSingleUseCalendlyLink(page.id, page.owner_id, offer, destination)) || destination
   }
   const userAgent = request.headers.get('user-agent')
   const referrer = request.headers.get('referer')
@@ -679,6 +687,7 @@ function isStripeIdempotencyConflict(error: unknown) {
 
 async function maybeMintSingleUseCalendlyLink(
   pageId: string,
+  ownerId: string | null | undefined,
   offer: { source?: string; metadata?: Record<string, unknown> | null } | null,
   fallback: string,
 ): Promise<string | null> {
@@ -686,6 +695,8 @@ async function maybeMintSingleUseCalendlyLink(
   const eventTypeUri = typeof offer.metadata?.calendly_event_type === 'string' ? offer.metadata.calendly_event_type : ''
   if (!eventTypeUri) return null
   if (!integrationCredentialsConfigured()) return null
+  if (!ownerId || !hasSupabaseAdminEnv()) return null
+  if (!(await ownerAllows(createAdminClient(), ownerId, 'integrations'))) return null
   const pat = await getCalendlyPat(pageId)
   if (!pat) return null
   const minted = await createCalendlySchedulingLink(pat, eventTypeUri)

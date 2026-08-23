@@ -1,6 +1,6 @@
 import { getCommerceTemplateGapCandidates, selectedCommerceTemplateRef } from '../commerce-templates/intake'
 import { analyzeGaps as analyzeBaseGaps } from './gaps'
-import type { Gap, IntakeAction, IntakeApplyResult, IntakeState } from './types'
+import type { Gap, IntakeAction, IntakeApplyResult, IntakeEntitlementPolicy, IntakeState } from './types'
 
 const ANALYZED_PHASES = new Set<IntakeState['phase']>(['GAP_ANALYSIS', 'INTERVIEW', 'SYNTHESIS'])
 const MAX_TEMPLATE_GAPS_PER_ANALYSIS = 5
@@ -63,11 +63,12 @@ export function analyzeIntakeGaps(
  * projection with template intelligence after successful analyzed-phase turns.
  */
 export function applyCommerceAwareIntakeAction(
-  baseApply: (state: IntakeState, action: IntakeAction) => IntakeApplyResult,
+  baseApply: (state: IntakeState, action: IntakeAction, policy?: IntakeEntitlementPolicy) => IntakeApplyResult,
   state: IntakeState,
   action: IntakeAction,
+  policy?: IntakeEntitlementPolicy,
 ): IntakeApplyResult {
-  const applied = baseApply(state, action)
+  const applied = baseApply(state, action, policy)
   if (!applied.ok) return applied
   if (!ANALYZED_PHASES.has(applied.state.phase)) return applied
 

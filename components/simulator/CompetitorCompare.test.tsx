@@ -68,13 +68,31 @@ describe('CompetitorCompare research workspace', () => {
   })
 
   it('keeps signed-out visitors locked and does not fetch private history', () => {
-    render(<CompetitorCompare isLoggedIn={false} myPages={[]} />)
+    render(<CompetitorCompare isLoggedIn={false} myPages={[]} currentPlan="free" />)
     expect(screen.getByText(/Sign in to unlock/)).toBeInTheDocument()
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('gates new analysis below Launch while preserving saved-report replay and removal', async () => {
+    render(<CompetitorCompare isLoggedIn myPages={[]} currentPlan="free" />)
+
+    expect(screen.queryByRole('button', { name: 'Analyze competitor' })).not.toBeInTheDocument()
+    expect(screen.getByText('New competitor analyses')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Upgrade to Launch/ })).toBeInTheDocument()
+
+    expect(await screen.findByText('existing.example')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open report' }))
+    expect(await screen.findByText('Overall agent trust')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'MD' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'JSON' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove saved report for existing.example' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove report' }))
+    await waitFor(() => expect(deleteCalls).toBe(1))
+  })
+
   it('replays saved research and requires a second action before deletion', async () => {
-    render(<CompetitorCompare isLoggedIn myPages={[]} />)
+    render(<CompetitorCompare isLoggedIn myPages={[]} currentPlan="launch" />)
     expect(await screen.findByText('existing.example')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Open report' }))
@@ -94,7 +112,7 @@ describe('CompetitorCompare research workspace', () => {
   })
 
   it('keeps saving off by default and sends opt-in explicitly', async () => {
-    render(<CompetitorCompare isLoggedIn myPages={[]} />)
+    render(<CompetitorCompare isLoggedIn myPages={[]} currentPlan="launch" />)
     await screen.findByText('existing.example')
     const save = screen.getByRole('checkbox', { name: /Save privately after analysis/ })
     expect(save).not.toBeChecked()
@@ -115,7 +133,7 @@ describe('CompetitorCompare research workspace', () => {
         : new Response(JSON.stringify({ runs: [run] }), { status: 200 })
     }))
 
-    render(<CompetitorCompare isLoggedIn myPages={[]} />)
+    render(<CompetitorCompare isLoggedIn myPages={[]} currentPlan="launch" />)
     expect(await screen.findByText('Saved competitor benchmarks could not be loaded.')).toBeInTheDocument()
     expect(screen.queryByText(/start a private comparison archive/i)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))

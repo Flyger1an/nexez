@@ -3,20 +3,25 @@ import { PageEditor } from './usePageEditor'
 export function CalendlyBookingsCard({ e }: { e: PageEditor }) {
   const { lastBooking, recentCalendlyBookings } = e
   if (!lastBooking && recentCalendlyBookings.length === 0) return null
+  const active = e.integrationsEnabled
 
   return (
     <div className="rounded-lg border border-[var(--ready)]/20 bg-[var(--ready)]/5 p-4 mb-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-[var(--ready)]">Recent Calendly Bookings (via webhook)</span>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-[var(--ready)]/70">Live from webhooks</span>
-          <button
-            type="button"
-            onClick={e.sendTestBooking}
-            className="text-[10px] rounded border border-[var(--ready)]/40 px-2 py-0.5 text-[var(--ready)] hover:bg-[var(--ready)]/10"
-          >
-            Send test booking
-          </button>
+          <span className={`text-[10px] ${active ? 'text-[var(--ready)]/70' : 'text-[var(--amber)]'}`}>
+            {active ? 'Live from webhooks' : 'History retained · automation paused by plan'}
+          </span>
+          {active ? (
+            <button
+              type="button"
+              onClick={e.sendTestBooking}
+              className="text-[10px] rounded border border-[var(--ready)]/40 px-2 py-0.5 text-[var(--ready)] hover:bg-[var(--ready)]/10"
+            >
+              Send test booking
+            </button>
+          ) : null}
         </div>
       </div>
       {lastBooking && (

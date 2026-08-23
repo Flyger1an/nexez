@@ -4,7 +4,7 @@ import { agentRuntimeUrl } from '../site'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { resolveShopDomain } from './integration-importers'
 import { shopifyConfigured, verifyShopifyAppProxySignature } from './shopify'
-import { getInstallByShop } from './shopify-install'
+import { activeShopifyInstallMapping, getInstallByShop } from './shopify-install'
 
 const ALLOWED_ARTIFACTS = new Set(['agent.json', 'llms.txt', 'openapi.json', 'mcp.json', 'embed.json'])
 
@@ -35,11 +35,20 @@ export async function handleShopifyProxy(request: Request, artifactPath?: string
 
   const admin = createAdminClient()
   const install = await getInstallByShop(admin, shop)
-  if (!install?.page_id) {
+  const mapping = install ? activeShopifyInstallMapping(install) : null
+  if (!mapping) {
     return NextResponse.json({ error: 'This shop is not linked to a Nexez listing.' }, { status: 404 })
   }
 
-  const { data } = await admin.from('pages').select('slug').eq('id', install.page_id).maybeSingle()
+  // Signed App Proxy artifacts are part of the installed Shopify connector and
+  // remain available on every plan. The signature plus exact active install
+  // mapping are the authorization boundary here.
+  const { data } = await admin
+    .from('pages')
+    .select('slug')
+    .eq('id', mapping.pageId)
+    .eq('owner_id', mapping.ownerId)
+    .maybeSingle()
   const slug = (data as { slug?: string } | null)?.slug
   if (!slug) {
     return NextResponse.json({ error: 'Linked listing not found.' }, { status: 404 })

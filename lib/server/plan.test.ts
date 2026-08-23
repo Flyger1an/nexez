@@ -1,10 +1,21 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createSupabaseMock, type QueryContext } from '../../test/supabase-mock'
-import { getOwnerPlanId, getOwnerCommission, getOwnerBillingState, ownerAllows, isPlatformAdmin, subscriptionConfers } from './plan'
+import {
+  getOwnerBillingState,
+  getCommercialPlanDefaultCommission,
+  getOwnerCommission,
+  getOwnerEntitlements,
+  getOwnerPlanId,
+  getOwnerPlanIds,
+  isPlatformAdmin,
+  ownerAllows,
+  subscriptionConfers,
+} from './plan'
 import { LIVE_SUBSCRIPTION_STATUSES } from '../stripe-billing'
 
 type SubRow = { plan_id: string; status: string; trial_ends_at?: string | null; account_origin?: string | null }
 type GrantRow = {
+  owner_id?: string
   id: string
   campaign_id: string
   plan_id: string
@@ -27,7 +38,7 @@ const launchGrant = (): GrantRow => ({
 
 // Build a client where `admin` decides the platform_admins row and `sub` the
 // billing_subscriptions row. `adminError` simulates a missing/erroring table.
-function client(opts: { admin?: boolean; sub?: SubRow | null; grant?: GrantRow | null; adminError?: boolean }) {
+function client(opts: { admin?: boolean; sub?: SubRow | null; grant?: GrantRow | GrantRow[] | null; adminError?: boolean }) {
   return createSupabaseMock((ctx: QueryContext) => {
     if (ctx.table === 'platform_admins') {
       if (opts.adminError) return { data: null, error: { message: 'relation "platform_admins" does not exist' } }
@@ -82,8 +93,9 @@ describe('getOwnerCommission', () => {
     }
   })
 
-  it('inherits admin, promotion, and dunning semantics from getOwnerPlanId', async () => {
-    expect(await getOwnerCommission(client({ admin: true }), 'owner-1')).toMatchObject({ planId: 'enterprise', basisPoints: 200 })
+  it('inherits promotion and dunning semantics but not the admin entitlement override', async () => {
+    expect(await getOwnerCommission(client({ admin: true }), 'owner-1')).toMatchObject({ planId: 'free', basisPoints: 900 })
+    expect(await getOwnerCommission(client({ admin: true, sub: { plan_id: 'pro', status: 'active' } }), 'owner-1')).toMatchObject({ planId: 'pro', basisPoints: 500 })
     expect(await getOwnerCommission(client({ grant: launchGrant() }), 'owner-1')).toMatchObject({ planId: 'launch', basisPoints: 700, source: 'promotion' })
     expect(await getOwnerCommission(client({ sub: { plan_id: 'scale', status: 'past_due' } }), 'owner-1')).toMatchObject({ planId: 'scale', basisPoints: 300 })
     expect(await getOwnerCommission(client({ sub: { plan_id: 'scale', status: 'unpaid' } }), 'owner-1')).toMatchObject({ planId: 'scale', basisPoints: 300 })
@@ -139,6 +151,16 @@ describe('getOwnerPlanId - trials & paused', () => {
   it('an EXPIRED trial does not confer → free', async () => {
     expect(await getOwnerPlanId(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: past() } }), 'owner-1')).toBe('free')
   })
+  it('stops conferring at the exact trial expiry boundary, matching SQL', () => {
+    const now = Date.parse('2026-08-22T18:00:00.000Z')
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(now)
+    try {
+      expect(subscriptionConfers('trialing', new Date(now).toISOString())).toBe(false)
+      expect(subscriptionConfers('trialing', new Date(now + 1).toISOString())).toBe(true)
+    } finally {
+      nowSpy.mockRestore()
+    }
+  })
   it('a paused account → free (no paid features)', async () => {
     expect(await getOwnerPlanId(client({ sub: { plan_id: 'pro', status: 'paused', account_origin: 'trial' } }), 'owner-1')).toBe('free')
   })
@@ -171,6 +193,33 @@ describe('getOwnerPlanId - promotional grants', () => {
       sub: null,
       grant: { ...launchGrant(), starts_at: past(), ends_at: past() },
     }), 'owner-1')).toBe('free')
+  })
+
+  it('evaluates every live grant by highest rank before expiry', async () => {
+    const laterLaunch = {
+      ...launchGrant(),
+      id: 'launch-later',
+      ends_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+    }
+    const earlierPro = {
+      ...launchGrant(),
+      id: 'pro-earlier',
+      plan_id: 'pro',
+      ends_at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+    }
+
+    expect(await getOwnerPlanId(client({ grant: [laterLaunch, earlierPro] }), 'owner-1')).toBe('pro')
+  })
+
+  it('breaks equal-rank grant ties by the later expiry', async () => {
+    const earlier = { ...launchGrant(), id: 'earlier', ends_at: future() }
+    const later = {
+      ...launchGrant(),
+      id: 'later',
+      ends_at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+    }
+    const entitlements = await getOwnerEntitlements(client({ grant: [earlier, later] }), 'owner-1')
+    expect(entitlements.promotion?.id).toBe('later')
   })
 })
 
@@ -213,11 +262,128 @@ describe('getOwnerBillingState', () => {
   })
   it('admin → enterprise, live, never paused', async () => {
     const s = await getOwnerBillingState(client({ admin: true }), 'owner-1')
-    expect(s).toMatchObject({ planId: 'enterprise', isLive: true, isPaused: false })
+    expect(s).toMatchObject({
+      planId: 'enterprise',
+      commercialPlanId: 'free',
+      isAdminOverride: true,
+      isLive: true,
+      isPaused: false,
+    })
   })
   it('no subscription row → neutral free, not paused', async () => {
     const s = await getOwnerBillingState(client({ sub: null }), 'owner-1')
     expect(s).toMatchObject({ planId: 'free', chosenPlanId: null, isPaused: false, isLive: false })
+  })
+})
+
+describe('getOwnerEntitlements', () => {
+  it('returns a complete JSON-safe DTO and keeps admin economics separate', async () => {
+    const dto = await getOwnerEntitlements(client({ admin: true }), 'owner-1')
+    expect(dto).toMatchObject({
+      ownerId: 'owner-1',
+      planId: 'enterprise',
+      commercialPlanId: 'free',
+      source: 'admin_override',
+      adminOverride: true,
+      features: { sso: true, whiteLabel: true },
+      limits: {
+        publishedListings: null,
+        customDomains: null,
+        teamSeats: null,
+        storefronts: null,
+      },
+    })
+    expect(JSON.parse(JSON.stringify(dto))).toEqual(dto)
+  })
+
+  it('fails safe to Free while retaining a stable DTO shape', async () => {
+    const broken = { from() { throw new Error('db unavailable') } } as any
+    expect(await getOwnerEntitlements(broken, 'owner-1')).toMatchObject({
+      planId: 'free',
+      commercialPlanId: 'free',
+      source: 'free',
+      adminOverride: false,
+      features: { customDomain: false, whiteLabel: false },
+      limits: { publishedListings: 1, storefronts: 1 },
+    })
+  })
+})
+
+describe('commercial reporting fallback', () => {
+  it('keeps an admin feature override on the owner\'s Free commercial economics', async () => {
+    const billingState = await getOwnerBillingState(client({ admin: true }), 'owner-1')
+
+    expect(billingState).toMatchObject({ planId: 'enterprise', commercialPlanId: 'free' })
+    expect(getCommercialPlanDefaultCommission(billingState)).toEqual({
+      planId: 'free',
+      basisPoints: 900,
+      percent: 9,
+      source: 'plan_default',
+    })
+  })
+})
+
+describe('getOwnerPlanIds - batched resolution', () => {
+  it('resolves many owners with three total reads and the same grant/admin rules', async () => {
+    const admin = createSupabaseMock((ctx: QueryContext) => {
+      if (ctx.table === 'platform_admins') {
+        return { data: [{ user_id: 'admin-owner' }], error: null }
+      }
+      if (ctx.table === 'billing_subscriptions') {
+        return {
+          data: [
+            { owner_id: 'admin-owner', plan_id: 'free', status: 'canceled', trial_ends_at: null },
+            { owner_id: 'paid-owner', plan_id: 'pro', status: 'active', trial_ends_at: null },
+            { owner_id: 'expired-owner', plan_id: 'scale', status: 'canceled', trial_ends_at: null },
+          ],
+          error: null,
+        }
+      }
+      if (ctx.table === 'promotional_plan_grants') {
+        return {
+          data: [
+            { ...launchGrant(), owner_id: 'grant-owner', id: 'launch-later', ends_at: new Date(Date.now() + 30 * 86_400_000).toISOString() },
+            { ...launchGrant(), owner_id: 'grant-owner', id: 'scale-earlier', plan_id: 'scale', ends_at: new Date(Date.now() + 2 * 86_400_000).toISOString() },
+          ],
+          error: null,
+        }
+      }
+      return { data: null, error: null }
+    })
+
+    const result = await getOwnerPlanIds(admin as any, [
+      'admin-owner',
+      'paid-owner',
+      'grant-owner',
+      'expired-owner',
+      'missing-owner',
+      'paid-owner',
+    ])
+
+    expect(result).toEqual({
+      'admin-owner': 'enterprise',
+      'paid-owner': 'pro',
+      'grant-owner': 'scale',
+      'expired-owner': 'free',
+      'missing-owner': 'free',
+    })
+    expect(admin.from).toHaveBeenCalledTimes(3)
+    expect(admin.from.mock.calls.map(([table]) => table)).toEqual([
+      'platform_admins',
+      'billing_subscriptions',
+      'promotional_plan_grants',
+    ])
+  })
+
+  it('performs no reads for an empty owner set', async () => {
+    const admin = createSupabaseMock(() => ({ data: null, error: null }))
+    expect(await getOwnerPlanIds(admin as any, [])).toEqual({})
+    expect(admin.from).not.toHaveBeenCalled()
+  })
+
+  it('fails every requested owner safely to Free if query construction throws', async () => {
+    const broken = { from() { throw new Error('db unavailable') } } as any
+    expect(await getOwnerPlanIds(broken, ['a', 'b'])).toEqual({ a: 'free', b: 'free' })
   })
 })
 
@@ -237,7 +403,7 @@ describe('entitlement vs "current subscription row"', () => {
 
   it('a trial inside its window does confer', () => {
     expect(subscriptionConfers('trialing', future())).toBe(true)
-    expect(subscriptionConfers('trialing', null)).toBe(true)
+    expect(subscriptionConfers('trialing', null)).toBe(false)
   })
 
   it('dunning states keep conferring, by policy', () => {
@@ -342,6 +508,16 @@ describe('getOwnerCommission - Enterprise commercial terms', () => {
         commission_bps: 150,
         effective_from: '2000-01-01T00:00:00.000Z',
         effective_until: '2001-01-01T00:00:00.000Z',
+      },
+      {
+        commission_bps: 150,
+        effective_from: '-infinity',
+        effective_until: null,
+      },
+      {
+        commission_bps: 150,
+        effective_from: '2000-01-01T00:00:00.000Z',
+        effective_until: 'infinity',
       },
     ]
 

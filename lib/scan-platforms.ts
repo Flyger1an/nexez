@@ -169,7 +169,7 @@ export const scanPlatforms: ScanPlatform[] = [
       'Run the free scan below; note which artifact probes 404.',
       'Create your Nexez listing and import your products (a Woo store URL import is supported).',
       'Install the Nexez Agent-Ready plugin and paste your listing slug — JSON-LD injection plus artifact redirects, zero template edits.',
-      'Your listing is automatically included in the ChatGPT and Google agent product feeds; checkout through agents is a plan upgrade when you want it.',
+      'Your listing is automatically included in the ChatGPT and Google agent product feeds; checkout through agents is included on every Nexez plan.',
       'Re-run the scan.',
     ],
     faqs: [

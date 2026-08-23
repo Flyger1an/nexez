@@ -49,8 +49,8 @@ import { cookies } from 'next/headers'
 import AnalyticsActions from './AnalyticsActions'
 import { agentRuntimeUrl, appUrl } from '../../../lib/site'
 import { getOwnerPlanId } from '../../../lib/server/plan'
-import { planAllows } from '../../../lib/billing'
-import { ProBadge } from '../../../components/billing/PlanGate'
+import { minPlanForFeature, planAllows } from '../../../lib/billing'
+import { PlanBadge } from '../../../components/billing/PlanGate'
 import {
   getCurrencyOptions as getOrderCurrencyOptions,
   rollupFinanceByCurrency,
@@ -667,7 +667,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <div className="min-w-0 border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
               <p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--signal)]">
                 Time window
-                {!fullHistory && <ProBadge feature="analyticsHistory" />}
+                {!fullHistory && <PlanBadge feature="analyticsHistory" />}
               </p>
               <div className="flex flex-wrap gap-2 text-sm">
                 {[
@@ -682,7 +682,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                     return (
                       <a
                         key={r.value}
-                        href={appUrl('/dashboard/billing?plan=pro')}
+                        href={appUrl(`/dashboard/billing?plan=${minPlanForFeature('analyticsHistory').id}`)}
                         title="All-time history is on the Pro plan"
                         className="inline-flex items-center gap-1 rounded-md border border-[var(--signal)]/30 bg-[var(--signal)]/[0.06] px-3 py-2 text-zinc-400 transition hover:bg-[var(--signal)]/15"
                       >
@@ -735,7 +735,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 </form>
               ) : (
                 <a
-                  href={appUrl('/dashboard/billing?plan=pro')}
+                  href={appUrl(`/dashboard/billing?plan=${minPlanForFeature('analyticsHistory').id}`)}
                   className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] p-3 text-xs text-zinc-300 transition hover:bg-[var(--signal)]/12"
                 >
                   <Lock className="size-3.5 shrink-0 text-[var(--signal)]" />
