@@ -36,7 +36,7 @@ describe('CommercialCommandCenter', () => {
     expect(html).toContain('JPY')
     expect(html).toContain('Categories can overlap')
     expect(html).toContain('data-testid="commercial-command-cards"')
-    expect(html).toContain('bg-[var(--panel)]')
+    expect(html).toContain('bg-[var(--bg-2)]')
     expect(html).not.toContain('theme-dark-island')
   })
 
