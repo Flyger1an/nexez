@@ -1,6 +1,17 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 
+function configuredAppOrigin(): string {
+  try {
+    const url = new URL(process.env.NEXT_PUBLIC_APP_URL || "https://app.nexez.ai");
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.origin
+      : "https://app.nexez.ai";
+  } catch {
+    return "https://app.nexez.ai";
+  }
+}
+
 const nextConfig: NextConfig = {
   // The project canonicalizes local dev on 127.0.0.1 (see redirects below), so
   // allow it as a dev origin — otherwise Next blocks HMR/client dev resources
@@ -61,8 +72,30 @@ const nextConfig: NextConfig = {
       { key: "X-Frame-Options", value: "SAMEORIGIN" },
       { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
     ];
+    // Staged settlement links are bearer-gated on the cookie-isolated agent
+    // runtime. The authenticated app may act as a first-party buyer client, so
+    // these exact public endpoints support app-to-runtime browser requests.
+    const appActionCors = [
+      { key: "Access-Control-Allow-Origin", value: configuredAppOrigin() },
+      { key: "Access-Control-Allow-Headers", value: "Content-Type, Idempotency-Key" },
+      { key: "Access-Control-Max-Age", value: "600" },
+    ];
     return [
       { source: "/:path*", headers: baseline },
+      {
+        source: "/api/staged-settlements/:token",
+        headers: [
+          ...appActionCors,
+          { key: "Access-Control-Allow-Methods", value: "GET, OPTIONS" },
+        ],
+      },
+      {
+        source: "/api/staged-settlements/:token/checkout",
+        headers: [
+          ...appActionCors,
+          { key: "Access-Control-Allow-Methods", value: "POST, OPTIONS" },
+        ],
+      },
       // The marketing homepage can be clickjacking-protected without affecting
       // crawlable agent pages, public JSON artifacts, or dashboard preview iframes.
       { source: "/", headers: frame },

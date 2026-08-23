@@ -91,6 +91,9 @@ const APP_API_PREFIXES = [
   // (The agent/buyer-facing /api/negotiations, /pay, /status stay on the runtime.)
   '/api/negotiations/escrow',
   '/api/negotiations/transition',
+  // Readiness is an owner action authenticated by the app-host session. Keep this
+  // more-specific prefix ahead of the public staged-settlement runtime prefix.
+  '/api/staged-settlements/agreements',
   '/api/onboarding',
   '/api/pages',
   '/api/payment-method',
@@ -130,6 +133,9 @@ const AGENT_RUNTIME_API_PREFIXES = [
   '/api/ucp',
   '/api/checkout',
   '/api/reservable-resources',
+  // Buyer and agent staged-settlement creation, status, and checkout are public,
+  // bearer-gated commerce surfaces. The owner readiness route is pinned above.
+  '/api/staged-settlements',
   '/api/cron',
   '/api/negotiations',
   // The buyer-portal recourse API. Deliberately NOT `/api/orders` - that prefix
