@@ -174,7 +174,9 @@ test.describe('page settings', () => {
     await calendarId.fill('')
     await expect(page.getByTestId('availability-save-button')).toHaveText(/Save Manual Availability/)
     await calendarId.fill('e2e-calendar@example.com')
-    await expect(page.getByTestId('availability-save-button')).toHaveText(/Import Availability from Google Calendar/)
+    // Google Calendar is intentionally sample-only until a real sync contract
+    // exists; never let the credentialed E2E reintroduce misleading import copy.
+    await expect(page.getByTestId('availability-save-button')).toHaveText(/Generate Sample Availability/)
     await calendarId.fill(originalCalendarId)
 
     const webhookPanel = page.getByTestId('outbound-webhooks-panel')
