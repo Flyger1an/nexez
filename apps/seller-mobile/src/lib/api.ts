@@ -59,6 +59,35 @@ export function webPath(path: string) {
   return `${config.apiUrl}${path.startsWith('/') ? path : `/${path}`}`
 }
 
+export type SellerNotificationPreferences = {
+  transactions: true
+  negotiations: boolean
+  integrations: boolean
+  reviews: boolean
+  marketing: boolean
+}
+
+export type SellerNotificationPreferencesResponse = {
+  ok: boolean
+  configured: boolean
+  preferences: SellerNotificationPreferences
+}
+
+export type SellerNotificationPreferencePatch = Partial<
+  Pick<SellerNotificationPreferences, 'negotiations' | 'integrations' | 'reviews' | 'marketing'>
+>
+
+export function getSellerNotificationPreferences() {
+  return apiFetch<SellerNotificationPreferencesResponse>('/api/seller/notification-preferences')
+}
+
+export function updateSellerNotificationPreferences(preferences: SellerNotificationPreferencePatch) {
+  return apiFetch<SellerNotificationPreferencesResponse>('/api/seller/notification-preferences', {
+    method: 'PATCH',
+    body: JSON.stringify({ preferences }),
+  })
+}
+
 // ---- Deal actions (authed; ride on the seller's Bearer token) ----------------
 // These call the existing money/state routes, which now accept either the web
 // cookie session or `Authorization: Bearer <access_token>`. All ownership +

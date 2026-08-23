@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bot, Building2, Database, LockKeyhole, Users } from 'lucide-react'
+import { BellRing, Bot, Building2, Database, LockKeyhole, Users } from 'lucide-react'
 import { SettingsNav, type SettingsNavItem } from './SettingsPrimitives'
 
 const ACCOUNT_SETTINGS_SECTIONS = [
   { id: 'workspace', label: 'Workspace', icon: Building2 },
   { id: 'security', label: 'Profile & security', icon: LockKeyhole },
+  { id: 'notifications', label: 'Notifications', icon: BellRing },
   { id: 'team', label: 'Team access', icon: Users },
   { id: 'data', label: 'Data controls', icon: Database },
   { id: 'agent-surfaces', label: 'Agent surfaces', icon: Bot },

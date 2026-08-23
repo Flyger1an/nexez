@@ -68,6 +68,8 @@ jobs:
         run: supabase test db supabase/tests/nexie_approval_security.test.sql --local
       - name: Prove checkout-session privacy and retention boundaries
         run: supabase test db supabase/tests/checkout_session_privacy.test.sql --local
+      - name: Prove seller notification preference ownership
+        run: supabase test db supabase/tests/seller_notification_preferences.test.sql --local
       - name: Prove the canonical plan entitlement contract
         run: supabase test db supabase/tests/plan_entitlements.test.sql --local
       - name: Prove Shopify mapping serialization and lifecycle boundaries

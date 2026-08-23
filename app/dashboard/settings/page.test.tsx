@@ -11,6 +11,7 @@ const refs = vi.hoisted(() => ({
   listingError: false,
   storefrontError: false,
   agentError: false,
+  notificationError: false,
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
@@ -36,7 +37,27 @@ vi.mock('../../../lib/server/agent-operations', () => ({
         error: null,
       }),
 }))
+vi.mock('../../../lib/server/seller-notification-preferences', () => ({
+  loadSellerNotificationPreferences: vi.fn(async () => {
+    if (refs.notificationError) throw new Error('unavailable')
+    return {
+      configured: true,
+      preferences: {
+        transactions: true,
+        negotiations: true,
+        integrations: false,
+        reviews: true,
+        marketing: true,
+      },
+    }
+  }),
+}))
 vi.mock('../../../components/AccountDataControls', () => ({ AccountDataControls: () => <div>Account data controls</div> }))
+vi.mock('../../../components/NotificationPreferencesPanel', () => ({
+  NotificationPreferencesPanel: ({ initialPreferences }: { initialPreferences: { integrations: boolean } }) => (
+    <div>Seller notification controls: integrations {initialPreferences.integrations ? 'on' : 'off'}</div>
+  ),
+}))
 vi.mock('../../../components/PasskeySettings', () => ({ PasskeySettings: () => <div>Passkey controls</div> }))
 vi.mock('../../../components/ProfileSettings', () => ({ ProfileSettings: () => <div>Profile controls</div> }))
 vi.mock('../../../components/StorefrontSettings', () => ({ StorefrontSettings: () => <div>Storefront controls</div> }))
@@ -87,6 +108,7 @@ describe('account settings control center', () => {
     refs.listingError = false
     refs.storefrontError = false
     refs.agentError = false
+    refs.notificationError = false
   })
 
   it('renders a wide, navigable settings architecture with live account metrics', async () => {
@@ -98,6 +120,8 @@ describe('account settings control center', () => {
     expect(html).toContain('rounded-[var(--r-card)]')
     expect(html).toContain('aria-label="Settings sections"')
     expect(html).toContain('Profile &amp; security')
+    expect(html).toContain('Notifications')
+    expect(html).toContain('Seller notification controls: integrations off')
     expect(html).toContain('Data controls')
     expect(html).toContain('Agent surfaces')
     expect(html).toContain('Agent operations')
@@ -118,6 +142,7 @@ describe('account settings control center', () => {
     refs.listingError = true
     refs.storefrontError = true
     refs.agentError = true
+    refs.notificationError = true
 
     const html = renderToStaticMarkup(await AccountSettingsPage())
 
@@ -125,6 +150,7 @@ describe('account settings control center', () => {
     expect(html).toContain('Listing metrics and agent-surface status are temporarily unavailable.')
     expect(html).toContain('No zero values have been assumed.')
     expect(html).toContain('Agent Lab evidence and research status are temporarily unavailable.')
+    expect(html).toContain('Notification preferences are temporarily unavailable.')
     expect(html).toContain('Listings unavailable')
     expect(html).toContain('Offers unavailable')
     expect(html).toContain('Readiness unavailable')

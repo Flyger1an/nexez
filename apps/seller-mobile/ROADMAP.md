@@ -1,6 +1,6 @@
 # Nexez Seller Hub - Roadmap
 
-Status of the iOS/Android seller app (`apps/seller-mobile`). Last updated 2026-08-21.
+Status of the iOS/Android seller app (`apps/seller-mobile`). Last updated 2026-08-23.
 
 Design source of truth: `design_handoff_seller_hub/` (Ink & Ember + Liquid Glass v2).
 Architecture: Expo Router + RN + TS; direct RLS Supabase reads (`owner_id`); privileged/money
@@ -30,8 +30,8 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
 - Auto-rules persist `offerType` + `rules.minPrice` + `autoAccept` per offer (honored by `evaluateProposal`).
 
 **Push notifications**
-- Token registration → `user_push_tokens` (RLS). Seller pushes wired at 3 server events (new negotiation, escrow funded, order paid) alongside the existing emails (`lib/push.ts` `sendPushToUser`).
-- Per-event toggles + read/clear persist on-device (AsyncStorage).
+- Token registration → `user_push_tokens` (RLS). Seller pushes use a dedicated typed delivery path for negotiations and required booking, payment, refund, and dispute updates. Push delivery is independent of email-provider availability and never consults buyer-agent settings.
+- Notification settings now use one seller-scoped server authority across web and mobile. Transactions stay locked on; negotiation, integration, review, and marketing categories are optional. An old device-only preference is migrated once, conservatively, only when the account has no server row. Read/clear state remains local to the notification center.
 - Notification taps now route authenticated sellers to the exact negotiation or order when a durable ID is present, with safe list fallbacks for legacy payloads. Cold-start responses are consumed once; malformed routes, foreign hosts, unsafe identifiers, and unsupported screens fail closed.
 - `nexez-seller://` links and known `app.nexez.ai` dashboard links pass through a tested native-intent allowlist. The mobile workflow owns typecheck, Expo lint, SDK compatibility, and a 29-case routing suite.
 
@@ -82,7 +82,7 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
 ## 🔧 Backend-gated features (need server work)
 
 4. **Competitor cross-market data** - the screen currently ranks the seller's *own* listings (real). True "businesses agents weigh against you" needs a backend competitor/category dataset + an authed read route.
-5. **Server-enforced per-event push** - mobile toggles persist on-device only; `lib/push.ts` honors a single master opt-out. Proper per-event delivery needs a seller-scoped prefs store (new column/table - do **not** reuse the buyer `user_agents` row) + each push call-site checking the event kind.
+5. ~~**Server-enforced per-event push**~~ - complete in code. A dedicated seller preference table, owner RLS, strict authenticated API, typed event taxonomy, mandatory money-state policy, and cross-device web/mobile settings now form the notification authority. Buyer `user_agents` preferences remain isolated. Production migration rollout and the physical-device matrix remain release checks.
 6. **Auto-rules fine-grained bands** - only the toggle + floor persist today. "Auto-accept at/above" + "auto-decline below" + default terms need mapping to per-offer `rules` (autoAcceptWithinPercent / maxDiscountPercent) using each offer's listed price.
 
 ## 📱 Coverage / polish

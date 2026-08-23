@@ -14,7 +14,7 @@ import { enforceNegotiationRateLimit } from '../../../lib/rate-limit'
 import { sanitizeBuyerInput } from '../../../lib/negotiation-input'
 import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
 import { resolveOwnerNotifyEmail } from '../../../lib/server/owner-email'
-import { sendPushToUser } from '../../../lib/push'
+import { sendSellerPushToUser } from '../../../lib/push'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { ownerAllows, getOwnerBillingState } from '../../../lib/server/plan'
 import { negotiationService } from '../../../lib/negotiation.service'
@@ -293,7 +293,7 @@ export async function POST(request: Request) {
       }
       // Mobile push to the seller, alongside the email (best-effort: never blocks the buyer).
       try {
-        await sendPushToUser(ownerId, {
+        await sendSellerPushToUser(ownerId, 'negotiation.created', {
           title: 'New negotiation',
           body: `${offer.name} - ${input.budget || 'new offer'}${input.buyerAgent ? ` · ${input.buyerAgent}` : ''}`,
           data: { type: 'negotiation', negotiationId: result.negotiationId, slug: input.slug },
