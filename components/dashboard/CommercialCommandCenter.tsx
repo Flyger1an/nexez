@@ -75,8 +75,8 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
       </header>
 
       <div
-        data-theme-surface="dark"
-        className="theme-dark-island relative grid gap-px bg-white/10 lg:grid-cols-3"
+        data-testid="commercial-command-cards"
+        className="relative grid gap-px bg-[var(--bd-10)] lg:grid-cols-3"
       >
         <CommandCard
           href="/dashboard/analytics?range=today"
@@ -176,14 +176,14 @@ function CommandCard({
 }) {
   const color = accent === 'signal' ? 'text-[var(--signal)]' : accent === 'amber' ? 'text-[var(--amber)]' : 'text-[var(--ready)]'
   return (
-    <a href={href} className="group min-h-48 bg-[var(--dark-island-bg)] p-5 transition hover:bg-[var(--dark-island-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--signal)] md:p-6">
+    <a href={href} className="group min-h-48 bg-[var(--panel)] p-5 transition-shadow hover:shadow-[inset_0_0_0_1px_var(--line-hi)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--signal)] md:p-6">
       <div className={`flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] ${color}`}>{icon}{eyebrow}</div>
       <div className="mt-5 flex items-end gap-2">
-        <span className="text-3xl font-semibold tracking-[-0.04em] text-white md:text-4xl">{value}</span>
-        <ArrowRight className="mb-1 size-4 text-zinc-600 transition group-hover:translate-x-1 group-hover:text-white" />
+        <span className="text-3xl font-semibold tracking-[-0.04em] text-[var(--fg)] md:text-4xl">{value}</span>
+        <ArrowRight className="mb-1 size-4 text-[var(--fg-muted-2)] transition group-hover:translate-x-1 group-hover:text-[var(--fg)]" />
       </div>
-      <p className="mt-1 text-sm font-medium text-zinc-300">{label}</p>
-      <p className="mt-3 text-xs leading-5 text-zinc-500">{detail}</p>
+      <p className="mt-1 text-sm font-medium text-[var(--fg-soft)]">{label}</p>
+      <p className="mt-3 text-xs leading-5 text-[var(--fg-muted-2)]">{detail}</p>
     </a>
   )
 }

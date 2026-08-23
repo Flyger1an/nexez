@@ -35,8 +35,9 @@ describe('CommercialCommandCenter', () => {
     expect(html).toContain('USD')
     expect(html).toContain('JPY')
     expect(html).toContain('Categories can overlap')
-    expect(html).toContain('data-theme-surface="dark"')
-    expect(html).toContain('theme-dark-island')
+    expect(html).toContain('data-testid="commercial-command-cards"')
+    expect(html).toContain('bg-[var(--panel)]')
+    expect(html).not.toContain('theme-dark-island')
   })
 
   it('shows unavailable sources as unavailable rather than false zeroes', () => {

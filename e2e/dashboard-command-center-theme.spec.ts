@@ -53,7 +53,7 @@ async function login(page: Page) {
 function rgbChannels(color: string): [number, number, number] {
   const channels = color.match(/[\d.]+/g)?.slice(0, 3).map(Number)
   if (!channels || channels.length !== 3) throw new Error(`Unsupported computed color: ${color}`)
-  return channels as [number, number, number]
+  return (color.startsWith('color(srgb') ? channels.map((channel) => channel * 255) : channels) as [number, number, number]
 }
 
 function contrastRatio(foreground: string, background: string): number {
@@ -72,10 +72,11 @@ function contrastRatio(foreground: string, background: string): number {
 test('commercial command cards remain readable in light and dark platform themes', async ({ page }) => {
   await login(page)
 
-  const surface = page.locator('[data-theme-surface="dark"]')
+  const surface = page.getByTestId('commercial-command-cards')
   await expect(surface).toBeVisible()
   const demandCard = surface.locator('a[href="/dashboard/analytics?range=today"]')
   await expect(demandCard).toBeVisible()
+  const backgrounds: string[] = []
 
   for (const theme of ['Light', 'Dark']) {
     await page.getByRole('radio', { name: theme, exact: true }).click()
@@ -94,7 +95,8 @@ test('commercial command cards remain readable in light and dark platform themes
       }
     })
 
-    expect(styles.colorScheme).toBe('dark')
+    backgrounds.push(styles.background)
+    expect(styles.colorScheme).toContain(theme.toLowerCase())
     expect(contrastRatio(styles.value, styles.background)).toBeGreaterThanOrEqual(7)
     expect(contrastRatio(styles.label, styles.background)).toBeGreaterThanOrEqual(4.5)
     expect(contrastRatio(styles.detail, styles.background)).toBeGreaterThanOrEqual(4.5)
@@ -110,4 +112,13 @@ test('commercial command cards remain readable in light and dark platform themes
     })
     expect(contrastRatio(hoverStyles.value, hoverStyles.background)).toBeGreaterThanOrEqual(7)
   }
+
+  expect(backgrounds[0]).not.toBe(backgrounds[1])
+
+  const sectionGap = await page.getByTestId('dashboard-post-command-center').evaluate((nextSection) => {
+    const commandCenter = document.querySelector('[aria-labelledby="commercial-command-center-title"]')
+    if (!commandCenter) throw new Error('Commercial command center is missing')
+    return nextSection.getBoundingClientRect().top - commandCenter.getBoundingClientRect().bottom
+  })
+  expect(sectionGap).toBeGreaterThanOrEqual(20)
 })

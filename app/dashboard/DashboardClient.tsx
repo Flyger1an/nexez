@@ -377,10 +377,11 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
         {initial?.growthState && <SellerGrowthInvites initialState={initial.growthState} />}
             <DataLoadNotice issues={initial?.commercialDataIssues ?? []} />
             <CommercialCommandCenter snapshot={commercialSnapshot} />
-            {pages.length === 0 ? (
-              <NewUserHero name={displayName} />
-            ) : (
-              <section className="overflow-hidden rounded-lg border border-[var(--bd-10)] bg-[var(--ov-04)]">
+            <div data-testid="dashboard-post-command-center" className="mt-6">
+              {pages.length === 0 ? (
+                <NewUserHero name={displayName} />
+              ) : (
+                <section className="overflow-hidden rounded-lg border border-[var(--bd-10)] bg-[var(--ov-04)]">
                 <div className="relative p-6 md:p-8">
                   <div className="absolute right-8 top-8 hidden size-32 rounded-full bg-[var(--signal)]/25 blur-3xl md:block" />
                   {totalTrackedSignals === 0 ? (
@@ -417,8 +418,9 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                     </>
                   )}
                 </div>
-              </section>
-            )}
+                </section>
+              )}
+            </div>
 
             {(() => {
               const notifications = buildNotifications({ pages, openNegotiations })
