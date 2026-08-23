@@ -25,7 +25,7 @@ import {
   formatStripePriceString,
   serializeStripeOfferMarker,
 } from '../../../../lib/stripe-price-sync'
-import { sendPushToEmail, sendPushToUser } from '../../../../lib/push'
+import { sendPushToEmail, sendSellerPushToUser } from '../../../../lib/push'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
 import { cancelCalendlyForRefund } from '../../../../lib/server/calendly-cancel-on-refund'
@@ -403,32 +403,39 @@ export async function POST(request: NextRequest) {
         channel: 'negotiation',
       })
 
-      // Notify the seller that a buyer funded the deal - mirrors the Calendly
-      // booking email. Owner email = the page's contact_email. Gated on RESEND
-      // env (dormant otherwise) and fired via after() so it never blocks the 200.
-      if (hasEmailEnv() && negotiation.page_id) {
+      // Notify the seller that a buyer funded the deal. Push and email are
+      // independent channels, and both remain best-effort behind after().
+      if (negotiation.page_id) {
         after(async () => {
           const { data: page } = await admin
             .from('pages')
             .select('name, contact_email, owner_id')
             .eq('id', negotiation.page_id as string)
             .maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
-          const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
-          if (!ownerEmail || !page) return
-          const mail = await buildEscrowFundedEmail({
-            businessName: page.name || negotiation.slug || 'your page',
-            offerName: negotiation.offer_name || 'Agreement',
-            amount: formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd'),
-            held: !autoSettle,
-            buyerAgent: negotiation.buyer_agent,
-            inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
-          })
-          await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
-          await sendPushToUser(page.owner_id, {
-            title: autoSettle ? 'Payment received' : 'Payment held in escrow',
-            body: `${formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd')} · ${negotiation.offer_name || 'Agreement'}`,
-            data: { type: 'negotiation', negotiationId: session.metadata?.nexez_negotiation_id ?? null, status: nextStatus },
-          })
+          if (!page) return
+          if (hasEmailEnv()) {
+            const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page.contact_email, ownerId: page.owner_id })
+            if (ownerEmail) {
+              const mail = await buildEscrowFundedEmail({
+                businessName: page.name || negotiation.slug || 'your page',
+                offerName: negotiation.offer_name || 'Agreement',
+                amount: formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd'),
+                held: !autoSettle,
+                buyerAgent: negotiation.buyer_agent,
+                inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
+              })
+              await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+            }
+          }
+          await sendSellerPushToUser(
+            page.owner_id,
+            autoSettle ? 'transaction.payment_received' : 'transaction.payment_held',
+            {
+              title: autoSettle ? 'Payment received' : 'Payment held in escrow',
+              body: `${formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd')} · ${negotiation.offer_name || 'Agreement'}`,
+              data: { type: 'negotiation', negotiationId: session.metadata?.nexez_negotiation_id ?? null, status: nextStatus },
+            },
+          )
         })
       }
       // Buyer receipt + portal link (negotiation buyers reuse status_token as their
@@ -558,24 +565,29 @@ export async function POST(request: NextRequest) {
           })
         })
       }
-      if (hasEmailEnv() && orderRow.page_id) {
+      if (ownerId) {
         after(async () => {
           const [{ data: page }, { data: persistedOrder }] = await Promise.all([
-            admin.from('pages').select('name, contact_email, owner_id').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>(),
+            orderRow.page_id
+              ? admin.from('pages').select('name, contact_email, owner_id').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
+              : Promise.resolve({ data: null }),
             admin.from('checkout_orders').select('id').eq('stripe_session_id', session.id).maybeSingle<{ id: string }>(),
           ])
-          const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
-          if (!ownerEmail || !page) return
-          const mail = await buildEscrowFundedEmail({
-            businessName: page.name || orderRow.slug || 'your page',
-            offerName: orderRow.offer_name || 'Your offer',
-            amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
-            held: false,
-            buyerAgent: null,
-            inboxUrl: `${getBaseUrl()}/dashboard/finance`,
-          })
-          await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
-          await sendPushToUser(page.owner_id, {
+          if (hasEmailEnv()) {
+            const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId })
+            if (ownerEmail) {
+              const mail = await buildEscrowFundedEmail({
+                businessName: page?.name || orderRow.slug || 'your page',
+                offerName: orderRow.offer_name || 'Your offer',
+                amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
+                held: false,
+                buyerAgent: null,
+                inboxUrl: `${getBaseUrl()}/dashboard/finance`,
+              })
+              await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+            }
+          }
+          await sendSellerPushToUser(ownerId, 'transaction.booking_confirmed', {
             title: 'Booking confirmed',
             body: `${formatCurrencyAmount(orderRow.amount_cents, orderRow.currency)} · ${orderRow.offer_name || 'Your offer'}`,
             data: { type: 'order', orderId: persistedOrder?.id ?? null, status: 'paid' },
@@ -697,24 +709,29 @@ export async function POST(request: NextRequest) {
       })
     }
     // Seller notify.
-    if (hasEmailEnv() && orderRow.page_id) {
+    if (ownerId) {
       after(async () => {
         const [{ data: page }, { data: persistedOrder }] = await Promise.all([
-          admin.from('pages').select('name, contact_email, owner_id').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>(),
+          orderRow.page_id
+            ? admin.from('pages').select('name, contact_email, owner_id').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
+            : Promise.resolve({ data: null }),
           admin.from('checkout_orders').select('id').eq('stripe_payment_intent_id', pi.id).maybeSingle<{ id: string }>(),
         ])
-        const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
-        if (!ownerEmail || !page) return
-        const mail = await buildEscrowFundedEmail({
-          businessName: page.name || orderRow.slug || 'your page',
-          offerName: orderRow.offer_name || 'Your offer',
-          amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
-          held: false,
-          buyerAgent: md.nexez_buyer_agent || null,
-          inboxUrl: `${getBaseUrl()}/dashboard/finance`,
-        })
-        await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
-        await sendPushToUser(page.owner_id, {
+        if (hasEmailEnv()) {
+          const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId })
+          if (ownerEmail) {
+            const mail = await buildEscrowFundedEmail({
+              businessName: page?.name || orderRow.slug || 'your page',
+              offerName: orderRow.offer_name || 'Your offer',
+              amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
+              held: false,
+              buyerAgent: md.nexez_buyer_agent || null,
+              inboxUrl: `${getBaseUrl()}/dashboard/finance`,
+            })
+            await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+          }
+        }
+        await sendSellerPushToUser(ownerId, 'transaction.booking_confirmed', {
           title: 'Booking confirmed',
           body: `${formatCurrencyAmount(orderRow.amount_cents, orderRow.currency)} · ${orderRow.offer_name || 'Your offer'}`,
           data: { type: 'order', orderId: persistedOrder?.id ?? null, status: 'paid' },
@@ -802,9 +819,9 @@ export async function POST(request: NextRequest) {
       // what closes the "direct-checkout disputes/refunds vanish silently" hole.
       const { data: order } = await admin
         .from('checkout_orders')
-        .select('id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token_encrypted, channel, staged_settlement_obligation_id')
+        .select('id, owner_id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token_encrypted, channel, staged_settlement_obligation_id')
         .eq('stripe_payment_intent_id', piId)
-        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token_encrypted: string | null; channel: string | null; staged_settlement_obligation_id: string | null }>()
+        .maybeSingle<{ id: string; owner_id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token_encrypted: string | null; channel: string | null; staged_settlement_obligation_id: string | null }>()
       if (!order) {
         return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
       }
@@ -907,21 +924,36 @@ export async function POST(request: NextRequest) {
           })
         })
       }
-      if (oNotify && hasEmailEnv() && order.page_id) {
+      if (oNotify && order.owner_id) {
         const on = oNotify
         after(async () => {
-          const { data: page } = await admin.from('pages').select('name, contact_email, owner_id').eq('id', order.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
-          const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
-          if (!ownerEmail || !page) return
-          const mail = await buildMoneyEventEmail({
-            kind: on.kind,
-            businessName: page.name || order.slug || 'your page',
-            offerName: order.offer_name || 'Your offer',
-            amount: on.amountCents != null ? formatCurrencyAmount(on.amountCents, order.currency || 'usd') : null,
-            detail: on.detail,
-            inboxUrl: `${getBaseUrl()}/dashboard/finance`,
-          })
-          await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+          const { data: page } = order.page_id
+            ? await admin.from('pages').select('name, contact_email').eq('id', order.page_id).maybeSingle<{ name: string | null; contact_email: string | null }>()
+            : { data: null }
+          const amount = on.amountCents != null ? formatCurrencyAmount(on.amountCents, order.currency || 'usd') : null
+          if (hasEmailEnv()) {
+            const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: order.owner_id })
+            if (ownerEmail) {
+              const mail = await buildMoneyEventEmail({
+                kind: on.kind,
+                businessName: page?.name || order.slug || 'your page',
+                offerName: order.offer_name || 'Your offer',
+                amount,
+                detail: on.detail,
+                inboxUrl: `${getBaseUrl()}/dashboard/finance`,
+              })
+              await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+            }
+          }
+          await sendSellerPushToUser(
+            order.owner_id,
+            on.kind === 'refund' ? 'transaction.refund_updated' : 'transaction.dispute_updated',
+            {
+              title: on.kind === 'refund' ? 'Refund updated' : on.kind === 'dispute_opened' ? 'Payment dispute opened' : 'Payment dispute updated',
+              body: `${amount ? `${amount} · ` : ''}${order.offer_name || 'Your offer'}`,
+              data: { type: 'order', orderId: order.id, status: (oUpdate?.status as string | undefined) ?? order.status },
+            },
+          )
         })
       }
       // Buyer-facing status update (refund processed / dispute resolved).
@@ -1025,7 +1057,7 @@ export async function POST(request: NextRequest) {
 
     // Notify the seller - refunds are informational; a dispute is time-sensitive
     // (evidence deadline), so silent DB-only handling risked auto-lost disputes.
-    if (notify && hasEmailEnv() && neg.page_id) {
+    if (notify && neg.page_id) {
       const n = notify
       after(async () => {
         const { data: page } = await admin
@@ -1033,17 +1065,31 @@ export async function POST(request: NextRequest) {
           .select('name, contact_email, owner_id')
           .eq('id', neg.page_id as string)
           .maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
-        const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
-        if (!ownerEmail || !page) return
-        const mail = await buildMoneyEventEmail({
-          kind: n.kind,
-          businessName: page.name || neg.slug || 'your page',
-          offerName: neg.offer_name || 'Agreement',
-          amount: n.amountCents != null ? formatCurrencyAmount(n.amountCents, neg.currency || 'usd') : null,
-          detail: n.detail,
-          inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
-        })
-        await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+        if (!page) return
+        const amount = n.amountCents != null ? formatCurrencyAmount(n.amountCents, neg.currency || 'usd') : null
+        if (hasEmailEnv()) {
+          const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page.contact_email, ownerId: page.owner_id })
+          if (ownerEmail) {
+            const mail = await buildMoneyEventEmail({
+              kind: n.kind,
+              businessName: page.name || neg.slug || 'your page',
+              offerName: neg.offer_name || 'Agreement',
+              amount,
+              detail: n.detail,
+              inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
+            })
+            await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+          }
+        }
+        await sendSellerPushToUser(
+          page.owner_id,
+          n.kind === 'refund' ? 'transaction.refund_updated' : 'transaction.dispute_updated',
+          {
+            title: n.kind === 'refund' ? 'Refund updated' : n.kind === 'dispute_opened' ? 'Payment dispute opened' : 'Payment dispute updated',
+            body: `${amount ? `${amount} · ` : ''}${neg.offer_name || 'Agreement'}`,
+            data: { type: 'negotiation', negotiationId: neg.id, status: (update?.status as string | undefined) ?? neg.status },
+          },
+        )
       })
     }
     // Buyer-facing status update for the negotiation buyer (status_token = portal credential).

@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   Activity,
   BadgeCheck,
+  BellRing,
   Bot,
   Building2,
   Code2,
@@ -36,6 +37,12 @@ import { UpgradeBanner } from '../../../components/billing/PlanGate'
 import { SurfaceHeader, surfaceActionClass } from '../../../components/dashboard/SurfacePrimitives'
 import { StatusPill } from '../../../components/settings/SettingsPrimitives'
 import { AccountSettingsNav } from '../../../components/settings/AccountSettingsNav'
+import { NotificationPreferencesPanel } from '../../../components/NotificationPreferencesPanel'
+import { loadSellerNotificationPreferences } from '../../../lib/server/seller-notification-preferences'
+import {
+  DEFAULT_SELLER_NOTIFICATION_PREFERENCES,
+  type SellerNotificationPreferences,
+} from '../../../lib/seller-notification-policy'
 
 const ACCOUNT_SETTINGS_PAGE_SELECT = [
   'id',
@@ -102,6 +109,20 @@ async function loadListingAssignments(
   return { data: result.data ?? [], error: null }
 }
 
+async function loadNotificationState(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<DataState<{ preferences: SellerNotificationPreferences; configured: boolean }>> {
+  try {
+    return { data: await loadSellerNotificationPreferences(supabase, userId), error: null }
+  } catch {
+    return {
+      data: { preferences: { ...DEFAULT_SELLER_NOTIFICATION_PREFERENCES }, configured: false },
+      error: 'Notification preferences are temporarily unavailable.',
+    }
+  }
+}
+
 export default async function AccountSettingsPage() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
@@ -122,15 +143,16 @@ export default async function AccountSettingsPage() {
     )
   }
 
-  const [currentPlan, pageState, storefrontState, listingState, agentState] = await Promise.all([
+  const [currentPlan, pageState, storefrontState, listingState, agentState, notificationState] = await Promise.all([
     getOwnerPlanId(supabase, user.id),
     loadAccountPages(supabase, user.id),
     loadStorefrontState(user.id),
     loadListingAssignments(supabase, user.id),
     loadAgentOperations(supabase, user.id),
+    loadNotificationState(supabase, user.id),
   ])
 
-  const dataIssues = [pageState.error, storefrontState.error, listingState.error, agentState.error].filter(Boolean) as string[]
+  const dataIssues = [pageState.error, storefrontState.error, listingState.error, agentState.error, notificationState.error].filter(Boolean) as string[]
   const ownedPages = pageState.data
   const publishedPages = ownedPages.filter((page) => page.is_published)
   const offerCount = ownedPages.reduce((sum, page) => sum + getOfferCount(page), 0)
@@ -223,6 +245,20 @@ export default async function AccountSettingsPage() {
               icon={ShieldCheck}
             >
               <PasskeySettings />
+            </SettingsArea>
+
+            <SettingsArea
+              id="notifications"
+              eyebrow="Account delivery policy"
+              title="Notifications"
+              description="Control optional seller alerts across every device while preserving required money-state notices."
+              icon={BellRing}
+            >
+              {notificationState.error ? (
+                <UnavailablePanel message={notificationState.error} />
+              ) : (
+                <NotificationPreferencesPanel initialPreferences={notificationState.data.preferences} />
+              )}
             </SettingsArea>
 
             <SettingsArea

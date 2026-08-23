@@ -37,9 +37,11 @@ vi.mock('../../../../lib/server/plan', () => ({ getOwnerPlanIds }))
 // Cancel-on-refund runs inside next/server `after`. Make `after` record-only so
 // other tests are unaffected (callbacks simply never run unless a test drains
 // them); the cancel-on-refund tests drain + await afterCbs explicitly.
-const { afterCbs, cancelSpy } = vi.hoisted(() => ({
+const { afterCbs, cancelSpy, sendSellerPushToUser, sendPushToEmail } = vi.hoisted(() => ({
   afterCbs: [] as Array<() => unknown>,
   cancelSpy: vi.fn((_admin?: any, _neg?: any) => Promise.resolve({ cancelled: true as const })),
+  sendSellerPushToUser: vi.fn(async () => ({ sent: 1 })),
+  sendPushToEmail: vi.fn(async () => ({ sent: 1 })),
 }))
 const { captureEvent } = vi.hoisted(() => ({ captureEvent: vi.fn() }))
 vi.mock('next/server', async (importOriginal) => {
@@ -47,6 +49,7 @@ vi.mock('next/server', async (importOriginal) => {
   return { ...actual, after: (fn: () => unknown) => { afterCbs.push(fn) } }
 })
 vi.mock('../../../../lib/server/calendly-cancel-on-refund', () => ({ cancelCalendlyForRefund: cancelSpy }))
+vi.mock('../../../../lib/push', () => ({ sendSellerPushToUser, sendPushToEmail }))
 vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({ releaseBillingCheckoutAttempt: vi.fn(async () => true) }))
 vi.mock('../../../../lib/observability', () => ({ captureEvent }))
 
@@ -62,6 +65,7 @@ const post = (opts: { sig?: string; body?: string } = {}) =>
 describe('POST /api/webhooks/stripe', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    afterCbs.length = 0
     hasSupabaseAdminEnv.mockReturnValue(false)
     adminUpsert.mockResolvedValue({ error: null })
     // .insert covers the new webhook event-id idempotency ledger (Burst 1).
@@ -639,6 +643,43 @@ describe('POST /api/webhooks/stripe', () => {
       expect(res.status).toBe(200)
       expect(await res.json()).toMatchObject({ order: 'o1', status: 'refunded' })
       expect(updated.status).toBe('refunded')
+    })
+
+    it('pushes a required seller refund update even when email delivery is unavailable', async () => {
+      hasSupabaseAdminEnv.mockReturnValue(true)
+      createAdminClient.mockReturnValue(
+        createSupabaseMock((ctx: QueryContext) => {
+          if (ctx.table === 'agent_negotiations') return { data: null, error: null }
+          if (ctx.table === 'checkout_orders' && ctx.op === 'select') {
+            return {
+              data: {
+                id: 'o1', owner_id: 'owner-1', status: 'paid', metadata: {}, page_id: 'pg1', currency: 'usd',
+                offer_name: 'Audit', slug: 'acme', buyer_email: null, access_token_encrypted: null,
+                channel: null, staged_settlement_obligation_id: null,
+              },
+              error: null,
+            }
+          }
+          if (ctx.table === 'pages') {
+            return { data: { name: 'Acme', contact_email: null, owner_id: 'owner-1' }, error: null }
+          }
+          return { data: null, error: null }
+        }) as any,
+      )
+      constructEvent.mockReturnValue({
+        id: 'evt_order_refund_push',
+        type: 'charge.refunded',
+        data: { object: { payment_intent: 'pi_dc', amount: 5000, amount_refunded: 5000 } },
+      })
+
+      expect((await POST(post({ sig: 'good', body: '{}' }))).status).toBe(200)
+      for (const callback of afterCbs) await callback()
+
+      expect(sendSellerPushToUser).toHaveBeenCalledWith(
+        'owner-1',
+        'transaction.refund_updated',
+        expect.objectContaining({ title: 'Refund updated', data: expect.objectContaining({ orderId: 'o1' }) }),
+      )
     })
   })
 

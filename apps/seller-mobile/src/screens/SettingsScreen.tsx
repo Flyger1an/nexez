@@ -71,7 +71,7 @@ export function SettingsScreen() {
           detail="New proposals, payments, reviews, readiness drops"
           right={<Switch value={notif} onValueChange={onToggleNotif} trackColor={{ false: 'rgba(255,255,255,0.15)', true: colors.ember }} thumbColor={colors.white} ios_backgroundColor="rgba(255,255,255,0.15)" />}
         />
-        <GroupRow icon={SlidersHorizontal} iconTone="muted" title="Notification settings" detail="Per-event push controls" onPress={() => router.push('/notifications/settings')} right={<Meta />} />
+        <GroupRow icon={SlidersHorizontal} iconTone="muted" title="Notification settings" detail="Cross-device push controls" onPress={() => router.push('/notifications/settings')} right={<Meta />} />
         <GroupRow icon={KeyRound} iconTone="muted" title="API keys" onPress={() => void WebBrowser.openBrowserAsync(webPath('/dashboard/settings'))} right={<Meta text="Web ↗" chevron={false} />} />
         <GroupRow icon={Globe} iconTone="muted" title="Custom domains" onPress={() => void WebBrowser.openBrowserAsync(webPath('/dashboard/settings'))} right={<Meta text="Web ↗" chevron={false} />} />
         <GroupRow icon={Users} iconTone="muted" title="Team access" right={<Meta text="Coming soon" chevron={false} />} last />
