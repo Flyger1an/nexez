@@ -87,17 +87,27 @@ describe('pages_public projection ⊇ PUBLIC_PAGE_SELECT (the SEV1 coupling guar
     // migration that explains which keys it withholds would otherwise fail for
     // naming them in prose.
     const stripComments = (sql: string) => sql.replace(/--[^\n]*/g, '')
-    const allowlistSql = readdirSync(dir)
+    const migrationSql = readdirSync(dir)
       .filter((f) => f.endsWith('.sql'))
       .sort()
       .map((f) => readFileSync(join(dir, f), 'utf8'))
-      .filter((sql) => /create or replace function private\.nz_public_offer\b/i.test(sql))
       .map(stripComments)
+    const allowlistSql = migrationSql
+      .filter((sql) => /create or replace function private\.nz_public_offer\b/i.test(sql))
+      .pop()
+    const verificationSql = migrationSql
+      .filter((sql) => /create or replace function private\.nz_public_verification\b/i.test(sql))
+      .pop()
+    const metadataSql = migrationSql
+      .filter((sql) => /create or replace function private\.nz_public_offer_metadata\b/i.test(sql))
+      .pop()
+    const offerRulesSql = migrationSql
+      .filter((sql) => /create or replace function private\.nz_public_offer_rules\b/i.test(sql))
       .pop()
 
     it('defines the offer and verification allowlists', () => {
       expect(allowlistSql, 'no migration defines private.nz_public_offer').toBeTruthy()
-      expect(allowlistSql).toMatch(/create or replace function private\.nz_public_verification/i)
+      expect(verificationSql, 'no migration defines private.nz_public_verification').toBeTruthy()
       // The old denylist must be gone: `elem - 'rules'` copies everything else.
       expect(allowlistSql).not.toMatch(/elem\s*-\s*'rules'/)
     })
@@ -120,18 +130,47 @@ describe('pages_public projection ⊇ PUBLIC_PAGE_SELECT (the SEV1 coupling guar
     it.each(['file_path', 'verdict', 'mime', 'uploaded_at', 'reviewed_at'])(
       'never projects the credential field %s',
       (key) => {
-        expect(allowlistSql).not.toContain(`'${key}'`)
+        expect(verificationSql).not.toContain(`'${key}'`)
       },
     )
 
     // Fields the public surface genuinely reads. Dropping one silently breaks
     // rendering or location filtering rather than leaking anything, so pin them.
-    it.each(['name', 'price', 'availability', 'offerType', 'service_area', 'minNoticeHours', 'docs_provided'])(
+    it.each(['name', 'price', 'availability', 'offerType'])(
       'still projects the public field %s',
       (key) => {
         expect(allowlistSql).toContain(`'${key}'`)
       },
     )
+
+    it('still projects the public metadata and booking-rule contract', () => {
+      expect(metadataSql).toContain("'service_area'")
+      expect(offerRulesSql).toContain("'minNoticeHours'")
+    })
+
+    it('still projects the public verification contract', () => {
+      expect(verificationSql).toContain("'docs_provided'")
+    })
+
+    it.each([
+      'customerInputs',
+      'attributes',
+      'recurringTerms',
+      'fulfillmentRules',
+      'stagedSettlementTerms',
+      'reservableResourceTerms',
+    ])('projects the configured commerce field %s', (key) => {
+      expect(allowlistSql).toContain(`'${key}'`)
+    })
+
+    it.each([
+      'nz_public_offer_customer_inputs',
+      'nz_public_recurring_terms',
+      'nz_public_staged_settlement_terms',
+      'nz_public_reservable_resource_terms',
+    ])('routes configured commerce through the nested allowlist %s', (helper) => {
+      expect(allowlistSql).toContain(`private.${helper}`)
+    })
   })
 
   it('keeps owner-only implementation identifiers out of the public select', () => {

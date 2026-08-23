@@ -8,9 +8,10 @@ import {
   executeApprovalBoundAction,
   type ApprovalActionResponse,
 } from '../lib/approval-bound-action'
+import type { OfferCheckoutPath } from '../lib/agent-offer-configuration'
 
 type ApprovedActionFormProps = Omit<ComponentPropsWithoutRef<'form'>, 'action' | 'method' | 'onSubmit'> & {
-  action: '/api/checkout' | '/api/negotiations' | '/api/reservable-resources/checkout'
+  action: OfferCheckoutPath | '/api/negotiations'
   onNavigate?: (url: string) => void
 }
 

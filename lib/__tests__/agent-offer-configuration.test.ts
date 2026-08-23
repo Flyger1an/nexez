@@ -4,6 +4,7 @@ import { buildAgentPagePayload } from '../agent-manifest'
 import {
   buildAgentOfferConfiguration,
   buildOfferConfigurationInputSchema,
+  getOfferCheckoutPath,
   withOfferConfigurationOpenApi,
 } from '../agent-offer-configuration'
 
@@ -176,6 +177,40 @@ describe('configured offer agent contract', () => {
     expect(configuration.checkout.path).toBe('/api/service-agreements/checkout')
     expect(configuration.checkout.runtime_readiness_check)
       .toBe('POST /api/service-agreements/checkout with dryRun=true before approval.')
+  })
+
+  it('uses one routing decision for every advanced checkout rail', () => {
+    const staged = {
+      name: 'Staged project',
+      price: '$200',
+      stagedSettlementTerms: {
+        schemaVersion: 1,
+        paymentModel: 'staged-fixed-total',
+        approvalPolicy: 'buyer-approves-each-stage',
+        mutationPolicy: 'immutable-after-first-payment',
+        stages: [
+          { id: 'deposit', label: 'Deposit', kind: 'commitment', allocationBps: 5000 },
+          { id: 'final', label: 'Final', kind: 'completion', allocationBps: 5000 },
+        ],
+      },
+    } as any
+    const reservable = {
+      name: 'Reserved capacity',
+      price: '$100',
+      source: 'nexez',
+      reservableResourceTerms: {
+        schemaVersion: 1,
+        requirements: [{
+          poolId: '11111111-1111-4111-8111-111111111111',
+          quantity: { source: 'fixed', value: 1 },
+        }],
+      },
+    } as any
+
+    expect(getOfferCheckoutPath({ name: 'Legacy', price: '$10' } as any)).toBe('/api/checkout')
+    expect(getOfferCheckoutPath(recurringOffer)).toBe('/api/service-agreements/checkout')
+    expect(getOfferCheckoutPath(staged)).toBe('/api/staged-settlements/checkout')
+    expect(getOfferCheckoutPath(reservable)).toBe('/api/reservable-resources/checkout')
   })
 
   it('threads the same sanitized contract into agent.json without materializing buyer answers', () => {
