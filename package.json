@@ -14,6 +14,7 @@
     "lint:dead:all": "knip --include files,exports,types",
     "check:agent-sdk-versions": "node scripts/check-agent-sdk-versions.mjs",
     "certify:commerce": "node scripts/certify-commerce.mjs",
+    "certify:party-rentals:setup": "node scripts/setup-party-rentals-certification.mjs",
     "certify:release": "node scripts/certify-release.mjs",
     "smoke:agent-access": "node scripts/smoke-agent-access.mjs",
     "test": "vitest run",
