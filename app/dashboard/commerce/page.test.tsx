@@ -6,6 +6,7 @@ import { render, screen } from '../../../test/dom'
 const refs = vi.hoisted(() => ({
   user: { id: 'owner-1' } as { id: string } | null,
   result: null as null | Record<string, unknown>,
+  actionResult: null as null | Record<string, unknown>,
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
@@ -17,6 +18,10 @@ vi.mock('../../../utils/supabase/server', () => ({
 vi.mock('../../../lib/server/dashboard-commerce', () => ({
   DASHBOARD_COMMERCE_LIMIT: 25,
   loadDashboardCommerce: vi.fn(async () => refs.result),
+}))
+vi.mock('../../../lib/server/dashboard-commerce-actions', () => ({
+  DASHBOARD_COMMERCE_ACTION_LIMIT: 25,
+  loadDashboardCommerceActions: vi.fn(async () => refs.actionResult),
 }))
 
 import CommercePage from './page'
@@ -78,6 +83,42 @@ describe('commerce dashboard', () => {
       filters: { q: '', rail: '', currency: '' },
       issues: [],
     }
+    refs.actionResult = {
+      actions: [{
+        key: checkoutRecord.key,
+        record: checkoutRecord,
+        actions: [
+          {
+            key: 'refund_request',
+            label: 'Review refund request',
+            detail: 'A buyer submitted a refund request.',
+            priority: 96,
+            urgent: false,
+            updatedAt: '2026-08-23T13:00:00.000Z',
+          },
+          {
+            key: 'fulfillment',
+            label: 'Complete fulfillment',
+            detail: 'This order has recorded work in progress.',
+            priority: 45,
+            urgent: false,
+            updatedAt: '2026-08-23T12:00:00.000Z',
+          },
+        ],
+        primaryAction: {
+          key: 'refund_request',
+          label: 'Review refund request',
+          detail: 'A buyer submitted a refund request.',
+          priority: 96,
+          urgent: false,
+          updatedAt: '2026-08-23T13:00:00.000Z',
+        },
+        urgent: false,
+      }],
+      urgentCount: 0,
+      isTruncated: false,
+      issues: [],
+    }
   })
 
   it('requires authentication before showing cross-rail records', async () => {
@@ -95,6 +136,16 @@ describe('commerce dashboard', () => {
     expect(screen.getAllByText('Agreed value').length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: 'Manage order ORDER-1' })).toHaveAttribute('href', '/dashboard/orders/order-1')
     expect(screen.getByRole('link', { name: 'Open negotiation DEAL-1' })).toHaveAttribute('href', '/dashboard/negotiations#negotiation-deal-1')
+  })
+
+  it('renders prioritized actions with a native-workspace destination', async () => {
+    render(await CommercePage({ searchParams: Promise.resolve({}) }))
+    expect(screen.getByRole('heading', { name: 'Merchant action queue' })).toBeInTheDocument()
+    expect(screen.getByText('Review refund request')).toBeInTheDocument()
+    expect(screen.getAllByText(/Checkout order · Live/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/additional action complete fulfillment/i)).toBeInTheDocument()
+    const actionLink = screen.getByText('Review refund request').closest('a')
+    expect(actionLink).toHaveAttribute('href', '/dashboard/orders/order-1')
   })
 
   it('explains the ledger boundary when no commerce exists', async () => {
@@ -121,5 +172,17 @@ describe('commerce dashboard', () => {
     }
     render(await CommercePage({ searchParams: Promise.resolve({ rail: 'checkout' }) }))
     expect(screen.getByText('Not queried')).toBeInTheDocument()
+  })
+
+  it('does not claim a clean queue when an action source is unavailable', async () => {
+    refs.actionResult = {
+      actions: [],
+      urgentCount: 0,
+      isTruncated: false,
+      issues: ['Buyer requests could not be checked for the action queue.'],
+    }
+    render(await CommercePage({ searchParams: Promise.resolve({}) }))
+    expect(screen.getByText('No actions surfaced from the available sources')).toBeInTheDocument()
+    expect(screen.queryByText('No merchant actions need attention')).not.toBeInTheDocument()
   })
 })
