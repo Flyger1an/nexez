@@ -24,9 +24,11 @@ import {
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoney } from '../../../lib/checkout'
+import { getOfferCheckoutPath } from '../../../lib/agent-offer-configuration'
 import {
   getOfferCustomerInputs,
   getOfferReservableResourceTerms,
+  getOfferStagedSettlementTerms,
 } from '../../../lib/configured-offer'
 import { normalizeCurrency, toStripeAmount, formatCurrencyAmount, toMajorAmount } from '../../../lib/currency'
 import type { OfferInputField } from '../../../lib/offer-configuration'
@@ -105,11 +107,13 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
   const priceCents = toStripeAmount(parseMoney(offer.price) ?? 0, currency) || null
   const displayPrice = priceCents ? formatCurrencyAmount(priceCents, currency) : offer.price || 'Custom quote'
   const jsonLd = buildCheckoutJsonLd(page, offer, checkoutUrl, destination, priceCents, baseUrl, currency)
-  const canContinue = Boolean(priceCents || destination)
   const missingCheckout = Boolean(search.missing_checkout)
   const resourceTerms = getOfferReservableResourceTerms(offer)
+  const stagedSettlementTerms = getOfferStagedSettlementTerms(offer)
   const offerInputs = getOfferCustomerInputs(offer)
-  const checkoutAction = resourceTerms ? '/api/reservable-resources/checkout' as const : '/api/checkout' as const
+  const checkoutAction = getOfferCheckoutPath(offer)
+  const usesNexezCheckout = checkoutAction !== '/api/checkout'
+  const canContinue = usesNexezCheckout ? Boolean(priceCents) : Boolean(priceCents || destination)
 
   // Non-blocking: record the checkout_view after the response is sent so it
   // never adds latency to the page render.
@@ -213,6 +217,16 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                 </div>
               ) : null}
 
+              {stagedSettlementTerms ? (
+                <div className="mt-6 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/10 p-4 text-sm leading-6 text-zinc-200">
+                  <p className="font-medium text-[var(--amber)]">Each stage needs fresh buyer approval</p>
+                  <p className="mt-1 text-zinc-300">
+                    Continue opens only the first payment stage. Later stages remain locked until the merchant marks
+                    them ready and the buyer approves each payment separately.
+                  </p>
+                </div>
+              ) : null}
+
               <label className="mt-7 flex items-center gap-3 text-sm text-zinc-300">
                 <input type="checkbox" defaultChecked className="size-5 accent-[var(--signal)]" />
                 Request human review for high-value or custom purchases
@@ -270,7 +284,11 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                     type="submit"
                     className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-4 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
                   >
-                    {resourceTerms ? 'Check availability & Continue' : 'Confirm & Continue'}
+                    {resourceTerms
+                      ? 'Check availability & Continue'
+                      : stagedSettlementTerms
+                        ? 'Review first stage & Continue'
+                        : 'Confirm & Continue'}
                     <ArrowRight className="size-4" />
                   </button>
                 </ApprovedActionForm>
@@ -305,7 +323,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
             <div className="mt-5 space-y-3 text-sm">
               <DetailRow label="Checkout URL" value={checkoutUrl} />
               <DetailRow label="Source page" value={publicUrl} />
-              <DetailRow label="Action URL" value={resourceTerms ? checkoutAction : destination || 'Not configured'} />
+              <DetailRow label="Action URL" value={usesNexezCheckout ? checkoutAction : destination || 'Not configured'} />
             </div>
           </div>
 
@@ -323,7 +341,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
     },
     buyerFit: page.audience || null,
     contactEmail: page.contact_email || null,
-    actionUrl: resourceTerms ? checkoutAction : destination || null,
+    actionUrl: usesNexezCheckout ? checkoutAction : destination || null,
   },
   null,
   2,

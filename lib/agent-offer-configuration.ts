@@ -11,6 +11,20 @@ import type { OfferInputField } from './offer-configuration'
 
 type JsonSchema = Record<string, unknown>
 
+export type OfferCheckoutPath =
+  | '/api/checkout'
+  | '/api/service-agreements/checkout'
+  | '/api/staged-settlements/checkout'
+  | '/api/reservable-resources/checkout'
+
+/** One shared routing decision for manifests, checkout UI, and approval-bound actions. */
+export function getOfferCheckoutPath(offer: OfferItem): OfferCheckoutPath {
+  if (getOfferRecurringTerms(offer)) return '/api/service-agreements/checkout'
+  if (getOfferStagedSettlementTerms(offer)) return '/api/staged-settlements/checkout'
+  if (getOfferReservableResourceTerms(offer)) return '/api/reservable-resources/checkout'
+  return '/api/checkout'
+}
+
 function describeInput(field: OfferInputField, extra?: string): string {
   return [field.description, `Ask buyer: ${field.askBuyer}`, extra].filter(Boolean).join(' ')
 }
@@ -88,13 +102,7 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
   const hasBuyerInputs = customerInputs.length > 0
   const hasConditionalFulfillment = fulfillmentRules.length > 0
   const requiresSettlement = hasBuyerInputs || Boolean(recurringTerms) || hasConditionalFulfillment || Boolean(stagedSettlementTerms) || Boolean(reservableResourceTerms)
-  const checkoutPath = recurringTerms
-    ? '/api/service-agreements/checkout'
-    : stagedSettlementTerms
-      ? '/api/staged-settlements/checkout'
-      : reservableResourceTerms
-        ? '/api/reservable-resources/checkout'
-        : '/api/checkout'
+  const checkoutPath = getOfferCheckoutPath(offer)
 
   const checkoutStatus = requiredUnpricedPriceInputs.length
       ? 'blocked_pending_pricing'

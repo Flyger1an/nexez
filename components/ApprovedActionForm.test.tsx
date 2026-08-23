@@ -124,4 +124,29 @@ describe('ApprovedActionForm', () => {
     })
     expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('idempotency-key')).toMatch(/^nexez-action:/)
   })
+
+  it('preserves the staged settlement action through approval-bound enhancement', async () => {
+    const navigate = vi.fn()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ approvalTokenRequired: true, approvalToken: 'v1.staged.signature' }))
+      .mockResolvedValueOnce(response({ url: 'https://checkout.example.com/staged-session' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <ApprovedActionForm action="/api/staged-settlements/checkout" onNavigate={navigate}>
+        <input name="slug" value="project" readOnly />
+        <input name="offer" value="services-0" readOnly />
+        <button type="submit">Review first stage</button>
+      </ApprovedActionForm>,
+    )
+
+    const form = screen.getByRole('button', { name: 'Review first stage' }).closest('form')
+    expect(form).toHaveAttribute('action', '/api/staged-settlements/checkout')
+    fireEvent.click(screen.getByRole('button', { name: 'Review first stage' }))
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('https://checkout.example.com/staged-session'))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/staged-settlements/checkout')
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/staged-settlements/checkout')
+  })
 })
