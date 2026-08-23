@@ -40,6 +40,8 @@ jobs:
         run: npm run lint -- --quiet
       - name: Palette guard
         run: npm run lint:palette
+      - name: Em dash guard
+        run: npm run lint:em-dash
       - name: Dead code
         # Fails only on orphaned FILES, which is unambiguous and currently zero.
         # Unused exports are a judgement call (several flagged ones are load-bearing

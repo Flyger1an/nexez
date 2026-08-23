@@ -44,7 +44,7 @@ export type BillingSubscription = {
  */
 export const LIVE_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due', 'unpaid'] as const
 
-/** The customer's live subscription, if any — the one a plan change must UPDATE, never duplicate. */
+/** The customer's live subscription, if any - the one a plan change must UPDATE, never duplicate. */
 export function pickLiveStripeSubscription<T extends { status: string }>(subscriptions: T[]): T | null {
   return subscriptions.find((s) => (LIVE_SUBSCRIPTION_STATUSES as readonly string[]).includes(s.status)) ?? null
 }

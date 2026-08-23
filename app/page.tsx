@@ -21,6 +21,7 @@ import { ReadinessLab } from '../components/home/ReadinessLab'
 import { LiveAgentFeed } from '../components/home/LiveAgentFeed'
 import { ScrollProgress } from '../components/home/ScrollProgress'
 import { ShaderBackdrop } from '../components/home/ShaderBackdrop'
+import { safeJsonScript } from '../lib/safe-json'
 
 // Marketing homepage: fully static (fast on nexez.ai). The always-live listing
 // directory lives on /discovery.
@@ -219,7 +220,7 @@ export default function NexezHome() {
     <main>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeStructuredData).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: safeJsonScript(homeStructuredData) }}
       />
       <ScrollProgress />
       {/* HERO + MARQUEE share one smoke field that bleeds across both */}

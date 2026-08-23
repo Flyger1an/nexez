@@ -14,7 +14,7 @@ export type CancelForRefundResult =
  * The linkage is EXACT: the negotiation's scheduling link was tagged with
  * `utm_content=nz_neg_<id>`, Calendly echoed it back on the invitee webhook, and
  * we recorded the resulting event URI on this row. So there is no wrong-booking
- * hazard — we cancel exactly the event the buyer booked from this negotiation.
+ * hazard - we cancel exactly the event the buyer booked from this negotiation.
  *
  * Idempotent via `calendly_cancelled_at`: stamped only after a CONFIRMED cancel,
  * so a transient Calendly failure leaves the row eligible for a later retry, and
@@ -40,7 +40,7 @@ export async function cancelCalendlyForRefund(
   const pat = await getCalendlyPat(neg.page_id)
   if (!pat) return { cancelled: false, reason: 'no_pat' }
 
-  const ok = await cancelCalendlyEvent(pat, uuid, 'Booking cancelled — the Nexez order was refunded.')
+  const ok = await cancelCalendlyEvent(pat, uuid, 'Booking cancelled - the Nexez order was refunded.')
   if (!ok) {
     captureEvent('integration.calendly_cancel_failed', { negotiationId: neg.id })
     return { cancelled: false, reason: 'calendly_failed' }

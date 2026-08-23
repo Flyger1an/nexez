@@ -26,7 +26,7 @@ import { parseAcpBuyer, parseAcpPaymentToken, toAcpCheckoutSession, acpError, ty
 import { acpJson, loadAcpPage, loadAcpPageName } from '../../../../../../lib/server/acp-session'
 
 /**
- * ACP: POST /api/acp/checkout_sessions/{id}/complete — settle the session.
+ * ACP: POST /api/acp/checkout_sessions/{id}/complete - settle the session.
  * Validates the delegated payment credential, re-prices against the live page,
  * charges it via the shared SF2 settlement bridge (direct charge on the seller's
  * connected account + platform fee), marks the session completed, persists the
@@ -106,8 +106,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     return acpJson(acpError(drift.code, drift.message), 409, apiVersion)
   }
 
-  // Resolve the seller's money context (pause/connect/commission) — one shared
-  // resolver so this can't skip the gates — then charge via the SF2 bridge.
+  // Resolve the seller's money context (pause/connect/commission) - one shared
+  // resolver so this can't skip the gates - then charge via the SF2 bridge.
   const context = await resolveSettlementContext(admin, {
     pageId: page.id,
     ownerId: page.owner_id ?? null,
@@ -132,7 +132,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   // Charge captured: mark the session completed + link the PI, then persist the
   // durable order (the webhook reconciles the same row idempotently). If this snapshot
-  // write transiently fails the money is safe — checkout_orders (below + the webhook)
+  // write transiently fails the money is safe - checkout_orders (below + the webhook)
   // is the money record, and a retried /complete self-heals via the same idempotency
   // key (same PI, no second charge).
   const completed = markSessionCompleted(session)

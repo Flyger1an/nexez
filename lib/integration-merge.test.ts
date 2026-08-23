@@ -20,7 +20,7 @@ describe('mergeProviderOffers', () => {
     expect(out.find((x) => x.name === 'Intro')!.source).toBe('calendly')
   })
 
-  it('NEVER clobbers a same-named manual offer — keeps it + adds the provider one', () => {
+  it('NEVER clobbers a same-named manual offer - keeps it + adds the provider one', () => {
     const existing = [o({ name: 'Discovery Call', price: '$199', url: 'https://mysite.com/book', source: undefined })]
     const incoming = [o({ name: 'Discovery Call', price: 'Custom', url: 'https://calendly.com/d/x', metadata: { calendly_event_type: 'https://api.calendly.com/event_types/GB' } })]
     const out = mergeProviderOffers(existing, incoming, 'calendly')
@@ -42,7 +42,7 @@ describe('mergeProviderOffers', () => {
     expect(out[0]!.metadata?.calendly_event_type).toBe('https://api.calendly.com/event_types/GB')
   })
 
-  it('is scoped per provider — a shopify sync never touches calendly offers', () => {
+  it('is scoped per provider - a shopify sync never touches calendly offers', () => {
     const existing = [o({ name: 'Intro', source: 'calendly' }), o({ name: 'Mug', price: '$12', source: 'shopify' })]
     const out = mergeProviderOffers(existing, [o({ name: 'Mug', price: '$15', source: 'shopify' })], 'shopify')
     expect(out.find((x) => x.name === 'Intro')!.source).toBe('calendly') // untouched
@@ -58,7 +58,7 @@ describe('mergeProviderOffersAcrossColumns', () => {
     expect(out.products.map((x) => x.name)).toEqual(['Handmade', 'Mug'])
   })
 
-  it('updates an existing provider offer IN products in place — never duplicates into services', () => {
+  it('updates an existing provider offer IN products in place - never duplicates into services', () => {
     const products = [o({ name: 'Mug', price: '$10', url: 'https://old', source: 'shopify' })]
     const out = mergeProviderOffersAcrossColumns([], products, [o({ name: 'Mug', price: '$10', url: 'https://new' })], 'shopify')
     expect(out.services).toHaveLength(0) // NOT added to services

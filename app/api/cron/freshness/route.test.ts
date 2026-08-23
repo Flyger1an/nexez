@@ -61,7 +61,7 @@ function drive(pages: any[], ledger: any[] = []) {
 const req = (auth?: string) =>
   new Request('https://nexez.test/api/cron/freshness', { headers: auth ? { authorization: auth } : {} })
 
-describe('GET /api/cron/freshness — stale re-interview nudge', () => {
+describe('GET /api/cron/freshness - stale re-interview nudge', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     hasEmailEnvMock.mockReturnValue(true)

@@ -193,7 +193,7 @@ describe('POST /api/billing/checkout', () => {
     expect(billingAttempt.markReady).toHaveBeenCalledWith('u1', 'attempt-1', 'cs_1')
   })
 
-  it('a live subscription makes a plan change UPDATE the sub in place — no second Checkout Session', async () => {
+  it('a live subscription makes a plan change UPDATE the sub in place - no second Checkout Session', async () => {
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
     vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
     vi.mocked(getPlanPriceId).mockReturnValue('price_pro' as any)

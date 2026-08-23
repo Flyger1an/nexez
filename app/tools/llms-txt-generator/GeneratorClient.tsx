@@ -43,7 +43,7 @@ export function GeneratorClient() {
       setCopied(true)
       setTimeout(() => setCopied(false), 1200)
     } catch {
-      setError('Copy failed — select and copy manually.')
+      setError('Copy failed - select and copy manually.')
     }
   }
 
@@ -99,7 +99,7 @@ export function GeneratorClient() {
           <pre className="max-h-96 overflow-auto p-4 font-mono text-[13px] leading-6 text-muted-foreground">{output}</pre>
           <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
             Review the placeholders, then upload it to your site root as <span className="font-mono">/llms.txt</span>. Want the
-            artifacts agents weight more heavily — JSON-LD, agent.json, a live feed?{' '}
+            artifacts agents weight more heavily - JSON-LD, agent.json, a live feed?{' '}
             <a href="/scan" className="underline decoration-[var(--signal)]/50 underline-offset-2">Scan your site free</a>.
           </p>
         </div>

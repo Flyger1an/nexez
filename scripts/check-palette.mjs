@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Palette guard — fails if off-palette accent colors creep back into the source.
+ * Palette guard - fails if off-palette accent colors creep back into the source.
  *
  * The Liquid Glass system has exactly three accent tokens (DESIGN_SYSTEM.md §3):
  *   --signal (periwinkle, interactive/primary), --ready (teal, positive/success),
@@ -28,7 +28,7 @@ const CLASS_RE = new RegExp(`(?:${PREFIX})-(?:${FAMILY})-\\d{2,3}\\b`, 'gi')
 
 // 2) Legacy brand hexes used as arbitrary class values (bracketed). Quoted JS
 //    hexes (Stripe appearance config, color-input placeholders) are intentionally
-//    NOT matched — only Tailwind arbitrary values `[#...]`.
+//    NOT matched - only Tailwind arbitrary values `[#...]`.
 const LEGACY_HEX_RE = /\[#(?:7c3aed|6d28d9|00f5ff|7de3ff|00d4ff|10b981|34d399|c4b5fd|a78bfa|f59e0b)\]/gi
 
 const violations = []
@@ -63,7 +63,7 @@ for (const root of ROOTS) {
   try {
     walk(root)
   } catch {
-    /* root missing — skip */
+    /* root missing - skip */
   }
 }
 

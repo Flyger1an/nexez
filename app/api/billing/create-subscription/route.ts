@@ -12,6 +12,7 @@ import {
   retireSupersededBillingObject,
   stripeBillingIdempotencyKey,
 } from '../../../../lib/server/billing-checkout-attempt'
+import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 /**
  * Creates a Stripe Subscription for recurring paid plans using Embedded Components flow.
@@ -26,6 +27,8 @@ import {
  */
 
 export async function POST(request: Request) {
+  const rateLimited = await enforceRateLimit(request, 'billing-create-subscription', 12, 60_000, { failClosed: true })
+  if (rateLimited) return rateLimited
   try {
     const body = await request.json().catch(() => ({}))
     const planId = String(body.plan || body.planId || '')

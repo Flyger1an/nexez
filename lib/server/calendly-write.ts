@@ -3,7 +3,7 @@ import type { BusyPeriod, DerivedWindow } from '../integrations'
 
 // PAT-powered Calendly write/query operations (the write-side that the stored
 // per-page Calendly credential unlocks). The raw PAT comes from
-// getCalendlyPat() and is used ONLY here to call Calendly's API — never logged,
+// getCalendlyPat() and is used ONLY here to call Calendly's API - never logged,
 // never returned. All calls are bounded (9s) and fail soft (null / false).
 
 const CALENDLY_API = 'https://api.calendly.com'
@@ -18,7 +18,7 @@ function withTimeout(ms: number = TIMEOUT_MS): { signal: AbortSignal; done: () =
 }
 
 // A freshly-minted single-use link sits in the buyer's checkout redirect path, so
-// give it a tighter budget than the background (9s) calls — fall back to the
+// give it a tighter budget than the background (9s) calls - fall back to the
 // reusable link quickly rather than making the buyer wait on Calendly.
 const LINK_TIMEOUT_MS = 6000
 
@@ -51,8 +51,8 @@ function validTimeZone(value: unknown): string {
 
 /**
  * Verify a Calendly PAT and resolve the user URI. `invalid` = Calendly rejected
- * the token (401/403) — a definitive bad token. `unknown` = network/other error
- * (Calendly unreachable) — the token might be fine, so callers should not treat
+ * the token (401/403) - a definitive bad token. `unknown` = network/other error
+ * (Calendly unreachable) - the token might be fine, so callers should not treat
  * this as a rejection.
  */
 export async function getCalendlyUser(pat: string): Promise<CalendlyUser> {
@@ -289,7 +289,7 @@ export function calendlyEventUuid(eventUri: string | null | undefined): string |
 
 // A stored event-type URI must be a real Calendly event_types resource before we
 // hand it to the API as a scheduling-link owner. Guards against a malformed /
-// tampered offer.metadata value (defence in depth — it originates from the
+// tampered offer.metadata value (defence in depth - it originates from the
 // seller's own import, and is only ever sent as a body param to the pinned host).
 function isCalendlyEventTypeUri(uri: string): boolean {
   return /^https:\/\/api\.calendly\.com\/event_types\/[A-Za-z0-9-]+$/.test(uri)

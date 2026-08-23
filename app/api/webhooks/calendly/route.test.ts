@@ -103,7 +103,7 @@ describe('POST /api/webhooks/calendly - signature verification', () => {
 
 // Cancel-on-refund linkage: a booking that arrived via a negotiation-tagged
 // Calendly link (utm_content=nz_neg_<id>) records the scheduled-event URI on that
-// negotiation — scoped to THIS page so a signed webhook can only touch its own.
+// negotiation - scoped to THIS page so a signed webhook can only touch its own.
 describe('POST /api/webhooks/calendly - negotiation link', () => {
   const EVENT_URI = 'https://api.calendly.com/scheduled_events/EVENTUUID12345678'
   function drive(capture: any[]) {

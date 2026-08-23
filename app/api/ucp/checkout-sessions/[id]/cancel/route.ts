@@ -6,7 +6,7 @@ import { verifyUcpRequest } from '../../../../../../lib/ucp/auth'
 import { toUcpCheckoutSession, ucpError } from '../../../../../../lib/ucp/wire'
 import { ucpJson, loadUcpPageName } from '../../../../../../lib/server/ucp-session'
 
-/** UCP: POST /api/ucp/checkout-sessions/{id}/cancel — cancel a session (idempotent;
+/** UCP: POST /api/ucp/checkout-sessions/{id}/cancel - cancel a session (idempotent;
  * refuses a completed one). */
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const limited = await enforceRateLimit(request, 'ucp-session', 60, 60_000, { failClosed: true })

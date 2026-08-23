@@ -1,4 +1,4 @@
-// UCP / Google Merchant Center product feed (U3) — the flat file Google ingests to
+// UCP / Google Merchant Center product feed (U3) - the flat file Google ingests to
 // index Nexez offers for UCP agentic checkout. A THIN projection over the shared SF4
 // feed core (buildOfferFeedRows), re-labelled into Merchant-Center field names +
 // UCP eligibility. Google Merchant wants the price as "MAJOR.dd CUR" (SF4's

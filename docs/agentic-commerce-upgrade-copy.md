@@ -1,4 +1,4 @@
-# Agentic checkout — pricing and merchant copy
+# Agentic checkout - pricing and merchant copy
 
 Agentic checkout is a foundational commerce capability on every plan. A merchant's subscription changes operating power, limits, and transaction economics; it does not decide whether a commerce-ready merchant may participate.
 
@@ -26,7 +26,7 @@ Every plan supports discovery and agentic checkout when the merchant is commerce
 
 When checkout is unavailable, ask the merchant to complete the missing operational step rather than upgrade:
 
-> **Connect Stripe payouts** — finish onboarding so agents can complete Nexez-settled purchases and earnings can reach your account.
+> **Connect Stripe payouts** - finish onboarding so agents can complete Nexez-settled purchases and earnings can reach your account.
 
 Other valid readiness states include unpublished listing, offer unavailable, program enrollment pending, or a surface not yet live.
 

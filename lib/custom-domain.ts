@@ -71,7 +71,7 @@ export function mapCustomDomainPath(slug: string, pathname: string): string {
   if (pathname === '/openapi.json') return `/${slug}/openapi.json`
   // The live JSON-RPC MCP server, not a static artifact.
   if (pathname === '/mcp') return `/${slug}/mcp`
-  // The standard discovery probe path — answer it with the listing's live manifest.
+  // The standard discovery probe path - answer it with the listing's live manifest.
   if (pathname === '/.well-known/agent.json') return `/${slug}/agent.json`
   if (pathname === '/.well-known/mcp.json') return `/${slug}/mcp.json`
   // ARD catalog: only ever under /.well-known/, never at the domain root.

@@ -12,7 +12,7 @@ const MCP_MAX_BATCH = 25
 
 /**
  * The canonical PLATFORM MCP endpoint (JSON-RPC 2.0 over HTTP) at nexez.app/mcp.
- * One stable, discovery-first server for the whole Nexez catalog — search,
+ * One stable, discovery-first server for the whole Nexez catalog - search,
  * directory, get_page, and dry-run checkout/negotiation validation. GET returns a
  * transport hint; POST handles single requests or a bounded batch.
  */

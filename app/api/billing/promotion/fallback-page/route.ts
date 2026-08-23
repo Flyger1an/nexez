@@ -2,8 +2,11 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/supabase/admin'
 import { createClient } from '../../../../../utils/supabase/server'
+import { enforceRateLimit } from '../../../../../lib/rate-limit'
 
 export async function PATCH(request: Request) {
+  const rateLimited = await enforceRateLimit(request, 'billing-promotion-fallback-page', 20, 60_000, { failClosed: true })
+  if (rateLimited) return rateLimited
   const supabase = createClient(await cookies())
   const {
     data: { user },

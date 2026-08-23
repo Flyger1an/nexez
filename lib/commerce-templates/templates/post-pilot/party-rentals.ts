@@ -201,8 +201,8 @@ export const partyRentals = assertValidCommerceTemplate({
   ],
   exampleListing: {
     exampleOnly: true,
-    disclaimer: 'Nexez example template — not a real provider or a claim of rental inventory, availability, delivery coverage, price, or booking. Merchant-specific facts must be confirmed before publishing.',
-    title: 'Party Rentals — Nexez Example',
+    disclaimer: 'Nexez example template - not a real provider or a claim of rental inventory, availability, delivery coverage, price, or booking. Merchant-specific facts must be confirmed before publishing.',
+    title: 'Party Rentals - Nexez Example',
     description: 'Example of a finite-inventory event rental that checks exact quantities and timing against a real merchant before checkout.',
     offers: [
       { name: 'Inventory-Backed Rental', description: 'Configure items, quantities, event window, location, and handoff method before checking merchant-authored availability.' },

@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, Search } from 'lucide-react'
 import { appUrl, marketingUrl } from '../../../lib/site'
 import { getUseCase, useCases } from '../../../lib/marketing-content'
 import { getUseCaseCommerceStory } from '../../../lib/use-case-commerce-story'
+import { safeJsonScript } from '../../../lib/safe-json'
 
 type UseCaseProps = {
   params: Promise<{ slug: string }>
@@ -20,7 +21,7 @@ export async function generateMetadata({ params }: UseCaseProps): Promise<Metada
   if (!useCase || !story) return {}
 
   return {
-    title: `${useCase.label} — Sell Through AI on Your Terms`,
+    title: `${useCase.label} - Sell Through AI on Your Terms`,
     description: story.description,
     alternates: {
       canonical: marketingUrl(`/use-cases/${useCase.slug}`),
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: UseCaseProps): Promise<Metada
       type: 'website',
       siteName: 'Nexez',
       url: marketingUrl(`/use-cases/${useCase.slug}`),
-      title: `${useCase.label} — Sell Through AI on Your Terms`,
+      title: `${useCase.label} - Sell Through AI on Your Terms`,
       description: story.description,
     },
   }
@@ -67,7 +68,7 @@ export default async function UseCaseDetailPage({ params }: UseCaseProps) {
     <main className="min-h-screen">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: safeJsonScript(structuredData) }}
       />
 
       <section className="relative overflow-hidden border-b border-border">

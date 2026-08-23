@@ -16,7 +16,7 @@ test.describe('commerce reference examples', () => {
 
     await expect(page).toHaveURL(new RegExp(`/examples/${DETAILING_ID.replaceAll('.', '\\.')}$`))
     await expect(page.getByRole('heading', { level: 1, name: 'Mobile Auto Detailing' })).toBeVisible()
-    await expect(page.getByText('Reference template — not live supply')).toBeVisible()
+    await expect(page.getByText('Reference template - not live supply')).toBeVisible()
     await expect(page.getByText(/not a real provider listing/i)).toBeVisible()
     await expect(page.getByText('What Nexxi would clarify before publishing')).toBeVisible()
 

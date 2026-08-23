@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: marketingUrl('/developers/buyer-approval'),
   },
-  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) - re-carry type/siteName.
   openGraph: {
     type: 'website',
     siteName: 'Nexez',

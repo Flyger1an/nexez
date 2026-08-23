@@ -5,7 +5,7 @@
 -- is the public brand home that aggregates a seller's published listings at
 -- /store/<handle>. Public reads go through the service-role client in the /store route
 -- (mirrors [slug]/agent.json + the buyer portal), so there is NO anon/public RLS policy
--- and anon grants are revoked — least privilege, base table never read by anon.
+-- and anon grants are revoked - least privilege, base table never read by anon.
 
 create table if not exists public.storefronts (
   id uuid primary key default gen_random_uuid(),

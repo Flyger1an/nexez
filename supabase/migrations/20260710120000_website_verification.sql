@@ -68,7 +68,7 @@ create trigger nz_pages_guard_website_verification
   for each row execute function public.nz_pages_guard_website_verification();
 
 -- Pending verification token, SEPARATE from domain_verification_token: the two flows
--- run concurrently and each clears its token on success — sharing one column would
+-- run concurrently and each clears its token on success - sharing one column would
 -- cross-clobber. page_secrets uses COLUMN-level SELECT grants (20260708000000), so the
 -- new column needs an explicit grant or the settings UI cannot read it back.
 alter table public.page_secrets
@@ -76,5 +76,5 @@ alter table public.page_secrets
 
 grant select (website_verification_token) on public.page_secrets to authenticated;
 
--- NOTE: deliberately NOT added to the pages_public projection — verification state is
+-- NOTE: deliberately NOT added to the pages_public projection - verification state is
 -- owner-facing; owner reads come from the base pages table under RLS.

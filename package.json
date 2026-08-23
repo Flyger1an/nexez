@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "lint:palette": "node scripts/check-palette.mjs",
+    "lint:em-dash": "node scripts/check-em-dash.mjs",
     "lint:dead": "knip --include files",
     "lint:dead:all": "knip --include files,exports,types",
     "check:agent-sdk-versions": "node scripts/check-agent-sdk-versions.mjs",

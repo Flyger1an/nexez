@@ -40,20 +40,20 @@ function trendingScore(result: AgentSearchResult): number {
 export const metadata: Metadata = {
   title: 'Discovery - Browse agent-ready offers',
   description:
-    'Browse the live directory of agent-ready businesses — search by category, compare readiness scores, and transact with listings built for AI agents.',
+    'Browse the live directory of agent-ready businesses - search by category, compare readiness scores, and transact with listings built for AI agents.',
   alternates: {
     // Unparameterized on purpose: the page links ?q=/?category=/?sort= permutations
     // of itself, and this canonical dedupes them all to the bare listing URL.
     canonical: marketingUrl('/discovery'),
   },
-  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) - re-carry type/siteName.
   openGraph: {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/discovery'),
     title: 'Discovery - Browse agent-ready offers',
     description:
-      'Browse the live directory of agent-ready businesses — search by category, compare readiness scores, and transact with listings built for AI agents.',
+      'Browse the live directory of agent-ready businesses - search by category, compare readiness scores, and transact with listings built for AI agents.',
   },
 }
 

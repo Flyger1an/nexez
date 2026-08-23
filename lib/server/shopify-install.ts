@@ -6,7 +6,7 @@ import { decryptSecret, encryptSecret } from './secret-crypto'
 
 /**
  * The shop→page mapping for Shopify installs. A Shopify install is keyed by shop
- * domain (an OAuth grant per store), whereas Nexez listings are page-id keyed —
+ * domain (an OAuth grant per store), whereas Nexez listings are page-id keyed -
  * this table bridges the two. The offline access token is encrypted at rest
  * (reuses INTEGRATION_SECRET_KEY); the table is service-role only (RLS on, no
  * policies, granted revoked from browser roles) so a token can never leak to an
@@ -299,7 +299,7 @@ export async function getInstallByPage(
 /**
  * Upsert an install, encrypting the offline token at rest. owner_id / page_id
  * (the link to a Nexez listing, set in a later step) are only written when
- * EXPLICITLY provided — so a re-auth (the OAuth callback refreshing the token
+ * EXPLICITLY provided - so a re-auth (the OAuth callback refreshing the token
  * without them) preserves an existing shop→listing link instead of nulling it.
  */
 export async function upsertInstall(

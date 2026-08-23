@@ -1,6 +1,6 @@
 # Nexez Conditional Fulfillment Autopsy
 
-**Status:** Architecture analysis v1 — no runtime/schema mutation in this PR  
+**Status:** Architecture analysis v1 - no runtime/schema mutation in this PR  
 **Machine-readable source:** `lib/commerce-templates/curation/conditional-fulfillment-analysis.ts`  
 **Evidence corpus:** the 63-candidate curation matrix plus current production commerce rails
 
@@ -124,9 +124,9 @@ Every rule must reference an existing **required** `OfferInputField`. This delib
 
 The evaluator returns exactly one terminal decision:
 
-- `eligible` — autonomous settlement may continue;
-- `requires-review` — autonomous settlement stops; return stable reasons and a safe next action if one exists;
-- `ineligible` — autonomous settlement stops; return stable merchant-authored reason metadata.
+- `eligible` - autonomous settlement may continue;
+- `requires-review` - autonomous settlement stops; return stable reasons and a safe next action if one exists;
+- `ineligible` - autonomous settlement stops; return stable merchant-authored reason metadata.
 
 No matching rule means `eligible`.
 
@@ -248,9 +248,9 @@ These exclusions are not admissions of failure. They keep ownership boundaries c
 
 The autopsy deliberately labels candidates as:
 
-- **direct** — the v1 buyer-input/evidence gate meaningfully closes the candidate’s conditional gap;
-- **partial** — v1 closes a real part of the gap, but another named primitive remains authoritative for the rest;
-- **adjacent-primitive** — implementing v1 should not cause Nexez to claim this candidate’s conditional behavior is solved.
+- **direct** - the v1 buyer-input/evidence gate meaningfully closes the candidate’s conditional gap;
+- **partial** - v1 closes a real part of the gap, but another named primitive remains authoritative for the rest;
+- **adjacent-primitive** - implementing v1 should not cause Nexez to claim this candidate’s conditional behavior is solved.
 
 Party Rentals remains dominated by reservable inventory. Property Turnover remains dominated by multi-provider/resource/milestone topology. They are useful pressure tests, not reasons to inflate v1.
 
@@ -281,4 +281,4 @@ The smallest high-leverage primitive is:
 
 That gives agents something they currently lack: the ability to distinguish **buyable**, **needs merchant review**, and **not eligible** without inventing merchant policy.
 
-Everything mutable or authoritative outside buyer-input truth—inventory, verified credentials, inspection lineage, provider graphs—must remain owned by the systems designed to know those facts.
+Everything mutable or authoritative outside buyer-input truth, inventory, verified credentials, inspection lineage, provider graphs, must remain owned by the systems designed to know those facts.

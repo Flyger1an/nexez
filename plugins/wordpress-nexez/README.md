@@ -1,8 +1,8 @@
-# Nexez Agent-Ready — WordPress plugin
+# Nexez Agent-Ready - WordPress plugin
 
 Makes a WordPress site legible and transactable to AI shopping agents by
 connecting it to the site owner's [Nexez](https://nexez.ai) listing. It is a thin
-server-side delivery vehicle over the Nexez **embed manifest** — it fetches, it
+server-side delivery vehicle over the Nexez **embed manifest** - it fetches, it
 never re-derives.
 
 ## What it does
@@ -13,8 +13,8 @@ Given a listing slug, on every front-end request the plugin:
    from `https://nexez.app/<slug>/embed.json` and cached for 1 hour. Server-rendered,
    so it is visible to agents that read the raw HTML (a client `<script>` is not).
 2. **301-redirects the agent artifact paths** (hook `template_redirect`, exact-path
-   match, GET/HEAD only) — `/.well-known/agent.json`, `/agent.json`, `/llms.txt`,
-   `/openapi.json`, and `/mcp.json` (when the listing enables MCP) — to the live
+   match, GET/HEAD only) - `/.well-known/agent.json`, `/agent.json`, `/llms.txt`,
+   `/openapi.json`, and `/mcp.json` (when the listing enables MCP) - to the live
    Nexez listing artifacts. Uses the manifest's `redirects` map, with a hardcoded
    fallback if the API is briefly unreachable.
 3. **Serves `/.well-known/nexez-verify.txt`** with the owner's verification token so
@@ -27,7 +27,7 @@ public, Nexez-generated content.
 
 AI agents read the **server** HTML response, not client JavaScript. A `<script>`
 tag can't emit server-rendered JSON-LD, can't create files at `/.well-known/*`, and
-can't set redirects. Those all require running in the site's own stack — which is
+can't set redirects. Those all require running in the site's own stack - which is
 exactly what this plugin does. It is the WordPress packaging of the Phase-2
 "live external-domain artifacts" foundation.
 
@@ -42,8 +42,8 @@ exactly what this plugin does. It is the WordPress packaging of the Phase-2
 
 ## Files
 
-- `nexez-agent-ready.php` — the whole plugin (single file).
-- `uninstall.php` — removes options + cached transients on uninstall.
-- `readme.txt` — WordPress.org directory readme.
+- `nexez-agent-ready.php` - the whole plugin (single file).
+- `uninstall.php` - removes options + cached transients on uninstall.
+- `readme.txt` - WordPress.org directory readme.
 
 Publishing to the WordPress plugin directory is a manual owner action.

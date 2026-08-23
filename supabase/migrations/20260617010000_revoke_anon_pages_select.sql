@@ -4,7 +4,7 @@
 -- read now goes through public.pages_public (rules-stripped) or the service-role
 -- client (the negotiation/checkout paths that legitimately need the private rules),
 -- and the anon analytics INSERT policies use private.nz_page_visit_allowed (no
--- direct anon pages read). This closes the REST hole — GET /rest/v1/pages now
+-- direct anon pages read). This closes the REST hole - GET /rest/v1/pages now
 -- returns permission-denied for anon, while /rest/v1/pages_public serves the
 -- redacted projection.
 --

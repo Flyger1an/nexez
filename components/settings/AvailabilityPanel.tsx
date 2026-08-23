@@ -7,7 +7,7 @@ import { createClient } from '../../utils/supabase/client'
  * Availability editor: keep a human-readable note alongside optional,
  * deterministic sample windows that agents can read. The current product flow
  * does not store Google OAuth credentials, so a calendar ID is only a stable
- * seed for sample generation — it is not a live calendar connection.
+ * seed for sample generation - it is not a live calendar connection.
  *
  * `calendarId` and `note` stay OWNED BY THE PAGE, with their setters passed
  * through, because loadPage seeds both from the listing row when it fetches.

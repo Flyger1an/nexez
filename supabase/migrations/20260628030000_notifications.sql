@@ -1,5 +1,5 @@
 -- Nexxi BUYER FACET: the in-app activity feed. Every BUYER-FACING push (one that carries a `category`
--- — orders / alerts / tasks) also persists a row here so the buyer can see a history of what happened
+-- - orders / alerts / tasks) also persists a row here so the buyer can see a history of what happened
 -- even if a push was missed or muted. Seller-facing pushes carry no category and are NOT recorded here,
 -- so this feed never mixes in the seller facet. Written by the SERVICE ROLE (push fan-out); owner-scoped
 -- reads. Cleaned on buyer-account deletion.

@@ -1,11 +1,11 @@
 -- Advisor cleanup (launch readiness):
--- 1) auth_rls_initplan WARN on the two collaborator policies on public.pages —
+-- 1) auth_rls_initplan WARN on the two collaborator policies on public.pages -
 --    they already wrapped auth in a subquery, but as `(select (auth.jwt() ->> 'email'))`,
 --    which the linter doesn't recognize. Recreate with the canonical
 --    `((select auth.jwt()) ->> 'email')` form (extraction outside the scalar
 --    subquery) so it's a single init-plan eval AND the advisor clears. Semantics
 --    are identical.
--- 2) rls_enabled_no_policy INFO on public.published_page_grandfather — a
+-- 2) rls_enabled_no_policy INFO on public.published_page_grandfather - a
 --    service-role-managed table with no authenticated grant (harmless), but declare
 --    intent with an owner-read policy + grant so the advisor clears. Baseline is
 --    non-sensitive (the owner's grandfathered published-page allowance).

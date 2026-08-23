@@ -6,7 +6,7 @@ import { markdownText } from './agent-text'
 /**
  * Copy-paste blocks a merchant embeds on their OWN existing website to make it
  * agent-legible + agent-transactable, all anchored at their EXISTING Nexez listing
- * artifacts (nexez.app/<slug>/agent.json etc.). Pure — no fetches, no Date — so the
+ * artifacts (nexez.app/<slug>/agent.json etc.). Pure - no fetches, no Date - so the
  * kit is deterministic + snapshot-testable, and every block derives from already
  * PUBLIC listing data (so it needs no verification to be safe to show/copy).
  */
@@ -63,13 +63,13 @@ export type RecipeBlock = {
 
 /**
  * Server-config recipes that 301 the merchant's artifact paths to their live
- * Nexez listing — the LIVE replacement for the static `.well-known/agent.json`
+ * Nexez listing - the LIVE replacement for the static `.well-known/agent.json`
  * snapshot (which goes stale when offers change). Pure + deterministic. The
  * WordPress plugin and Shopify app automate the same redirects server-side.
  */
 export function buildRedirectRecipes(page: AgentPage, opts: { baseUrl?: string } = {}): RecipeBlock[] {
   const rules = buildArtifactRedirects(page, opts)
-  const header = '# Nexez — serve your live agent artifacts (301). Never goes stale.'
+  const header = '# Nexez - serve your live agent artifacts (301). Never goes stale.'
 
   return [
     {
@@ -111,11 +111,11 @@ export function buildRedirectRecipes(page: AgentPage, opts: { baseUrl?: string }
     {
       id: 'cloudflare',
       title: 'Cloudflare Worker',
-      description: 'Deploy as a Worker on your domain’s route — for hosts where you can’t edit server config.',
+      description: 'Deploy as a Worker on your domain’s route - for hosts where you can’t edit server config.',
       language: 'js',
       filename: 'nexez-worker.js',
       content: [
-        '// Nexez — serve your live agent artifacts (301).',
+        '// Nexez - serve your live agent artifacts (301).',
         `const NEXEZ_ARTIFACTS = ${JSON.stringify(
           Object.fromEntries(rules.map((r) => [r.from, r.to])),
           null,
@@ -146,7 +146,7 @@ export type InjectionRecipe = {
 /**
  * Head code-injection recipes for HOSTED site builders (Wix, Squarespace, and any
  * "header code" box). These platforms don't let you add server redirects or host a
- * /.well-known file, so the redirect recipes don't apply — instead the merchant
+ * /.well-known file, so the redirect recipes don't apply - instead the merchant
  * injects the JSON-LD (the single biggest legibility win) + the manifest link tag
  * site-wide. Pure + deterministic; derives only from public listing data.
  */
@@ -157,9 +157,9 @@ export function buildCodeInjectionRecipes(page: AgentPage, opts: { baseUrl?: str
   const name = page.name || slug
   // The two <head> blocks a hosted builder can inject: structured data + discovery link.
   const headSnippet = [
-    '<!-- Nexez — make this site agent-legible (structured offers + manifest link) -->',
+    '<!-- Nexez - make this site agent-legible (structured offers + manifest link) -->',
     `<script type="application/ld+json">${safeJsonScript(buildJsonLd(page, base))}</script>`,
-    `<link rel="alternate" type="application/json" href="${agentJsonUrl}" title="${escapeHtmlAttr(name)} — agent manifest">`,
+    `<link rel="alternate" type="application/json" href="${agentJsonUrl}" title="${escapeHtmlAttr(name)} - agent manifest">`,
   ].join('\n')
 
   return [
@@ -194,7 +194,7 @@ export function buildAgentReadyKit(page: AgentPage, opts: { baseUrl?: string } =
   const agentJsonUrl = `${listingUrl}/agent.json`
   const llmsUrl = `${listingUrl}/llms.txt`
   const name = page.name || slug
-  const summary = markdownText(page.description || `${name} — offers you can transact with through AI agents.`)
+  const summary = markdownText(page.description || `${name} - offers you can transact with through AI agents.`)
 
   const pointer = {
     schema_version: 'nexez.agent-pointer.v1',
@@ -224,7 +224,7 @@ export function buildAgentReadyKit(page: AgentPage, opts: { baseUrl?: string } =
     {
       id: 'well_known_agent_json',
       title: '.well-known/agent.json (static fallback)',
-      description: 'Only if you can’t add a redirect rule: host this pointer at /.well-known/agent.json. Prefer the redirect recipe — it points agents straight at your live listing and never goes stale when your offers change.',
+      description: 'Only if you can’t add a redirect rule: host this pointer at /.well-known/agent.json. Prefer the redirect recipe - it points agents straight at your live listing and never goes stale when your offers change.',
       language: 'json',
       filename: '.well-known/agent.json',
       content: JSON.stringify(pointer, null, 2),
@@ -232,7 +232,7 @@ export function buildAgentReadyKit(page: AgentPage, opts: { baseUrl?: string } =
     {
       id: 'jsonld',
       title: 'Structured data (JSON-LD)',
-      description: 'Paste this into your homepage or offers page <head>. It gives agents (and search engines) your offers as schema.org data — the single biggest legibility win.',
+      description: 'Paste this into your homepage or offers page <head>. It gives agents (and search engines) your offers as schema.org data - the single biggest legibility win.',
       language: 'html',
       content: `<script type="application/ld+json">${safeJsonScript(buildJsonLd(page, base))}</script>`,
     },
@@ -241,19 +241,19 @@ export function buildAgentReadyKit(page: AgentPage, opts: { baseUrl?: string } =
       title: 'Manifest link tag',
       description: 'Add this <link> to your site <head> so agents can discover your agent manifest from any page.',
       language: 'html',
-      content: `<link rel="alternate" type="application/json" href="${agentJsonUrl}" title="${escapeHtmlAttr(name)} — agent manifest">`,
+      content: `<link rel="alternate" type="application/json" href="${agentJsonUrl}" title="${escapeHtmlAttr(name)} - agent manifest">`,
     },
     {
       id: 'badge',
       title: 'Agent-Ready badge (for human visitors)',
-      description: 'A trust badge for your human visitors — it shows your site transacts with AI agents and links to your public listing. (Decorative; it does not affect what agents read.)',
+      description: 'A trust badge for your human visitors - it shows your site transacts with AI agents and links to your public listing. (Decorative; it does not affect what agents read.)',
       language: 'html',
       content: `<a href="${listingUrl}"><img src="${listingUrl}/badge.svg" alt="Agent-Ready on Nexez" height="28"></a>`,
     },
     {
       id: 'widget',
       title: 'Book / buy button (for human visitors)',
-      description: 'An optional floating button so human visitors can open your agent-ready listing and transact. (A convenience for people — agents read the structured data above, not this script.)',
+      description: 'An optional floating button so human visitors can open your agent-ready listing and transact. (A convenience for people - agents read the structured data above, not this script.)',
       language: 'js',
       content: `<script>(function(){var s=document.createElement('script');s.src='${base}/widget.js';s.onload=function(){Nexez.init({slug:'${slug}',theme:'light'})};document.head.appendChild(s);})();</script>`,
     },

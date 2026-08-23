@@ -5,7 +5,7 @@ the documented controls true, repeatable, and evidenced before pursuing an exter
 
 ## 1. Name accountable people
 
-Create one private ownership record and assign a person—not a team—to each role in the framework.
+Create one private ownership record and assign a person, not a team, to each role in the framework.
 At an early-stage company, the founder may be Executive Approver, Security Owner, and Privacy
 Owner, while the lead engineer owns systems. That is acceptable initially if approvals and
 reviews remain explicit.

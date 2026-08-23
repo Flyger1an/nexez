@@ -29,6 +29,7 @@ import {
   platformTrustDestinations,
 } from '../../lib/platform-docs'
 import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
+import { safeJsonScript } from '../../lib/safe-json'
 
 const metaTitle = 'Platform Documentation'
 const metaDescription =
@@ -91,7 +92,7 @@ export default function PlatformDocsPage() {
     <main className="min-h-screen">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: safeJsonScript(structuredData) }}
       />
 
       <section className="relative overflow-hidden border-b border-border">
@@ -142,7 +143,7 @@ export default function PlatformDocsPage() {
                 </div>
               </dl>
               <div className="border-t border-border px-5 py-4 text-sm text-muted-foreground">
-                Reviewed {reviewedLabel}. Shipped behavior only—no roadmap promises.
+                Reviewed {reviewedLabel}. Shipped behavior only, no roadmap promises.
               </div>
             </div>
           </div>

@@ -4,7 +4,7 @@
 
 -- 1) logos: drop the broad public-read SELECT policy so anon/authenticated can no
 --    longer LIST bucket contents. Public object URLs (getPublicUrl) keep working
---    because the bucket is public — object serving bypasses RLS. The owner
+--    because the bucket is public - object serving bypasses RLS. The owner
 --    insert/update/delete policies are unchanged.
 drop policy if exists "logos public read" on storage.objects;
 

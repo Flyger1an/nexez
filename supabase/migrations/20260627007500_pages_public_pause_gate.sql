@@ -104,7 +104,7 @@ revoke all on function private.nz_sync_pages_public() from public, anon, authent
 
 -- Reverse the pause: when an owner's billing status/trial flips, re-sync the serving flag
 -- on all their pages_public rows. This is what takes listings offline at pause and brings
--- them back at reactivation — is_published never changes.
+-- them back at reactivation - is_published never changes.
 create or replace function private.nz_resync_serving_for_owner()
 returns trigger
 language plpgsql

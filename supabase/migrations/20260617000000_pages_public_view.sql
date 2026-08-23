@@ -2,7 +2,7 @@
 --
 -- The "Public can read published pages" RLS policy grants anon SELECT on the WHOLE
 -- row, so anyone with the (public) anon key can read, via the raw REST API, fields
--- the app deliberately withholds: the per-offer pricing `rules` (incl. minPrice —
+-- the app deliberately withholds: the per-offer pricing `rules` (incl. minPrice -
 -- the negotiation floor), and any owner-private columns. This migration is the
 -- ADDITIVE half of the fix (safe to apply before the code deploy): it creates a
 -- redacted public view + moves the two anon analytics INSERT policies that read
@@ -12,7 +12,7 @@
 
 -- 1) Security-definer check for the anon analytics INSERT policies. They currently
 --    do `EXISTS (SELECT 1 FROM pages WHERE ...)` evaluated as the inserting (anon)
---    role — which breaks the moment anon loses SELECT on pages. Route the lookup
+--    role - which breaks the moment anon loses SELECT on pages. Route the lookup
 --    through a definer function (same pattern as private.nz_page_is_published) so
 --    anon visit/checkout logging keeps working post-revoke.
 create or replace function private.nz_page_visit_allowed(p_page_id uuid, p_slug text, p_owner_id uuid)
@@ -44,7 +44,7 @@ create policy "Public can create checkout events for published pages"
   with check (private.nz_page_visit_allowed(page_id, slug, owner_id));
 
 -- 2) The redacted public projection. Runs as the view owner (NOT security_invoker),
---    so anon needs SELECT on the view only — not the base table. The `is_published`
+--    so anon needs SELECT on the view only - not the base table. The `is_published`
 --    filter is the row scope; per-offer `rules` are stripped from services/products;
 --    only the PUBLIC_PAGE_SELECT columns are exposed (owner-private columns like
 --    calendly_webhook_secret / outbound_webhooks / draft are simply not selected).

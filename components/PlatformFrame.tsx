@@ -31,11 +31,11 @@ function PlatformChrome({ children }: { children: ReactNode }) {
 
 // The session is detected CLIENT-side (document.cookie) after hydration. It only
 // affects the 4 dual discovery surfaces' chrome; resolving it in the root layout
-// via cookies() — the previous design — forced the ENTIRE route tree dynamic and
+// via cookies() - the previous design - forced the ENTIRE route tree dynamic and
 // blocked static prerendering of the marketing site. Trade-off: a signed-in
 // visitor on a dual page sees the marketing chrome for one paint before the
-// dashboard nav swaps in (anonymous visitors — the overwhelming majority on
-// these public surfaces — see no flash at all).
+// dashboard nav swaps in (anonymous visitors - the overwhelming majority on
+// these public surfaces - see no flash at all).
 export function PlatformFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [hasSession, setHasSession] = useState(false)

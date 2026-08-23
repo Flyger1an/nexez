@@ -4,12 +4,12 @@ import { ucpError, type UcpError } from './wire'
 
 // UCP inbound auth over the shared SF5 fail-closed guard. UCP endpoints are hosted BY
 // the merchant and called by Google with an M2M access token (Authorization: Bearer).
-// DORMANT until UCP_SHARED_SECRET is set at enrollment — every request 401s, so this
+// DORMANT until UCP_SHARED_SECRET is set at enrollment - every request 401s, so this
 // is never an unauthenticated charge endpoint.
 //
 // v1 verifies the Bearer M2M token. AP2 mandate JWT verification (ECDSA verifiable
 // credentials, keyed by Google's signing keys) is the deeper payment-authorization
-// layer; it arrives at enrollment (owner-blocked) and layers on later — the Bearer
+// layer; it arrives at enrollment (owner-blocked) and layers on later - the Bearer
 // alone is a fail-closed gate today.
 
 export function ucpSharedSecret(): string | null {

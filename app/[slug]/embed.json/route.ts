@@ -12,8 +12,8 @@ import { supabase } from '../../../lib/supabase'
  *
  * The "fetch-my-artifacts" seam of the plugin pivot. A merchant's WordPress
  * plugin (or Shopify app / any server-side embedder) fetches THIS once and gets
- * the ready-to-inject strings — server-rendered JSON-LD, the manifest <link>, the
- * absolute artifact URLs, and the 301 redirect map — so it NEVER re-derives
+ * the ready-to-inject strings - server-rendered JSON-LD, the manifest <link>, the
+ * absolute artifact URLs, and the 301 redirect map - so it NEVER re-derives
  * Nexez's JSON-LD / currency / priceValidUntil logic (which would drift).
  *
  * Exposes only already-public listing data (same read as agent.json), so it's
@@ -60,7 +60,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       websiteBase,
       jsonld,
       headLink,
-      // Template only — the real token is issued per-owner in Settings and is never
+      // Template only - the real token is issued per-owner in Settings and is never
       // exposed on this public endpoint.
       metaHint: verificationMetaTag('YOUR_VERIFICATION_TOKEN'),
       artifacts: {

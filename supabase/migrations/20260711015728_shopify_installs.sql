@@ -1,7 +1,7 @@
 -- Shopify app installs: bridges a Shopify shop domain (OAuth grant per store) to
 -- a Nexez owner/listing. Dormant until the Shopify app is wired (SHOPIFY_API_KEY);
 -- the offline access token is encrypted at rest (INTEGRATION_SECRET_KEY) and the
--- table is SERVICE-ROLE ONLY — RLS on with no policies + grants revoked from the
+-- table is SERVICE-ROLE ONLY - RLS on with no policies + grants revoked from the
 -- browser roles, so a token can never reach an anon/authenticated client (mirrors
 -- the page_secrets posture).
 

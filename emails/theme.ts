@@ -1,9 +1,9 @@
-// EXACT Nexez brand palette for email (the LIGHT-theme token values — email has no
+// EXACT Nexez brand palette for email (the LIGHT-theme token values - email has no
 // theme toggle, and the design system reads best in light). These mirror the CSS
 // tokens in app/globals.css `html.light`; keep them in sync if the brand shifts:
 //   --signal #FF6A33 · --signal-solid #C94719 · --ready #0E9F87 · --amber #C8862F
 //   --bg #fafafa · --panel #ffffff · --fg #0a0a0a · --fg-muted #52525b · --fg-muted-2 #71717a
-// Email clients can't use CSS variables, so we hardcode the resolved values here —
+// Email clients can't use CSS variables, so we hardcode the resolved values here -
 // one source of truth for every template.
 export const BRAND = {
   bg: '#fafafa', // --bg (body)
@@ -13,7 +13,7 @@ export const BRAND = {
   fgFaint: '#71717a', // --fg-muted-2 (footnotes)
   border: '#e6e6ea', // light hairline (solid, ~ --bd-10 over white)
   signal: '#FF6A33', // --signal (accent text / links)
-  signalSolid: '#C94719', // --signal-solid (deep persimmon — white-text button fill, AA contrast)
+  signalSolid: '#C94719', // --signal-solid (deep persimmon - white-text button fill, AA contrast)
   ready: '#0E9F87', // --ready (positive: paid / confirmed)
   amber: '#C8862F', // --amber (caution: refund requested)
   danger: '#b91c1c', // sanctioned light-mode red (dispute / problem)
@@ -29,7 +29,7 @@ export const styles = {
   // near 560px; the MSO ghost table in BrandedEmail is the belt-and-suspenders.
   container: { width: '560px', maxWidth: '560px', margin: '0 auto', padding: '24px' } as const,
   header: { padding: '4px 0 18px' } as const,
-  // Periwinkle logo mark (CSS box — renders everywhere, incl. SVG-stripping clients).
+  // Periwinkle logo mark (CSS box - renders everywhere, incl. SVG-stripping clients).
   logoMark: {
     display: 'inline-block',
     backgroundColor: BRAND.signalSolid,

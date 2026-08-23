@@ -2,7 +2,7 @@
 -- §Low). The app enforces these, but a direct/buggy write shouldn't be able to
 -- store a non-positive agreed amount or attach the same PaymentIntent to two
 -- negotiations. Verified against prod first: 0 non-positive amounts, 0 duplicate
--- payment_intents — so these apply cleanly. Idempotent + additive.
+-- payment_intents - so these apply cleanly. Idempotent + additive.
 
 -- A stored agreed amount must be positive (NULL = not yet agreed, allowed).
 alter table public.agent_negotiations

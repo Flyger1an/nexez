@@ -136,7 +136,7 @@ export default function PageSettings({ params }: PageProps) {
 
   // Deeper Calendly: per-page webhook secret for real signature verification (beyond demo headers)
   const [calendlyWebhookSecret, setCalendlyWebhookSecret] = useState('')
-  // Calendly write-side connection: a stored (encrypted) PAT. Write-only — the
+  // Calendly write-side connection: a stored (encrypted) PAT. Write-only - the
   // raw token is never loaded back; we only know whether one is connected.
 
   // Verification details for trust score
@@ -576,7 +576,7 @@ export default function PageSettings({ params }: PageProps) {
 
       if (error || !data) {
         setPage((current) => (current ? { ...current, mcp_enabled: previous } : current))
-        setMessage('MCP setting could not be saved. Nothing changed — please try again.')
+        setMessage('MCP setting could not be saved. Nothing changed - please try again.')
         return
       }
 
@@ -588,7 +588,7 @@ export default function PageSettings({ params }: PageProps) {
       )
     } catch {
       setPage((current) => (current ? { ...current, mcp_enabled: previous } : current))
-      setMessage('MCP setting could not be saved. Nothing changed — please try again.')
+      setMessage('MCP setting could not be saved. Nothing changed - please try again.')
     } finally {
       setMcpSaving(false)
     }
@@ -617,7 +617,7 @@ export default function PageSettings({ params }: PageProps) {
 
       if (error || !data) {
         setLlmOptIn(previous)
-        setMessage('AI assist setting could not be saved. Nothing changed — please try again.')
+        setMessage('AI assist setting could not be saved. Nothing changed - please try again.')
         return
       }
 
@@ -630,7 +630,7 @@ export default function PageSettings({ params }: PageProps) {
       )
     } catch {
       setLlmOptIn(previous)
-      setMessage('AI assist setting could not be saved. Nothing changed — please try again.')
+      setMessage('AI assist setting could not be saved. Nothing changed - please try again.')
     } finally {
       setLlmSaving(false)
     }
@@ -1462,7 +1462,7 @@ export default function PageSettings({ params }: PageProps) {
                 Re-sync Offers from Original Website (Preview in Editor)
               </button>
 
-              {/* Unified per-listing integrations — connect once, then re-sync
+              {/* Unified per-listing integrations - connect once, then re-sync
                   without re-entering the token until you disconnect. */}
               <div className="mt-4">
                 <div className="text-sm font-medium text-[var(--signal)] mb-1">Integrations</div>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 // One per-listing home for every integration: connect once (token stored
-// encrypted server-side), then re-sync manually or let auto-sync run — never
+// encrypted server-side), then re-sync manually or let auto-sync run - never
 // re-entering the token until you disconnect. Replaces the token-prompt re-sync
 // scattered across the editor / Tools / legacy Settings section.
 
@@ -331,7 +331,7 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                 >
                   {busy === `${c.provider}:connect` ? 'Connecting…' : 'Connect'}
                 </button>
-                <span className="text-[10px] text-zinc-500">Stored encrypted. You&apos;ll never re-enter it — re-sync uses the saved connection until you disconnect.</span>
+                <span className="text-[10px] text-zinc-500">Stored encrypted. You&apos;ll never re-enter it - re-sync uses the saved connection until you disconnect.</span>
               </div>
             )}
           </div>

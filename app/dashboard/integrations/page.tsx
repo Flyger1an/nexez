@@ -281,7 +281,7 @@ export default function IntegrationsPage() {
           </p>
           <div className="mt-4 max-w-3xl rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-3 text-sm text-zinc-300">
             <span className="font-medium text-[var(--signal)]">New:</span> connect &amp; re-sync each integration right on the
-            listing — open a listing&apos;s <span className="font-medium">Settings → Integrations</span> to connect once (stored
+            listing - open a listing&apos;s <span className="font-medium">Settings → Integrations</span> to connect once (stored
             securely) and re-sync anytime without re-entering the token. This page is your account-wide status overview.
           </div>
         </header>

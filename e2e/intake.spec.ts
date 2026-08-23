@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js'
 // Intake interview smoke (spec §10). Three layers:
 //   1. The /create fork renders and switches (always runs, unauthenticated).
 //   2. The intake API's auth gate surfaces the sign-in path (always runs).
-//   3. The full interview loop — scratch start → skip the blocking batch via
-//      quick answers → draft summary → commit → land in the builder — gated on
+//   3. The full interview loop - scratch start → skip the blocking batch via
+//      quick answers → draft summary → commit → land in the builder - gated on
 //      E2E_EMAIL/E2E_PASSWORD like the rest of the authed suite. Deterministic
 //      mode (no LLM) drives it, so the loop is stable; LLM-mapped stated fields
 //      are covered by the lib/route suites and the live-verify pass.
@@ -50,7 +50,7 @@ test.describe('create fork (talk vs form)', () => {
 
   test('unauthenticated interview start routes to sign-in (real API 401)', async ({ page }) => {
     // The resume-check GET fires from a mount effect, so its response is a
-    // reliable "hydration complete" signal — clicking before hydration would
+    // reliable "hydration complete" signal - clicking before hydration would
     // hit an inert SSR button.
     const hydrated = page.waitForResponse((r) => r.url().includes('/api/agents/intake/threads'))
     await page.goto('/create', { waitUntil: 'domcontentloaded' })
@@ -64,11 +64,11 @@ test.describe('create fork (talk vs form)', () => {
 test.describe('authed interview loop', () => {
   test('scratch interview → skip blocking gaps → draft summary → commit → builder', async ({ page }) => {
     test.skip(!email || !password, 'set E2E_EMAIL and E2E_PASSWORD to run the authed intake E2E')
-    // Commit needs the SERVER's admin env (SUPABASE_SERVICE_ROLE_KEY) — absent
+    // Commit needs the SERVER's admin env (SUPABASE_SERVICE_ROLE_KEY) - absent
     // on a local dev server by design (prod-only secret), so this leg only runs
     // against a deployment: TEST_LIVE=1 E2E_BASE_URL=https://app.nexez.ai.
     // Prod turns ride the real LLM (~25s each), hence the generous budget.
-    test.skip(!process.env.TEST_LIVE, 'commit needs the deployed server — run with TEST_LIVE=1 E2E_BASE_URL=https://app.nexez.ai')
+    test.skip(!process.env.TEST_LIVE, 'commit needs the deployed server - run with TEST_LIVE=1 E2E_BASE_URL=https://app.nexez.ai')
     test.setTimeout(300_000)
 
     await page.goto('/login', { waitUntil: 'domcontentloaded' })
@@ -87,7 +87,7 @@ test.describe('authed interview loop', () => {
     await expect(page.getByText('What is the name of your business?')).toBeVisible()
 
     // Skip through blocking gaps (quick answers post STRUCTURED answers through
-    // the reducer — the no-LLM path). The summary card appears once no blocking
+    // the reducer - the no-LLM path). The summary card appears once no blocking
     // gap remains askable. Earlier cards keep their (idempotent) Skip chips as
     // the transcript grows, so always act on the NEWEST batch (.last()), and
     // key each round on the real turn response, not a fixed wait.
@@ -98,7 +98,7 @@ test.describe('authed interview loop', () => {
         .isVisible()
         .catch(() => false)
       if (summaryVisible) break
-      // Newest batch card, FIRST chip — blocking gaps sort to the top of each
+      // Newest batch card, FIRST chip - blocking gaps sort to the top of each
       // batch, so this works through them before any quality gap.
       const newestBatch = page.locator('article').filter({ has: page.getByRole('button', { name: 'Skip' }) }).last()
       const skip = newestBatch.getByRole('button', { name: 'Skip' }).first()
@@ -129,7 +129,7 @@ test.describe('authed interview loop', () => {
       await admin.from('intake_sessions').delete().eq('page_id', pageId)
       await admin.from('pages').delete().eq('id', pageId)
     } else {
-      console.warn(`[intake e2e] no SUPABASE_SERVICE_ROLE_KEY — leaving draft page ${pageId} for manual cleanup`)
+      console.warn(`[intake e2e] no SUPABASE_SERVICE_ROLE_KEY - leaving draft page ${pageId} for manual cleanup`)
     }
   })
 })

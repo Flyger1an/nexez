@@ -362,12 +362,12 @@ test.describe('page settings', () => {
     const sectionNav = page.getByRole('navigation', { name: 'Listing settings sections' })
     const listingName = page.locator('#listing-name')
     const originalName = await listingName.inputValue()
-    await listingName.fill(`${originalName} — unsaved E2E draft`)
+    await listingName.fill(`${originalName} - unsaved E2E draft`)
 
     await sectionNav.getByRole('link', { name: 'Developer' }).click()
     await expect(page).toHaveURL(/#developer$/)
     await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeAttached()
-    await expect(listingName).toHaveValue(`${originalName} — unsaved E2E draft`)
+    await expect(listingName).toHaveValue(`${originalName} - unsaved E2E draft`)
     const developerSection = page.locator('#developer')
     await expect(developerSection).toHaveAttribute('aria-current', 'location')
     const developerStateId = await developerSection.getAttribute('aria-describedby')
@@ -376,7 +376,7 @@ test.describe('page settings', () => {
     await expect(developerSection.locator('header > span[aria-hidden="true"]')).toBeVisible()
 
     await page.goBack()
-    await expect(listingName).toHaveValue(`${originalName} — unsaved E2E draft`)
+    await expect(listingName).toHaveValue(`${originalName} - unsaved E2E draft`)
     await expect(sectionNav.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'location')
     await expect(page.locator('#general')).toHaveAttribute('aria-current', 'location')
     await listingName.fill(originalName)

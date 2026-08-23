@@ -2,7 +2,7 @@
 -- ("keep looking for a plumber under $300"). The agent-tasks cron matches each active task against
 -- the WHOLE published catalog (existing + new), deduped per task via notified_slugs, and pushes the
 -- buyer on fresh matches. Owner-scoped via RLS; cleaned on buyer-account deletion. Results NOTIFY
--- only — money never moves without explicit in-app approval.
+-- only - money never moves without explicit in-app approval.
 
 create table if not exists public.agent_tasks (
   id uuid primary key default gen_random_uuid(),

@@ -1,6 +1,6 @@
-# Nexez — OpenClaw plugin
+# Nexez - OpenClaw plugin
 
-Give your OpenClaw agent a buyer's hands on **[Nexez](https://nexez.app)**, the marketplace built for agent-to-agent commerce. Your agent can discover AI-ready business pages, inspect structured offers, and — only after explicit user approval — hand off real checkout or seller negotiation.
+Give your OpenClaw agent a buyer's hands on **[Nexez](https://nexez.app)**, the marketplace built for agent-to-agent commerce. Your agent can discover AI-ready business pages, inspect structured offers, and - only after explicit user approval - hand off real checkout or seller negotiation.
 
 ```bash
 # from npm
@@ -13,7 +13,7 @@ openclaw plugins install clawhub:@nexez/openclaw-nexez
 
 ## Why
 
-Sellers list once on Nexez; any OpenClaw agent can then find and transact with them. This plugin is the buyer side — discovery plus safe, approval-gated handoff into Nexez's checkout and escrow-backed negotiation flows. Nothing is stored; every call hits only public Nexez endpoints.
+Sellers list once on Nexez; any OpenClaw agent can then find and transact with them. This plugin is the buyer side - discovery plus safe, approval-gated handoff into Nexez's checkout and escrow-backed negotiation flows. Nothing is stored; every call hits only public Nexez endpoints.
 
 ## Tools
 
@@ -24,8 +24,8 @@ Sellers list once on Nexez; any OpenClaw agent can then find and transact with t
 | `nexez_directory` | read | Browse the directory with category, readiness, and location filters |
 | `nexez_get_negotiation_status` | read | Read the latest asynchronous negotiation decision |
 | `nexez_wait_for_negotiation_decision` | read | Wait for a bounded period until a decision is ready |
-| `nexez_validate_checkout` | dry-run | Preview a checkout handoff — no side effects |
-| `nexez_validate_negotiation` | dry-run | Preview a negotiation request — no side effects |
+| `nexez_validate_checkout` | dry-run | Preview a checkout handoff - no side effects |
+| `nexez_validate_negotiation` | dry-run | Preview a negotiation request - no side effects |
 | `nexez_start_checkout` | **action** | Create a real checkout/booking handoff |
 | `nexez_submit_negotiation` | **action** | Submit a real budget/timeline proposal to the seller |
 
@@ -41,7 +41,7 @@ The five read tools are always on. The four transaction tools are opt-in, and th
 
 - "Find a strategy consultant under $3,000 and summarize the top 3 options."
 - "Search Nexez for AI-ready web designers serving Austin and show their offers."
-- "Logo design, budget $500, two-week turnaround — find options and draft a negotiation." _(search → validate → your approval → submit)_
+- "Logo design, budget $500, two-week turnaround - find options and draft a negotiation." _(search → validate → your approval → submit)_
 - "Book the strategy session on `/acme` at the listed price." _(validate → your approval → checkout)_
 
 ## Safety model
@@ -50,7 +50,7 @@ The five read tools are always on. The four transaction tools are opt-in, and th
 - **Real actions are approval-gated** - `nexez_start_checkout` and `nexez_submit_negotiation` throw unless `userApproved: true`; your agent should still confirm with the user first.
 - Validation may return a short-lived `approvalToken` bound to the commercial terms. Pass it unchanged to the approved action.
 - Give every approved action a stable `idempotencyKey`, and reuse it only when retrying that same action.
-- **No persistence** — results aren't cached or stored.
+- **No persistence** - results aren't cached or stored.
 - Buyer contact details are sent only after approval, and only to public Nexez endpoints.
 - Negotiation status tokens are bearer credentials. Never display or log them.
 

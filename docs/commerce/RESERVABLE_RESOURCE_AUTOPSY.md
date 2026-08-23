@@ -1,6 +1,6 @@
 # Nexez Reservable Resource Autopsy
 
-**Status:** Runtime v1 implemented — merchant-authored Nexez pools, atomic holds, settlement conversion, and production-path simulator contracts
+**Status:** Runtime v1 implemented - merchant-authored Nexez pools, atomic holds, settlement conversion, and production-path simulator contracts
 **Machine-readable source:** `lib/commerce-templates/curation/reservable-resource-analysis.ts`
 **Evidence corpus:** every curated candidate with an `inventory-resource` or `capacity-constraints` gap signal, plus current offer, Calendly availability, checkout, approval, and settlement rails
 

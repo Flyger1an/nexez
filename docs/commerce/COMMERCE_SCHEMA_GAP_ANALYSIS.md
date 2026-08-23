@@ -1,6 +1,6 @@
 # Nexez Commerce Schema Gap Analysis
 
-**Status:** Architecture analysis v6 — refreshed after the first post-pilot template promotion
+**Status:** Architecture analysis v6 - refreshed after the first post-pilot template promotion
 **Machine-readable source:** `lib/commerce-templates/curation/gap-analysis.ts`  
 **Curation evidence:** `lib/commerce-templates/curation/`
 
@@ -17,10 +17,10 @@ This prevents two equally expensive mistakes:
 
 ## Classification standard
 
-- **first-class** — an explicit typed production primitive exists and deterministic behavior enforces the relevant contract.
-- **weakly-structured** — Nexez can represent part of the concept today, but semantics are generic, narrow, descriptive, integration-specific, or not transaction-enforceable.
-- **broadly-missing** — repeated curation demand exists and Nexez cannot safely express the required transaction behavior end-to-end.
-- **not-justified** — the concept is currently too niche or underspecified to deserve universal schema weight.
+- **first-class** - an explicit typed production primitive exists and deterministic behavior enforces the relevant contract.
+- **weakly-structured** - Nexez can represent part of the concept today, but semantics are generic, narrow, descriptive, integration-specific, or not transaction-enforceable.
+- **broadly-missing** - repeated curation demand exists and Nexez cannot safely express the required transaction behavior end-to-end.
+- **not-justified** - the concept is currently too niche or underspecified to deserve universal schema weight.
 
 The machine-readable analysis derives candidate counts and candidate IDs from the #80 curation corpus. This document intentionally does not duplicate those derived counts.
 
@@ -198,23 +198,23 @@ Delivery and service areas matter; route planning/optimization is currently a ca
 
 This is a design queue, not an instruction to implement every missing concept before template expansion.
 
-### Track A — recurring-service contract — **implemented**
+### Track A - recurring-service contract - **implemented**
 
 The merchant-authored recurring-service contract now spans configuration, approval, Stripe subscription settlement, paid-period provenance, and buyer cancellation controls. Continue hardening the existing rail rather than reopening the architecture problem.
 
-### Track B — conditional fulfillment — **implemented**
+### Track B - conditional fulfillment - **implemented**
 
 Merchant-authored predicates now evaluate canonical required buyer inputs before pricing/approval/settlement with deterministic eligible/review/ineligible outcomes across one-time and recurring checkout.
 
-### Track C — staged settlement — **implemented**
+### Track C - staged settlement - **implemented**
 
 Deposit schedules and milestones now resolve into sequential, immutable, buyer-approved obligations allocated from one authoritative total, with live checkout and webhook provenance.
 
-### Track D — reservable resources — **implemented**
+### Track D - reservable resources - **implemented**
 
 Merchant-owned interchangeable pools, exact requirements, expiring atomic holds, and settlement conversion now preserve current weekly booking caps and external calendar authority. Continue hardening the rail rather than widening it into serialized inventory or operations planning.
 
-### Track E — multi-provider orchestration
+### Track E - multi-provider orchestration
 
 Defer unless template selection forces the issue. It changes the transaction topology and should not be smuggled into a “schema cleanup” PR.
 

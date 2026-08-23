@@ -4,7 +4,7 @@ import { createClient } from '../../../../../utils/supabase/server'
 import { gateIntegrationImport, importCalendlyOffers } from '../../../../../lib/server/integration-importers'
 
 /**
- * Calendly Integration for Nexez — import booking/event types as structured offers.
+ * Calendly Integration for Nexez - import booking/event types as structured offers.
  * Flow: user pastes a Calendly Personal Access Token; we fetch their event types.
  * The fetch + parse now lives in lib/server/integration-importers (shared with the
  * interview's /ingest); this route is auth + Pro gate + response shaping.

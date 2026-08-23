@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 // Authed smoke. Self-contained login (runs after webServer is up). Skipped when
-// credentials aren't provided — no secrets in the repo. It creates one precisely
+// credentials aren't provided - no secrets in the repo. It creates one precisely
 // named disposable draft and removes that exact row after the read-only UI checks;
 // the editor save path remains covered by lib/editor-merge unit tests.
 const email = process.env.E2E_EMAIL

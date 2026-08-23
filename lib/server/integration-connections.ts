@@ -3,7 +3,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/adm
 import { getStripeConnectPayoutReadiness } from '../stripe-connect-readiness'
 
 // The per-listing integration connection state that drives the unified
-// Integrations panel. Service-role read; NEVER returns any credential value —
+// Integrations panel. Service-role read; NEVER returns any credential value -
 // only booleans + timestamps the client is allowed to see.
 
 export type IntegrationConnectionKind = 'token' | 'oauth' | 'connect'

@@ -1,6 +1,6 @@
-# Nexez Commerce Library — 63-Candidate Curation Matrix
+# Nexez Commerce Library - 63-Candidate Curation Matrix
 
-**Status:** Provisional curation v1 — **not canon**  
+**Status:** Provisional curation v1 - **not canon**  
 **Machine-readable source:** `lib/commerce-templates/curation/`  
 **Runtime activation source:** `lib/commerce-templates/registry.ts`
 
@@ -35,11 +35,11 @@ Scores are curation judgments, not marketplace rankings, merchant quality scores
 
 ## Status semantics
 
-- **pilot-active** — already exists as a versioned active Commerce Template and participates in the executable benchmark.
-- **active** — promoted after the pilot with the same versioned registry and executable benchmark obligations.
-- **retain** — strong candidate to keep in the v1 learning set, but not active runtime truth.
-- **overlap-review** — teaches useful mechanics but should be compared carefully against nearby candidates before canonical promotion.
-- **replacement-review** — currently contributes too little distinct commercial information and should be challenged by a more informative replacement.
+- **pilot-active** - already exists as a versioned active Commerce Template and participates in the executable benchmark.
+- **active** - promoted after the pilot with the same versioned registry and executable benchmark obligations.
+- **retain** - strong candidate to keep in the v1 learning set, but not active runtime truth.
+- **overlap-review** - teaches useful mechanics but should be compared carefully against nearby candidates before canonical promotion.
+- **replacement-review** - currently contributes too little distinct commercial information and should be challenged by a more informative replacement.
 
 First-pass status counts:
 

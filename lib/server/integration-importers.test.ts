@@ -13,7 +13,7 @@ vi.mock('../integrations', () => ({
   mapSquareCatalogToOffers: (objs: unknown[]) => (objs.length ? [{ name: 'Square Item', description: '', price: '$95', url: '', source: 'square' }] : []),
   mapAcuityTypesToOffers: (types: unknown[]) => (types.length ? [{ name: 'Acuity Session', description: '', price: '$250', url: '', source: 'acuity' }] : []),
 }))
-// The gate's collaborators — controllable per test.
+// The gate's collaborators - controllable per test.
 const { gateRef } = vi.hoisted(() => ({ gateRef: { access: null as any, allows: true } }))
 vi.mock('./page-access', () => ({ resolveFeatureOwner: vi.fn(async () => gateRef.access) }))
 vi.mock('./plan', () => ({ ownerAllows: vi.fn(async () => gateRef.allows) }))
@@ -56,7 +56,7 @@ describe('importCalendlyOffers', () => {
 
   it('captures the event-type URI (for single-use links) from the real v2 top-level shape', async () => {
     // Calendly's v2 event_types returns fields at the resource top level (uri,
-    // name, duration, scheduling_url) — NOT nested under attributes/relationships.
+    // name, duration, scheduling_url) - NOT nested under attributes/relationships.
     vi.stubGlobal('fetch', vi.fn()
       .mockResolvedValueOnce(jsonResponse({ resource: { uri: 'https://api.calendly.com/users/U1' } }))
       .mockResolvedValueOnce(jsonResponse({
@@ -225,7 +225,7 @@ describe('importShopifyOffers', () => {
   })
 })
 
-describe('importIntegrationOffers (intake dispatcher — real offers or error, never sample)', () => {
+describe('importIntegrationOffers (intake dispatcher - real offers or error, never sample)', () => {
   it('square: a live catalog maps to offers', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({ objects: [{ id: 'x' }] })))
     const r = await importIntegrationOffers({ provider: 'square', accessToken: 't' })

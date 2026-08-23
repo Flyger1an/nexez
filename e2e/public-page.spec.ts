@@ -15,7 +15,7 @@ function hasRealPublicSupabaseConfig() {
   }
 }
 
-// Public surface — no auth. Always runs (CI-safe).
+// Public surface - no auth. Always runs (CI-safe).
 test.describe('public surface', () => {
   test('homepage renders with no uncaught errors', async ({ page }) => {
     const pageErrors: string[] = []

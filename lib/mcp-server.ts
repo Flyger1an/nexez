@@ -150,7 +150,7 @@ export function handleMcpRequest(
 // one handle so an agent can transact across the whole catalog. Offer keys
 // collide across listings (every listing has services-0), so the merchant-level
 // tools take a REQUIRED slug + offer, resolved STRICTLY within the passed
-// `listings` (the storefront's own, billing-pause-filtered set) — a slug outside
+// `listings` (the storefront's own, billing-pause-filtered set) - a slug outside
 // that set is rejected (cross-tenant guard). Curated fields only; never raw
 // products/services/rules.
 
@@ -217,7 +217,7 @@ function storefrontResources(handle: string, listings: AgentPage[], baseUrl: str
   return list
 }
 
-/** Handle one JSON-RPC MCP request for a whole storefront. Pure — the route loads
+/** Handle one JSON-RPC MCP request for a whole storefront. Pure - the route loads
  *  the (pause-filtered) listings + resolves the owner-level negotiation entitlement. */
 export function handleStorefrontMcpRequest(
   handle: string,

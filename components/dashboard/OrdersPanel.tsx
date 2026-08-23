@@ -93,7 +93,7 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
       <h2 className="text-lg font-semibold">Settled orders</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Stripe-confirmed checkout, protocol, recurring, staged, and reserved-resource transactions. A refund returns the
-        buyer&rsquo;s money and gives Nexez&rsquo;s commission back too—in full, or partially with the rest still refundable.
+        buyer&rsquo;s money and gives Nexez&rsquo;s commission back too, in full, or partially with the rest still refundable.
       </p>
       {error ? <p className="mt-2 text-sm text-red-300">{error}</p> : null}
       <div className="mt-4 overflow-x-auto rounded-xl border border-white/10">

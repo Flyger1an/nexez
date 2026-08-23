@@ -25,10 +25,10 @@ import { parseUcpBuyer, parseUcpPaymentToken, toUcpCheckoutSession, ucpError, ty
 import { ucpJson, loadUcpPage, loadUcpPageName } from '../../../../../../lib/server/ucp-session'
 
 /**
- * UCP: POST /api/ucp/checkout-sessions/{id}/complete — settle the session.
+ * UCP: POST /api/ucp/checkout-sessions/{id}/complete - settle the session.
  * Validates the Google Pay token, re-prices against the live page, charges it via the
  * shared SF2 settlement bridge (direct charge on the seller's connected account +
- * platform fee — same money core as ACP), marks the session completed, persists the
+ * platform fee - same money core as ACP), marks the session completed, persists the
  * durable order, returns the session with an order{ id,label,permalink_url }.
  * Idempotent: a replayed complete returns the original order without charging again.
  */

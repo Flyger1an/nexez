@@ -24,7 +24,7 @@ import {
 
 const resolveTxt = promisify(dns.resolveTxt)
 
-// Meta fetch (one external GET) — bounded.
+// Meta fetch (one external GET) - bounded.
 export const maxDuration = 20
 
 const METHODS = ['dns', 'meta', 'file'] as const
@@ -35,11 +35,11 @@ const NEXEZ_HOSTS = new Set([MARKETING_HOST, APP_HOST, AGENT_RUNTIME_HOST].filte
 /**
  * Prove the caller controls the EXISTING website (pages.website_url) WITHOUT pointing
  * DNS at Nexez. Unlike custom-domain verification this confers no routing rights, so
- * there is NO plan gate — it is the funnel wedge, available on every tier.
+ * there is NO plan gate - it is the funnel wedge, available on every tier.
  *
  * Owner-OR-editor authenticated via resolvePageAccess; all reads/writes act as the
  * resolved PAGE OWNER (service role). The browser never sets website_verified_at
- * directly (a DB trigger reverts any such attempt) — it only asks the server to check.
+ * directly (a DB trigger reverts any such attempt) - it only asks the server to check.
  */
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const limited = await enforceRateLimit(request, 'verify-website', 10, 60_000)
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Add your website URL to this listing first, then verify it.' }, { status: 400 })
   }
   if (NEXEZ_HOSTS.has(host2)) {
-    return NextResponse.json({ error: 'That is a Nexez host — set your own website URL to verify.' }, { status: 400 })
+    return NextResponse.json({ error: 'That is a Nexez host - set your own website URL to verify.' }, { status: 400 })
   }
 
   const { data: secrets } = await admin

@@ -56,7 +56,7 @@ export function getOnboardingSteps(pages: AgentPage[], extras: OnboardingExtras 
     {
       id: 'website',
       title: 'Verify your existing website',
-      description: 'Prove you own your site and get the copy-paste Agent-Ready Kit — make the site you already have agent-legible.',
+      description: 'Prove you own your site and get the copy-paste Agent-Ready Kit - make the site you already have agent-legible.',
       href: settingsHref,
       cta: 'Verify website',
       done: hasVerifiedWebsite,

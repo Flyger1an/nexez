@@ -57,8 +57,8 @@ const detailing: CommerceTemplate = {
   }],
   exampleListing: {
     exampleOnly: true,
-    disclaimer: 'Nexez Example — not a real provider.',
-    title: 'Mobile Detailing — Nexez Example',
+    disclaimer: 'Nexez Example - not a real provider.',
+    title: 'Mobile Detailing - Nexez Example',
     description: 'Reference example.',
     offers: [{ name: 'Mobile Detail', description: 'Example only.' }],
     tryAsking: ['Detail my SUV at work tomorrow.'],

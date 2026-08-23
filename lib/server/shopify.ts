@@ -4,7 +4,7 @@ import crypto from 'node:crypto'
 /**
  * Shopify app plumbing (config + the three HMAC schemes Shopify uses). The whole
  * Shopify surface is DORMANT until both SHOPIFY_API_KEY and SHOPIFY_API_SECRET
- * are set — every route calls `shopifyConfigured()` and fails closed (404/401)
+ * are set - every route calls `shopifyConfigured()` and fails closed (404/401)
  * without them, so this is inert in production until the owner wires their
  * Partner-app credentials. No secrets are logged.
  */
@@ -155,7 +155,7 @@ export function signPendingShop(shop: string): string {
 /**
  * Verify + read a pending-shop token: valid signature, not expired, and a real
  * myshopify host. Returns the shop or null. The signature (keyed by the app
- * secret) is what authorizes the later shop→listing link — a client can't mint one.
+ * secret) is what authorizes the later shop→listing link - a client can't mint one.
  */
 export function readPendingShop(value: string | null | undefined, maxAgeMs = 60 * 60 * 1000): string | null {
   const secret = process.env.SHOPIFY_API_SECRET

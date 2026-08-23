@@ -13,7 +13,7 @@ import { parseUcpLineItems, parseUcpBuyer, toUcpCheckoutSession, ucpError } from
 import { ucpJson, loadUcpPage, loadUcpPageName } from '../../../../../lib/server/ucp-session'
 
 /**
- * UCP: PUT /api/ucp/checkout-sessions/{id} — update (recalc on address/cart change).
+ * UCP: PUT /api/ucp/checkout-sessions/{id} - update (recalc on address/cart change).
  * Re-prices against the live page, optionally replaces line_items/buyer, rejects
  * terminal/expired sessions. (UCP uses PUT for update, unlike ACP's POST.)
  */
@@ -70,7 +70,7 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
   return ucpJson(toUcpCheckoutSession(updated), 200)
 }
 
-/** UCP: GET /api/ucp/checkout-sessions/{id} — return the persisted snapshot. */
+/** UCP: GET /api/ucp/checkout-sessions/{id} - return the persisted snapshot. */
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const auth = verifyUcpRequest(request, '')

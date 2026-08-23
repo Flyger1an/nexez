@@ -1,13 +1,13 @@
 -- Direct-checkout ORDER records (dispute/refund review gap #2). The /api/checkout
 -- flow charged the seller's connected account but persisted only a fire-and-forget
--- `checkout_events` log row (no payment_intent, no charge) — so a direct sale had
+-- `checkout_events` log row (no payment_intent, no charge) - so a direct sale had
 -- NO in-app refund and a dispute on it hit the webhook's negotiation-only matcher
 -- and was silently dropped. This table is the durable order record: the webhook
 -- captures it on checkout.session.completed (with the PI), the refund route refunds
 -- it, and the reversal handler matches disputes/refunds to it by payment intent.
 --
 -- Writes are SERVICE-ROLE only (webhook + refund route, which re-checks ownership)
--- — owners get SELECT on their own rows, mirroring billing_subscriptions/agent_negotiations.
+-- - owners get SELECT on their own rows, mirroring billing_subscriptions/agent_negotiations.
 
 create table if not exists public.checkout_orders (
   id uuid primary key default gen_random_uuid(),

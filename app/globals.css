@@ -2100,7 +2100,7 @@ html.light { --signal-solid: #C94719; }
   min-width: 0;
   min-height: min(690px, calc(100vh - 160px));
   /* No frame: the mesh shares the page background (#050506), so dropping the
-     border/radius/shadow makes its clipped edges invisible against the page —
+     border/radius/shadow makes its clipped edges invisible against the page -
      it reads as a true, unbounded backdrop rather than a floating card. */
   overflow: hidden;
   border: none;
@@ -2736,7 +2736,7 @@ html.light { --signal-solid: #C94719; }
   /* Mobile/stacked: the mesh + copy would sit below the fold under the form and
      add nothing, so drop them entirely and center the sign-in card in the
      viewport. (The layout has flex:1, so align-content centers the single row;
-     a tall signup form still grows the page and scrolls — no clipping.) */
+     a tall signup form still grows the page and scrolls - no clipping.) */
   .nx-auth-copy-block {
     display: none;
   }
@@ -2772,7 +2772,7 @@ html.light { --signal-solid: #C94719; }
   .nx-auth-card-body {
     padding: 18px;
   }
-  /* (mesh/copy-block rules removed — the block is display:none across ≤1023) */
+  /* (mesh/copy-block rules removed - the block is display:none across ≤1023) */
   .nx-auth-preview {
     padding: 12px;
   }

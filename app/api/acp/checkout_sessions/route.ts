@@ -14,7 +14,7 @@ import { parseAcpLineItems, parseAcpBuyer, toAcpCheckoutSession, acpError } from
 import { acpJson, loadAcpPage, loadAcpPageName, isMerchantPaused } from '../../../../lib/server/acp-session'
 
 /**
- * ACP: POST /api/acp/checkout_sessions — create a checkout session.
+ * ACP: POST /api/acp/checkout_sessions - create a checkout session.
  * Body: { line_items: [{ id: "<slug>:<offer>", quantity }], buyer?, currency? }.
  * Resolves the single merchant, runs the paused-seller gate, prices via the SF1 core,
  * persists the SF3 snapshot (channel 'acp'), returns the ACP CheckoutSession (201).

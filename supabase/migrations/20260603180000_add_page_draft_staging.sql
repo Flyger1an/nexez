@@ -1,4 +1,4 @@
--- D12: staging — edit a draft, preview it, then publish to live.
+-- D12: staging - edit a draft, preview it, then publish to live.
 alter table public.pages
   add column if not exists draft jsonb,
   add column if not exists draft_updated_at timestamptz;

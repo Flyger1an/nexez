@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 
 // Per-listing OG/Twitter card (file convention: Next auto-wires og:image +
 // twitter:image into the page's metadata). Listings declared summary_large_image
-// with NO image before this — shares degraded to a bare text card.
+// with NO image before this - shares degraded to a bare text card.
 export const alt = 'Agent-ready listing on Nexez'
 export const size = marketingOgSize
 export const contentType = 'image/png'

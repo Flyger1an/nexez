@@ -1,9 +1,9 @@
-# NEXEZ — LIQUID GLASS DESIGN SYSTEM
+# NEXEZ - LIQUID GLASS DESIGN SYSTEM
 ## Implementation prompt for Claude Code
 
-You are implementing the complete visual identity for nexez.ai — marketing site and in-app product. Two files are the **ground truth** and should be ported verbatim into the codebase before anything else: `nexez-design-system.css` (tokens + components + motion CSS) and `nexez-fx.js` (interaction layer). If they are present in the repo, never re-derive values from this document — this document tells you how to *use and extend* them. If they are absent, reconstruct them exactly from the specs below.
+You are implementing the complete visual identity for nexez.ai - marketing site and in-app product. Two files are the **ground truth** and should be ported verbatim into the codebase before anything else: `nexez-design-system.css` (tokens + components + motion CSS) and `nexez-fx.js` (interaction layer). If they are present in the repo, never re-derive values from this document - this document tells you how to *use and extend* them. If they are absent, reconstruct them exactly from the specs below.
 
-**The one-sentence brief:** matte black liquid glass — iOS-grade physical buttons, restrained frost, light that follows the cursor, color reserved for meaning. Premium comes from restraint.
+**The one-sentence brief:** matte black liquid glass - iOS-grade physical buttons, restrained frost, light that follows the cursor, color reserved for meaning. Premium comes from restraint.
 
 ---
 
@@ -11,8 +11,8 @@ You are implementing the complete visual identity for nexez.ai — marketing sit
 
 1. **Never hard-code a color, shadow, blur, or radius.** Every visual value comes from a CSS custom property. If a needed token doesn't exist, add it to BOTH themes, then use it.
 2. **No multicolor gradient text.** Headlines use the tonal `--grad-text` fade only. The prism gradient appears exclusively in: 1px hairlines, readiness rings, the logo diagonal, eyebrow ticks.
-3. **Color signals meaning, never decoration.** `--signal` persimmon (`#FF6A33`) = importance / interactive / primary; `--signal-solid` (`#C94719`) is the deep fill behind white button text (WCAG AA). `--ready` teal = agent-ready/positive states. `--amber` = caution / needs attention. **The platform is restrained** (mono base; persimmon reserved for importance), **the homepage is expressive**. The dashboard canvas is calmed via `.nx-dash` (neutralizes `--signal`/`--signal-solid` to `--fg`; the sidebar re-asserts persimmon on the active nav), and primary buttons read as clean neutral-inverse pills (`--fg` fill / `--bg` text — white pill in dark, black pill in light).
-4. **Respect the gloss budget.** Edge highlights, sheens, and glows are already tuned to a matte finish. Do not brighten them. New components inherit `--edge`, `--sheen`, `--card-glow` — never invent stronger ones.
+3. **Color signals meaning, never decoration.** `--signal` persimmon (`#FF6A33`) = importance / interactive / primary; `--signal-solid` (`#C94719`) is the deep fill behind white button text (WCAG AA). `--ready` teal = agent-ready/positive states. `--amber` = caution / needs attention. **The platform is restrained** (mono base; persimmon reserved for importance), **the homepage is expressive**. The dashboard canvas is calmed via `.nx-dash` (neutralizes `--signal`/`--signal-solid` to `--fg`; the sidebar re-asserts persimmon on the active nav), and primary buttons read as clean neutral-inverse pills (`--fg` fill / `--bg` text - white pill in dark, black pill in light).
+4. **Respect the gloss budget.** Edge highlights, sheens, and glows are already tuned to a matte finish. Do not brighten them. New components inherit `--edge`, `--sheen`, `--card-glow` - never invent stronger ones.
 5. **Code/data wells stay dark in BOTH themes** (terminal aesthetic): background `--well`, text `--well-muted`, syntax colors fixed `#FF6A33 / #5FEAD3 / #FFD9A8`.
 6. **Every page works in both themes.** Theme = `data-theme="light"` on `<html>`; default (no attribute) is black. `flip()` toggles. Test every new component in both before shipping.
 7. **`prefers-reduced-motion: reduce`** must show the full design with entrances skipped. Cursor specular may remain (static, non-animated response).
@@ -24,7 +24,7 @@ You are implementing the complete visual identity for nexez.ai — marketing sit
 
 Fonts (Google Fonts): **Schibsted Grotesk** 500/600/700 (display, letter-spacing −0.035em), **Instrument Sans** (body/UI), **JetBrains Mono** 400/500 (all data: prices, payloads, labels, scores).
 
-### Dark (default — pure black)
+### Dark (default - pure black)
 ```
 --bg:#000           --text:#EEF1F8        --muted:rgba(238,241,248,.58)
 --faint:rgba(238,241,248,.34)             --text-dim:rgba(238,241,248,.66)
@@ -66,7 +66,7 @@ Fonts (Google Fonts): **Schibsted Grotesk** 500/600/700 (display, letter-spacing
 ```
 
 ### Atmosphere (once per page)
-`<div class="atmos"></div>` — fixed, z −2: three faint radial prism washes over the bg color + an SVG fractal-noise grain at ~3% opacity (inverted in light mode). Never stronger.
+`<div class="atmos"></div>` - fixed, z −2: three faint radial prism washes over the bg color + an SVG fractal-noise grain at ~3% opacity (inverted in light mode). Never stronger.
 
 ---
 
@@ -74,7 +74,7 @@ Fonts (Google Fonts): **Schibsted Grotesk** 500/600/700 (display, letter-spacing
 
 ### Liquid button `.btn` (the signature)
 Pill radius, `--btn-grad` fill, `backdrop-filter: blur(var(--blur-btn)) saturate(var(--sat))`, 1px `--btn-border`, single inset top edge `inset 0 1px 0 var(--btn-edge)`.
-Behavior — all four are mandatory:
+Behavior - all four are mandatory:
 - **Sheen sweep** (`::before`): 115° highlight band using `--sheen`, translates −80%→80% across on hover, 0.8s `cubic-bezier(.22,1,.36,1)`.
 - **Cursor specular** (`::after`): `radial-gradient(130px 70px at var(--mx) var(--my), var(--sheen), transparent 72%)`, fades in on hover; `--mx/--my` set by the global pointermove handler in fx.js.
 - **Spring hover**: `translateY(-2px) scale(1.025)`, `transform .35s cubic-bezier(.34,1.56,.5,1)`.
@@ -96,19 +96,19 @@ Mono font, pill, `--fill-1`. `.chip.ready` = teal text/border/tint + glowing 6px
 
 ### Data display
 `.kpi-num` = display font, counts up on scroll (fx.js handles `$48.2k`, `2,847`, `19+`; skips non-numeric like `<200ms`).
-`.ring` = SVG readiness ring, `stroke:url(#prismGrad)` (define the gradient once per page), draws from full circumference to its `stroke-dashoffset` on reveal — fx.js reads the element's own `stroke-dasharray`, so any size works.
+`.ring` = SVG readiness ring, `stroke:url(#prismGrad)` (define the gradient once per page), draws from full circumference to its `stroke-dashoffset` on reveal - fx.js reads the element's own `stroke-dasharray`, so any size works.
 `.payload` / `.trace` = dark wells (rule 0.5).
-Charts: bars scale from baseline, share-fills sweep from left, funnel steps cascade — all staggered by fx.js when the parent card reveals.
+Charts: bars scale from baseline, share-fills sweep from left, funnel steps cascade - all staggered by fx.js when the parent card reveals.
 
 ### Floating badge (e.g. "Most popular")
-`.flag`: absolute, top −15px, centered, z-index 3, `white-space:nowrap`, **opaque backing** `linear-gradient(teal-tint, teal-tint), var(--bg)`, soft drop shadow. Per-theme tint values exist — reuse them.
+`.flag`: absolute, top −15px, centered, z-index 3, `white-space:nowrap`, **opaque backing** `linear-gradient(teal-tint, teal-tint), var(--bg)`, soft drop shadow. Per-theme tint values exist - reuse them.
 
 ---
 
-## 3 · Motion layer (fx.js — port verbatim)
+## 3 · Motion layer (fx.js - port verbatim)
 
 1. **Global cursor specular**: one passive `pointermove` listener writes `--mx/--my` (%) onto the nearest `.btn` or `.glass.lift`.
-2. **Reveal pattern**: `.glass/.bubble/.kpi` get `.rv` (opacity 0, +22px); IntersectionObserver adds `.inview` with per-element stagger; **then strips `.rv`/`.inview` after 1500ms** so native hover transforms are never overridden. Child bar/fill/funnel transitions are scoped to `.rv` so they survive the release. Preserve this release pattern exactly — it is the fix for the cascade conflict.
+2. **Reveal pattern**: `.glass/.bubble/.kpi` get `.rv` (opacity 0, +22px); IntersectionObserver adds `.inview` with per-element stagger; **then strips `.rv`/`.inview` after 1500ms** so native hover transforms are never overridden. Child bar/fill/funnel transitions are scoped to `.rv` so they survive the release. Preserve this release pattern exactly - it is the fix for the cascade conflict.
 3. **Counters / rings**: as in §2.
 4. **Hero stagger**: first `h1.display` is split into word spans (handles `<br>` and `.grad-text` children), each rises with 85ms cascade.
 5. **Reduced motion**: bail out before adding the `fx` class.
@@ -143,7 +143,7 @@ Clearspace ≥ one stroke width; mono fallback = all strokes `currentColor`; nev
 - **Never let fields fight for one row.** Dense edit rows use the two-line pattern (editor offer card): identity (name + price, price `minmax(180px,1fr)`) on row 1, controls (pillset + switch) on row 2, drag handle spanning. Stack to one column ≤560px.
 - App shell: `198px rail | minmax(0,1fr) canvas | 344px preview`, side panes sticky; collapse to one column ≤1100px; topbar wraps instead of crushing.
 - Breakpoints in use: 1100 / 980 / 920 / 840 / 720 / 640 / 560 / 520 / 480 / 460.
-- **Mobile nav**: ≤840px `fx.js` auto-builds a ☰ button + glass dropdown sheet (`.navsheet`, opaque-backed per rule 8) from the existing `.navlinks`, then marks the nav `.has-menu`. The link row hides **only** under `.has-menu`, so if JS never runs the links stay reachable (degrading to a scrollable strip) — never ship a breakpoint where navigation disappears, JS or not. ≤480px the Sign-in ghost folds out of the bar (◐ + primary CTA remain) but is cloned into the sheet (under a `.hair` divider) so it stays reachable. New pages get all of this for free.
+- **Mobile nav**: ≤840px `fx.js` auto-builds a ☰ button + glass dropdown sheet (`.navsheet`, opaque-backed per rule 8) from the existing `.navlinks`, then marks the nav `.has-menu`. The link row hides **only** under `.has-menu`, so if JS never runs the links stay reachable (degrading to a scrollable strip) - never ship a breakpoint where navigation disappears, JS or not. ≤480px the Sign-in ghost folds out of the bar (◐ + primary CTA remain) but is cloned into the sheet (under a `.hair` divider) so it stays reachable. New pages get all of this for free.
 - **Touch**: tap-highlight suppressed; press squish (`:active`) is the touch feedback; cursor specular degrades silently on touch devices. Dense bars (simulator input) wrap to stacked layout ≤520px with full-width buttons.
 
 ---

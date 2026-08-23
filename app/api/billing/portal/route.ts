@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { appUrl } from '../../../../lib/site'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 /**
  * Stripe Billing Portal for Nexez subscriptions.
@@ -11,7 +12,9 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
  * payment methods, cancel, etc. /login + /dashboard/billing live on the APP host,
  * so redirects use appUrl() (not getBaseUrl(), which is the agent-runtime host).
  */
-export async function POST() {
+export async function POST(request: Request) {
+  const rateLimited = await enforceRateLimit(request, 'billing-portal', 12, 60_000, { failClosed: true })
+  if (rateLimited) return rateLimited
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.redirect(appUrl('/dashboard/billing?setup=stripe'), 303)
   }

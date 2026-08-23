@@ -14,7 +14,7 @@ import { parseAcpLineItems, parseAcpBuyer, toAcpCheckoutSession, acpError } from
 import { acpJson, loadAcpPage, loadAcpPageName } from '../../../../../lib/server/acp-session'
 
 /**
- * ACP: POST /api/acp/checkout_sessions/{id} — update a session.
+ * ACP: POST /api/acp/checkout_sessions/{id} - update a session.
  * Re-prices against the LIVE page (a sold-out/price-changed offer flips the status),
  * optionally replaces line_items and/or buyer, persists the snapshot. Terminal /
  * expired sessions are rejected.
@@ -74,7 +74,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   return acpJson(toAcpCheckoutSession(updated), 200, apiVersion)
 }
 
-/** ACP: GET /api/acp/checkout_sessions/{id} — return the persisted snapshot. */
+/** ACP: GET /api/acp/checkout_sessions/{id} - return the persisted snapshot. */
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const auth = verifyAcpRequest(request, '')

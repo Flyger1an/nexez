@@ -31,7 +31,7 @@ describe('sitemap()', () => {
     dbRef.handler = (ctx: any) => (ctx.table === 'pages_public' ? { data: pages, error: null } : { data: null, error: null })
   })
 
-  it('marketing host: marketing URLs only; lastModified ONLY on /learn articles (real content dates — always-now is distrusted by Google)', async () => {
+  it('marketing host: marketing URLs only; lastModified ONLY on /learn articles (real content dates - always-now is distrusted by Google)', async () => {
     hostRef.host = MARKETING_HOST
     const entries = await sitemap()
     expect(entries.length).toBeGreaterThan(0)

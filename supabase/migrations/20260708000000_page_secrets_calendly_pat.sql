@@ -1,11 +1,11 @@
--- Per-page Calendly credential storage — the persistent secret the future
+-- Per-page Calendly credential storage - the persistent secret the future
 -- write-side calendar blocking needs (server creates scheduled events / queries
 -- slot inventory with the seller's own Calendly PAT).
 --
 -- Stored AES-256-GCM ENCRYPTED (lib/server/secret-crypto.ts) so a DB dump can't
 -- yield a usable token; the key lives only in the deployment env. Owner SELECT
 -- is REVOKED on this column (unlike calendly_webhook_secret, which owners can
--- read) so the ciphertext is service-role-only — the app never returns it to a
+-- read) so the ciphertext is service-role-only - the app never returns it to a
 -- client; the seller sees a "connected" boolean, and can overwrite or clear it.
 
 alter table public.page_secrets

@@ -3,7 +3,7 @@
 --
 -- These policies grant a signed-in user read/update on another owner's pages
 -- when their JWT email matches a non-revoked team_invites row. That email is
--- trustworthy ONLY because sign-up requires email confirmation — with
+-- trustworthy ONLY because sign-up requires email confirmation - with
 -- "Confirm email" OFF, anyone could register claiming a pending invitee's
 -- address and inherit that page access without ever controlling the inbox.
 -- The app layer also gates on email_confirmed_at (lib/server/page-access.ts),

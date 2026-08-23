@@ -65,3 +65,6 @@ plugins/shopify-nexez/app-store-media/review/*.mp4
 
 # scratch renders in the section-image sources
 nexez-section-images/png/_test*.png
+
+# Supabase CLI local branch state
+supabase/.branches/

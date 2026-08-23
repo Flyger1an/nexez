@@ -14,7 +14,7 @@ import { captureEvent } from '../../../../../../lib/observability'
 const HORIZON_DAYS = 7
 
 /**
- * Sync this page's Calendly offers + availability from the STORED per-page PAT —
+ * Sync this page's Calendly offers + availability from the STORED per-page PAT -
  * no re-entering the token. Closes the gap where connecting Calendly (Settings)
  * stored a credential nothing then used: this pulls the seller's live event types
  * in as `source: 'calendly'` offers (each stamped with its event-type URI, which
@@ -36,7 +36,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  // Page-access + Pro gate — identical to the token-based Calendly import route.
+  // Page-access + Pro gate - identical to the token-based Calendly import route.
   const gate = await gateIntegrationImport({
     supabase,
     user,
@@ -69,7 +69,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   // 2) Merge Calendly offers in. CRITICAL: only ever manage CALENDLY-sourced
   // offers. smartMergeOffers('all') joins by name and would overwrite a
-  // same-named manual offer's price/URL/description/source — a common collision
+  // same-named manual offer's price/URL/description/source - a common collision
   // ("Consultation", "Intro Call") that would silently destroy owner-authored
   // pricing. So scope the merge to the EXISTING Calendly offers and leave every
   // manually-authored offer exactly as-is; a same-named event type is added as a
@@ -78,7 +78,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const managed = existingOffers.filter((o) => o.source === 'calendly')
   const untouched = existingOffers.filter((o) => o.source !== 'calendly')
   const mergedCalendly = smartMergeOffers(managed, imported.offers, 'all')
-  // smartMergeOffers drops metadata on a name-collision merge — reconcile the
+  // smartMergeOffers drops metadata on a name-collision merge - reconcile the
   // event-type URI onto the matched Calendly offer (single-use minting needs it).
   for (const inc of imported.offers) {
     const uri = inc.metadata?.calendly_event_type
@@ -103,7 +103,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   if (eventTypeAvailability) {
     windows = eventTypeAvailability.windows
     services = applyEventTypeAvailability(services, eventTypeAvailability.availabilityByEventType, nowIso)
-    // Refresh the free-text availability note from Calendly — but NEVER stomp a
+    // Refresh the free-text availability note from Calendly - but NEVER stomp a
     // note the seller hand-wrote. Only write when the current value is empty or
     // already Calendly-managed (has the ||WINDOWS|| marker), and skip a no-op
     // write (churn), mirroring the cron.

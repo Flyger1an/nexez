@@ -34,7 +34,7 @@ secrets to the mobile app.
 
 ## Design system
 
-Built to `design_handoff_seller_hub/` — the **persimmon glass** language (matches the web brand):
+Built to `design_handoff_seller_hub/` - the **persimmon glass** language (matches the web brand):
 `#ff6a33` accent, glass **ring** buttons (not fills), Space Grotesk numerals / Manrope body /
 JetBrains Mono slugs, SVG conic readiness rings, gradient avatar, and a center **Create FAB**
 tab bar. Tokens live in `src/theme/colors.ts`; reusable primitives in `src/components/ui.tsx`
@@ -51,7 +51,7 @@ consistent back affordance.
 - Listings list, detail, readiness, publish toggle, preview handoff, create, and edit.
 - Analytics cards/lists for agent traffic, top agent types, top pages, conversions, and recent events.
 - Inbox tabs for negotiations, direct orders, reviews, and buyer requests (refund requests +
-  problem reports, with an open-count badge) — all from RLS-safe reads.
+  problem reports, with an open-count badge) - all from RLS-safe reads.
 - Pull-to-refresh on Overview, Listings, Analytics, Inbox, and the detail screens (silent
   background reload, content stays mounted).
 - Negotiation and order detail screens are read-only in app and hand off to the web dashboard
@@ -65,7 +65,7 @@ consistent back affordance.
 - Google OAuth is not active in the current web auth flow; mobile is prepared for email/password first.
 - Stripe customer portal, Connect onboarding, refunds, review moderation, API keys, custom domains, and account export/delete hand off to existing secure web routes.
 - Complex importers and integration OAuth flows hand off to the web dashboard.
-- In-app deal actions (negotiation detail + order detail): Accept / Counter / Decline / Approve / Capture / Cancel and full/partial Refunds, each behind a confirm. These call `/api/negotiations/transition`, `/api/negotiations/escrow`, and `/api/orders/refund`, which now accept either the web cookie session or an `Authorization: Bearer <token>` (via `lib/server/request-auth.ts`) — all Stripe/ownership/ledger logic is unchanged server-side. **Requires the web app to be deployed** for the bearer routes to be live; until then the kept "View on web" link is the working path.
+- In-app deal actions (negotiation detail + order detail): Accept / Counter / Decline / Approve / Capture / Cancel and full/partial Refunds, each behind a confirm. These call `/api/negotiations/transition`, `/api/negotiations/escrow`, and `/api/orders/refund`, which now accept either the web cookie session or an `Authorization: Bearer <token>` (via `lib/server/request-auth.ts`) - all Stripe/ownership/ledger logic is unchanged server-side. **Requires the web app to be deployed** for the bearer routes to be live; until then the kept "View on web" link is the working path.
 
 ## Build & release (EAS)
 
@@ -91,13 +91,13 @@ eas env:create --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value "<publishable
 
 ```bash
 eas build --profile development --platform ios     # dev client for the simulator (no Apple acct; needs expo-dev-client)
-eas build --profile preview --platform android     # installable APK (no Apple acct) — fastest device test
+eas build --profile preview --platform android     # installable APK (no Apple acct) - fastest device test
 eas build --profile preview --platform ios          # internal iOS (registers ad-hoc devices)
 eas build --profile production --platform all       # store builds
 eas submit --profile production --platform ios       # → TestFlight / App Store
 ```
 
-The `preview` Android profile (`buildType: apk`) is the quickest way onto a real device — it needs
+The `preview` Android profile (`buildType: apk`) is the quickest way onto a real device - it needs
 no Apple account and is the right target for the physical-device **push** test (the simulator can't
 get a remote push token). The API base is pinned to `https://app.nexez.ai` in the build env, so the
 in-app deal actions + pushes work against prod once the **web app is deployed**.

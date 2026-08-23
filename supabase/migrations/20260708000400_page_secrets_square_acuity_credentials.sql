@@ -1,4 +1,4 @@
--- Per-page Square + Acuity credential storage — same encrypted, service-role-only
+-- Per-page Square + Acuity credential storage - same encrypted, service-role-only
 -- model as Calendly/Shopify, completing "connect once → stored → re-sync without
 -- re-pasting the token" for every per-seller token provider. Each is ONE AES-GCM
 -- encrypted JSON blob: Square {accessToken}, Acuity {userId, apiKey}.

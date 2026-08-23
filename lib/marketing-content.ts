@@ -362,7 +362,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     title: 'APIs and artifacts for',
     accent: 'agent-native commerce.',
     description:
-      'Build on documented discovery, validation, approval, checkout, negotiation, and management contracts—with SDKs, examples, plugins, skills, MCP, and ARD distribution already attached.',
+      'Build on documented discovery, validation, approval, checkout, negotiation, and management contracts, with SDKs, examples, plugins, skills, MCP, and ARD distribution already attached.',
     primaryCta: { label: 'View OpenAPI', href: agentRuntimeUrl('/openapi.json') },
     secondaryCta: { label: 'Read developer docs', href: '/docs#developer-distribution' },
     stats: [
@@ -550,7 +550,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
   },
 }
 
-/** /pricing "Common questions" — single source for BOTH the rendered Q&A (PricingClient)
+/** /pricing "Common questions" - single source for BOTH the rendered Q&A (PricingClient)
  *  and the page's FAQPage JSON-LD, so the schema can never drift from what's visible. */
 export const pricingFaqs = [
   { question: 'Do I pay a commission if no one books?', answer: 'No. Nexez commission applies only to successful transactions settled through Nexez. Paid-plan subscriptions and card-processing fees are separate.' },

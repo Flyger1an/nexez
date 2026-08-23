@@ -3,9 +3,9 @@ import { getImportUrlError, getResolvedImportUrlError, safeFetch } from '../impo
 import { HTML_BYTE_CAP, normalizeScanUrl, readBodyCapped } from './site-scan'
 
 // The free /tools/llms-txt-generator backend: fetch a public page (same SSRF
-// posture as the scanner — pinned DNS, standard ports, byte-capped) and derive a
+// posture as the scanner - pinned DNS, standard ports, byte-capped) and derive a
 // spec-shaped llms.txt (llmstxt.org: H1 title, > summary blockquote, link sections)
-// from what the page itself declares. Deterministic — no LLM, no stored data.
+// from what the page itself declares. Deterministic - no LLM, no stored data.
 
 const GENERATOR_UA = 'NexezLlmsTxtGenerator/1.0 (+https://nexez.ai/tools/llms-txt-generator)'
 const MAX_LINKS = 12
@@ -55,7 +55,7 @@ export function extractLlmsTxtInputs(html: string, finalUrl: string): LlmsTxtInp
     /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
   ])
 
-  // Same-origin, path-bearing anchors with human labels — the site's own idea of
+  // Same-origin, path-bearing anchors with human labels - the site's own idea of
   // its important pages. Deduped by path, capped.
   const links: { label: string; url: string }[] = []
   const seen = new Set<string>(['/'])

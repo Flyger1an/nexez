@@ -1,9 +1,9 @@
-// ACP wire mapping (pure) — the translation layer between OpenAI's Agentic Commerce
+// ACP wire mapping (pure) - the translation layer between OpenAI's Agentic Commerce
 // Protocol JSON and the provider-neutral CheckoutSession core (SF1). All the money
 // logic lives in the core; this only re-labels field names + shapes, so the adapter
 // stays a thin, testable projection with no Stripe/DB/commission concerns.
 //
-// v1 scope: digital/service offers — no discounts, no fulfillment options, tax=0.
+// v1 scope: digital/service offers - no discounts, no fulfillment options, tax=0.
 // The line_item / totals[] shapes carry the zeroed fields so adding tax/shipping
 // later is additive, not breaking.
 
@@ -58,7 +58,7 @@ export function parseAcpLineItems(lineItems: unknown): ParsedAcpLineItems {
   for (let i = 0; i < lineItems.length; i++) {
     const li = lineItems[i] as { id?: unknown; quantity?: unknown } | null
     const id = typeof li?.id === 'string' ? li.id : ''
-    // Split on the FIRST ':' — slugs are [a-z0-9-] (no colon); offer keys are
+    // Split on the FIRST ':' - slugs are [a-z0-9-] (no colon); offer keys are
     // "services-N"/"products-N".
     const sep = id.indexOf(':')
     if (sep <= 0 || sep >= id.length - 1) {
@@ -89,7 +89,7 @@ export function parseAcpPaymentToken(paymentData: unknown): string | null {
 }
 
 /** Parse the ACP buyer{name,email,phone} into the core's SessionBuyer (phone unused
- * in v1). Returns null when absent — the core re-sanitizes whatever we pass. */
+ * in v1). Returns null when absent - the core re-sanitizes whatever we pass. */
 export function parseAcpBuyer(raw: unknown): SessionBuyer | null {
   if (!raw || typeof raw !== 'object') return null
   const b = raw as { name?: unknown; email?: unknown }

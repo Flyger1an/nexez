@@ -1,11 +1,11 @@
-# WordPress.org Plugin Directory Submission — Owner Checklist
+# WordPress.org Plugin Directory Submission - Owner Checklist
 
 Goal: list **Nexez Agent-Ready** (`plugins/wordpress-nexez/`) in the wordpress.org
 directory. Besides distribution, the listing earns a high-authority backlink to
 nexez.ai (SEO audit P2 item). The plugin + `readme.txt` are submission-ready,
 including the review team's required **External services** disclosure.
 
-Everything below needs YOUR account/identity — none of it is automatable.
+Everything below needs YOUR account/identity - none of it is automatable.
 
 ## 1. Pre-submission (30-60 min)
 
@@ -13,7 +13,7 @@ Everything below needs YOUR account/identity — none of it is automatable.
       install the plugin from a zip, exercise: settings save, JSON-LD appears in
       head, artifact 301s, verify-file). Then bump `Tested up to:` in
       `readme.txt` (currently `6.6`) to the version you tested. Do NOT claim a
-      version you haven't run — reviewers check.
+      version you haven't run - reviewers check.
 - [ ] **Check the slug is free**: visit `https://wordpress.org/plugins/nexez-agent-ready/`
       (should 404). The directory assigns the slug from the plugin at review time
       and it is permanent.
@@ -21,7 +21,7 @@ Everything below needs YOUR account/identity — none of it is automatable.
       `nexez-agent-ready.php`, `readme.txt`, `uninstall.php` (no README.md, no
       dotfiles): `cd plugins/wordpress-nexez && zip nexez-agent-ready.zip nexez-agent-ready.php readme.txt uninstall.php`
 - [ ] Optional but worth it: run the official **Plugin Check (PCP)** plugin
-      against it locally — the review team runs the same tool.
+      against it locally - the review team runs the same tool.
 
 ## 2. Submit
 
@@ -49,14 +49,14 @@ Everything below needs YOUR account/identity — none of it is automatable.
       - `screenshot-1.png`, `screenshot-2.png` matching the readme's
         `== Screenshots ==` captions (settings screen; injected head markup).
 - [ ] Add the wordpress.org listing URL to the marketing site (integrations page
-      + the /scan/wordpress landing page) — tell me and I'll wire the links.
+      + the /scan/wordpress landing page) - tell me and I'll wire the links.
 
 ## Notes / gotchas
 
-- The directory requires GPL-compatible licensing throughout — already satisfied
+- The directory requires GPL-compatible licensing throughout - already satisfied
   (GPL-2.0-or-later header + readme license fields).
 - Future releases: bump `Stable tag` in readme.txt + the plugin header version,
   add a changelog entry, commit + tag in SVN. The directory serves whatever
   `Stable tag` points at.
-- Support forum comes with the listing (wordpress.org/support/plugin/…) — worth
+- Support forum comes with the listing (wordpress.org/support/plugin/…) - worth
   watching; unanswered threads hurt install conversion.

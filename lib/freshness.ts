@@ -57,7 +57,7 @@ export function freshnessLabel(
 }
 
 /** Days a stale-listing re-interview nudge waits before it may fire again for the
- *  same page — so the daily freshness cron nudges each page at most once per window. */
+ *  same page - so the daily freshness cron nudges each page at most once per window. */
 export const STALE_NUDGE_COOLDOWN_DAYS = 30
 
 /**

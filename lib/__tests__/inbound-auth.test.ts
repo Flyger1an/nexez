@@ -78,7 +78,7 @@ describe('verifySignedPayload', () => {
   })
 })
 
-describe('authorizeInboundRequest — fail closed', () => {
+describe('authorizeInboundRequest - fail closed', () => {
   const body = '{"x":1}'
 
   it('rejects when no secret is configured (dormant surface)', () => {

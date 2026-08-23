@@ -382,7 +382,7 @@ export async function POST(request: Request) {
             unit_amount: firstStage.amountCents,
             product_data: {
               name: `${page.name}: ${firstStage.label}`,
-              description: toStripeDescription(`${offer.name} — ${firstStage.label}`),
+              description: toStripeDescription(`${offer.name} - ${firstStage.label}`),
               metadata: {
                 nexez_page_id: page.id,
                 nexez_page_slug: page.slug,

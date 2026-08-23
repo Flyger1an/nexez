@@ -13,6 +13,7 @@ import {
   UserRoundCheck,
 } from 'lucide-react'
 import { appUrl } from '../../lib/site'
+import { safeJsonScript } from '../../lib/safe-json'
 
 export const HOW_IT_WORKS_COPY = {
   hero: {
@@ -47,7 +48,7 @@ export const HOW_IT_WORKS_COPY = {
       eyebrow: 'Step 2',
       title: 'Set how you want to do business.',
       copy:
-        'You decide the prices, choices, limits, and requirements Nexez should follow. These are your business rules — Nexez does not make them up for you.',
+        'You decide the prices, choices, limits, and requirements Nexez should follow. These are your business rules - Nexez does not make them up for you.',
       cards: [
         {
           title: 'Set prices and options',
@@ -406,7 +407,7 @@ function Faq() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeJsonScript({
             '@context': 'https://schema.org',
             '@type': 'FAQPage',
             mainEntity: HOW_IT_WORKS_COPY.faq.map((item) => ({
@@ -414,7 +415,7 @@ function Faq() {
               name: item.title,
               acceptedAnswer: { '@type': 'Answer', text: item.copy },
             })),
-          }).replace(/</g, '\\u003c'),
+          }),
         }}
       />
       <div className="mx-auto max-w-7xl px-5 py-16 md:py-20">

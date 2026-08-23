@@ -7,7 +7,7 @@
 //
 // This gives cancel-on-refund an EXACT booking↔negotiation link (Calendly echoes
 // the utm value on the booking) instead of a fuzzy buyer-email guess that could
-// cancel the wrong person's meeting. Non-Calendly links are left untouched — the
+// cancel the wrong person's meeting. Non-Calendly links are left untouched - the
 // round-trip only works through Calendly's tracking passthrough.
 
 const PREFIX = 'nz_neg_'
@@ -21,7 +21,7 @@ function isCalendlyHost(hostname: string): boolean {
  * Tag a Calendly scheduling link with the negotiation id (via utm_content) so a
  * later booking is linkable back to this negotiation. Returns the link unchanged
  * when it isn't a Calendly URL, when the id is missing, or when the URL can't be
- * parsed — this is a best-effort enhancement, never a gate.
+ * parsed - this is a best-effort enhancement, never a gate.
  */
 export function tagCalendlyTracking(
   link: string | null | undefined,

@@ -3,7 +3,7 @@
 -- Today the ONLY thing stopping an anon/authenticated client from writing this table is the
 -- ABSENCE of an RLS write policy (RLS is enabled with a single SELECT-only owner policy).
 -- The table still carries broad INSERT/UPDATE/DELETE grants to anon + authenticated. That is
--- a latent hole: an accidental future permissive write policy — or an RLS toggle — would
+-- a latent hole: an accidental future permissive write policy - or an RLS toggle - would
 -- immediately expose plan/status/commission tampering by any signed-in user against their own
 -- row (raise their plan, un-pause, drop commission).
 --

@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: CommerceExamplePageProps): Pr
   const example = getPublicCommerceExample(templateId)
   if (!example) return {}
 
-  const title = `${example.title.replace(' — Nexez Example', '')} Template Example`
+  const title = `${example.title.replace(' - Nexez Example', '')} Template Example`
   return {
     title,
     description: example.description,
@@ -63,7 +63,7 @@ export default async function CommerceExamplePage({ params }: CommerceExamplePag
             <div>
               <div className="eyebrow">Nexez Example · {example.industry}</div>
               <h1 className="mt-5 max-w-4xl text-balance text-5xl font-semibold tracking-[-0.065em] sm:text-6xl">
-                {example.title.replace(' — Nexez Example', '')}
+                {example.title.replace(' - Nexez Example', '')}
               </h1>
               <p className="mt-6 max-w-3xl text-base leading-7 text-muted-foreground md:text-lg">{example.description}</p>
 
@@ -71,7 +71,7 @@ export default async function CommerceExamplePage({ params }: CommerceExamplePag
                 <div className="flex items-start gap-3">
                   <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[var(--amber)]" />
                   <div>
-                    <p className="text-sm font-medium text-[var(--amber)]">Reference template — not live supply</p>
+                    <p className="text-sm font-medium text-[var(--amber)]">Reference template - not live supply</p>
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">{example.disclaimer}</p>
                   </div>
                 </div>

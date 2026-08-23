@@ -37,7 +37,7 @@ function makePage(overrides: Partial<SessionPage> = {}): SessionPage {
   }
 }
 
-describe('createSession — resolution + pricing parity', () => {
+describe('createSession - resolution + pricing parity', () => {
   it('resolves a fixed service to a ready, correctly-priced session', () => {
     const s = createSession({ id: 'sess_1', page: makePage(), items: [{ offer: 'services-0' }] })
     expect(s.status).toBe('ready')
@@ -94,7 +94,7 @@ describe('createSession — resolution + pricing parity', () => {
   })
 })
 
-describe('createSession — issues gate readiness', () => {
+describe('createSession - issues gate readiness', () => {
   it('flags a not-found offer', () => {
     const s = createSession({ id: 'i1', page: makePage(), items: [{ offer: 'services-99' }] })
     expect(s.status).toBe('pending')
@@ -179,7 +179,7 @@ describe('createSession — issues gate readiness', () => {
   })
 })
 
-describe('createSession — duplicate merging + buyer', () => {
+describe('createSession - duplicate merging + buyer', () => {
   it('merges duplicate offer keys into one line, summing quantity', () => {
     const s = createSession({
       id: 'dup',

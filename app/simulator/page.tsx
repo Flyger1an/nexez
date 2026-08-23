@@ -7,7 +7,7 @@ import { marketingUrl } from '../../lib/site'
 // '%s · Nexez' title template - don't re-brand here.
 const title = 'Agent Checkout Simulator'
 const description =
-  'Simulate how ChatGPT, Claude, Grok, and Perplexity read any listing or website — readiness scores, agent checkout success, and competitor comparison.'
+  'Simulate how ChatGPT, Claude, Grok, and Perplexity read any listing or website - readiness scores, agent checkout success, and competitor comparison.'
 
 export const metadata: Metadata = {
   title,

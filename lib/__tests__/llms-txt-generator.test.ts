@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildLlmsTxt, extractLlmsTxtInputs } from '../server/llms-txt-generator'
 
 const HTML = `<!doctype html><html><head>
-<title>Acme Studio — Brand &amp; Strategy</title>
+<title>Acme Studio - Brand &amp; Strategy</title>
 <meta name="description" content="A boutique brand studio for founders.">
 <meta property="og:site_name" content="Acme Studio">
 </head><body>
@@ -35,7 +35,7 @@ describe('extractLlmsTxtInputs', () => {
 
   it('falls back to <title> when og:site_name is absent', () => {
     const noOg = HTML.replace(/<meta property="og:site_name"[^>]*>/, '')
-    expect(extractLlmsTxtInputs(noOg, 'https://acme.example/').title).toBe('Acme Studio — Brand & Strategy')
+    expect(extractLlmsTxtInputs(noOg, 'https://acme.example/').title).toBe('Acme Studio - Brand & Strategy')
   })
 })
 

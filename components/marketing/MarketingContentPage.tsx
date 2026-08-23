@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ArrowRight, CheckCircle2, Code2, Sparkles } from 'lucide-react'
 import type { MarketingPageContent } from '../../lib/marketing-content'
 import type { Accent } from './heroes'
+import { safeJsonScript } from '../../lib/safe-json'
 
 const tone = (a: Accent) => `var(--${a})`
 
@@ -62,11 +63,11 @@ export function MarketingContentPage({
 
       {content.faq?.length ? (
         <section className="border-b border-border bg-white/[0.015]">
-          {/* FAQPage schema built from the SAME faq array rendered below — they can't diverge. */}
+          {/* FAQPage schema built from the SAME faq array rendered below - they can't diverge. */}
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
+              __html: safeJsonScript({
                 '@context': 'https://schema.org',
                 '@type': 'FAQPage',
                 mainEntity: content.faq.map((item) => ({
@@ -74,7 +75,7 @@ export function MarketingContentPage({
                   name: item.title,
                   acceptedAnswer: { '@type': 'Answer', text: item.copy },
                 })),
-              }).replace(/</g, '\\u003c'),
+              }),
             }}
           />
           <div className="mx-auto max-w-7xl px-5 py-16 md:py-20">
