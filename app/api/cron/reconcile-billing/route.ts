@@ -8,6 +8,7 @@ import {
   pickLiveStripeSubscription,
   shouldSkipSubscriptionSync,
 } from '../../../../lib/stripe-billing'
+import { cleanupExpiredBillingCheckoutAttempts } from '../../../../lib/server/billing-checkout-attempt'
 
 // Bound the work per run so the cron stays fast and within Stripe rate limits.
 const LIMIT = 100
@@ -42,6 +43,7 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient()
   const stripe = new Stripe(stripeKey)
+  const checkoutAttemptCleanup = await cleanupExpiredBillingCheckoutAttempts(stripe)
 
   // Trial-expiry pass: close expired no-card trials. The effective plan now falls
   // back to a live promotion or Free; storefronts are no longer taken fully offline.
@@ -180,5 +182,15 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, scanned: rows.length, healed, unchanged, alerted, expiredTrials, actions, ran_at: new Date().toISOString() })
+  return NextResponse.json({
+    ok: true,
+    scanned: rows.length,
+    healed,
+    unchanged,
+    alerted,
+    expiredTrials,
+    checkoutAttemptCleanup,
+    actions,
+    ran_at: new Date().toISOString(),
+  })
 }

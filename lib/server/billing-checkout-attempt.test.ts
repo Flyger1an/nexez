@@ -8,6 +8,7 @@ vi.mock('../../utils/supabase/admin', () => ({
 
 import {
   claimBillingCheckoutAttempt,
+  cleanupExpiredBillingCheckoutAttempts,
   retireSupersededBillingObject,
   stripeBillingIdempotencyKey,
 } from './billing-checkout-attempt'
@@ -101,7 +102,7 @@ describe('billing checkout attempt claims', () => {
     const retrieve = vi.fn(async () => ({ status: 'active' }))
     const cancel = vi.fn(async () => ({}))
     const stripe = {
-      checkout: { sessions: { expire: vi.fn(async () => ({})) } },
+      checkout: { sessions: { retrieve: vi.fn(), expire: vi.fn(async () => ({})) } },
       subscriptions: { retrieve, cancel },
     }
 
@@ -113,11 +114,88 @@ describe('billing checkout attempt claims', () => {
   it('cancels only a genuinely incomplete superseded subscription', async () => {
     const cancel = vi.fn(async () => ({}))
     const stripe = {
-      checkout: { sessions: { expire: vi.fn(async () => ({})) } },
+      checkout: { sessions: { retrieve: vi.fn(), expire: vi.fn(async () => ({})) } },
       subscriptions: { retrieve: vi.fn(async () => ({ status: 'incomplete' })), cancel },
     }
 
     await expect(retireSupersededBillingObject(stripe, 'sub_abandoned')).resolves.toBe('canceled')
     expect(cancel).toHaveBeenCalledWith('sub_abandoned')
+  })
+
+  it('preserves a checkout session Stripe has already completed or expired', async () => {
+    const expire = vi.fn()
+    const stripe = {
+      checkout: { sessions: { retrieve: vi.fn(async () => ({ status: 'complete' })), expire } },
+      subscriptions: { retrieve: vi.fn(), cancel: vi.fn() },
+    }
+
+    await expect(retireSupersededBillingObject(stripe, 'cs_complete')).resolves.toBe('preserved')
+    expect(expire).not.toHaveBeenCalled()
+  })
+
+  it('retires expired Stripe objects before deleting checkout attempts with race guards', async () => {
+    const deletes: Array<{ owner: string; attempt: string; calls: unknown[] }> = []
+    vi.mocked(createAdminClient).mockReturnValue(createSupabaseMock((ctx) => {
+      if (ctx.op === 'delete') {
+        deletes.push({ owner: ctx.eqs.owner_id, attempt: ctx.eqs.attempt_key, calls: ctx.calls })
+        return { error: null }
+      }
+      return {
+        data: [
+          { owner_id: 'owner-1', attempt_key: 'attempt-1', stripe_object_id: 'cs_old', expires_at: '2026-07-10T10:00:00.000Z' },
+          { owner_id: 'owner-2', attempt_key: 'attempt-2', stripe_object_id: 'sub_paid', expires_at: '2026-07-10T11:00:00.000Z' },
+        ],
+        error: null,
+      }
+    }) as any)
+    const expire = vi.fn(async () => ({}))
+    const retrieveSession = vi.fn(async () => ({ status: 'open' }))
+    const retrieve = vi.fn(async () => ({ status: 'active' }))
+    const stripe = {
+      checkout: { sessions: { retrieve: retrieveSession, expire } },
+      subscriptions: { retrieve, cancel: vi.fn(async () => ({})) },
+    }
+
+    const result = await cleanupExpiredBillingCheckoutAttempts(stripe, {
+      now: new Date('2026-07-10T12:00:00.000Z'),
+    })
+
+    expect(result).toEqual({ scanned: 2, cleaned: 2, failed: 0 })
+    expect(retrieveSession).toHaveBeenCalledWith('cs_old')
+    expect(expire).toHaveBeenCalledWith('cs_old')
+    expect(retrieve).toHaveBeenCalledWith('sub_paid')
+    expect(deletes.map(({ owner, attempt }) => [owner, attempt])).toEqual([
+      ['owner-1', 'attempt-1'],
+      ['owner-2', 'attempt-2'],
+    ])
+    expect(deletes.every(({ calls }) => calls.some((call: any) => call[0] === 'lte' && call[1] === 'expires_at'))).toBe(true)
+  })
+
+  it('keeps an expired attempt when Stripe cleanup fails so reconciliation can retry', async () => {
+    const deletes: unknown[] = []
+    vi.mocked(createAdminClient).mockReturnValue(createSupabaseMock((ctx) => {
+      if (ctx.op === 'delete') {
+        deletes.push(ctx)
+        return { error: null }
+      }
+      return {
+        data: [{ owner_id: 'owner-1', attempt_key: 'attempt-1', stripe_object_id: 'cs_retry', expires_at: '2026-07-10T10:00:00.000Z' }],
+        error: null,
+      }
+    }) as any)
+    const stripe = {
+      checkout: { sessions: {
+        retrieve: vi.fn(async () => { throw new Error('Stripe unavailable') }),
+        expire: vi.fn(),
+      } },
+      subscriptions: { retrieve: vi.fn(), cancel: vi.fn() },
+    }
+
+    const result = await cleanupExpiredBillingCheckoutAttempts(stripe, {
+      now: new Date('2026-07-10T12:00:00.000Z'),
+    })
+
+    expect(result).toEqual({ scanned: 1, cleaned: 0, failed: 1 })
+    expect(deletes).toHaveLength(0)
   })
 })
