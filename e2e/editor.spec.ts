@@ -12,6 +12,7 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
 let fixtureClient: SupabaseClient | null = null
 let fixturePageId: string | null = null
+let fixtureAiFeaturesEnabled = false
 let originalPlanMetadata: unknown = null
 let planMetadataAdjusted = false
 
@@ -51,17 +52,17 @@ test.describe('authed editor', () => {
     if (error || !data?.id) throw new Error(`Could not create editor fixture: ${error?.message || 'no id returned'}`)
     fixturePageId = data.id
 
+    const { data: entitlements, error: entitlementError } = await fixtureClient.rpc('get_my_plan_entitlements')
+    if (entitlementError) throw new Error(`Could not resolve editor fixture entitlements: ${entitlementError.message}`)
+    fixtureAiFeaturesEnabled = Boolean(
+      (entitlements as { features?: { aiFeatures?: boolean } } | null)?.features?.aiFeatures,
+    )
+
     const selectedPlan = authData.user.user_metadata?.plan
     if (!['free', 'launch', 'pro', 'scale'].includes(selectedPlan)) {
       originalPlanMetadata = selectedPlan ?? null
-      const { error: metadataError } = await fixtureClient.auth.updateUser({
-        data: { plan: 'free' },
-      })
-      if (metadataError) {
-        await fixtureClient.from('pages').delete().eq('id', fixturePageId)
-        fixturePageId = null
-        throw new Error(`Could not prepare editor fixture plan: ${metadataError.message}`)
-      }
+      const { error: metadataError } = await fixtureClient.auth.updateUser({ data: { plan: 'free' } })
+      if (metadataError) throw new Error(`Could not prepare editor fixture onboarding: ${metadataError.message}`)
       planMetadataAdjusted = true
     }
   })
@@ -74,10 +75,8 @@ test.describe('authed editor', () => {
       if (error || data?.id !== fixturePageId) cleanupErrors.push(`listing: ${error?.message || 'row not returned'}`)
     }
     if (planMetadataAdjusted) {
-      const { error } = await fixtureClient.auth.updateUser({
-        data: { plan: originalPlanMetadata },
-      })
-      if (error) cleanupErrors.push(`plan: ${error.message}`)
+      const { error } = await fixtureClient.auth.updateUser({ data: { plan: originalPlanMetadata } })
+      if (error) cleanupErrors.push(`plan metadata: ${error.message}`)
     }
     await fixtureClient.auth.signOut()
     if (cleanupErrors.length) throw new Error(`Could not fully clean up editor fixture: ${cleanupErrors.join('; ')}`)
@@ -130,9 +129,17 @@ test.describe('authed editor', () => {
     }))
     expect(activeNavStyle.backgroundImage).toBe('none')
 
-    const copilotTab = editor.getByRole('tab', { name: 'Descriptions' })
-    await expect(copilotTab).toHaveAttribute('aria-selected', 'true')
-    await expect(copilotTab).toHaveClass(/platform-tab/)
+    if (fixtureAiFeaturesEnabled) {
+      const copilotTab = editor.getByRole('tab', { name: 'Descriptions' })
+      await expect(copilotTab).toHaveAttribute('aria-selected', 'true')
+      await expect(copilotTab).toHaveClass(/platform-tab/)
+    } else {
+      await expect(editor.getByRole('link', { name: 'Launch', exact: true }).first()).toHaveAttribute(
+        'href',
+        /\/dashboard\/billing\?plan=launch$/,
+      )
+      await expect(editor.getByRole('tab', { name: 'Descriptions' })).toHaveCount(0)
+    }
 
     const saveButton = editor.getByRole('button', { name: /save changes/i })
     await expect(saveButton).toBeVisible()

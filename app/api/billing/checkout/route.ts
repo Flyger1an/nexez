@@ -6,6 +6,7 @@ import { getBillingPlan, getPlanPriceId, isSelfServePlanId, isStripePriceId, isU
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { getSubscriptionPriceId, pickLiveStripeSubscription } from '../../../../lib/stripe-billing'
+import { enforceRateLimit } from '../../../../lib/rate-limit'
 import {
   claimBillingCheckoutAttempt,
   markBillingCheckoutAttemptReady,
@@ -18,7 +19,23 @@ import {
 // these redirects with appUrl() - getBaseUrl() returns the agent-runtime host
 // (nexez.app) and would mint a wrong-host URL that the proxy then has to re-redirect.
 export async function POST(request: Request) {
-  const formData = await request.formData()
+  const rateLimited = await enforceRateLimit(request, 'billing-checkout', 12, 60_000, { failClosed: true })
+  if (rateLimited) return rateLimited
+
+  const contentType = request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase()
+  if (contentType !== 'application/x-www-form-urlencoded' && contentType !== 'multipart/form-data') {
+    return NextResponse.json(
+      { error: 'unsupported_media_type', message: 'Submit billing checkout as form data.' },
+      { status: 415 },
+    )
+  }
+
+  let formData: FormData
+  try {
+    formData = await request.formData()
+  } catch {
+    return NextResponse.json({ error: 'invalid_form_data' }, { status: 400 })
+  }
   const planId = String(formData.get('plan') || '')
   const plan = getBillingPlan(planId)
 

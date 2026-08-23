@@ -30,6 +30,35 @@ test.describe('public surface', () => {
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
 
+  test('pricing comparison is keyboard reachable with semantic headings and accessible signal contrast', async ({ page }) => {
+    await page.goto('/pricing', { waitUntil: 'domcontentloaded' })
+
+    for (const plan of ['Free', 'Launch', 'Pro', 'Scale', 'Enterprise']) {
+      await expect(page.getByRole('heading', { name: plan, level: 2, exact: true })).toBeVisible()
+    }
+
+    const comparison = page.getByRole('region', { name: 'Complete plan comparison table' })
+    await expect(comparison).toHaveAttribute('tabindex', '0')
+    await comparison.focus()
+    await expect(comparison).toBeFocused()
+
+    const signalContrast = await page.evaluate(() => {
+      const probe = document.createElement('span')
+      probe.style.backgroundColor = 'var(--signal-solid)'
+      document.body.append(probe)
+      const channels = getComputedStyle(probe).backgroundColor.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? []
+      probe.remove()
+      const luminance = (values: number[]) => values
+        .map((value) => value / 255)
+        .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+        .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0)
+      const background = luminance(channels)
+      const white = 1
+      return (white + 0.05) / (background + 0.05)
+    })
+    expect(signalContrast).toBeGreaterThanOrEqual(4.5)
+  })
+
   test('Agent Lab uses the expanded responsive workspace without desktop or mobile overflow', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', (e) => pageErrors.push(String(e)))

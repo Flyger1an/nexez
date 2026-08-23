@@ -18,11 +18,13 @@ test.beforeAll(async () => {
   const { data, error } = await fixtureClient.auth.signInWithPassword({ email, password })
   if (error || !data.user) throw new Error(`Could not authenticate dashboard fixture: ${error?.message || 'no user returned'}`)
 
+  // Onboarding selection still lives in auth metadata, but feature access does
+  // not. This only gets the fixture through onboarding; it grants no features.
   const selectedPlan = data.user.user_metadata?.plan
   if (!['free', 'launch', 'pro', 'scale'].includes(selectedPlan)) {
     originalPlanMetadata = selectedPlan ?? null
     const { error: metadataError } = await fixtureClient.auth.updateUser({ data: { plan: 'free' } })
-    if (metadataError) throw new Error(`Could not prepare dashboard fixture plan: ${metadataError.message}`)
+    if (metadataError) throw new Error(`Could not prepare dashboard fixture onboarding: ${metadataError.message}`)
     planMetadataAdjusted = true
   }
 })
@@ -31,7 +33,7 @@ test.afterAll(async () => {
   if (!fixtureClient) return
   if (planMetadataAdjusted) {
     const { error } = await fixtureClient.auth.updateUser({ data: { plan: originalPlanMetadata } })
-    if (error) throw new Error(`Could not restore dashboard fixture plan: ${error.message}`)
+    if (error) throw new Error(`Could not restore dashboard fixture metadata: ${error.message}`)
   }
   await fixtureClient.auth.signOut()
 })

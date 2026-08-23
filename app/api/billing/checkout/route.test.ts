@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { NextResponse } from 'next/server'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
 const { checkoutSessionsCreate, checkoutSessionsExpire, subscriptionsList, subscriptionsUpdate, subscriptionsCancel } = vi.hoisted(() => ({
@@ -9,6 +10,7 @@ const { checkoutSessionsCreate, checkoutSessionsExpire, subscriptionsList, subsc
   subscriptionsCancel: vi.fn(),
 }))
 const billingAttempt = vi.hoisted(() => ({ claim: vi.fn(), markReady: vi.fn(), release: vi.fn(), retire: vi.fn() }))
+const rateLimitRef = vi.hoisted(() => ({ response: null as NextResponse | null }))
 vi.mock('stripe', () => ({
   default: class {
     checkout = { sessions: { create: checkoutSessionsCreate, expire: checkoutSessionsExpire } }
@@ -18,6 +20,9 @@ vi.mock('stripe', () => ({
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
 vi.mock('../../../../utils/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('../../../../utils/supabase/admin', () => ({ hasSupabaseAdminEnv: vi.fn(() => false), createAdminClient: vi.fn() }))
+vi.mock('../../../../lib/rate-limit', () => ({
+  enforceRateLimit: vi.fn(async () => rateLimitRef.response),
+}))
 vi.mock('../../../../lib/billing', () => ({
   getBillingPlan: vi.fn(),
   getPlanPriceId: vi.fn(),
@@ -54,6 +59,7 @@ describe('POST /api/billing/checkout', () => {
     billingAttempt.markReady.mockResolvedValue(true)
     billingAttempt.release.mockResolvedValue(true)
     billingAttempt.retire.mockResolvedValue('preserved')
+    rateLimitRef.response = null
   })
   afterEach(() => vi.unstubAllEnvs())
 
@@ -62,6 +68,39 @@ describe('POST /api/billing/checkout', () => {
     const res = await POST(form('bogus'))
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toContain('/dashboard/billing?error=plan')
+  })
+
+  it('rejects an unsupported body before attempting to parse it', async () => {
+    const res = await POST(new Request('https://nexez.test/api/billing/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    }))
+
+    expect(res.status).toBe(415)
+    expect(await res.json()).toMatchObject({ error: 'unsupported_media_type' })
+    expect(getBillingPlan).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 for malformed multipart form data', async () => {
+    const res = await POST(new Request('https://nexez.test/api/billing/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'multipart/form-data' },
+      body: 'missing-boundary',
+    }))
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'invalid_form_data' })
+    expect(getBillingPlan).not.toHaveBeenCalled()
+  })
+
+  it('rate limits before validating or parsing the request body', async () => {
+    rateLimitRef.response = NextResponse.json({ error: 'rate limited' }, { status: 429 })
+
+    const res = await POST(new Request('https://nexez.test/api/billing/checkout', { method: 'POST' }))
+
+    expect(res.status).toBe(429)
+    expect(getBillingPlan).not.toHaveBeenCalled()
   })
 
   it('redirects to login when not authenticated', async () => {

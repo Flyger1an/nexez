@@ -11,7 +11,7 @@ You are implementing the complete visual identity for nexez.ai — marketing sit
 
 1. **Never hard-code a color, shadow, blur, or radius.** Every visual value comes from a CSS custom property. If a needed token doesn't exist, add it to BOTH themes, then use it.
 2. **No multicolor gradient text.** Headlines use the tonal `--grad-text` fade only. The prism gradient appears exclusively in: 1px hairlines, readiness rings, the logo diagonal, eyebrow ticks.
-3. **Color signals meaning, never decoration.** `--signal` persimmon (`#FF6A33`) = importance / interactive / primary; `--signal-solid` (`#DC4F1E`) is the deep fill behind white button text (AA). `--ready` teal = agent-ready/positive states. `--amber` = caution / needs attention. **The platform is restrained** (mono base; persimmon reserved for importance), **the homepage is expressive**. The dashboard canvas is calmed via `.nx-dash` (neutralizes `--signal`/`--signal-solid` to `--fg`; the sidebar re-asserts persimmon on the active nav), and primary buttons read as clean neutral-inverse pills (`--fg` fill / `--bg` text — white pill in dark, black pill in light).
+3. **Color signals meaning, never decoration.** `--signal` persimmon (`#FF6A33`) = importance / interactive / primary; `--signal-solid` (`#C94719`) is the deep fill behind white button text (WCAG AA). `--ready` teal = agent-ready/positive states. `--amber` = caution / needs attention. **The platform is restrained** (mono base; persimmon reserved for importance), **the homepage is expressive**. The dashboard canvas is calmed via `.nx-dash` (neutralizes `--signal`/`--signal-solid` to `--fg`; the sidebar re-asserts persimmon on the active nav), and primary buttons read as clean neutral-inverse pills (`--fg` fill / `--bg` text — white pill in dark, black pill in light).
 4. **Respect the gloss budget.** Edge highlights, sheens, and glows are already tuned to a matte finish. Do not brighten them. New components inherit `--edge`, `--sheen`, `--card-glow` — never invent stronger ones.
 5. **Code/data wells stay dark in BOTH themes** (terminal aesthetic): background `--well`, text `--well-muted`, syntax colors fixed `#FF6A33 / #5FEAD3 / #FFD9A8`.
 6. **Every page works in both themes.** Theme = `data-theme="light"` on `<html>`; default (no attribute) is black. `flip()` toggles. Test every new component in both before shipping.
@@ -35,7 +35,7 @@ Fonts (Google Fonts): **Schibsted Grotesk** 500/600/700 (display, letter-spacing
 --raise:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.03))
 --blur-card:10px  --blur-btn:12px  --sat:125%
 --well:#0A0D13  --well-line:rgba(255,255,255,.08)  --well-muted:rgba(238,241,248,.62)
---signal:#FF6A33  --signal-solid:#DC4F1E  --ready:#5FEAD3  --amber:#FFD9A8
+--signal:#FF6A33  --signal-solid:#C94719  --ready:#5FEAD3  --amber:#FFD9A8
 --prism:linear-gradient(90deg,#FF6A33,#5FEAD3 55%,#FFD9A8)
 --sheen:rgba(255,255,255,.13)  --card-glow:rgba(255,255,255,.035)
 --btn-grad:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.025))
@@ -55,7 +55,7 @@ Fonts (Google Fonts): **Schibsted Grotesk** 500/600/700 (display, letter-spacing
 --line:rgba(13,16,22,.12)  --line-soft:rgba(13,16,22,.07)  --line-hi:rgba(13,16,22,.26)
 --edge:rgba(255,255,255,.6)  --edge-soft:rgba(255,255,255,.38)
 --raise:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.6))
---signal:#FF6A33  --signal-solid:#DC4F1E  --ready:#0E9F87  --amber:#C8862F
+--signal:#FF6A33  --signal-solid:#C94719  --ready:#0E9F87  --amber:#C8862F
 --prism:linear-gradient(90deg,#FF6A33,#15B79E 55%,#E8A94C)
 --sheen:rgba(255,255,255,.32)  --card-glow:rgba(255,106,51,.05)
 --btn-grad:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.55))

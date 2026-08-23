@@ -271,7 +271,7 @@
   background: #050505;
   border-color: var(--border);
   --signal: #FF6A33;
-  --signal-solid: #DC4F1E;
+  --signal-solid: #C94719;
 }
 /* Solid signal fills inside the calmed dashboard resolve to --fg (which flips with the
    theme), so buttons that hardcode text-white / text-zinc-950 collide in one mode. Force
@@ -1125,9 +1125,9 @@ html.light {
   --control-off-border: rgba(13,16,22,.24);
   --control-off-thumb: #FFFFFF;
   --control-thumb-shadow: 0 1px 3px rgba(13,16,22,.28);
-  --settings-emphasis: #DC4F1E;
-  --settings-emphasis-border: rgba(220,79,30,.34);
-  --settings-emphasis-fill: rgba(220,79,30,.04);
+  --settings-emphasis: #C94719;
+  --settings-emphasis-border: rgba(201,71,25,.34);
+  --settings-emphasis-fill: rgba(201,71,25,.04);
   --settings-focus: var(--control-focus);
   --settings-panel-shadow: inset 0 1px 0 var(--edge-soft);
   --danger: #B91C1C;
@@ -1548,8 +1548,8 @@ nav.glassnav.open .navsheet { display: grid; gap: .15rem; }
    lived here are gone; colors are tokens at the source now, enforced by
    `npm run lint:palette`.
    ============================================================================ */
-:root { --signal-solid: #DC4F1E; }
-html.light { --signal-solid: #DC4F1E; }
+:root { --signal-solid: #C94719; }
+html.light { --signal-solid: #C94719; }
 .bg-\[var\(--signal-solid\)\] { color: #fff; }
 
 /* ============================================================================

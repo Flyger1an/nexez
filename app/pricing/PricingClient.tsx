@@ -77,7 +77,7 @@ export default function PricingClient() {
 
                 <div>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-2xl font-semibold">{plan.name}</h3>
+                    <h2 className="text-2xl font-semibold">{plan.name}</h2>
                     {isPopular && <Star className="size-5" style={{ color: 'var(--signal)' }} />}
                   </div>
                   <p className="mt-1 text-sm text-[#9CA3AF]">{plan.blurb}</p>
@@ -134,7 +134,7 @@ export default function PricingClient() {
             <h2 id="plan-comparison-title" className="text-2xl font-semibold">Complete plan comparison</h2>
             <p className="mt-2 text-sm text-[#9CA3AF]">One allocation contract drives these rows, dashboard gates, API decisions, and database limits.</p>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" role="region" aria-label="Complete plan comparison table" tabIndex={0}>
             <table className="w-full min-w-[860px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left">
@@ -172,7 +172,8 @@ export default function PricingClient() {
                       const included = PLAN_FEATURE_MATRIX[plan.id][feature]
                       return (
                         <td key={plan.id} className="px-4 py-3 text-center">
-                          {included ? <Check className="mx-auto size-4 text-[var(--ready)]" aria-label="Included" /> : <Minus className="mx-auto size-4 text-zinc-600" aria-label="Not included" />}
+                          {included ? <Check className="mx-auto size-4 text-[var(--ready)]" aria-hidden="true" /> : <Minus className="mx-auto size-4 text-zinc-600" aria-hidden="true" />}
+                          <span className="sr-only">{included ? 'Included' : 'Not included'}</span>
                         </td>
                       )
                     })}
@@ -246,7 +247,7 @@ export default function PricingClient() {
         {/* Trust & FAQ */}
         <div className="mt-16 grid gap-8 md:grid-cols-2">
           <div>
-            <h3 className="font-semibold">Trusted by growing businesses</h3>
+            <h2 className="font-semibold">Trusted by growing businesses</h2>
             <ul className="mt-4 space-y-2 text-sm text-[#9CA3AF]">
               <li>• Secure payments powered by Stripe</li>
               <li>• Free plan with no time limit</li>
@@ -255,7 +256,7 @@ export default function PricingClient() {
             </ul>
           </div>
           <div>
-            <h3 className="font-semibold">Common questions</h3>
+            <h2 className="font-semibold">Common questions</h2>
             <div className="mt-4 space-y-4 text-sm">
               {pricingFaqs.map((faq) => (
                 <div key={faq.question}>
