@@ -109,6 +109,13 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/api/negotiations/transition')).toBe(APP_HOST)
   })
 
+  it('keeps staged buyer actions on the runtime but owner readiness on the app host', () => {
+    expect(canonicalHostFor('/api/staged-settlements/checkout')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/staged-settlements/token-1')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/staged-settlements/token-1/checkout')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/staged-settlements/agreements/agreement-1/ready')).toBe(APP_HOST)
+  })
+
   it('keeps the money + webhook + checkout/negotiate routes on the agent runtime host', () => {
     // These are buyer/Stripe/agent surfaces; pinning them guards against an
     // accidental prefix-list reshuffle that would break escrow links or webhook delivery.

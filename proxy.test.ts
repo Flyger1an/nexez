@@ -34,6 +34,7 @@ import { NextRequest } from 'next/server'
 import { proxy } from './proxy'
 import { updateSession } from './utils/supabase/middleware'
 import { createServerClient } from '@supabase/ssr'
+import { AGENT_RUNTIME_HOST, APP_HOST } from './lib/site'
 
 const request = (url: string, host: string) => new NextRequest(url, { headers: { host } })
 
@@ -62,6 +63,48 @@ describe('proxy: dual-surface APIs', () => {
       expect(updateSession).toHaveBeenCalledOnce()
     },
   )
+})
+
+describe('proxy: staged settlement host split', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    supabaseRef.respond = rows([])
+    supabaseRef.eqs = []
+  })
+
+  it('redirects buyer checkout from the app host to the agent runtime', async () => {
+    const res = await proxy(request(
+      `https://${APP_HOST}/api/staged-settlements/token-1/checkout`,
+      APP_HOST,
+    ))
+
+    expect(res.status).toBe(308)
+    expect(res.headers.get('location')).toBe(
+      `https://${AGENT_RUNTIME_HOST}/api/staged-settlements/token-1/checkout`,
+    )
+  })
+
+  it('serves buyer checkout directly on the agent runtime', async () => {
+    const res = await proxy(request(
+      `https://${AGENT_RUNTIME_HOST}/api/staged-settlements/token-1/checkout`,
+      AGENT_RUNTIME_HOST,
+    ))
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('location')).toBeNull()
+  })
+
+  it('redirects owner readiness from the runtime to the authenticated app host', async () => {
+    const res = await proxy(request(
+      `https://${AGENT_RUNTIME_HOST}/api/staged-settlements/agreements/agreement-1/ready`,
+      AGENT_RUNTIME_HOST,
+    ))
+
+    expect(res.status).toBe(308)
+    expect(res.headers.get('location')).toBe(
+      `https://${APP_HOST}/api/staged-settlements/agreements/agreement-1/ready`,
+    )
+  })
 })
 
 // Seven production runtime error groups came from a trailing encoded backslash:
