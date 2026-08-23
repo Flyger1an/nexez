@@ -5,6 +5,7 @@ import { LIVE_SUBSCRIPTION_STATUSES } from '../stripe-billing'
 import {
   buildCertificationChecks,
   buildConfigurationChecks,
+  deriveAdvancedCommerceEvidence,
   buildMarketplaceCurationCheck,
   buildOperationalChecks,
   isSettledProtocolOrder,
@@ -51,6 +52,9 @@ type OrderRow = {
   created_at: string
   updated_at: string | null
   stripe_livemode: boolean | null
+  resource_hold_id: string | null
+  staged_settlement_agreement_id: string | null
+  staged_settlement_obligation_id: string | null
 }
 type NegotiationRow = {
   id: string
@@ -105,6 +109,21 @@ type CheckoutSessionRow = {
   slug: string
   expires_at: string
   updated_at: string
+}
+type ResourcePoolRow = { id: string; status: string }
+type ResourceHoldRow = { id: string; status: string }
+type ResourceReservationRow = {
+  id: string
+  hold_id: string
+  status: string
+  checkout_order_id: string | null
+}
+type StagedSettlementAgreementRow = { id: string; status: string }
+type StagedSettlementObligationRow = {
+  id: string
+  agreement_id: string
+  status: string
+  stripe_livemode: boolean | null
 }
 
 // Counts how many billing rows are a customer's current subscription, for the ops
@@ -289,7 +308,22 @@ async function loadOperationalSources(nowIso: string) {
   const admin = createAdminClient()
   const since24h = new Date(Date.parse(nowIso) - 24 * 60 * 60_000).toISOString()
 
-  const [stripeWebhooks, checkoutEvents, orders, negotiations, billing, shopify, outboundWebhooks, rawSupport, checkoutSessions] = await Promise.all([
+  const [
+    stripeWebhooks,
+    checkoutEvents,
+    orders,
+    negotiations,
+    billing,
+    shopify,
+    outboundWebhooks,
+    rawSupport,
+    checkoutSessions,
+    resourcePools,
+    resourceHolds,
+    resourceReservations,
+    stagedSettlementAgreements,
+    stagedSettlementObligations,
+  ] = await Promise.all([
     safeSource<StripeWebhookRow>('stripe webhook ledger', async () => admin
       .from('stripe_webhook_events')
       .select('event_id,type,account,received_at')
@@ -305,7 +339,7 @@ async function loadOperationalSources(nowIso: string) {
       .returns<CheckoutEventRow[]>()),
     safeSource<OrderRow>('order ledger', async () => admin
       .from('checkout_orders')
-      .select('id,status,channel,refunded_cents,offer_name,slug,created_at,updated_at,stripe_livemode')
+      .select('id,status,channel,refunded_cents,offer_name,slug,created_at,updated_at,stripe_livemode,resource_hold_id,staged_settlement_agreement_id,staged_settlement_obligation_id')
       .order('created_at', { ascending: false })
       .limit(1_000)
       .returns<OrderRow[]>()),
@@ -347,6 +381,36 @@ async function loadOperationalSources(nowIso: string) {
       .order('expires_at', { ascending: true })
       .limit(1_000)
       .returns<CheckoutSessionRow[]>()),
+    safeSource<ResourcePoolRow>('resource pool ledger', async () => admin
+      .from('resource_pools')
+      .select('id,status')
+      .order('created_at', { ascending: false })
+      .limit(2_000)
+      .returns<ResourcePoolRow[]>()),
+    safeSource<ResourceHoldRow>('resource hold ledger', async () => admin
+      .from('resource_holds')
+      .select('id,status')
+      .order('created_at', { ascending: false })
+      .limit(2_000)
+      .returns<ResourceHoldRow[]>()),
+    safeSource<ResourceReservationRow>('resource reservation ledger', async () => admin
+      .from('resource_reservations')
+      .select('id,hold_id,status,checkout_order_id')
+      .order('created_at', { ascending: false })
+      .limit(2_000)
+      .returns<ResourceReservationRow[]>()),
+    safeSource<StagedSettlementAgreementRow>('staged settlement agreement ledger', async () => admin
+      .from('staged_settlement_agreements')
+      .select('id,status')
+      .order('created_at', { ascending: false })
+      .limit(2_000)
+      .returns<StagedSettlementAgreementRow[]>()),
+    safeSource<StagedSettlementObligationRow>('staged settlement obligation ledger', async () => admin
+      .from('staged_settlement_obligations')
+      .select('id,agreement_id,status,stripe_livemode')
+      .order('created_at', { ascending: false })
+      .limit(5_000)
+      .returns<StagedSettlementObligationRow[]>()),
   ])
 
   // Paid support routing is a live entitlement, never a client-controlled
@@ -354,7 +418,22 @@ async function loadOperationalSources(nowIso: string) {
   // effect immediately and direct metadata writes cannot jump the queue.
   const support = await routeCurrentSupportQueue(admin, rawSupport)
 
-  return { stripeWebhooks, checkoutEvents, orders, negotiations, billing, shopify, outboundWebhooks, support, checkoutSessions }
+  return {
+    stripeWebhooks,
+    checkoutEvents,
+    orders,
+    negotiations,
+    billing,
+    shopify,
+    outboundWebhooks,
+    support,
+    checkoutSessions,
+    resourcePools,
+    resourceHolds,
+    resourceReservations,
+    stagedSettlementAgreements,
+    stagedSettlementObligations,
+  }
 }
 
 async function routeCurrentSupportQueue(
@@ -402,6 +481,11 @@ function emptySources() {
     outboundWebhooks: unavailable<OutboundWebhookRow>(),
     support: unavailable<RoutedSupportRow>(),
     checkoutSessions: unavailable<CheckoutSessionRow>(),
+    resourcePools: unavailable<ResourcePoolRow>(),
+    resourceHolds: unavailable<ResourceHoldRow>(),
+    resourceReservations: unavailable<ResourceReservationRow>(),
+    stagedSettlementAgreements: unavailable<StagedSettlementAgreementRow>(),
+    stagedSettlementObligations: unavailable<StagedSettlementObligationRow>(),
   }
 }
 
@@ -418,6 +502,11 @@ function sourceAvailability(sources: OperationalSources): LaunchSourceAvailabili
     outboundWebhooks: sources.outboundWebhooks.available,
     support: sources.support.available,
     checkoutSessions: sources.checkoutSessions.available,
+    resourcePools: sources.resourcePools.available,
+    resourceHolds: sources.resourceHolds.available,
+    resourceReservations: sources.resourceReservations.available,
+    stagedSettlementAgreements: sources.stagedSettlementAgreements.available,
+    stagedSettlementObligations: sources.stagedSettlementObligations.available,
   }
 }
 
@@ -439,6 +528,14 @@ function buildMetrics(
   const billing = sources.billing.rows
   const shopify = sources.shopify.rows.filter((row) => !row.uninstalled_at)
   const outbound = sources.outboundWebhooks.rows.filter((row) => row.active)
+  const advancedCommerce = deriveAdvancedCommerceEvidence({
+    orders,
+    resourcePools: sources.resourcePools.rows,
+    resourceHolds: sources.resourceHolds.rows,
+    resourceReservations: sources.resourceReservations.rows,
+    stagedSettlementAgreements: sources.stagedSettlementAgreements.rows,
+    stagedSettlementObligations: sources.stagedSettlementObligations.rows,
+  })
 
   return {
     stripeWebhookEvents: stripeWebhooks.length,
@@ -475,6 +572,7 @@ function buildMetrics(
     failedOutboundWebhooks: outbound.filter((row) => isFailedDelivery(row.last_status)).length,
     urgentSupportTickets: sources.support.rows.filter((row) => row.priority === 'urgent').length,
     expiredCheckoutSessions: sources.checkoutSessions.rows.filter((row) => timestamp(row.expires_at) < now).length,
+    ...advancedCommerce,
   }
 }
 

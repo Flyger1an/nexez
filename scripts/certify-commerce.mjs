@@ -204,4 +204,6 @@ function printManualChecks() {
   console.log('4. Negotiation: propose, approve, fund, capture, reconcile, and confirm buyer/seller notifications.')
   console.log('5. Price sync: update a certification Price and verify exactly one listing update plus audit event.')
   console.log('6. Protocol checkout: complete one ACP and one UCP session, replay each request, and verify one order per idempotency key.')
+  console.log('7. Reservable resource: expire one unpurchased hold, settle one fresh hold, and verify the live order, committed hold, and reservation linkage.')
+  console.log('8. Staged settlement: approve and pay each obligation separately, then verify every live order link and the completed agreement.')
 }

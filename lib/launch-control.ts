@@ -44,6 +44,11 @@ export type LaunchSourceAvailability = {
   outboundWebhooks: boolean
   support: boolean
   checkoutSessions: boolean
+  resourcePools: boolean
+  resourceHolds: boolean
+  resourceReservations: boolean
+  stagedSettlementAgreements: boolean
+  stagedSettlementObligations: boolean
 }
 
 export type LaunchMetrics = {
@@ -86,7 +91,71 @@ export type LaunchMetrics = {
   failedOutboundWebhooks: number
   urgentSupportTickets: number
   expiredCheckoutSessions: number
+  resourcePoolsConfigured: number
+  resourceHoldsOpen: number
+  resourceHoldsExpired: number
+  resourceHoldsFailed: number
+  resourceHoldsCancelled: number
+  resourceSettlements: number
+  stagedSettlementAgreements: number
+  stagedSettlementAgreementsOpen: number
+  stagedSettlementObligationsPaid: number
+  stagedSettlementSettlements: number
+  stagedSettlementFailures: number
 }
+
+export type AdvancedCommerceOrderEvidence = {
+  id: string
+  status: string
+  channel: string | null
+  stripe_livemode: boolean | null
+  resource_hold_id: string | null
+  staged_settlement_agreement_id: string | null
+  staged_settlement_obligation_id: string | null
+}
+
+export type ResourcePoolEvidence = {
+  id: string
+  status: string
+}
+
+export type ResourceHoldEvidence = {
+  id: string
+  status: string
+}
+
+export type ResourceReservationEvidence = {
+  id: string
+  hold_id: string
+  status: string
+  checkout_order_id: string | null
+}
+
+export type StagedSettlementAgreementEvidence = {
+  id: string
+  status: string
+}
+
+export type StagedSettlementObligationEvidence = {
+  id: string
+  agreement_id: string
+  status: string
+  stripe_livemode: boolean | null
+}
+
+export type AdvancedCommerceEvidence = Pick<LaunchMetrics,
+  | 'resourcePoolsConfigured'
+  | 'resourceHoldsOpen'
+  | 'resourceHoldsExpired'
+  | 'resourceHoldsFailed'
+  | 'resourceHoldsCancelled'
+  | 'resourceSettlements'
+  | 'stagedSettlementAgreements'
+  | 'stagedSettlementAgreementsOpen'
+  | 'stagedSettlementObligationsPaid'
+  | 'stagedSettlementSettlements'
+  | 'stagedSettlementFailures'
+>
 
 export type LaunchIncident = {
   id: string
@@ -162,6 +231,78 @@ export function isSettledProtocolOrder(order: {
   return order.stripe_livemode != null
     && (order.channel === 'acp' || order.channel === 'ucp')
     && SETTLED_ORDER_STATUSES.has(order.status)
+}
+
+export function deriveAdvancedCommerceEvidence(input: {
+  orders: AdvancedCommerceOrderEvidence[]
+  resourcePools: ResourcePoolEvidence[]
+  resourceHolds: ResourceHoldEvidence[]
+  resourceReservations: ResourceReservationEvidence[]
+  stagedSettlementAgreements: StagedSettlementAgreementEvidence[]
+  stagedSettlementObligations: StagedSettlementObligationEvidence[]
+}): AdvancedCommerceEvidence {
+  const settledLiveOrders = input.orders.filter((order) => (
+    order.stripe_livemode === true && SETTLED_ORDER_STATUSES.has(order.status)
+  ))
+  const resourceOrdersByHold = new Map(
+    settledLiveOrders
+      .filter((order) => order.channel === 'reservable_resource' && order.resource_hold_id)
+      .map((order) => [order.resource_hold_id as string, order]),
+  )
+  const committedHoldIds = new Set(
+    input.resourceHolds.filter((hold) => hold.status === 'committed').map((hold) => hold.id),
+  )
+  const provenReservationIds = new Set(
+    input.resourceReservations
+      .filter((reservation) => {
+        if (!['committed', 'fulfilled'].includes(reservation.status) || !reservation.checkout_order_id) return false
+        if (!committedHoldIds.has(reservation.hold_id)) return false
+        const order = resourceOrdersByHold.get(reservation.hold_id)
+        return order?.id === reservation.checkout_order_id
+      })
+      .map((reservation) => reservation.id),
+  )
+
+  const stagedOrdersByObligation = new Map(
+    settledLiveOrders
+      .filter((order) => (
+        order.channel === 'staged_settlement'
+        && order.staged_settlement_agreement_id
+        && order.staged_settlement_obligation_id
+      ))
+      .map((order) => [order.staged_settlement_obligation_id as string, order]),
+  )
+  const obligationsByAgreement = new Map<string, StagedSettlementObligationEvidence[]>()
+  for (const obligation of input.stagedSettlementObligations) {
+    const obligations = obligationsByAgreement.get(obligation.agreement_id) ?? []
+    obligations.push(obligation)
+    obligationsByAgreement.set(obligation.agreement_id, obligations)
+  }
+  const fullyProvenAgreements = input.stagedSettlementAgreements.filter((agreement) => {
+    if (agreement.status !== 'complete') return false
+    const obligations = obligationsByAgreement.get(agreement.id) ?? []
+    return obligations.length > 0 && obligations.every((obligation) => {
+      if (obligation.status !== 'paid' || obligation.stripe_livemode !== true) return false
+      const order = stagedOrdersByObligation.get(obligation.id)
+      return order?.staged_settlement_agreement_id === agreement.id
+    })
+  })
+
+  return {
+    resourcePoolsConfigured: input.resourcePools.filter((pool) => pool.status === 'active').length,
+    resourceHoldsOpen: input.resourceHolds.filter((hold) => ['active', 'payment_pending'].includes(hold.status)).length,
+    resourceHoldsExpired: input.resourceHolds.filter((hold) => hold.status === 'expired').length,
+    resourceHoldsFailed: input.resourceHolds.filter((hold) => hold.status === 'failed').length,
+    resourceHoldsCancelled: input.resourceHolds.filter((hold) => hold.status === 'cancelled').length,
+    resourceSettlements: provenReservationIds.size,
+    stagedSettlementAgreements: input.stagedSettlementAgreements.length,
+    stagedSettlementAgreementsOpen: input.stagedSettlementAgreements.filter((agreement) => ['pending', 'active'].includes(agreement.status)).length,
+    stagedSettlementObligationsPaid: input.stagedSettlementObligations.filter((obligation) => (
+      obligation.status === 'paid' && obligation.stripe_livemode === true
+    )).length,
+    stagedSettlementSettlements: fullyProvenAgreements.length,
+    stagedSettlementFailures: input.stagedSettlementAgreements.filter((agreement) => ['cancelled', 'disputed'].includes(agreement.status)).length,
+  }
 }
 
 export function buildConfigurationChecks(input: LaunchConfigurationInput): LaunchCheck[] {
@@ -563,6 +704,36 @@ export function buildCertificationChecks(
           : 'attention',
       required: false,
       action: 'Replace a certification Product default Price and confirm the linked offer and checkout audit event change once.',
+    },
+    {
+      id: 'cert-reservable-resource',
+      label: 'Reservable resource lifecycle',
+      detail: 'A resource settlement requires one live order, committed hold, and linked reservation with the same authority chain.',
+      evidence: sources.orders && sources.resourcePools && sources.resourceHolds && sources.resourceReservations
+        ? `${metrics.resourcePoolsConfigured} active pools; ${metrics.resourceHoldsOpen} open holds; ${metrics.resourceSettlements} proven settlements; ${metrics.resourceHoldsExpired} expired; ${metrics.resourceHoldsFailed} failed; ${metrics.resourceHoldsCancelled} cancelled.`
+        : 'Reservable resource evidence is unavailable.',
+      status: !sources.orders || !sources.resourcePools || !sources.resourceHolds || !sources.resourceReservations
+        ? 'unknown'
+        : metrics.resourceSettlements > 0
+          ? 'ready'
+          : 'attention',
+      required: false,
+      action: 'Run one low-value reservable checkout, then confirm the live order, committed hold, reservation, and replay-safe linkage.',
+    },
+    {
+      id: 'cert-staged-settlement',
+      label: 'Staged settlement lifecycle',
+      detail: 'A staged agreement is proven only when every obligation is live-paid and linked to its own settled order.',
+      evidence: sources.orders && sources.stagedSettlementAgreements && sources.stagedSettlementObligations
+        ? `${metrics.stagedSettlementAgreements} agreements; ${metrics.stagedSettlementAgreementsOpen} open; ${metrics.stagedSettlementSettlements} fully proven; ${metrics.stagedSettlementObligationsPaid} live-paid obligations; ${metrics.stagedSettlementFailures} cancelled or disputed.`
+        : 'Staged settlement evidence is unavailable.',
+      status: !sources.orders || !sources.stagedSettlementAgreements || !sources.stagedSettlementObligations
+        ? 'unknown'
+        : metrics.stagedSettlementSettlements > 0
+          ? 'ready'
+          : 'attention',
+      required: false,
+      action: 'Complete one low-value staged agreement with fresh approval for every obligation, then confirm every live order link.',
     },
     {
       id: 'cert-protocol',
