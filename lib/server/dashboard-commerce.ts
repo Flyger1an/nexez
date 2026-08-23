@@ -14,7 +14,7 @@ import {
 
 export const DASHBOARD_COMMERCE_LIMIT = 25
 
-const CHECKOUT_SELECT = [
+export const CHECKOUT_COMMERCE_SELECT = [
   'id',
   'offer_name',
   'amount_cents',
@@ -31,7 +31,7 @@ const CHECKOUT_SELECT = [
   'updated_at',
 ].join(',')
 
-const NEGOTIATED_SELECT = [
+export const NEGOTIATED_COMMERCE_SELECT = [
   'id',
   'offer_name',
   'amount_cents',
@@ -95,11 +95,11 @@ export async function loadDashboardCommerce(
 
   let checkoutQuery = supabase
     .from('checkout_orders')
-    .select(CHECKOUT_SELECT, { count: 'exact' })
+    .select(CHECKOUT_COMMERCE_SELECT, { count: 'exact' })
     .eq('owner_id', ownerId)
   let negotiatedQuery = supabase
     .from('agent_negotiations')
-    .select(NEGOTIATED_SELECT, { count: 'exact' })
+    .select(NEGOTIATED_COMMERCE_SELECT, { count: 'exact' })
     .eq('owner_id', ownerId)
 
   if (filters.q) {

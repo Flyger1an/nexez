@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import {
+  AlertTriangle,
   ArrowRight,
+  ClipboardList,
   CircleDollarSign,
   Filter,
   Handshake,
@@ -14,7 +16,13 @@ import { SurfaceHeader } from '../../../components/dashboard/SurfacePrimitives'
 import { DataLoadNotice } from '../../../components/dashboard/DataLoadNotice'
 import { EmptyState } from '../../../components/EmptyState'
 import { formatCurrencyAmount } from '../../../lib/currency'
+import type { CommerceActionRecord } from '../../../lib/commerce-actions'
 import type { CommerceRecord, CommerceStatus, CommerceTone } from '../../../lib/commerce-record'
+import {
+  DASHBOARD_COMMERCE_ACTION_LIMIT,
+  loadDashboardCommerceActions,
+  type DashboardCommerceActionResult,
+} from '../../../lib/server/dashboard-commerce-actions'
 import {
   DASHBOARD_COMMERCE_LIMIT,
   loadDashboardCommerce,
@@ -42,8 +50,12 @@ export default async function CommercePage({ searchParams }: CommercePageProps) 
     )
   }
 
-  const result = await loadDashboardCommerce(supabase, user.id, rawFilters)
+  const [result, actionResult] = await Promise.all([
+    loadDashboardCommerce(supabase, user.id, rawFilters),
+    loadDashboardCommerceActions(supabase, user.id),
+  ])
   const hasFilters = Boolean(result.filters.q || result.filters.rail || result.filters.currency)
+  const issues = [...new Set([...result.issues, ...actionResult.issues])]
 
   return (
     <main data-testid="commerce-dashboard" className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
@@ -67,12 +79,16 @@ export default async function CommercePage({ searchParams }: CommercePageProps) 
             <>
               <Metric label="Checkout orders" value={formatRailCount(result.checkoutCount, result.filters.rail === 'negotiated')} />
               <Metric label="Negotiated records" value={formatRailCount(result.negotiatedCount, result.filters.rail === 'checkout')} />
+              <Metric label="Visible actions" value={String(actionResult.actions.length)} />
+              <Metric label="Visible urgent" value={String(actionResult.urgentCount)} />
               <Metric label="Source of truth" value="Native ledgers" />
             </>
           )}
         />
 
-        <DataLoadNotice issues={result.issues} />
+        <DataLoadNotice issues={issues} />
+
+        <CommerceActionQueue result={actionResult} />
 
         <section className="mt-6 rounded-[var(--r-card)] border border-[var(--line-soft)] bg-[var(--glass)] p-4 sm:p-5">
           <div className="flex items-start gap-3">
@@ -136,6 +152,89 @@ export default async function CommercePage({ searchParams }: CommercePageProps) 
         )}
       </div>
     </main>
+  )
+}
+
+function CommerceActionQueue({ result }: { result: DashboardCommerceActionResult }) {
+  return (
+    <section aria-labelledby="commerce-action-queue" className="mt-6 overflow-hidden rounded-[var(--r-card)] border border-[var(--line-soft)] bg-[var(--glass)]">
+      <div className="flex flex-col gap-4 border-b border-[var(--line-soft)] p-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <ClipboardList className="mt-0.5 size-5 shrink-0 text-[var(--settings-emphasis)]" aria-hidden="true" />
+          <div>
+            <h2 id="commerce-action-queue" className="font-medium text-[var(--fg)]">Merchant action queue</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
+              Prioritized from disputes, unresolved buyer requests, recorded fulfillment work, and canonical negotiation states. Every action opens the workspace that owns the underlying record.
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2 text-xs">
+          <span className="rounded-full border border-[var(--line-soft)] bg-[var(--fill-1)] px-3 py-1.5 text-[var(--fg-muted)]">
+            {result.actions.length} visible
+          </span>
+          {result.urgentCount ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-400/10 px-3 py-1.5 text-red-300">
+              <AlertTriangle className="size-3.5" aria-hidden="true" /> {result.urgentCount} urgent
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      {result.actions.length ? (
+        <div className="divide-y divide-[var(--line-soft)]">
+          {result.actions.map((action) => <CommerceActionRow key={action.key} action={action} />)}
+        </div>
+      ) : (
+        <div className="p-6">
+          <p className="font-medium text-[var(--fg)]">
+            {result.issues.length ? 'No actions surfaced from the available sources' : 'No merchant actions need attention'}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-[var(--fg-muted)]">
+            {result.issues.length
+              ? 'One or more action sources could not be checked. The notice above identifies the unavailable evidence.'
+              : 'New actions appear only when a native commerce record provides an actionable state.'}
+          </p>
+        </div>
+      )}
+
+      {result.isTruncated ? (
+        <p className="border-t border-[var(--line-soft)] px-5 py-3 text-xs leading-5 text-[var(--fg-muted-2)]">
+          Showing the {DASHBOARD_COMMERCE_ACTION_LIMIT} highest-priority actions from bounded source reads. Open the native order or negotiation workspace for its complete queue.
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
+function CommerceActionRow({ action }: { action: CommerceActionRecord }) {
+  const record = action.record
+  return (
+    <Link href={record.href} className="group grid gap-4 p-5 hover:bg-[var(--fill-1)] lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_auto] lg:items-center">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${action.urgent ? 'border-red-400/30 bg-red-400/10 text-red-300' : 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]'}`}>
+            {action.primaryAction.label}
+          </span>
+          <span className="text-xs text-[var(--fg-muted-2)]">{record.railLabel} · {modeLabel(record.mode)}</span>
+        </div>
+        <p className="mt-3 truncate font-medium text-[var(--fg)]">{record.offerName}</p>
+        <p className="mt-1 truncate text-sm text-[var(--fg-muted)]">{record.buyerLabel}</p>
+      </div>
+      <div>
+        <p className="text-sm leading-6 text-[var(--fg-muted)]">{action.primaryAction.detail}</p>
+        {action.actions.length > 1 ? (
+          <p className="mt-1 text-xs text-[var(--fg-muted-2)]">
+            +{action.actions.length - 1} additional action {action.actions.slice(1).map((item) => item.label.toLowerCase()).join(', ')}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex items-center justify-between gap-4 lg:justify-end">
+        <span className="text-xs text-[var(--fg-muted-2)]">Updated {formatDate(action.primaryAction.updatedAt)}</span>
+        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--line-soft)] text-[var(--fg-muted)] group-hover:border-[var(--settings-focus)] group-hover:text-[var(--fg)]">
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </span>
+      </div>
+    </Link>
   )
 }
 
