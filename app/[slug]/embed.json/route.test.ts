@@ -66,7 +66,7 @@ describe('GET /[slug]/embed.json', () => {
     const froms = body.redirects.map((r: { from: string }) => r.from)
     expect(froms).toContain('/.well-known/agent.json')
     expect(froms).toContain('/llms.txt')
-    // metaHint is a template only — never a real token.
+    // metaHint is a template only - never a real token.
     expect(body.metaHint).toContain('YOUR_VERIFICATION_TOKEN')
   })
 

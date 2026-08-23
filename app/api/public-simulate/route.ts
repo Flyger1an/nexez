@@ -284,7 +284,7 @@ function understoodRequestLabel(query: string): string {
 }
 
 function coverageGapAnswer(label: string): string {
-  return `Nexez understood your request as “${label}.” It checked the live marketplace and Commerce Library, but coverage for this category is still growing. Your intent stays intact—Nexez won’t redirect you to an unrelated service.`
+  return `Nexez understood your request as “${label}.” It checked the live marketplace and Commerce Library, but coverage for this category is still growing. Your intent stays intact, Nexez won’t redirect you to an unrelated service.`
 }
 
 function coverageGapActions(label: string): string[] {
@@ -318,7 +318,7 @@ function simulationPayload(query: string) {
   return {
     active: true,
     source: 'commerce-library' as const,
-    label: 'SIMULATION — no matching live Nexez provider found',
+    label: 'SIMULATION - no matching live Nexez provider found',
     disclaimer: 'This Commerce Library scenario is reference behavior, not a real merchant, available inventory, price, or booking.',
     candidate: {
       ordinal: candidate.ordinal,

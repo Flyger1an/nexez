@@ -3,6 +3,7 @@ import PricingClient from './PricingClient'
 import { marketingUrl } from '../../lib/site'
 import { pricingFaqs } from '../../lib/marketing-content'
 import { buildPlansAggregateOffer } from '../../lib/platform-agent-manifest'
+import { safeJsonScript } from '../../lib/safe-json'
 
 // Server shell so /pricing gets its own SERP title/description + canonical/OG
 // (the interactive pricing UI lives in PricingClient). The root layout applies
@@ -48,7 +49,7 @@ export default function PricingPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingStructuredData).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: safeJsonScript(pricingStructuredData) }}
       />
       <PricingClient />
     </>

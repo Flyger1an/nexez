@@ -59,7 +59,7 @@ function fakeStripe(impl?: (params: any, options: any) => any) {
   return stripe
 }
 
-describe('settlement bridge — happy path', () => {
+describe('settlement bridge - happy path', () => {
   it.each([
     ['free', 900, 10800],
     ['launch', 700, 8400],
@@ -202,7 +202,7 @@ describe('settlement bridge — happy path', () => {
   })
 })
 
-describe('settlement bridge — guards (never charge)', () => {
+describe('settlement bridge - guards (never charge)', () => {
   it('refuses a not-ready session and never calls Stripe', async () => {
     const stripe = fakeStripe()
     // A negotiable offer keeps the session pending.
@@ -232,7 +232,7 @@ describe('settlement bridge — guards (never charge)', () => {
   })
 })
 
-describe('settlement bridge — Stripe failures', () => {
+describe('settlement bridge - Stripe failures', () => {
   it('maps a thrown Stripe error to stripe_error with its message', async () => {
     const stripe = fakeStripe(() => {
       throw new Error('card_declined')
@@ -274,7 +274,7 @@ function fakeAdmin(opts: { platformAdmin?: boolean; sub?: Record<string, unknown
   } as any
 }
 
-describe('resolveSettlementContext — lifted account gates', () => {
+describe('resolveSettlementContext - lifted account gates', () => {
   const CONNECTED = {
     plan_id: 'pro',
     status: 'active',

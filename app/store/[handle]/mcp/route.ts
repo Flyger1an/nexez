@@ -20,7 +20,7 @@ async function load(handle: string) {
   const resolved = await loadStorefrontByHandle(handle)
   if (!resolved) return null
   // loadStorefrontByHandle already returns listings:[] for a billing-paused
-  // owner — consume it verbatim; never re-query pages (that would leak paused
+  // owner - consume it verbatim; never re-query pages (that would leak paused
   // listings). Negotiation is owner-level, so resolve once (not per listing).
   const anyNegotiable = resolved.listings.some((p) =>
     getCheckoutOffers(p).some((o) => (o as { offerType?: string }).offerType === 'negotiable'),

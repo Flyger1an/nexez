@@ -108,7 +108,7 @@ const APP_API_PREFIXES = [
   '/api/usage',
   '/api/verify-custom-domain',
   // The Shopify app is configured (OAuth, App Proxy, webhooks) entirely on the app
-  // host, so Shopify's webhook deliveries must resolve to APP_HOST — otherwise the
+  // host, so Shopify's webhook deliveries must resolve to APP_HOST - otherwise the
   // canonical /api/webhooks prefix (agent runtime) 308s them, and Shopify does NOT
   // follow redirects (mandatory app/uninstalled + GDPR webhooks would fail). Listed
   // here so the app check wins over the /api/webhooks agent-runtime prefix; the

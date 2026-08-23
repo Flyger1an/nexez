@@ -6,7 +6,7 @@ import { BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT, SERVER_PAGE_SELECT } from '
 // SEV1 GUARD (inverse of pages-public-parity): owner/server surfaces select
 // OWNER_PAGE_SELECT / SERVER_PAGE_SELECT against the BASE `pages` table under
 // RLS. If a column lands in those selects without a migration adding it to
-// `public.pages`, PostgREST 42703s and every owner read fails — dashboard,
+// `public.pages`, PostgREST 42703s and every owner read fails - dashboard,
 // listings, PagesManager degrade to the basic select and dashboard/settings
 // rendered EMPTY for ~11 days when `marketplace_discoverable` was added to
 // PUBLIC_PAGE_COLUMNS but only migrated onto pages_public (20260721160006,

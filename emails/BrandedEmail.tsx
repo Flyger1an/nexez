@@ -24,7 +24,7 @@ import { BRAND, styles, TONE } from './theme'
  */
 // Static MSO ghost-table wrappers. Outlook's Word engine ignores CSS max-width, so
 // these conditional comments cap the layout at 560px there. The content is PURE STATIC
-// markup (never any user input) — conditional comments can't be emitted any other way
+// markup (never any user input) - conditional comments can't be emitted any other way
 // from react-email, so this is the one sanctioned use of dangerouslySetInnerHTML here.
 const MSO_OPEN = '<!--[if mso]><table role="presentation" align="center" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td width="560"><![endif]-->'
 const MSO_CLOSE = '<!--[if mso]></td></tr></table><![endif]-->'
@@ -48,7 +48,7 @@ export function BrandedEmail({ preview, children }: { preview: string; children:
           <Hr style={styles.footerRule} />
           <Section style={styles.footer}>
             <Text style={styles.footerText}>
-              Nexez — where AI agents discover, book, and buy from your business.
+              Nexez - where AI agents discover, book, and buy from your business.
             </Text>
             <Text style={styles.footerText}>
               © {year} Nexez · <Link href="mailto:support@nexez.ai" style={styles.footerLink}>support@nexez.ai</Link>
@@ -91,7 +91,7 @@ export function InfoRows({ rows }: { rows: Array<[string, string | null | undefi
   )
 }
 
-/** Primary CTA — always periwinkle (brand) with white text. */
+/** Primary CTA - always periwinkle (brand) with white text. */
 export function PrimaryButton({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Button href={href} style={styles.button}>

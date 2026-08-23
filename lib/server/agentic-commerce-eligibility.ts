@@ -115,7 +115,7 @@ export async function ucpCheckoutEligibleSlugs(slugs: string[]): Promise<Set<str
 }
 
 /** Per-surface program flags the merchant card reads. ChatGPT (ACP) and Google (UCP)
- *  enroll independently and go live at different times, so they are reported separately —
+ *  enroll independently and go live at different times, so they are reported separately -
  *  the card must never claim a surface is live when only the OTHER one is on. */
 export function agenticProgramFlags(): { chatgptLive: boolean; googleLive: boolean } {
   return { chatgptLive: acpCheckoutEnabled(), googleLive: ucpCheckoutEnabled() }

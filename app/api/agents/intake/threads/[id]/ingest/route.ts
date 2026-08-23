@@ -55,7 +55,7 @@ function buildIntegrationInput(provider: string, body: Record<string, unknown>):
  * facts always win) and gaps re-analyze in place.
  *
  * Integration sources pull the seller's OWN live catalog (Calendly/Shopify/
- * Square/Acuity) via the shared importers — Pro-gated like the manual import
+ * Square/Acuity) via the shared importers - Pro-gated like the manual import
  * routes, and REAL offers only (a failed fetch is an error, never sample data,
  * so the interview never folds invented offers into the draft).
  */
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const pageId = (row as { page_id?: string | null }).page_id ?? undefined
 
     // Authorize FIRST (Pro on the effective owner: re-interview → the page owner;
-    // new draft → self) — before touching any stored secret or external API.
+    // new draft → self) - before touching any stored secret or external API.
     const gate = await gateIntegrationImport({
       supabase,
       user,
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } else {
     source = { id: sourceId, kind: 'text', value: text.slice(0, 20_000), label: 'Pasted text', addedAt: nowIso }
     try {
-      // Pasted text rides the importer's LLM offer extractor (best-effort — []
+      // Pasted text rides the importer's LLM offer extractor (best-effort - []
       // without a configured LLM; the interview simply asks instead).
       const offers = aiAllowed ? await llmExtractOffers(text) : []
       extraction = { sourceId, offers, clarifyingQuestions: null }

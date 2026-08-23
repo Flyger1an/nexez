@@ -3,7 +3,7 @@ import crypto from 'crypto'
 
 // Encryption-at-rest for stored third-party credentials (e.g. a per-page
 // Calendly PAT that the future write-side calendar-blocking will use). A DB
-// dump or backup leak must not expose a usable token — so these are AES-256-GCM
+// dump or backup leak must not expose a usable token - so these are AES-256-GCM
 // encrypted with a key that lives ONLY in the deployment env, never in the DB.
 //
 // Key: INTEGRATION_SECRET_KEY, a 32-byte key as 64 hex chars or base64. Absent →
@@ -53,7 +53,7 @@ export function decryptSecret(payload: string | null | undefined): string | null
     const enc = Buffer.from(parts[2]!, 'base64')
     const tag = Buffer.from(parts[3]!, 'base64')
     // GCM: a 12-byte IV and a full 16-byte (128-bit) auth tag. Reject anything
-    // else up front — a short/forged tag is a tamper attempt, not a real payload.
+    // else up front - a short/forged tag is a tamper attempt, not a real payload.
     if (iv.length !== 12 || tag.length !== 16) return null
     const decipher = crypto.createDecipheriv(ALGO, key, iv, { authTagLength: 16 })
     decipher.setAuthTag(tag)

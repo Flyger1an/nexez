@@ -9,7 +9,7 @@ import type { ReviewSummary } from './reviews'
  * schema.org JSON-LD for a listing (WebPage → Organization → makesOffer[Offer]).
  * Extracted verbatim from app/[slug]/page.tsx so the public page AND the
  * Agent-Ready Kit (the copy-paste block merchants embed on their OWN site)
- * emit the exact same structured data. Pure — safe to snapshot-test.
+ * emit the exact same structured data. Pure - safe to snapshot-test.
  */
 export function buildJsonLd(
   page: AgentPage,
@@ -31,7 +31,7 @@ export function buildJsonLd(
     const useOriginal = perOfferPrefer || (pagePrefer && !!item.url)
     const effectiveUrl = useOriginal && item.url ? item.url : `${baseUrl}${getCheckoutPath(page.slug, kind, index)}`
     // schema.org Offer.price must be NUMERIC ("1200" not "$1,200") to qualify for
-    // rich results — same parse the settlement core uses, so the advertised number
+    // rich results - same parse the settlement core uses, so the advertised number
     // can't diverge from what checkout charges. Unparsable prices ("Contact us",
     // negotiable) omit price entirely rather than emit an invalid value.
     const numericPrice = parseMoney(item.price)

@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { ArticleRenderer } from '../../../components/learn/ArticleRenderer'
 import { getLearnArticle, learnArticles } from '../../../lib/learn-content'
 import { marketingUrl } from '../../../lib/site'
+import { safeJsonScript } from '../../../lib/safe-json'
 
 type ArticleProps = { params: Promise<{ slug: string }> }
 
@@ -72,7 +73,7 @@ export default async function LearnArticlePage({ params }: ArticleProps) {
     <main className="min-h-screen">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: safeJsonScript(structuredData) }}
       />
       <article className="mx-auto max-w-3xl px-5 py-14 md:py-20">
         <a href="/learn" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-[var(--fg)]">

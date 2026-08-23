@@ -44,7 +44,7 @@ export type AcpFeedOptions = {
   /** The PER-SELLER gate: the set of slugs whose owner has a charge-ready Stripe
    * Connect account. When provided, only these slugs can be
    * checkout-eligible; when omitted, no per-seller gate is applied (the route always
-   * supplies a set — fail-closed — whenever `checkoutEnabled` is true). */
+   * supplies a set - fail-closed - whenever `checkoutEnabled` is true). */
   checkoutEligibleSlugs?: Set<string>
   /** ISO 3166-1 alpha-2. Scoping kept from the ACP checkout era; the ChatGPT
    * checkout surface was retired in March 2026 and the feed is discovery-only. */

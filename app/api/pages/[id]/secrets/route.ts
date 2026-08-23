@@ -80,7 +80,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     if (key in body) values[key] = body[key]
   }
 
-  // Calendly PAT: a powerful write-scope credential — encrypt at rest (the
+  // Calendly PAT: a powerful write-scope credential - encrypt at rest (the
   // ciphertext column is service-role-read-only) and NEVER echo it back. An
   // empty value clears the stored token.
   if ('calendly_pat' in body) {
@@ -104,7 +104,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }
   }
 
-  // Shopify connection ({shop, token}) — same encrypted-at-rest, service-role-only
+  // Shopify connection ({shop, token}) - same encrypted-at-rest, service-role-only
   // model as the Calendly PAT, stored as one JSON blob so a re-sync never
   // re-prompts. Empty shop OR token clears the connection.
   if ('shopify_credentials' in body) {
@@ -123,7 +123,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }
   }
 
-  // Square {accessToken} + Acuity {userId, apiKey} — same encrypted-at-rest,
+  // Square {accessToken} + Acuity {userId, apiKey} - same encrypted-at-rest,
   // service-role-only model. Any empty required field clears the connection.
   for (const [key, col, fields] of [
     ['square_credentials', 'square_credentials_encrypted', ['accessToken']],

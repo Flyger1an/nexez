@@ -44,7 +44,7 @@ describe('route-sync guard', () => {
 describe('buildDuplicatePayload slug minting', () => {
   it('normal names are unaffected and collisions suffix deterministically', () => {
     const page = { name: 'Learn', slug: 'learn-x' } as AgentPage
-    // base = 'learn-copy' — the '-copy' suffix means a duplicate base can never
+    // base = 'learn-copy' - the '-copy' suffix means a duplicate base can never
     // itself BE a reserved word; the isReservedSlug guard in the mint loop is
     // defense-in-depth for future base changes.
     expect(buildDuplicatePayload(page, 'owner-1', []).slug).toBe('learn-copy')

@@ -1,13 +1,13 @@
 -- Deferred-hardening (c): a custom_domain may be claimed by AT MOST ONE account.
 -- Two DIFFERENT owners holding the same custom_domain produced ambiguous proxy
 -- resolution + cross-tenant Vercel attach/remove. A plain global-UNIQUE index is WRONG
--- here — multi-page custom domains (a real feature) legitimately put the SAME
+-- here - multi-page custom domains (a real feature) legitimately put the SAME
 -- custom_domain on several of the SAME owner's pages (distinguished by domain_path).
 -- So enforce "one domain -> one owner" with a trigger: block a DIFFERENT owner from
 -- claiming a domain another account already holds, while letting the owner reuse it
 -- across their own pages. The proxy already only serves a custom domain whose
 -- custom_domain_verified is set (DNS-TXT ownership proof), so this closes the remaining
--- collision/attach surface. (An UNVERIFIED stale claim still blocks a later real owner —
+-- collision/attach surface. (An UNVERIFIED stale claim still blocks a later real owner -
 -- a low-severity, support-resolvable edge; full reclaim/expiry is a separate follow-up.)
 -- Existing rows already satisfy this (4 distinct domains, no cross-owner collisions).
 

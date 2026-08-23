@@ -3,7 +3,7 @@
 -- When a negotiation surfaces a Calendly scheduling link, the link is tagged with
 -- `utm_content=nz_neg_<id>`. Calendly echoes that tracking value back on the
 -- invitee.created webhook, which lets us record the exact scheduled-event URI on
--- THIS negotiation (calendly_event_uri) — an exact link, not a fuzzy email match.
+-- THIS negotiation (calendly_event_uri) - an exact link, not a fuzzy email match.
 -- On a full refund / lost dispute the Stripe webhook then cancels that Calendly
 -- event via the seller's stored PAT and stamps calendly_cancelled_at (idempotency
 -- marker so the booking is cancelled at most once).

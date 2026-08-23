@@ -164,7 +164,7 @@ describe('POST /api/pages/[id]/secrets', () => {
     expect(refs.upsertArg).toBeNull() // nothing written on a rejected token
   })
 
-  it('still stores when Calendly is unreachable (unknown ≠ invalid — no Calendly-downtime lockout)', async () => {
+  it('still stores when Calendly is unreachable (unknown ≠ invalid - no Calendly-downtime lockout)', async () => {
     refs.calendlyCheck = { ok: false, reason: 'unknown' }
     const res = await POST(post({ calendly_pat: 'maybe_ok' }), { params })
     expect(res.status).toBe(200)

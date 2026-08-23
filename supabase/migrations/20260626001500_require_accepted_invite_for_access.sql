@@ -1,7 +1,7 @@
 -- Require an ACCEPTED invite for collaborator page access.
 --
 -- The collaborator SELECT/UPDATE policies on `pages` granted access to ANY non-revoked
--- invite — so a merely-`pending` invite gave read/edit to whoever signed up with the
+-- invite - so a merely-`pending` invite gave read/edit to whoever signed up with the
 -- invited email, before that person ever consciously accepted. Tighten the gate to
 -- `status = 'accepted'`. A new /api/team/accept flow flips pending -> accepted on the
 -- invitee's explicit click from the invite email; resolvePageAccess matches this gate.

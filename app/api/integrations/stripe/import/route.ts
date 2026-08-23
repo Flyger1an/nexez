@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   // Stripe's fetch/parse stays route-local (it uses the PLATFORM key, not a
-  // caller token, so it isn't exposed to the interview's /ingest) — but the
+  // caller token, so it isn't exposed to the interview's /ingest) - but the
   // authorize step is the shared one.
   const gate = await gateIntegrationImport({
     supabase,

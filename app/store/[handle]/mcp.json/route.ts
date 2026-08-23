@@ -6,7 +6,7 @@ import { createAdminClient } from '../../../../utils/supabase/admin'
 type RouteProps = { params: Promise<{ handle: string }> }
 
 /**
- * Storefront MCP manifest at /store/<handle>/mcp.json — the static discovery
+ * Storefront MCP manifest at /store/<handle>/mcp.json - the static discovery
  * document for MCP clients that read manifests. Points at the live JSON-RPC
  * endpoint (`_nexez.mcp_endpoint`) and aggregates every published listing's
  * resources. Curated fields only (never raw products/services/rules).
@@ -90,7 +90,7 @@ export async function GET(_request: Request, { params }: RouteProps) {
     server_info: {
       name: 'Nexez',
       version: '1.0.0',
-      description: `Nexez storefront @${storefront.handle} — all listings exposed via MCP resources/tools`,
+      description: `Nexez storefront @${storefront.handle} - all listings exposed via MCP resources/tools`,
     },
     capabilities: {
       resources: { subscribe: false, listChanged: false },

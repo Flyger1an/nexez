@@ -22,5 +22,5 @@ For every row, confirm collection source, exact fields, API/log copies, backups,
 support exports, legal basis where applicable, contract terms, user notice, deletion behavior,
 and whether an automated system makes or materially supports a consequential decision.
 
-Retention must be expressed as an event plus a period—for example, “account deletion + 30 days”—
+Retention must be expressed as an event plus a period, for example, “account deletion + 30 days”.
 not “as long as necessary.” Backup expiry and vendor deletion must be included.

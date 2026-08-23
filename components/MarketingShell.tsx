@@ -9,7 +9,7 @@ import { appUrl } from '../lib/site'
 // Marketing chrome for the nexez.ai surfaces (discovery/simulator/support/legal).
 // Modeled on the homepage nav so the marketing domain stays visually consistent.
 
-// Cookie-presence heuristic on purpose — importing the supabase-js client here put
+// Cookie-presence heuristic on purpose - importing the supabase-js client here put
 // its entire browser bundle (~240KB raw) on EVERY marketing page just to pick the
 // nav CTA. Same fidelity as the proxy/PlatformFrame checks: a stale cookie shows
 // the signed-in CTA, and the real auth gate still validates on click-through.

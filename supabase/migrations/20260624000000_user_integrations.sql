@@ -1,6 +1,6 @@
 -- Per-user integration connection status. Replaces the browser-only localStorage
 -- status the Integrations dashboard read from (which was wrong on a new device).
--- Non-secret status only — provider tokens stay in sessionStorage / page_secrets;
+-- Non-secret status only - provider tokens stay in sessionStorage / page_secrets;
 -- this table records "this owner connected provider X, last event at T".
 
 create table if not exists public.user_integrations (

@@ -8,9 +8,9 @@ import { toAcpCheckoutSession, acpError } from '../../../../../../lib/acp/wire'
 import { acpJson, loadAcpPageName } from '../../../../../../lib/server/acp-session'
 
 /**
- * ACP: POST /api/acp/checkout_sessions/{id}/cancel — cancel a session.
+ * ACP: POST /api/acp/checkout_sessions/{id}/cancel - cancel a session.
  * Idempotent when already canceled; refuses a completed session (a settled order is
- * terminal — it must be refunded, not canceled).
+ * terminal - it must be refunded, not canceled).
  */
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const limited = await enforceRateLimit(request, 'acp-session', 60, 60_000, { failClosed: true })

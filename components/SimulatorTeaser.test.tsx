@@ -85,7 +85,7 @@ const coverageGapResponse = {
   noMatch: true,
   intent: 'overview',
   intentLabel: 'Service request',
-  naturalLanguage: 'Nexez understood your request as “Mobile notary.” It checked the live marketplace and Commerce Library, but coverage for this category is still growing. Your intent stays intact—Nexez won’t redirect you to an unrelated service.',
+  naturalLanguage: 'Nexez understood your request as “Mobile notary.” It checked the live marketplace and Commerce Library, but coverage for this category is still growing. Your intent stays intact, Nexez won’t redirect you to an unrelated service.',
   readiness: 0,
   confidence: null,
   offers: [],

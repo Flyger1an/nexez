@@ -1,6 +1,6 @@
 -- Phase 0 of the no-Free trial model (plan: remove Free → Shopify-style 7-day trial).
 -- ADDITIVE ONLY: trial bookkeeping + the legacy/new marker. Zero behavior change until the
--- resolvers (Phase 2) start reading these columns — today every existing row stays
+-- resolvers (Phase 2) start reading these columns - today every existing row stays
 -- grandfathered ('legacy') and resolves to Free exactly as before.
 
 alter table public.billing_subscriptions

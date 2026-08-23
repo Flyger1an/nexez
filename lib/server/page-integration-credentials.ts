@@ -5,7 +5,7 @@ import { decryptSecret, encryptSecret, hasSecretCryptoKey } from './secret-crypt
 // Per-page stored third-party credentials (currently: the Calendly PAT that the
 // future write-side calendar blocking will use). Always service-role: the
 // ciphertext column is not readable by authenticated sessions (column grants),
-// and the raw token is never returned to any client — the seller only ever sees
+// and the raw token is never returned to any client - the seller only ever sees
 // a "connected" boolean. Dormant when the encryption key or admin env is absent.
 
 /** True when this deployment can store/read encrypted credentials at all. */
@@ -50,7 +50,7 @@ export async function getCalendlyPat(pageId: string): Promise<string | null> {
   return decryptSecret(data?.calendly_pat_encrypted ?? null)
 }
 
-/** Whether a page has a stored Calendly PAT — a boolean the client may see
+/** Whether a page has a stored Calendly PAT - a boolean the client may see
  *  (never the value). Checks presence of ciphertext, not decryptability. */
 export async function hasCalendlyPat(pageId: string): Promise<boolean> {
   if (!hasSupabaseAdminEnv()) return false

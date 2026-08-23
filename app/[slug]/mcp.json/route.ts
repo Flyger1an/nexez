@@ -18,7 +18,7 @@ import { supabase } from '../../../lib/supabase'
  * When the page has `mcp_enabled: true` (toggle in Settings), this is linked
  * from the public page + can be discovered alongside /agent.json, llms.txt, etc.
  * 
- * This is the STATIC discovery manifest — the LIVE JSON-RPC 2.0 MCP server runs at
+ * This is the STATIC discovery manifest - the LIVE JSON-RPC 2.0 MCP server runs at
  * /<slug>/mcp (surfaced below as `_nexez.mcp_endpoint`) and handles initialize,
  * tools/list, tools/call, resources/list, resources/read. Follows the same
  * deterministic, fidelity-preserving patterns as agent.json.

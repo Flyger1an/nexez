@@ -30,7 +30,7 @@ export const platformPrimitives = [
   },
   {
     name: 'Action',
-    definition: 'A bounded buyer step—search, validate, contact, book, checkout, negotiate, approve, settle, review, or request support.',
+    definition: 'A bounded buyer step: search, validate, contact, book, checkout, negotiate, approve, settle, review, or request support.',
   },
   {
     name: 'Evidence',
@@ -175,7 +175,7 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
     id: 'commerce',
     number: '05',
     title: 'Commerce, negotiation, and fulfillment',
-    promise: 'The platform supports the full range from a direct handoff to negotiated, resource-bound, recurring, or staged transactions—with approval before side effects.',
+    promise: 'The platform supports the full range from a direct handoff to negotiated, resource-bound, recurring, or staged transactions, with approval before side effects.',
     capabilities: [
       {
         name: 'Direct checkout and agentic checkout protocols',

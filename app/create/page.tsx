@@ -328,11 +328,11 @@ export default function CreatePage() {
     }
 
     const cleanSlug = normalizeSlug(slug || name)
-    // Platform route segments can't be listing slugs — the static route would
+    // Platform route segments can't be listing slugs - the static route would
     // shadow the listing and make it unreachable.
     if (isReservedSlug(cleanSlug)) {
       closePendingPublicPageTab(publicPageTab)
-      setPublishError(`"${cleanSlug}" is a reserved word on Nexez — pick a different link name for your listing.`)
+      setPublishError(`"${cleanSlug}" is a reserved word on Nexez - pick a different link name for your listing.`)
       setLoading(false)
       return
     }

@@ -141,7 +141,7 @@ describe('POST /api/pages/[id]/calendly/sync', () => {
     expect('next_available' in h.pagesUpdate).toBe(false) // never blanked
   })
 
-  it('NEVER clobbers a same-named manual offer — preserves it and adds the Calendly one separately', async () => {
+  it('NEVER clobbers a same-named manual offer - preserves it and adds the Calendly one separately', async () => {
     // A real paid offer with the SAME name as an incoming Calendly event type.
     h.page.services = [{ name: 'Intro Call', price: '$199', description: 'hand-written booking copy', url: 'https://mysite.com/book' }]
     await POST(req(), ctx)
@@ -155,7 +155,7 @@ describe('POST /api/pages/[id]/calendly/sync', () => {
   })
 
   it('preserves a hand-written availability note (does not stomp it with Calendly windows)', async () => {
-    h.page.next_available = 'Booking paused until August — email us'
+    h.page.next_available = 'Booking paused until August - email us'
     await POST(req(), ctx)
     expect('next_available' in h.pagesUpdate).toBe(false) // manual note untouched
     // ...but Calendly offers still get imported.

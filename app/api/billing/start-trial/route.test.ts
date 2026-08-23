@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NextResponse } from 'next/server'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
 const refs = vi.hoisted(() => ({
   adminHandler: vi.fn(),
 }))
 
+const rateLimitRef = vi.hoisted(() => ({ response: null as NextResponse | null }))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
+vi.mock('../../../../lib/rate-limit', () => ({
+  enforceRateLimit: vi.fn(async () => rateLimitRef.response),
+}))
 vi.mock('../../../../utils/supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'owner-1' } } })) },
@@ -26,6 +31,7 @@ const request = () => new Request('https://nexez.test/api/billing/start-trial', 
 
 describe('POST /api/billing/start-trial', () => {
   beforeEach(() => {
+    rateLimitRef.response = null
     vi.clearAllMocks()
     refs.adminHandler.mockImplementation((query) => {
       if (query.op === 'select') return { data: null, error: null }

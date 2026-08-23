@@ -60,7 +60,7 @@ describe('findCommerceSimulationMatch', () => {
     if (!personalTraining) return
     expect(commerceCandidateEvidenceMatches(
       personalTraining,
-      'Dog Training — personalized obedience programs and recurring sessions for dogs.',
+      'Dog Training - personalized obedience programs and recurring sessions for dogs.',
       commerceReferenceCandidates,
     )).toBe(false)
     expect(commerceCandidateEvidenceMatches(

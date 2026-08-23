@@ -20,6 +20,7 @@ import {
   buildAgentDistributionLinks,
 } from '../../lib/agent-distribution'
 import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
+import { safeJsonScript } from '../../lib/safe-json'
 
 export const metadata: Metadata = {
   title: 'AI Agent Access and Distribution',
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: marketingUrl('/agents'),
   },
-  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) - re-carry type/siteName.
   openGraph: {
     type: 'website',
     siteName: 'Nexez',
@@ -275,7 +276,7 @@ export default function AgentAccessPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeJsonScript({
             '@context': 'https://schema.org',
             '@type': 'TechArticle',
             name: 'Nexez AI Agent Access',

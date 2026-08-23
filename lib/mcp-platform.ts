@@ -7,7 +7,7 @@
 //
 // v1 exposes only READ + DRY-RUN tools (all already unauthenticated + safe). The
 // mutating/charging tools (start_checkout, submit_negotiation) are deliberately
-// NOT here — they need a human-approval gate an anonymous endpoint can't enforce;
+// NOT here - they need a human-approval gate an anonymous endpoint can't enforce;
 // the two validate_* tools always force dryRun:true so they never charge or write.
 import { MCP_PROTOCOL_VERSION } from './mcp-server'
 import { agentRuntimeUrl, marketingUrl } from './site'
@@ -74,7 +74,7 @@ const TOOLS = [
   },
   {
     name: 'nexez_validate_checkout',
-    description: 'Dry-run a checkout for an offer BEFORE paying — validates the offer, currency, and payment readiness. Never charges.',
+    description: 'Dry-run a checkout for an offer BEFORE paying - validates the offer, currency, and payment readiness. Never charges.',
     inputSchema: {
       type: 'object',
       properties: {

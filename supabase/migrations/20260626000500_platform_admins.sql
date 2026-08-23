@@ -1,4 +1,4 @@
--- Platform admin role. The platform had NO admin concept — access was purely
+-- Platform admin role. The platform had NO admin concept - access was purely
 -- plan-tier (billing_subscriptions → getOwnerPlanId / owner_plan_rank). This adds a
 -- minimal, SECURE admin flag whose ONLY effect is to resolve the owner to the TOP
 -- plan tier everywhere (entitlements god-mode: every gated feature + unlimited
@@ -6,7 +6,7 @@
 -- paid subscription.
 --
 -- SCOPE / SECURITY BOUNDARY (deliberate): admin grants ENTITLEMENTS only. It does
--- NOT bypass RLS / tenancy — an admin still cannot read another owner's pages,
+-- NOT bypass RLS / tenancy - an admin still cannot read another owner's pages,
 -- orders, or negotiations. It is not cross-tenant access or impersonation. Admin
 -- status is NOT self-grantable: authenticated users may READ only their own row
 -- (so the UI can show a badge); all writes are service-role only.

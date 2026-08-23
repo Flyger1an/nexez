@@ -28,7 +28,7 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
   const [notice, setNotice] = useState('')
   const recognitionRef = useRef<any>(null)
   // The scrollable transcript. As the interview grows, turns scroll INSIDE the
-  // card rather than stretching the page — see the height cap on the section
+  // card rather than stretching the page - see the height cap on the section
   // below. `pinnedRef` tracks whether the view is at the bottom so we auto-follow
   // new turns without yanking a reader who has scrolled up to review history.
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -49,7 +49,7 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
   }, [config.quickPromptEvent])
 
   // Follow the newest turn as messages (or streamed tokens, which mutate the
-  // messages array) arrive — but only while the reader is pinned to the bottom.
+  // messages array) arrive - but only while the reader is pinned to the bottom.
   useEffect(() => {
     const el = scrollRef.current
     if (el && pinnedRef.current) el.scrollTop = el.scrollHeight
@@ -87,7 +87,7 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
 
     if (config.streamTurn) {
       // One turn runs at a time (guarded by `busy`), so the live bubble's id is a
-      // plain closure local — no ref needed. First token appends the bubble;
+      // plain closure local - no ref needed. First token appends the bubble;
       // later tokens grow it.
       let streamingId: string | null = null
       const onToken = (delta: string) => {
@@ -104,7 +104,7 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
       }
       try {
         const response = await config.streamTurn({ text, mode }, { onToken })
-        // The resolved response is authoritative — swap the streamed preview for
+        // The resolved response is authoritative - swap the streamed preview for
         // the final message + cards (the preview may omit tool-driven content).
         settleAssistant(streamingId, response.message, response.cards ?? [])
       } catch (error) {

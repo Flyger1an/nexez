@@ -1,4 +1,4 @@
--- Nexez PR2 — Enterprise commercial terms
+-- Nexez PR2 - Enterprise commercial terms
 -- Server-controlled negotiated economics. Browser clients receive no access.
 
 create table public.owner_commercial_terms (

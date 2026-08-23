@@ -3,9 +3,10 @@ import { notFound } from 'next/navigation'
 import { ArrowRight, ScanSearch } from 'lucide-react'
 import { getScanPlatform, scanPlatforms } from '../../../lib/scan-platforms'
 import { marketingUrl } from '../../../lib/site'
+import { safeJsonScript } from '../../../lib/safe-json'
 
 // Programmatic "Is my {platform} site AI-agent ready?" landing pages. Content +
-// platform-specific fix path around a CTA into the real scanner at /scan — the
+// platform-specific fix path around a CTA into the real scanner at /scan - the
 // scanner itself stays one canonical interactive surface.
 
 type PlatformProps = { params: Promise<{ platform: string }> }
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: PlatformProps): Promise<Metad
     alternates: {
       canonical: marketingUrl(`/scan/${p.slug}`),
     },
-    // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+    // Page-level openGraph replaces the layout's wholesale (shallow merge) - re-carry type/siteName.
     openGraph: {
       type: 'website',
       siteName: 'Nexez',
@@ -54,7 +55,7 @@ export default async function ScanPlatformPage({ params }: PlatformProps) {
     <main className="min-h-screen">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: safeJsonScript(structuredData) }}
       />
       <section className="relative overflow-hidden border-b border-border">
         <div className="pointer-events-none absolute inset-0 z-0">
@@ -68,7 +69,7 @@ export default async function ScanPlatformPage({ params }: PlatformProps) {
             Is your {p.name} site AI-agent ready?
           </h1>
           <p className="mt-4 text-muted-foreground">
-            AI shopping agents read your site very differently from your visitors. See exactly what they can — and cannot —
+            AI shopping agents read your site very differently from your visitors. See exactly what they can - and cannot -
             understand about your {p.name} site, in seconds, free.
           </p>
           <a href="/scan" className="btn-primary mt-7 inline-flex items-center gap-2">
@@ -98,10 +99,10 @@ export default async function ScanPlatformPage({ params }: PlatformProps) {
         </ol>
 
         <div className="mt-10 rounded-xl border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] p-5">
-          <p className="font-semibold">Start with the scan — it takes seconds.</p>
+          <p className="font-semibold">Start with the scan - it takes seconds.</p>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
             You&rsquo;ll get a per-check breakdown: structured offers, pricing, buyer actions, agent artifacts, and crawler
-            access — scored the way agents actually probe.
+            access - scored the way agents actually probe.
           </p>
           <a href="/scan" className="btn-primary btn-sm mt-4 inline-flex items-center gap-1.5">
             Run the free scan <ArrowRight className="size-3.5" />

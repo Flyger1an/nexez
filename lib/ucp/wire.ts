@@ -1,11 +1,11 @@
-// UCP wire mapping (pure) — the translation layer between Google's Universal Commerce
+// UCP wire mapping (pure) - the translation layer between Google's Universal Commerce
 // Protocol JSON and the provider-neutral CheckoutSession core (SF1). Mirrors the ACP
 // adapter in spirit; the differences are all wire shape: UCP nests the product id
 // under `item.id`, uses an `incomplete|completed` status, carries `totals[]` + a
 // `links{terms,privacy}` block, and delivers payment as a Google Pay token under
 // `payment.instruments[].credential.token`. All money logic stays in the core.
 //
-// v1 scope: digital/service — no fulfillment options, tax=0.
+// v1 scope: digital/service - no fulfillment options, tax=0.
 
 import type {
   CheckoutSession,
@@ -18,7 +18,7 @@ import { UCP_TERMS_URL, UCP_PRIVACY_URL } from './constants'
 /** UCP session status (the subset we emit). */
 export type UcpStatus = 'incomplete' | 'completed' | 'canceled'
 
-/** UCP has no ready/not-ready distinction in its status enum — anything not settled
+/** UCP has no ready/not-ready distinction in its status enum - anything not settled
  * or canceled is `incomplete` (readiness is gated internally before /complete charges). */
 export function toUcpStatus(status: SessionStatus): UcpStatus {
   if (status === 'completed') return 'completed'
@@ -42,7 +42,7 @@ export type ParsedUcpLineItems =
 
 /** Parse UCP `line_items[{ item: { id }, quantity }]` into a single merchant slug +
  * core RequestedLineItem[]. The item id is the feed id `"<slug>:<offerKey>"`. ENFORCES
- * single-merchant (cross-tenant guard) — mixed merchants are rejected. */
+ * single-merchant (cross-tenant guard) - mixed merchants are rejected. */
 export function parseUcpLineItems(lineItems: unknown): ParsedUcpLineItems {
   if (!Array.isArray(lineItems) || lineItems.length === 0) {
     return { ok: false, error: ucpError('missing_line_items', 'line_items must be a non-empty array.', 'line_items') }

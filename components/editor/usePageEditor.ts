@@ -570,7 +570,7 @@ export function usePageEditor(initial: EditorInitial) {
     }
   }
 
-  // Re-sync a connected integration from its STORED credential — no token
+  // Re-sync a connected integration from its STORED credential - no token
   // prompt. Routes through the unified per-listing sync engine (saves server-
   // side, safe source-scoped merge), then reloads to show the result. Connect /
   // disconnect live in Settings -> Integrations.
@@ -601,7 +601,7 @@ export function usePageEditor(initial: EditorInitial) {
         setMessage(data.error || `${RESYNC_LABELS[provider]} sync failed.`)
         return
       }
-      setMessage(`Synced ${data.imported ?? 0} ${RESYNC_LABELS[provider]} offer(s) from the saved connection — reloading…`)
+      setMessage(`Synced ${data.imported ?? 0} ${RESYNC_LABELS[provider]} offer(s) from the saved connection - reloading…`)
       setTimeout(() => window.location.reload(), 600)
     } catch (err: any) {
       setMessage(`${RESYNC_LABELS[provider]} sync failed: ${err.message}`)

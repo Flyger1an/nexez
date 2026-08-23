@@ -1,12 +1,12 @@
 # Agentic-Commerce Enrollment Checklist (ACP + UCP go-live)
 
-Nexez ships **both** agentic-commerce protocols — OpenAI's ACP and Google's UCP —
+Nexez ships **both** agentic-commerce protocols - OpenAI's ACP and Google's UCP -
 fully built over one shared money core. Both are **live but dormant**: the product
 **feeds are public** (for discovery/indexing) and the **checkout endpoints fail
 closed with 401** until you complete each program's enrollment and set its secret.
 
 This doc is the owner-side checklist to flip them live. Nothing here is a code
-change (except the small A4 build in ACP Step 4) — it's account setup, credentials,
+change (except the small A4 build in ACP Step 4) - it's account setup, credentials,
 and env vars.
 
 ---
@@ -22,7 +22,7 @@ and env vars.
 | Capability manifest | `https://nexez.app/.well-known/nexez.json` → `agentic_commerce` block | ✅ advertises both; `checkout_status: "search_only"` |
 
 Everything up to and including `/complete` is proven against **Stripe test
-PaymentMethods** — the only unproven line is the final delegated-token swap, gated on
+PaymentMethods** - the only unproven line is the final delegated-token swap, gated on
 the Stripe question below.
 
 ---
@@ -60,7 +60,7 @@ composes with a Connect direct charge + application fee. Ask your Stripe contact
 verbatim:
 
 > For OpenAI Instant Checkout (Agentic Commerce Protocol), we are Stripe Connect with
-> the **seller as merchant-of-record** — a **direct charge on the seller's connected
+> the **seller as merchant-of-record** - a **direct charge on the seller's connected
 > account** with our platform commission as `application_fee_amount`.
 > 1. Can a **Shared Payment Token (`vt_…`)** be used as `payment_method` on a
 >    PaymentIntent that is a **direct charge on a connected account** (`{ stripeAccount }`)
@@ -75,14 +75,14 @@ verbatim:
 the only change is mapping an SPT `kind` to `payment_method_data[shared_payment_granted_token]`
 instead of `payment_method` (see the nuance note above).
 **If SPT is platform-account-only** → the per-seller Connect commission model may not
-compose for ACP; escalate before enrolling (the shared core is unaffected — only the
+compose for ACP; escalate before enrolling (the shared core is unaffected - only the
 ACP charge shape would need a decision).
 
 </details>
 
 ---
 
-## ACP (OpenAI Instant Checkout) — go-live
+## ACP (OpenAI Instant Checkout) - go-live
 
 1. **Enroll.** Instant Checkout is an OpenAI **approved-partner** program (not
    self-serve). Apply; provide OpenAI the feed URL (`/acp/feed.json`) and the
@@ -102,14 +102,14 @@ ACP charge shape would need a decision).
    `payment_intent.succeeded` is in the subscribed events. (Refunds/disputes already
    match by PaymentIntent id, so those inherit for free.)
 
-4. **Order-status webhook (A4 — already built, dormant).** Set the two env vars from
+4. **Order-status webhook (A4 - already built, dormant).** Set the two env vars from
    Step 1 and it turns on:
    - `ACP_ORDER_WEBHOOK_URL` = OpenAI's order-webhook URL.
    - `ACP_ORDER_WEBHOOK_SECRET` = the signing secret.
    It emits `order_updated` (base64-HMAC-signed) from the Stripe webhook's refund/
    dispute path so ACP order status (refunds, disputes) stays in sync with OpenAI.
    Dormant + best-effort without those vars. *(Confirm OpenAI's exact signature header
-   name/encoding at enrollment — the default is a base64 HMAC-SHA256 of the body; a
+   name/encoding at enrollment - the default is a base64 HMAC-SHA256 of the body; a
    1-line change if theirs differs.)*
 
 5. **Confirm SPT** (Step 0). If platform-only, resolve the Connect question first.
@@ -122,7 +122,7 @@ ACP charge shape would need a decision).
 
 ---
 
-## UCP (Google Universal Commerce Protocol) — go-live
+## UCP (Google Universal Commerce Protocol) - go-live
 
 1. **Enroll.** Create a **Google Merchant Center** account, submit the product feed
    (`/ucp/feed.json`), then join the **UCP waitlist** and get Google's approval. Obtain
@@ -134,13 +134,13 @@ ACP charge shape would need a decision).
 
 3. **AP2 mandate verification (deferred layer).** v1 settles the Google Pay token
    through the same Stripe bridge (`kind: 'google_pay'`); the AP2 mandate JWT
-   (ECDSA verifiable-credential) verification needs Google's signing keys — wire it as
+   (ECDSA verifiable-credential) verification needs Google's signing keys - wire it as
    a defense-in-depth check once Google provides the keys/JWKS. (Ping me to add.)
 
-4. **Stripe webhook** — same `payment_intent.succeeded` subscription as ACP Step 3
+4. **Stripe webhook** - same `payment_intent.succeeded` subscription as ACP Step 3
    (already done if you completed ACP). UCP orders persist with `channel: 'ucp'`.
 
-5. **Smoke test** — same shape as ACP Step 6 against `/api/ucp/checkout-sessions`
+5. **Smoke test** - same shape as ACP Step 6 against `/api/ucp/checkout-sessions`
    (UCP uses **PUT** for update, and payment arrives at
    `payment.instruments[].credential.token`).
 
@@ -156,7 +156,7 @@ ACP charge shape would need a decision).
 | `ACP_ORDER_WEBHOOK_SECRET` | Vercel prod | Signs the A4 order webhook (base64 HMAC) |
 | `UCP_SHARED_SECRET` | Vercel prod | Lifts UCP 401 (verifies Google's M2M Bearer) |
 | `UCP_CHECKOUT_ENABLED` = `true` | Vercel prod | UCP feed/manifest checkout-eligible |
-| `STRIPE_WEBHOOK_SECRET_CONNECT` | Vercel prod (**already set**) | Connect webhook — just **add** `payment_intent.succeeded` to its subscribed events |
+| `STRIPE_WEBHOOK_SECRET_CONNECT` | Vercel prod (**already set**) | Connect webhook - just **add** `payment_intent.succeeded` to its subscribed events |
 | `STRIPE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Vercel prod (**already set**) | Required for settlement + session persistence |
 
 Order of operations: **confirm SPT (Step 0) → enroll → set the shared secret (endpoint
@@ -174,5 +174,5 @@ with a test PM → flip `*_CHECKOUT_ENABLED=true` → repeat with the real deleg
 - A paused seller (expired trial) → `resolveSettlementContext` blocks the charge
   (`409`/`402`) before any money moves.
 - Every settlement is idempotent (Stripe key `{acp,ucp}_settle_<session_id>` + a unique
-  index on the PaymentIntent) — a replayed `/complete` returns the original order, never
+  index on the PaymentIntent) - a replayed `/complete` returns the original order, never
   a second charge.

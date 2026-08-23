@@ -9,7 +9,7 @@ import { ownerAllows } from '../../../../lib/server/plan'
 
 export const maxDuration = 60
 
-// Calendly API calls per run — one per connected page — kept polite/bounded.
+// Calendly API calls per run - one per connected page - kept polite/bounded.
 const PAGE_LIMIT = 15
 // Availability horizon (Calendly caps busy-times at 7 days per request).
 const HORIZON_DAYS = 7
@@ -28,7 +28,7 @@ type CalPage = {
  * with a stored, encrypted Calendly PAT, pull the seller's REAL event-type
  * availability, publish those windows on the listing
  * (next_available → agent.json), and BLOCK (sold_out) the Calendly-sourced
- * offers when the calendar shows no open slots in the horizon — un-blocking them
+ * offers when the calendar shows no open slots in the horizon - un-blocking them
  * when it frees up. This is calendar truth, superseding the booking-count
  * heuristic for connected pages.
  *
@@ -101,7 +101,7 @@ export async function GET(request: Request) {
     const refs = calendlyEventTypeRefs([...(page.services ?? []), ...(page.products ?? [])])
     const eventTypeAvailability = await fetchCalendlyEventTypeAvailability(pat, refs, { days: HORIZON_DAYS })
     if (eventTypeAvailability === null) {
-      // Couldn't reach Calendly — leave the listing untouched (don't blank it).
+      // Couldn't reach Calendly - leave the listing untouched (don't blank it).
       failed += 1
       continue
     }
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
     const nextAvailable = buildCalendlyNextAvailable(windows, HORIZON_DAYS)
 
     // Only write when the open slots actually changed (avoid churn / updated_at
-    // bumps) — OR when the listing has no Calendly-synced marker yet, so the
+    // bumps) - OR when the listing has no Calendly-synced marker yet, so the
     // first sync (even a fully-booked "no slots") always publishes.
     const priorWindows = parseAvailabilityWindows(page.next_available)
     const mayPublishWindows = eventTypeAvailability.complete || windows.length > 0
@@ -145,8 +145,8 @@ export async function GET(request: Request) {
     synced += 1
   }
 
-  // Advance the rotation cursor for the WHOLE selected batch — including
-  // unpublished/failed ones — so they move to the back of the queue and the
+  // Advance the rotation cursor for the WHOLE selected batch - including
+  // unpublished/failed ones - so they move to the back of the queue and the
   // next run picks up the next least-recently-synced pages (no starvation).
   await admin.from('page_secrets').update({ calendly_synced_at: nowIso }).in('page_id', selectedIds)
 

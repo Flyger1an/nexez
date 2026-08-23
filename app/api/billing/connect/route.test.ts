@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NextResponse } from 'next/server'
 import { createSupabaseMock, type QueryContext } from '../../../../test/supabase-mock'
 
 const refs = vi.hoisted(() => ({
@@ -14,7 +15,11 @@ vi.mock('stripe', () => ({
     accounts = { retrieve: refs.retrieve }
   },
 }))
+const rateLimitRef = vi.hoisted(() => ({ response: null as NextResponse | null }))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
+vi.mock('../../../../lib/rate-limit', () => ({
+  enforceRateLimit: vi.fn(async () => rateLimitRef.response),
+}))
 vi.mock('../../../../utils/supabase/server', () => ({ createClient: refs.createClient }))
 vi.mock('../../../../utils/supabase/admin', () => ({
   hasSupabaseAdminEnv: vi.fn(() => true),
@@ -55,6 +60,7 @@ const refreshRequest = () => new Request('https://nexez.test/api/billing/connect
 
 describe('POST /api/billing/connect', () => {
   beforeEach(() => {
+    rateLimitRef.response = null
     vi.clearAllMocks()
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
     refs.createClient.mockReturnValue(sessionClient())

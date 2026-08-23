@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto'
  * async, POST latency should stay low and flat regardless of provider latency.
  *
  * ⚠️ NOT part of CI. It hits the REAL LLM (costs tokens) and creates real
- * negotiations on the target page — use a THROWAWAY published page and clean up
+ * negotiations on the target page - use a THROWAWAY published page and clean up
  * afterwards (delete its agent_negotiations + negotiation_messages + the page).
  *
  * Usage:
@@ -155,7 +155,7 @@ async function main() {
   }
 
   const ids = ok.map((r) => r.id).filter(Boolean)
-  console.log(`\n⚠️  Created ${ids.length} negotiations — clean them up (delete negotiation_messages + agent_negotiations for slug=${args.slug}, then the page).`)
+  console.log(`\n⚠️  Created ${ids.length} negotiations - clean them up (delete negotiation_messages + agent_negotiations for slug=${args.slug}, then the page).`)
 }
 
 main()

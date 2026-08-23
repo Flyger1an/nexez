@@ -4,14 +4,14 @@ import { ACP_API_VERSION } from './constants'
 import { acpError, type AcpError } from './wire'
 
 // ACP inbound auth (A2) over the shared SF5 fail-closed guard. ACP endpoints are
-// hosted BY the merchant and called by OpenAI with a shared Bearer key — a NEW
+// hosted BY the merchant and called by OpenAI with a shared Bearer key - a NEW
 // inbound trust boundary distinct from the anonymous public surface. DORMANT until
 // ACP_SHARED_SECRET is set at enrollment (every request 401s), so this is never an
 // unauthenticated charge endpoint.
 //
 // v1 verifies the OpenAI→merchant shared Bearer key. ACP also sends a `Signature`
 // (base64 HMAC of the raw body) + `Timestamp` for body integrity; that scheme +
-// secret arrive out-of-band at enrollment (owner-blocked), so it layers on later —
+// secret arrive out-of-band at enrollment (owner-blocked), so it layers on later -
 // the Bearer alone is a fail-closed gate today.
 
 export function acpSharedSecret(): string | null {

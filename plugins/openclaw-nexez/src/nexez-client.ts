@@ -306,7 +306,7 @@ async function postJson(
 
 // A validate/dry-run reports validity structurally rather than throwing on an
 // EXPECTED rejection (e.g. a fixed-price offer refusing negotiation), so the agent
-// can branch cleanly — "not negotiable" -> use checkout — instead of treating it as
+// can branch cleanly - "not negotiable" -> use checkout - instead of treating it as
 // a tool failure. Genuine transport errors (network/abort) still throw.
 async function dryRunResult(
   path: string,
@@ -325,7 +325,7 @@ async function dryRunResult(
           reason = (parsed as { error: string }).error
         }
       } catch {
-        // non-JSON body — keep the generic message
+        // non-JSON body - keep the generic message
       }
       return { ok: false, status: error.status, reason }
     }

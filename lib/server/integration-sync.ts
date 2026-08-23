@@ -18,7 +18,7 @@ const HORIZON_DAYS = 7
 // Providers that "connect once → stored credential → re-sync without re-entering
 // the token". All are per-seller token providers whose creds live encrypted in
 // page_secrets. (Stripe is excluded: it's platform-key + Connect, and its prices
-// already auto-sync via webhook — there's no per-seller catalog token to store.)
+// already auto-sync via webhook - there's no per-seller catalog token to store.)
 export type SyncProvider = 'calendly' | 'shopify' | 'square' | 'acuity'
 export const SYNCABLE_PROVIDERS: readonly SyncProvider[] = ['calendly', 'shopify', 'square', 'acuity']
 export function isSyncProvider(p: string): p is SyncProvider {
@@ -72,7 +72,7 @@ export type SyncOptions = {
 
 /**
  * Sync a page's offers (and, for Calendly, availability) from the STORED per-page
- * credential — the shared engine behind both the generic
+ * credential - the shared engine behind both the generic
  * /api/pages/[id]/integrations/[provider]/sync route and the legacy
  * /api/pages/[id]/calendly/sync route. Caller MUST authorize edit access and
  * enforce the integrations entitlement first unless it passes credentials from
@@ -81,7 +81,7 @@ export type SyncOptions = {
  * every other premium connector remain plan gated. Dormant without
  * INTEGRATION_SECRET_KEY.
  *
- * The merge only ever manages this provider's own offers (mergeProviderOffers) —
+ * The merge only ever manages this provider's own offers (mergeProviderOffers) -
  * a same-named manual offer is never clobbered.
  */
 export async function syncPageIntegration(
@@ -126,7 +126,7 @@ export async function syncPageIntegration(
   if (!page) return { ok: false, status: 404, error: 'Page not found.' }
 
   // Column-aware merge: update a provider offer wherever it already lives
-  // (services OR products) and never duplicate across columns — the webhook/cron
+  // (services OR products) and never duplicate across columns - the webhook/cron
   // treat a provider offer as valid in either.
   const shopifyScope = input.provider === 'shopify' ? input.shop : undefined
   const incomingOffers = provider === 'shopify' && options.shopifyMapping

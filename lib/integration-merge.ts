@@ -65,7 +65,7 @@ function mergeManagedOffer(current: OfferItem, incoming: OfferItem, provider: st
  * calendly_event_type) is reconciled onto the matched offer since smartMergeOffers
  * drops metadata on a name-collision merge.
  *
- * Pure — no I/O — so it's unit-tested independently of the sync route.
+ * Pure - no I/O - so it's unit-tested independently of the sync route.
  */
 export function mergeProviderOffers(
   existing: OfferItem[],

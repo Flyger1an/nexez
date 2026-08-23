@@ -260,7 +260,7 @@ describe('IntakeChat - interview', () => {
       expect(ingest?.payload).toEqual({ provider: 'calendly', token: 'cal_tok_123' })
     })
     // The imported result is folded into the chat.
-    await waitFor(() => expect(screen.getByText(/Connected Calendly — imported 3 offers/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Connected Calendly - imported 3 offers/)).toBeInTheDocument())
   })
 
   it('keeps connector choices visible but locks every credential form below Pro with upgrade guidance', async () => {

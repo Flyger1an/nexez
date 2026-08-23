@@ -13,7 +13,7 @@ import { parseUcpLineItems, parseUcpBuyer, toUcpCheckoutSession, ucpError } from
 import { ucpJson, loadUcpPage, loadUcpPageName, isMerchantPaused } from '../../../../lib/server/ucp-session'
 
 /**
- * UCP: POST /api/ucp/checkout-sessions — create a checkout session.
+ * UCP: POST /api/ucp/checkout-sessions - create a checkout session.
  * Body: { line_items: [{ item: { id: "<slug>:<offer>" }, quantity }], buyer? }.
  * Single-merchant guard, paused-seller gate, price via the SF1 core, persist the SF3
  * snapshot (channel 'ucp'), return the UCP session. Fail-closed (dormant until

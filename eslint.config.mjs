@@ -31,6 +31,19 @@ const eslintConfig = defineConfig([
       "react-hooks/exhaustive-deps": "off",
       "react/no-unescaped-entities": "off",
       "prefer-const": "warn",
+      // Structured-data blocks must escape through lib/safe-json, never by a
+      // hand-rolled JSON.stringify. The inline form was copy-pasted across a
+      // dozen pages and one copy silently dropped the escape, so the shared
+      // helper is now the only sanctioned way to fill dangerouslySetInnerHTML.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "JSXAttribute[name.name='dangerouslySetInnerHTML'] CallExpression[callee.object.name='JSON'][callee.property.name='stringify']",
+          message:
+            "Use safeJsonScript() from lib/safe-json instead of JSON.stringify inside dangerouslySetInnerHTML.",
+        },
+      ],
     },
   },
 ]);

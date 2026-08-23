@@ -4,7 +4,7 @@
 --
 -- refunded_cents is the cumulative amount refunded so far, in Stripe smallest-unit
 -- (matching session.amount_total / charge.amount_refunded, what formatCurrencyAmount
--- expects — NOT the app's major×100 minor convention used by agent_negotiations.amount_cents).
+-- expects - NOT the app's major×100 minor convention used by agent_negotiations.amount_cents).
 -- The refund routes cap each refund on (captured − refunded_cents) and key idempotency
 -- on the new running total; the charge.refunded webhook reconciles it to Stripe's
 -- authoritative amount_refunded. Idempotent + additive (existing code ignores it).

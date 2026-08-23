@@ -3,8 +3,8 @@
 -- Why a trigger: the limit was enforced only in the v1 API, but the dashboard
 -- publishes is_published directly through the browser Supabase client (RLS) from
 -- several paths (PagesManager, DashboardClient, the page editors, the create
--- flow). A trigger is the single chokepoint that covers all of them — including
--- raw PostgREST — without threading a server route through every publish site.
+-- flow). A trigger is the single chokepoint that covers all of them - including
+-- raw PostgREST - without threading a server route through every publish site.
 --
 -- Grandfathering: enforcing the limit retroactively would freeze existing Free
 -- users who published multiple pages before gating existed. So the effective

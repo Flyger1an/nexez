@@ -1,6 +1,6 @@
 -- Nexxi BUYER FACET: referral / invite. Each buyer gets a stable share CODE; when a NEW buyer claims
 -- a code we record the attribution (one referrer per referred user). No reward/credit is granted yet
--- (that needs a credits system) — this captures the code + the graph so rewards can be layered on later.
+-- (that needs a credits system) - this captures the code + the graph so rewards can be layered on later.
 -- Codes + attribution rows are written by the SERVICE ROLE (endpoints) to guarantee uniqueness + block
 -- forgery; owner-scoped reads. Cleaned on buyer-account deletion.
 

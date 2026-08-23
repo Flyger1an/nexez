@@ -243,7 +243,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
       provider: 'google',
       options: { redirectTo: callback.toString() },
     })
-    // On success the browser navigates to Google — leave the button spinning.
+    // On success the browser navigates to Google - leave the button spinning.
     if (error) {
       setError(error.message)
       setOauthLoading(false)

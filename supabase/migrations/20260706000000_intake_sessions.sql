@@ -1,6 +1,6 @@
 -- Seller intake interview (spec: nexez-intake-interview-spec.md §4).
 -- One row per interview session. The full machine state (sources, extractions,
--- gaps, answers, working draft, provenance, messages) lives in `state` JSONB —
+-- gaps, answers, working draft, provenance, messages) lives in `state` JSONB -
 -- messages ride inside state.messages[] for v1 and get promoted to a table only
 -- if volume demands it. Sessions are resumable across devices (mobile ⇄ web):
 -- the threads API reads/writes through the caller's RLS-bound client.

@@ -1,6 +1,6 @@
 # Nexez Staged Settlement Autopsy
 
-**Status:** Architecture and merchant-contract v1 — payment ledger/capture remains intentionally inactive
+**Status:** Architecture and merchant-contract v1 - payment ledger/capture remains intentionally inactive
 **Machine-readable source:** `lib/commerce-templates/curation/staged-settlement-analysis.ts`
 **Evidence corpus:** every curated candidate with the `DEPOSIT` capability or a `milestones` / `deposit-schedule` gap signal, plus current checkout, negotiation, approval, and order rails
 
@@ -41,7 +41,7 @@ Money becomes payable for a named sequential obligation under the same agreed to
 
 ### Refundable security or damage deposit
 
-Money is held against a contingent liability and may be returned without becoming merchant revenue. Party rentals expose this need. It belongs with reservable resources, explicit hold/release policy, and regulated payment handling—not v1 staged settlement.
+Money is held against a contingent liability and may be returned without becoming merchant revenue. Party rentals expose this need. It belongs with reservable resources, explicit hold/release policy, and regulated payment handling, not v1 staged settlement.
 
 ### Escrow or manual capture
 

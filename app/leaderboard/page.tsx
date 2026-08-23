@@ -5,22 +5,23 @@ import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
 import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
 import { DiscoveryTabs } from '../../components/DiscoveryTabs'
+import { safeJsonScript } from '../../lib/safe-json'
 
 export const metadata: Metadata = {
   title: 'Agent-Ready Leaderboard',
   description:
-    'The most agent-ready businesses on Nexez, ranked by readiness score and trust signals — see who leads each industry and how your listing stacks up.',
+    'The most agent-ready businesses on Nexez, ranked by readiness score and trust signals - see who leads each industry and how your listing stacks up.',
   alternates: {
     canonical: marketingUrl('/leaderboard'),
   },
-  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) - re-carry type/siteName.
   openGraph: {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/leaderboard'),
     title: 'Agent-Ready Leaderboard',
     description:
-      'The most agent-ready businesses on Nexez, ranked by readiness score and trust signals — see who leads each industry and how your listing stacks up.',
+      'The most agent-ready businesses on Nexez, ranked by readiness score and trust signals - see who leads each industry and how your listing stacks up.',
   },
 }
 
@@ -70,7 +71,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
       <div className="mx-auto max-w-4xl px-6 py-10">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
+          dangerouslySetInnerHTML={{ __html: safeJsonScript(structuredData) }}
         />
         <DiscoveryTabs />
         <header className="flex items-center gap-3">

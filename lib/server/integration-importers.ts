@@ -9,7 +9,7 @@ import { SHOPIFY_API_VERSION } from './shopify'
 
 // Shared cores behind the integration IMPORT routes (Calendly / Shopify / Square /
 // Acuity) so the interview's /ingest can pull the same live catalogs the manual
-// importers do — one fetch+parse per provider, one authorize step. Stripe's
+// importers do - one fetch+parse per provider, one authorize step. Stripe's
 // import stays route-local (platform-key semantics + a different response shape).
 
 // ── authorize ───────────────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ export type IntegrationGate = { ok: true; ownerId: string } | { ok: false; statu
  * The shared authorize step for every integration import: resolve the EFFECTIVE
  * page owner (editor-collaborator aware via `pageId`, or self-gate when absent)
  * and require the Pro `integrations` capability on that owner. AUTH (cookie vs
- * mobile bearer) is the caller's job — this only does ownership + entitlement,
+ * mobile bearer) is the caller's job - this only does ownership + entitlement,
  * so it's reusable by both the web import routes and the intake threads API.
  * `proMessage` is the exact 402 copy so each caller keeps its own wording.
  */
@@ -61,7 +61,7 @@ export type ProviderOffers =
 // Calendly's v2 API returns event-type fields at the resource top level
 // (uri/name/duration/scheduling_url). An older shape nested them under
 // attributes/relationships; normalize both so a real token and the existing
-// fixtures both resolve — and so the event-type URI is captured for single-use
+// fixtures both resolve - and so the event-type URI is captured for single-use
 // scheduling links.
 type CalendlyEventTypeRaw = {
   uri?: string
@@ -103,7 +103,7 @@ export async function importCalendlyOffers(token: string): Promise<ProviderOffer
       { headers: { Authorization: `Bearer ${token}` } },
     )
     if (!eventsRes.ok) {
-      // A permission failure is not "no event types" — surface it (status only;
+      // A permission failure is not "no event types" - surface it (status only;
       // the upstream body is never reflected).
       return { ok: false, status: 502, error: 'Calendly rejected the event-types request. Check the token permissions.', upstreamStatus: eventsRes.status }
     }
@@ -138,7 +138,7 @@ export async function importCalendlyOffers(token: string): Promise<ProviderOffer
 /**
  * Resolve a Shopify store to a strictly-validated *.myshopify.com host. The old
  * substring check let an attacker point the Admin-API call (carrying the caller's
- * token) at any host — pin the authority to a real Shopify subdomain first.
+ * token) at any host - pin the authority to a real Shopify subdomain first.
  */
 export function resolveShopDomain(shop: string): string | null {
   let host = (shop || '').trim().toLowerCase()
@@ -368,7 +368,7 @@ export async function fetchAcuityTypes(userId: string, apiKey: string): Promise<
 
 // ── uniform dispatcher (for intake /ingest) ──────────────────────────────────
 
-/** Providers the interview can ingest from — each pulls the seller's OWN live
+/** Providers the interview can ingest from - each pulls the seller's OWN live
  *  catalog with a caller-supplied credential (never the platform's). Stripe is
  *  excluded (its import uses the platform key). */
 export type IntegrationIngestInput =
@@ -380,7 +380,7 @@ export type IntegrationIngestInput =
 export const INGESTABLE_PROVIDERS = ['calendly', 'shopify', 'square', 'acuity'] as const
 
 /**
- * One entry point that returns REAL live offers or a clear error — NEVER sample
+ * One entry point that returns REAL live offers or a clear error - NEVER sample
  * data (the interview must not fold invented offers into a draft; that's the
  * invention firewall). Square/Acuity: a null/empty live result becomes an error
  * so the interviewer asks instead of pretending it connected.

@@ -73,8 +73,8 @@ for the deployment boundary.
 
 - Free, Launch, Pro, Scale, and Enterprise plans allocate publishing capacity, storefronts,
   domains, collaboration seats, automation, integrations, analytics, and support.
-- Core commerce—including discovery, checkout, orders, refunds, reservations, agreements,
-  staged settlement, and Stripe Connect payout onboarding—remains available independently of
+- Core commerce, including discovery, checkout, orders, refunds, reservations, agreements,
+  staged settlement, and Stripe Connect payout onboarding, remains available independently of
   subscription rank when its operational safety requirements are satisfied.
 - Paid capabilities are resolved from the server-side subscription and promotion lifecycle;
   client metadata never grants access, and unreadable entitlement state fails closed.
@@ -188,5 +188,5 @@ it after CI rather than treating it as an ordinary local command.
 
 ## License
 
-Proprietary — Copyright © 2026 Nexez. All rights reserved. Source-available for reference only;
+Proprietary - Copyright © 2026 Nexez. All rights reserved. Source-available for reference only;
 not licensed for reuse or redistribution. See [`LICENSE`](LICENSE).

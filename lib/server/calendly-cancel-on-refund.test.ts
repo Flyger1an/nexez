@@ -12,7 +12,7 @@ vi.mock('./calendly-write', () => ({
     h.cancelCalls.push({ pat, uuid, reason })
     return h.cancelOk
   }),
-  // Real regex behavior matters here — reuse a faithful implementation.
+  // Real regex behavior matters here - reuse a faithful implementation.
   calendlyEventUuid: (uri: string | null | undefined) =>
     uri?.match(/scheduled_events\/([A-Za-z0-9-]{16,})(?:\/|$|\?)/)?.[1] ?? null,
 }))

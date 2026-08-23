@@ -72,7 +72,7 @@ describe('use case commerce story', () => {
   })
 
   it('uses merchant-facing metadata on the use-case index', () => {
-    expect(metadata.title).toBe('Use Cases — Sell Through AI on Your Terms')
+    expect(metadata.title).toBe('Use Cases - Sell Through AI on Your Terms')
     expect(metadata.description).toMatch(/without giving up merchant control/i)
   })
 })

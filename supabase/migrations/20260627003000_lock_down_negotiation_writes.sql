@@ -14,7 +14,7 @@
 -- The application NEVER writes these tables as anon/authenticated: createNewNegotiation() and all
 -- buyer/system message writes go through the service-role admin client (lib/negotiation.service.ts),
 -- which bypasses RLS. The only client-side write is the OWNER inserting a seller-authored message
--- from the dashboard (app/api/negotiations/transition/route.ts, cookie/authenticated) — preserved
+-- from the dashboard (app/api/negotiations/transition/route.ts, cookie/authenticated) - preserved
 -- below via the existing owner-scoped policy. So we drop the public-insert paths and the now-unused
 -- write grants; the owner SELECT/UPDATE (negotiations) and owner INSERT (messages) stay intact.
 

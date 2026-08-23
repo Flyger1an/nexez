@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: marketingUrl('/terms'),
   },
-  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) - re-carry type/siteName.
   openGraph: {
     type: 'website',
     siteName: 'Nexez',
@@ -113,7 +113,7 @@ const sections: { heading: string; body: string[] }[] = [
     heading: '13. Suspension & Termination',
     body: [
       'You may stop using the Service at any time and can cancel paid subscriptions through the available billing controls. Deleting buyer data does not delete a seller business operated through the same login; seller-account closure must be requested separately so business records are not destroyed accidentally.',
-      'We may suspend, restrict, or terminate access when you materially breach these Terms, create security or legal risk, fail to pay amounts due, abuse the Service, or when a provider or authority requires action. Where practical, we will provide notice and an opportunity to cure. Provisions that by their nature should survive termination—including ownership, payment obligations, disclaimers, liability limits, indemnity, and general terms—will survive.',
+      'We may suspend, restrict, or terminate access when you materially breach these Terms, create security or legal risk, fail to pay amounts due, abuse the Service, or when a provider or authority requires action. Where practical, we will provide notice and an opportunity to cure. Provisions that by their nature should survive termination, including ownership, payment obligations, disclaimers, liability limits, indemnity, and general terms, will survive.',
     ],
   },
   {

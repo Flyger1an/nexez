@@ -11,6 +11,7 @@ import {
   isEntitlementAllocationRetry,
 } from '../../../../lib/entitlement-allocation-error'
 import Stripe from 'stripe'
+import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 /**
  * Stripe Connect onboarding for business owners (for transaction payments).
@@ -19,6 +20,8 @@ import Stripe from 'stripe'
  * Stores account id in billing_subscriptions.stripe_connect_account_id
  */
 export async function POST(request: Request) {
+  const rateLimited = await enforceRateLimit(request, 'billing-connect', 12, 60_000, { failClosed: true })
+  if (rateLimited) return rateLimited
   const requestUrl = new URL(request.url)
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore, requestUrl.host)

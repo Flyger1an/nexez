@@ -43,7 +43,7 @@ export function CommerceExamplesProof() {
               </div>
 
               <p className="mt-5 text-xs font-medium text-muted-foreground">{example.industry}</p>
-              <h3 className="mt-2 text-2xl font-medium tracking-tight group-hover:text-white">{example.title.replace(' — Nexez Example', '')}</h3>
+              <h3 className="mt-2 text-2xl font-medium tracking-tight group-hover:text-white">{example.title.replace(' - Nexez Example', '')}</h3>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">{example.description}</p>
 
               <div className="mt-5 space-y-2">

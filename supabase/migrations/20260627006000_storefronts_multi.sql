@@ -38,12 +38,12 @@ where p.owner_id = s.owner_id and p.storefront_id is null;
 -- 5. Default + enforce pages.storefront_id.
 --    (a) DEFAULT: a new listing with no storefront_id is auto-assigned its account's
 --        primary (oldest) storefront, so no insert path can orphan a listing from the
---        store landing — fully non-breaking for every existing create flow.
+--        store landing - fully non-breaking for every existing create flow.
 --    (b) ENFORCE: a page's storefront MUST belong to the page's owner. Without this, an
 --        owner could set their listing's storefront_id to another account's storefront
 --        (grouping their listing under a victim's brand, or seeding a resolver with a
 --        mismatched owner). SECURITY DEFINER so the check sees the storefront's TRUE owner
---        regardless of the writer's RLS; fails closed. Mirrors nz_pages_pin_owner — and
+--        regardless of the writer's RLS; fails closed. Mirrors nz_pages_pin_owner - and
 --        since owner_id is already immutable on UPDATE, together they guarantee
 --        pages.owner_id == storefronts.owner_id for the assigned storefront.
 create or replace function public.nz_pages_enforce_storefront_owner()

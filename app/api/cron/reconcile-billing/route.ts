@@ -48,7 +48,7 @@ export async function GET(request: Request) {
   // Trial-expiry pass: close expired no-card trials. The effective plan now falls
   // back to a live promotion or Free; storefronts are no longer taken fully offline.
   // Scope is exact via account_origin='trial' + status='trialing' +
-  // expired trial_ends_at (only ever set on no-card trials) — do NOT also filter on a null
+  // expired trial_ends_at (only ever set on no-card trials) - do NOT also filter on a null
   // stripe_customer_id: a trial that merely opened (and abandoned) the embedded payment
   // sheet now carries a customer id while still 'trialing', and excluding it here let it
   // retain trial features forever past expiry. The .eq('status','trialing')

@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import { GeneratorClient } from './GeneratorClient'
 import { marketingUrl } from '../../../lib/site'
+import { safeJsonScript } from '../../../lib/safe-json'
 
 const metaTitle = 'Free llms.txt generator'
 const metaDescription =
-  'Paste your URL and get a spec-shaped llms.txt built from your own pages — free, no signup. Plus the honest take on what llms.txt does and does not do.'
+  'Paste your URL and get a spec-shaped llms.txt built from your own pages - free, no signup. Plus the honest take on what llms.txt does and does not do.'
 
 export const metadata: Metadata = {
   title: metaTitle,
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: marketingUrl('/tools/llms-txt-generator'),
   },
-  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) - re-carry type/siteName.
   openGraph: {
     type: 'website',
     siteName: 'Nexez',
@@ -25,16 +26,16 @@ export const metadata: Metadata = {
 const faqs = [
   {
     question: 'Is this generator really free?',
-    answer: 'Yes — no signup, no email, no watermark. Paste a URL, copy or download the file.',
+    answer: 'Yes - no signup, no email, no watermark. Paste a URL, copy or download the file.',
   },
   {
     question: 'Does llms.txt improve my rankings?',
     answer:
-      'There is no evidence it does: Ahrefs found no performance correlation, and Google says it is not required. It is a cheap, harmless addition — the artifacts agents demonstrably use (structured data, feeds, agent endpoints) matter more.',
+      'There is no evidence it does: Ahrefs found no performance correlation, and Google says it is not required. It is a cheap, harmless addition - the artifacts agents demonstrably use (structured data, feeds, agent endpoints) matter more.',
   },
   {
     question: 'Where do I put the file?',
-    answer: 'At your site root, so it is reachable at yoursite.com/llms.txt — same place as robots.txt.',
+    answer: 'At your site root, so it is reachable at yoursite.com/llms.txt - same place as robots.txt.',
   },
   {
     question: 'What does the generator actually do?',
@@ -70,7 +71,7 @@ export default function LlmsTxtGeneratorPage() {
     <main className="min-h-screen">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: safeJsonScript(faqSchema) }}
       />
       <section className="relative overflow-hidden border-b border-border">
         <div className="pointer-events-none absolute inset-0 z-0">
@@ -83,7 +84,7 @@ export default function LlmsTxtGeneratorPage() {
           <h1 className="mt-3 text-4xl font-semibold tracking-[-0.045em] md:text-5xl">llms.txt generator</h1>
           <p className="mt-4 text-muted-foreground">
             Paste your URL. We read your page once and draft a spec-shaped <span className="font-mono">llms.txt</span> from
-            your own titles, description, and navigation — with placeholders marked for the parts only you can write. No
+            your own titles, description, and navigation - with placeholders marked for the parts only you can write. No
             signup.
           </p>
           <div className="mt-8">
@@ -97,10 +98,10 @@ export default function LlmsTxtGeneratorPage() {
         <p className="mt-4 leading-7 text-muted-foreground">
           llms.txt is a proposed convention, not a standard anyone is required to read: Ahrefs found no correlation between
           having one and AI visibility, and Google&rsquo;s guidance says it is not required. So why generate one? Because it
-          costs nothing, some agents do read it, and writing it forces you to state clearly what you sell — which is the real
+          costs nothing, some agents do read it, and writing it forces you to state clearly what you sell - which is the real
           work. The full reasoning is in{' '}
           <a href="/learn/what-is-llms-txt" className="underline decoration-[var(--signal)]/50 underline-offset-2">
-            What is llms.txt — and do you actually need one?
+            What is llms.txt - and do you actually need one?
           </a>
         </p>
         <p className="mt-4 leading-7 text-muted-foreground">

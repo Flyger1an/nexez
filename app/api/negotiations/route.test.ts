@@ -111,7 +111,7 @@ describe('POST /api/negotiations', () => {
       expect((await POST(post({ slug: 'demo', offer: 'services-0' }))).status).toBe(403)
     })
 
-    it('402 when the seller storefront is PAUSED (offline — no proposal thread, no seller ping)', async () => {
+    it('402 when the seller storefront is PAUSED (offline - no proposal thread, no seller ping)', async () => {
       adminRef.allowed = true
       adminRef.paused = true
       const res = await POST(post({ slug: 'demo', offer: 'services-0' }))

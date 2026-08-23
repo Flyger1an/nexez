@@ -5,7 +5,7 @@ import { useCases } from '../../lib/marketing-content'
 import { getUseCaseCommerceStory } from '../../lib/use-case-commerce-story'
 
 export const metadata: Metadata = {
-  title: 'Use Cases — Sell Through AI on Your Terms',
+  title: 'Use Cases - Sell Through AI on Your Terms',
   description:
     'See how consultants, agencies, coaches, local service businesses, software teams, and marketplaces can use Nexez to turn buyer requests into clear next steps without giving up merchant control.',
   alternates: {
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/use-cases'),
-    title: 'Use Cases — Sell Through AI on Your Terms',
+    title: 'Use Cases - Sell Through AI on Your Terms',
     description:
       'See how different businesses use Nexez to collect buyer details, apply their own rules, and move the right requests toward booking or payment.',
   },

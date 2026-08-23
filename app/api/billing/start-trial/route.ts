@@ -9,6 +9,7 @@ import {
   entitlementAllocationRetryInit,
   isEntitlementAllocationRetry,
 } from '../../../../lib/entitlement-allocation-error'
+import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 const TRIAL_DAYS = 7
 
@@ -53,6 +54,8 @@ export async function GET() {
  * key entitlements off this row, so it must be written server-side.
  */
 export async function POST(request: Request) {
+  const rateLimited = await enforceRateLimit(request, 'billing-start-trial', 12, 60_000, { failClosed: true })
+  if (rateLimited) return rateLimited
   const supabase = createClient(await cookies())
   const {
     data: { user },

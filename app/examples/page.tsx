@@ -28,7 +28,7 @@ const content = {
 // SERP copy (≤160-char description; content.description is longer on-page hero copy).
 const metaTitle = 'Agent Page Examples and Templates'
 const metaDescription =
-  'Reference agent-ready commerce examples across local services, events, and professional work — see what Nexez agents need before transacting.'
+  'Reference agent-ready commerce examples across local services, events, and professional work - see what Nexez agents need before transacting.'
 
 export const metadata: Metadata = {
   title: metaTitle,
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: marketingUrl('/examples'),
   },
-  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) - re-carry type/siteName.
   openGraph: {
     type: 'website',
     siteName: 'Nexez',

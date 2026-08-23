@@ -27,7 +27,7 @@ type IntakeChatProps = {
    *  Re-interview action -> /create?reinterview=<pageId>. */
   reinterviewPageId?: string
   /** Prefill the "your website" input (e.g. from the /scan → onboarding funnel).
-   *  Prefill ONLY — the user still clicks start, so no surprise outbound fetch. */
+   *  Prefill ONLY - the user still clicks start, so no surprise outbound fetch. */
   initialSourceUrl?: string
   className?: string
 }
@@ -124,7 +124,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
       : state.draft.name.trim()
         ? `I re-read ${state.draft.name}. It is already on Nexez, so I will only ask about what is missing or could be stronger. Your answers land as a draft on the listing.`
         : hasTemplateContext
-          ? 'You selected a reference template. I will use it only to guide what I ask — your prices, policies, service area, offers, and other business facts still come from you.'
+          ? 'You selected a reference template. I will use it only to guide what I ask - your prices, policies, service area, offers, and other business facts still come from you.'
           : 'We are starting fresh. A few focused questions and your draft will be ready to review in the builder. Answer, skip, or jump to the form any time.'
     return [{ id: 'intake-opening', role: 'assistant', content: intro, cards }]
   }
@@ -222,7 +222,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
     const found = json.offersFound as number
     const message =
       found > 0
-        ? `Connected ${label} — imported ${found} offer${found === 1 ? '' : 's'}.${state.gaps.length ? ' Here is what is still worth confirming:' : ' Your draft is looking complete.'}`
+        ? `Connected ${label} - imported ${found} offer${found === 1 ? '' : 's'}.${state.gaps.length ? ' Here is what is still worth confirming:' : ' Your draft is looking complete.'}`
         : `Connected ${label}, but I did not find any offers to import. We can keep going with what we have.`
     return { message, cards }
   }

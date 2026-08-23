@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { NextResponse } from 'next/server'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
 const { customersCreate, checkoutExpire, subscriptionsCreate, subscriptionsList, subscriptionsUpdate, subscriptionsCancel } = vi.hoisted(() => ({
@@ -15,6 +16,7 @@ const billingAttempt = vi.hoisted(() => ({
   release: vi.fn(),
   retire: vi.fn(),
 }))
+const rateLimitRef = vi.hoisted(() => ({ response: null as NextResponse | null }))
 
 vi.mock('stripe', () => ({
   default: class {
@@ -24,6 +26,9 @@ vi.mock('stripe', () => ({
   },
 }))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
+vi.mock('../../../../lib/rate-limit', () => ({
+  enforceRateLimit: vi.fn(async () => rateLimitRef.response),
+}))
 vi.mock('../../../../utils/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('../../../../utils/supabase/admin', () => ({
   hasSupabaseAdminEnv: vi.fn(() => false),
@@ -67,8 +72,21 @@ describe('POST /api/billing/create-subscription', () => {
     billingAttempt.markReady.mockResolvedValue(true)
     billingAttempt.release.mockResolvedValue(true)
     billingAttempt.retire.mockResolvedValue('preserved')
+    rateLimitRef.response = null
   })
   afterEach(() => vi.unstubAllEnvs())
+
+  it('rate limits before validating or parsing the request body', async () => {
+    rateLimitRef.response = NextResponse.json({ error: 'rate limited' }, { status: 429 })
+
+    const res = await POST(new Request('https://nexez.test/api/billing/create-subscription', {
+      method: 'POST',
+      body: JSON.stringify({ plan: 'pro' }),
+    }))
+
+    expect(res.status).toBe(429)
+    expect(getBillingPlan).not.toHaveBeenCalled()
+  })
 
   it('rejects unsupported plans', async () => {
     vi.mocked(getBillingPlan).mockReturnValue(null as any)

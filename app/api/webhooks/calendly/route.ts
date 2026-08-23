@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
   // through a negotiation-tagged Calendly link (utm_content=nz_neg_<id>), record
   // the scheduled-event URI on that negotiation. Scoped to THIS page's id, so a
   // signed webhook can only ever touch its own page's negotiations (cross-page
-  // contamination is impossible). First booking wins — never overwrites.
+  // contamination is impossible). First booking wins - never overwrites.
   if (eventType === 'invitee.created') {
     const negId = parseNegotiationTracking(payload.tracking?.utm_content)
     const eventUri = payload.event?.uri || null

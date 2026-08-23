@@ -1,7 +1,7 @@
 -- Server-side (DB-level) enforcement of the teamCollaboration (Scale+) gate.
 --
 -- Why: team_invites rows are written DIRECTLY through the browser Supabase client
--- (components/TeamInvites.tsx) under an RLS policy that only scopes by owner_id —
+-- (components/TeamInvites.tsx) under an RLS policy that only scopes by owner_id -
 -- it enforces tenancy, not plan. And a non-revoked team_invites row is not
 -- cosmetic: migration 20260603220000 grants the invited email SELECT (and, for
 -- role='editor', UPDATE) on the owner's pages. So an unguarded INSERT is a real

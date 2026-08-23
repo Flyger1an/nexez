@@ -83,15 +83,15 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     getOwnerPlanId(admin, access.ownerId),
     admin
       .from('page_secrets')
-      // calendly_pat_encrypted is selected ONLY to derive a boolean — its value
+      // calendly_pat_encrypted is selected ONLY to derive a boolean - its value
       // never leaves the server.
       .select('calendly_webhook_secret, outbound_webhooks, domain_verification_token, website_verification_token, calendly_pat_encrypted')
       .eq('page_id', access.pageId)
       .maybeSingle<{ calendly_webhook_secret: string | null; outbound_webhooks: unknown; domain_verification_token: string | null; website_verification_token: string | null; calendly_pat_encrypted: string | null }>(),
     // Unified per-provider connection state for the Integrations panel (booleans
-    // + timestamps only — never a credential value).
+    // + timestamps only - never a credential value).
     getPageIntegrationConnections(access.pageId, access.ownerId),
-    // Settlement input for the agentic-commerce (ChatGPT/Google) status card — the client
+    // Settlement input for the agentic-commerce (ChatGPT/Google) status card - the client
     // combines these with the listing's published state via agenticCommerceStatus().
     resolveOwnerSettlementReadiness(admin, access.ownerId),
   ])
@@ -103,7 +103,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     integrations,
     // The inputs the "Sell through ChatGPT & Google" card reads: Connect readiness
     // and each surface's program flag (ChatGPT/Google enroll
-    // independently, so they're reported separately — never collapsed to one boolean).
+    // independently, so they're reported separately - never collapsed to one boolean).
     agenticCommerce: {
       connectReady: settlementReadiness.connectReady,
       ...agenticProgramFlags(),
@@ -113,7 +113,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       outbound_webhooks: secrets?.outbound_webhooks ?? null,
       domain_verification_token: secrets?.domain_verification_token ?? null,
       website_verification_token: secrets?.website_verification_token ?? null,
-      // Boolean only — the encrypted PAT is never returned to the client.
+      // Boolean only - the encrypted PAT is never returned to the client.
       calendly_connected: Boolean(secrets?.calendly_pat_encrypted),
     },
   })

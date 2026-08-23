@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { ArrowRight, BookOpen } from 'lucide-react'
 import { learnArticles } from '../../lib/learn-content'
 import { marketingUrl } from '../../lib/site'
+import { safeJsonScript } from '../../lib/safe-json'
 
 const metaTitle = 'Learn: guides to selling through AI agents'
 const metaDescription =
@@ -42,7 +43,7 @@ export default function LearnHubPage() {
     <main className="min-h-screen">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: safeJsonScript(structuredData) }}
       />
       <section className="relative overflow-hidden border-b border-border">
         <div className="pointer-events-none absolute inset-0 z-0">

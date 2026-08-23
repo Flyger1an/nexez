@@ -77,7 +77,7 @@ export async function updateSession(request: NextRequest) {
   const hasStaleSession = isStaleSessionError(error)
 
   // Server-side auth gate: the dashboard (and all its sub-routes) require an
-  // account. Unauthenticated visitors are redirected to sign in — no flash, no
+  // account. Unauthenticated visitors are redirected to sign in - no flash, no
   // access to the dashboard menu. Public surfaces (/, /create, /marketplace,
   // /directory, /leaderboard, /simulator, /support, public pages) stay open.
   const path = request.nextUrl.pathname

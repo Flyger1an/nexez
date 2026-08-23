@@ -67,14 +67,14 @@ describe('buildAgentReadyKit', () => {
     expect(link.content).toContain('&lt;')
     // The title value must contain NO raw double-quote (the crafted `x" onmouseover=`
     // can't terminate the attribute + inject a new one). `onmouseover` may survive as
-    // inert escaped TEXT inside the value — what matters is the quote is neutralized.
+    // inert escaped TEXT inside the value - what matters is the quote is neutralized.
     const title = link.content.match(/title="([^"]*)"/)
     expect(title).not.toBeNull()
     expect(title![1]).not.toContain('"') // no bare quote → no attribute break-out
     expect(title![1]).toContain('&quot;Auto&quot;')
   })
 
-  it('is deterministic (pure) — same input, identical output', () => {
+  it('is deterministic (pure) - same input, identical output', () => {
     const a = buildAgentReadyKit(page(), { baseUrl: BASE })
     const b = buildAgentReadyKit(page(), { baseUrl: BASE })
     expect(a).toEqual(b)

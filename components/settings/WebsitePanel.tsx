@@ -15,7 +15,7 @@ import {
 } from '../../lib/website-verification'
 
 /**
- * "Your website" — prove you own your EXISTING site (DNS TXT / meta tag / well-known
+ * "Your website" - prove you own your EXISTING site (DNS TXT / meta tag / well-known
  * file, no DNS pointing required) and get the copy-paste Agent-Ready Kit. Self-loads
  * the pending token from settings-context; all writes go through the collaborator-safe
  * secrets + verify routes. The kit is always visible/copyable (public-data-derived);
@@ -51,7 +51,7 @@ export function WebsitePanel({
   const [recipeTab, setRecipeTab] = useState<RecipeBlock['id']>('apache')
   const recipe = recipes.find((r) => r.id === recipeTab) ?? recipes[0]
 
-  // Hosted site builders (Wix/Squarespace) can't add redirects or /.well-known —
+  // Hosted site builders (Wix/Squarespace) can't add redirects or /.well-known -
   // they inject a <head> snippet instead.
   const injectionRecipes = useMemo(() => buildCodeInjectionRecipes(page), [page])
   const [injectionTab, setInjectionTab] = useState<InjectionRecipe['id']>('wix')
@@ -96,7 +96,7 @@ export function WebsitePanel({
       setCopiedId(id)
       setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 1200)
     } catch {
-      onMessage('Copy failed — select and copy manually.')
+      onMessage('Copy failed - select and copy manually.')
     }
   }
 
@@ -136,9 +136,9 @@ export function WebsitePanel({
       if (res.ok && data?.verified) {
         setToken('')
         onVerified(data.verifiedAt, method)
-        onMessage(`Verified — ${data.host} is confirmed as yours.`)
+        onMessage(`Verified - ${data.host} is confirmed as yours.`)
       } else if (res.ok) {
-        onMessage(data?.message || 'Not verified yet — give DNS/CDN a minute and retry.')
+        onMessage(data?.message || 'Not verified yet - give DNS/CDN a minute and retry.')
       } else {
         onMessage(data?.error || 'Verification failed. Check the record and retry.')
       }
@@ -171,7 +171,7 @@ export function WebsitePanel({
           </p>
         ) : (
           <p className="text-[var(--fg-muted)]">
-            <span className="font-medium text-[var(--fg)]">{host}</span> — not verified yet. Verify to mark it as yours (changing your website URL clears verification).
+            <span className="font-medium text-[var(--fg)]">{host}</span> - not verified yet. Verify to mark it as yours (changing your website URL clears verification).
           </p>
         )}
       </div>
@@ -261,7 +261,7 @@ export function WebsitePanel({
         </p>
         <p className="mb-3 text-xs text-[var(--fg-muted)]">
           Add one redirect rule and agents hitting <span className="font-mono">{host || 'yoursite.com'}/.well-known/agent.json</span>,{' '}
-          <span className="font-mono">/llms.txt</span> and more get your <span className="font-medium text-[var(--fg)]">live</span> listing —
+          <span className="font-mono">/llms.txt</span> and more get your <span className="font-medium text-[var(--fg)]">live</span> listing -
           auto-updating whenever your offers change (no stale copy to maintain). Pick your stack:
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -309,7 +309,7 @@ export function WebsitePanel({
             <Puzzle className="size-4 text-[var(--fg-muted)]" /> Using WordPress?
           </p>
           <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
-            Install the <span className="font-medium text-[var(--fg)]">Nexez Agent-Ready</span> plugin — it injects your JSON-LD and serves
+            Install the <span className="font-medium text-[var(--fg)]">Nexez Agent-Ready</span> plugin - it injects your JSON-LD and serves
             these redirects automatically, no server config. Paste this listing slug into the plugin settings:
           </p>
           <div className="mt-2">
@@ -317,12 +317,12 @@ export function WebsitePanel({
           </div>
           {token ? (
             <div className="mt-2">
-              <Artifact id="wp-token" label="Verification token (optional — the plugin can serve the file-method proof)" value={token} copiedId={copiedId} onCopy={copy} />
+              <Artifact id="wp-token" label="Verification token (optional - the plugin can serve the file-method proof)" value={token} copiedId={copiedId} onCopy={copy} />
             </div>
           ) : null}
         </div>
 
-        {/* Hosted builders (Wix, Squarespace): no server config — inject a <head> snippet. */}
+        {/* Hosted builders (Wix, Squarespace): no server config - inject a <head> snippet. */}
         <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
           <p className="flex items-center gap-2 text-sm font-medium">
             <Puzzle className="size-4 text-[var(--fg-muted)]" /> On Wix or Squarespace?
@@ -370,7 +370,7 @@ export function WebsitePanel({
       <div>
         <p className="mb-2 text-sm font-semibold">Agent-Ready Kit</p>
         {!verifiedAt ? (
-          <p className="mb-3 text-xs text-[var(--fg-muted)]">Copy these onto your site now — verifying {host || 'your site'} just adds the confirmed badge.</p>
+          <p className="mb-3 text-xs text-[var(--fg-muted)]">Copy these onto your site now - verifying {host || 'your site'} just adds the confirmed badge.</p>
         ) : null}
         <div className="space-y-3">
           {kit.map((block) => (
@@ -480,7 +480,7 @@ function AgenticCommerceCard({
           <span className="mt-1 size-2 shrink-0 rounded-full" style={{ background: 'var(--fg-muted)' }} />
         )}
         <span className="text-[var(--fg-muted)]">
-          <span className="font-medium text-[var(--fg)]">Discovery</span> —{' '}
+          <span className="font-medium text-[var(--fg)]">Discovery</span> -{' '}
           {discoveryLive ? 'live in the ChatGPT & Google product feeds.' : 'publish this listing to appear in agent feeds.'}
         </span>
       </div>
@@ -493,7 +493,7 @@ function AgenticCommerceCard({
           <span className="mt-1 size-2 shrink-0 rounded-full" style={{ background: checkout.color }} />
         )}
         <span className="text-[var(--fg-muted)]">
-          <span className="font-medium text-[var(--fg)]">Checkout</span> — {checkout.line}
+          <span className="font-medium text-[var(--fg)]">Checkout</span> - {checkout.line}
         </span>
       </div>
 

@@ -135,7 +135,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
       </div>
       <p className="mt-2 text-[10px] text-[var(--fg-muted-2)]">
         {premiumActive
-          ? 'Re-sync pulls fresh offers from your saved connection — no token needed — and merges them in place (your manual offers are never touched).'
+          ? 'Re-sync pulls fresh offers from your saved connection - no token needed - and merges them in place (your manual offers are never touched).'
           : 'Connected premium providers are retained after downgrade, but new imports and automation are paused. The installed Shopify app remains active on every plan.'}{' '}
         Connect, disconnect, and manage every integration in <a href={`/dashboard/${id}/settings`} className="underline">Settings → Integrations</a>.
       </p>

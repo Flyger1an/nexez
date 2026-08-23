@@ -132,7 +132,7 @@ describe('Nexie offer configuration tool loop', () => {
           },
         }],
       })
-      .mockResolvedValueOnce({ choices: [{ message: { content: 'Got it — vehicle size affects the job, and you bring your own water.' } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: 'Got it - vehicle size affects the job, and you bring your own water.' } }] })
 
     const first = await handleIntakeTurn(
       {

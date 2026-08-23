@@ -1,8 +1,8 @@
--- Per-page Shopify credential storage — the "connect once, re-sync without
+-- Per-page Shopify credential storage - the "connect once, re-sync without
 -- re-pasting the token" model, mirroring calendly_pat_encrypted. Stores the
 -- seller's Shopify {shop domain + Admin API access token} as ONE AES-256-GCM
 -- encrypted JSON blob (lib/server/secret-crypto) so a DB dump can't yield a
--- usable token. Service-role read only — the app never returns it to a client;
+-- usable token. Service-role read only - the app never returns it to a client;
 -- the seller sees a "connected" boolean and can overwrite or disconnect it.
 
 alter table public.page_secrets

@@ -11,8 +11,8 @@ export function hasSupabaseAuthCookie(
 }
 
 /** Client-side variant over document.cookie (the auth cookie is deliberately not
- *  httpOnly — the Supabase client SDK needs it). Used by PlatformFrame so the ROOT
- *  layout never reads cookies() — a request-scoped API there would force every
+ *  httpOnly - the Supabase client SDK needs it). Used by PlatformFrame so the ROOT
+ *  layout never reads cookies() - a request-scoped API there would force every
  *  route in the tree dynamic and kill static prerendering of the marketing site. */
 export function hasSupabaseAuthCookieInDocument(): boolean {
   if (typeof document === 'undefined') return false

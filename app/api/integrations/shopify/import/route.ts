@@ -4,7 +4,7 @@ import { createClient } from '../../../../../utils/supabase/server'
 import { gateIntegrationImport, importShopifyOffers } from '../../../../../lib/server/integration-importers'
 
 /**
- * Shopify Integration for Nexez — authenticated Admin API catalog import.
+ * Shopify Integration for Nexez - authenticated Admin API catalog import.
  * The domain-pinning fetch + parse lives in lib/server/integration-importers
  * (shared with the interview's /ingest); this route is auth + Pro gate + shaping.
  */

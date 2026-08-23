@@ -1,7 +1,7 @@
 -- Phase 2 of the no-Free trial model: make the three DB plan resolvers trial/paused/origin
 -- aware, in lockstep with lib/server/plan.ts. All three now:
 --   1. short-circuit platform_admins to the top tier (mirrors getOwnerPlanId; the TS comment
---      already claimed this SQL short-circuit existed — now it actually does);
+--      already claimed this SQL short-circuit existed - now it actually does);
 --   2. only let a CONFERRING subscription grant its plan: active/past_due/unpaid, OR a
 --      trialing row still inside its window (trial_ends_at in the future / null);
 --   3. deny an expired trial or a paused row.

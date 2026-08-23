@@ -2,7 +2,7 @@
 --
 -- Every other public table has a CREATE TABLE in supabase/migrations, but `pages`
 -- was bootstrapped out-of-band, so the first pages migration (0001) ALTERs a table
--- that doesn't exist on a clean database — `supabase db reset` (or a brand-new
+-- that doesn't exist on a clean database - `supabase db reset` (or a brand-new
 -- project / preview branch) fails immediately on 0001. This creates ONLY the
 -- original pre-migration columns; the existing `add column if not exists ...`
 -- migrations (0001 onward) then reconstruct the full live schema in filename order.
@@ -15,7 +15,7 @@
 --     original-columns baseline replays to the live shape with no conflict.
 --
 -- IF NOT EXISTS makes this a strict NO-OP on the existing prod DB (the table is
--- already present) — it only does work on a fresh database. Filename `0000_` sorts
+-- already present) - it only does work on a fresh database. Filename `0000_` sorts
 -- before `0001_`, so it runs first on a reset. RLS + indexes + policies are added
 -- by the later migrations (0001/0002/0003+), so they are intentionally NOT here.
 create table if not exists public.pages (

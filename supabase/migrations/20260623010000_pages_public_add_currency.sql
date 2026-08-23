@@ -2,7 +2,7 @@
 --
 -- The multi-currency change (20260623000000) added `currency` to the pages table
 -- AND to PUBLIC_PAGE_SELECT (lib/agent-page.ts), but the public/agent surfaces read
--- from the pages_public VIEW — which did not carry the column. Selecting a column
+-- from the pages_public VIEW - which did not carry the column. Selecting a column
 -- the view lacks makes PostgREST error, so every public/agent route
 -- (app/[slug], agent.json, mcp, llms.txt, checkout, agent-pages.json) returned no
 -- data (404 / empty). This recreates the view with `currency` appended (column

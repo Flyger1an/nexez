@@ -179,7 +179,7 @@ describe('syncPageIntegration', () => {
     expect(await syncPageIntegration(admin(), 'acuity', 'pg1')).toMatchObject({ ok: false, status: 400 })
   })
 
-  it('updates a provider offer that already lives in products — no cross-column duplicate', async () => {
+  it('updates a provider offer that already lives in products - no cross-column duplicate', async () => {
     h.imported = { ok: true, offers: [shopOffer()], note: 'Imported 1' } // "Mug"
     h.page = { id: 'pg1', slug: 'acme', services: [], products: [{ name: 'Mug', price: '$10', description: '', url: 'https://old', source: 'shopify' }], next_available: null, updated_at: '2026-07-13T12:00:00Z' }
     const r = await syncPageIntegration(admin(), 'shopify', 'pg1')

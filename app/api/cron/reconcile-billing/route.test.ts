@@ -57,7 +57,7 @@ describe('GET /api/cron/reconcile-billing - trial-expiry fallback pass', () => {
     expect(updates[0].payload).toEqual({ status: 'expired' })
     expect(updates[0].eqs).toEqual({ owner_id: 'trial-owner-1', status: 'trialing' })
 
-    // The expiry query scopes to expired no-card trials ONLY — and must NOT re-add the
+    // The expiry query scopes to expired no-card trials ONLY - and must NOT re-add the
     // stale `.is('stripe_customer_id', null)` proxy that excluded abandoned-sheet trials.
     expect(expirySelectCalls).toContainEqual(['eq', 'account_origin', 'trial'])
     expect(expirySelectCalls).toContainEqual(['eq', 'status', 'trialing'])
@@ -80,7 +80,7 @@ describe('GET /api/cron/reconcile-billing - trial-expiry fallback pass', () => {
         return { data: [] } // no expired trials this run
       }) as any,
     )
-    // Customer's only Stripe sub is an abandoned incomplete one — never "live".
+    // Customer's only Stripe sub is an abandoned incomplete one - never "live".
     subscriptionsList.mockResolvedValue({ data: [{ id: 'sub_dead', status: 'incomplete_expired', items: { data: [] } }] })
 
     const res = await GET(cronReq())

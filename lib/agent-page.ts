@@ -52,7 +52,7 @@ export const SERVER_PAGE_SELECT = [
   'owner_id',
   'storefront_id',
   'google_calendar_id',
-  // Owner-facing external-website ownership proof (NOT in pages_public — owner reads
+  // Owner-facing external-website ownership proof (NOT in pages_public - owner reads
   // come from the base pages table under RLS).
   'website_verified_at',
   'website_verified_method',
@@ -346,7 +346,7 @@ export function normalizeSlug(value: string) {
 /**
  * Slugs a listing may NOT claim: every top-level route segment on the platform
  * (a listing slugged "learn" would be silently shadowed by the static route and
- * become unreachable — Next's static routes win over the dynamic [slug]) plus
+ * become unreachable - Next's static routes win over the dynamic [slug]) plus
  * config-redirect sources and a small future/safety set. A sync test
  * (lib/__tests__/reserved-slugs.test.ts) fails the build if a new app/ route
  * segment is added without reserving it here.

@@ -5,7 +5,7 @@
 
 -- Per-plan team seat quota (mirrors lib/billing.ts limits.teamSeats). Only a live
 -- subscription confers seats (mirrors owner_plan_rank). MUST stay in lockstep with
--- owner_plan_rank's status logic — Phase 2 updates both together for paused/legacy.
+-- owner_plan_rank's status logic - Phase 2 updates both together for paused/legacy.
 create or replace function public.owner_team_seat_limit(p_owner uuid)
 returns int
 language sql
@@ -29,7 +29,7 @@ revoke all on function public.owner_team_seat_limit(uuid) from anon, authenticat
 
 -- Gate INSERT: Pro+ unlocks team collaboration AND it's seat-capped per plan. Revoking an
 -- invite stays open (a downgraded owner can clean up). The count >= limit check naturally
--- grandfathers existing over-limit owners — they keep their seats but can't add more, no
+-- grandfathers existing over-limit owners - they keep their seats but can't add more, no
 -- baseline table needed (unlike pages, whose count fluctuates via publish/unpublish).
 create or replace function public.enforce_team_collaboration_plan()
 returns trigger

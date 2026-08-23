@@ -121,7 +121,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                   {page && isStale(page) && page.website_url ? (
                     <div className="rounded-[var(--radius)] border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-3 text-sm">
                       <span className="text-[var(--amber)]">
-                        Freshness: {freshnessLabel(page)}. Your live business may have changed—re-sync to keep agent data accurate.
+                        Freshness: {freshnessLabel(page)}. Your live business may have changed, re-sync to keep agent data accurate.
                       </span>{' '}
                       <a href={`/dashboard/${e.id}/settings`} className="font-medium text-[var(--settings-emphasis)] hover:underline">
                         Re-sync in Settings →
@@ -265,7 +265,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                     {hasPendingDraft(page) ? (
                       <div className="mt-4 flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-3 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-sm text-[var(--amber)]">
-                          Draft staged{page?.draft_updated_at ? ` ${new Date(page.draft_updated_at).toLocaleString()}` : ''}—not live yet.
+                          Draft staged{page?.draft_updated_at ? ` ${new Date(page.draft_updated_at).toLocaleString()}` : ''}, not live yet.
                         </span>
                         <span className="flex flex-wrap gap-2">
                           <a href={appUrl(`/${e.slug}?preview=1`)} target="_blank" rel="noreferrer" className="settings-emphasis-action inline-flex min-h-10 items-center rounded-[var(--radius)] px-3 text-xs font-medium">

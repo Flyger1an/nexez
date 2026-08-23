@@ -9,7 +9,7 @@ import { ACP_API_VERSION } from '../acp/constants'
 //
 // DORMANT until BOTH ACP_ORDER_WEBHOOK_URL and ACP_ORDER_WEBHOOK_SECRET are set at
 // enrollment (owner-provided by OpenAI). Best-effort: never throws into the caller
-// (call via after()); a failed emit is logged, not fatal — the durable order state
+// (call via after()); a failed emit is logged, not fatal - the durable order state
 // lives in checkout_orders regardless. No secret is logged.
 //
 // The exact header names / signature encoding are confirmed at enrollment against
@@ -70,7 +70,7 @@ export function signAcpOrderPayload(rawBody: string, secret: string): string {
 
 export type AcpOrderEmitResult = { ok: boolean; skipped?: boolean; status?: number; error?: string }
 
-/** Emit an order event to OpenAI. No-op (`skipped`) when unconfigured; best-effort —
+/** Emit an order event to OpenAI. No-op (`skipped`) when unconfigured; best-effort -
  * never throws. `fetchImpl`/`nowIso` injectable for tests. */
 export async function sendAcpOrderEvent(
   type: AcpOrderEventType,

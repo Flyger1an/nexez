@@ -116,7 +116,7 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/api/reservable-resources/checkout')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/api/webhooks/stripe')).toBe(AGENT_RUNTIME_HOST)
     // The Shopify app is hosted on app.nexez.ai, so ITS webhook is the deliberate
-    // exception — Shopify won't follow the 308 the runtime prefix would issue.
+    // exception - Shopify won't follow the 308 the runtime prefix would issue.
     expect(canonicalHostFor('/api/webhooks/shopify')).toBe(APP_HOST)
     expect(canonicalHostFor('/api/cron/reconcile-escrow')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/api/v1/pages')).toBe(AGENT_RUNTIME_HOST)
