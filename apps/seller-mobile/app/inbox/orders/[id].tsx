@@ -162,11 +162,11 @@ export default function OrderDetailRoute() {
         </Card>
       ) : (
         <Card>
-          <Text style={st.terminal}>Only a paid order can be refunded in app. Open Finance on web for full payment history.</Text>
+          <Text style={st.terminal}>Only a paid order can be refunded in app. Open Orders on web for the complete transaction record.</Text>
         </Card>
       )}
 
-      <AppButton label="Open Finance on web" icon={ExternalLink} variant="ghost" onPress={() => void WebBrowser.openBrowserAsync(webPath('/dashboard/finance'))} />
+      <AppButton label="Open order on web" icon={ExternalLink} variant="ghost" onPress={() => void WebBrowser.openBrowserAsync(webPath(`/dashboard/orders/${item.id}`))} />
     </Screen>
   )
 }
