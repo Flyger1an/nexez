@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { getBillingSubscription, getFinanceRollup, getMyPlanEntitlements, getSellerPages } from '@/src/lib/data'
 import { getOfferCount } from '@/src/lib/agent-page'
 import { useAsyncData } from './useAsyncData'
@@ -5,11 +6,12 @@ import { useSession } from './useSession'
 
 export function useBilling() {
   const { user } = useSession()
-  return useAsyncData(async () => {
-    if (!user) throw new Error('Sign in required.')
-    const billingPromise = getBillingSubscription(user.id)
-    const pagesPromise = getSellerPages(user.id)
-    const entitlements = await getMyPlanEntitlements(user.id)
+  const ownerId = user?.id
+  const load = useCallback(async () => {
+    if (!ownerId) throw new Error('Sign in required.')
+    const billingPromise = getBillingSubscription(ownerId)
+    const pagesPromise = getSellerPages(ownerId)
+    const entitlements = await getMyPlanEntitlements(ownerId)
     const [billing, pages, finance] = await Promise.all([
       billingPromise,
       pagesPromise,
@@ -33,5 +35,6 @@ export function useBilling() {
       commissionPercent,
       platformFeesCents: primaryCurrency?.feeCents ?? 0,
     }
-  }, [user?.id])
+  }, [ownerId])
+  return useAsyncData(load)
 }

@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Check, ExternalLink, Gavel, Pause, Play, RefreshCcw, Reply, X } from 'lucide-react-native'
 import * as WebBrowser from 'expo-web-browser'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Alert, Pressable, Text, TextInput, View } from 'react-native'
 import { AppButton, Badge, Card, ErrorState, LoadingState, Screen, StackHeader } from '@/src/components/ui'
 import { useToast } from '@/src/components/Toast'
@@ -19,7 +19,8 @@ export default function NegotiationDetailRoute() {
   const toast = useToast()
   const { id } = useLocalSearchParams<{ id: string }>()
   const { data, loading, error, reload } = useInbox()
-  const thread = useAsyncData(() => getNegotiationMessages(id), [id])
+  const loadThread = useCallback(() => getNegotiationMessages(id), [id])
+  const thread = useAsyncData(loadThread)
   const listings = useListings()
   const [mode, setMode] = useState<null | 'accept' | 'counter' | 'refund'>(null)
   const [amountText, setAmountText] = useState('')

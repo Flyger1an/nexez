@@ -125,7 +125,10 @@ export function stripeBillingIdempotencyKey(attemptKey: string, operation: strin
 }
 
 type StripeCheckoutCleanupClient = {
-  checkout: { sessions: { expire: (id: string) => Promise<unknown> } }
+  checkout: { sessions: {
+    retrieve: (id: string) => Promise<{ status: string | null }>
+    expire: (id: string) => Promise<unknown>
+  } }
   subscriptions: {
     retrieve: (id: string) => Promise<{ status: string }>
     cancel: (id: string) => Promise<unknown>
@@ -142,6 +145,8 @@ export async function retireSupersededBillingObject(
   stripeObjectId: string,
 ): Promise<'expired' | 'canceled' | 'preserved' | 'ignored'> {
   if (stripeObjectId.startsWith('cs_')) {
+    const session = await stripe.checkout.sessions.retrieve(stripeObjectId)
+    if (session.status !== 'open') return 'preserved'
     await stripe.checkout.sessions.expire(stripeObjectId)
     return 'expired'
   }
@@ -170,4 +175,60 @@ export async function releaseBillingCheckoutAttempt(ownerId: string, attemptKey?
   if (attemptKey) query = query.eq('attempt_key', attemptKey)
   const { error } = await query
   return !error
+}
+
+export type BillingCheckoutCleanupResult = {
+  scanned: number
+  cleaned: number
+  failed: number
+}
+
+/**
+ * Retire expired Stripe checkout objects before deleting their coordination
+ * rows. The attempt key and expiry predicate make deletion compare-and-swap
+ * safe if a buyer starts a replacement checkout while this cleanup is running.
+ */
+export async function cleanupExpiredBillingCheckoutAttempts(
+  stripe: StripeCheckoutCleanupClient,
+  options: { now?: Date; limit?: number } = {},
+): Promise<BillingCheckoutCleanupResult> {
+  if (!hasSupabaseAdminEnv()) return { scanned: 0, cleaned: 0, failed: 0 }
+
+  const nowIso = (options.now ?? new Date()).toISOString()
+  const limit = Math.max(1, Math.min(options.limit ?? 25, 100))
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('billing_checkout_attempts')
+    .select('owner_id, attempt_key, stripe_object_id, expires_at')
+    .lte('expires_at', nowIso)
+    .order('expires_at', { ascending: true })
+    .limit(limit)
+    .returns<Array<Pick<BillingCheckoutAttempt, 'owner_id' | 'attempt_key' | 'stripe_object_id' | 'expires_at'>>>()
+
+  if (error) return { scanned: 0, cleaned: 0, failed: 1 }
+
+  let cleaned = 0
+  let failed = 0
+  const rows = data ?? []
+  for (const attempt of rows) {
+    try {
+      if (attempt.stripe_object_id) {
+        await retireSupersededBillingObject(stripe, attempt.stripe_object_id)
+      }
+      const { error: deleteError } = await admin
+        .from('billing_checkout_attempts')
+        .delete()
+        .eq('owner_id', attempt.owner_id)
+        .eq('attempt_key', attempt.attempt_key)
+        .lte('expires_at', nowIso)
+      if (deleteError) failed += 1
+      else cleaned += 1
+    } catch {
+      // Keep the row for the next hourly reconciliation. Deleting first would
+      // orphan the Stripe object and remove the only safe retry coordinate.
+      failed += 1
+    }
+  }
+
+  return { scanned: rows.length, cleaned, failed }
 }

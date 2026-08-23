@@ -8,7 +8,7 @@ import { ErrorState, Glass, LoadingState, Screen, StackHeader } from '@/src/comp
 import { useToast } from '@/src/components/Toast'
 import { useInbox } from '@/src/hooks/useInbox'
 import { formatCurrency, formatDateTime } from '@/src/lib/format'
-import { colors, fonts, radii } from '@/src/theme/colors'
+import { colors, fonts } from '@/src/theme/colors'
 
 type Notif = { id: string; icon: LucideIcon; tint: string; text: string; time: string; createdAt: string; open: () => void }
 const RESOLVED = ['resolved', 'closed', 'refunded', 'completed', 'approved', 'declined']

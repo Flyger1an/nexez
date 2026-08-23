@@ -264,7 +264,7 @@ function Badge({ count }: { count: number }) {
   return (
     <span
       className="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none text-[var(--color-pure-white)]"
-      style={{ backgroundColor: '#DC4F1E' }}
+      style={{ backgroundColor: '#C94719' }}
       aria-label={`${count} open`}
     >
       {count > 99 ? '99+' : count}

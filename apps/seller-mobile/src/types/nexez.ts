@@ -1,3 +1,4 @@
+import type { NegotiationStatus } from '../../../../lib/negotiations'
 export type PricingTier = {
   name: string
   price: string
@@ -186,7 +187,7 @@ export type AnalyticsRollup = {
     events: { total: number; verified: number; legacy: number; unverified: number }
     visits: { total: number; verified: number; legacy: number; unverified: number }
   }
-  daily: Array<{
+  daily: {
     date: string
     eventSignals: number
     visits: number
@@ -194,18 +195,18 @@ export type AnalyticsRollup = {
     discoveryClicks: number
     checkoutStarts: number
     paidOrders: number
-  }>
-  channels: Array<{ channel: string; orders: number }>
-  currencies: Array<{
+  }[]
+  channels: { channel: string; orders: number }[]
+  currencies: {
     currency: string
     orders: number
     gmvCents: number
     refundedCents: number
     feeCents: number
-  }>
-  agentTypes: Array<{ agentType: string; visits: number; avgConfidence: number }>
-  topPages: Array<{ pageId: string; slug: string; name: string; visits: number }>
-  topOffers: Array<{
+  }[]
+  agentTypes: { agentType: string; visits: number; avgConfidence: number }[]
+  topPages: { pageId: string; slug: string; name: string; visits: number }[]
+  topOffers: {
     pageId: string
     slug: string
     offerKey: string
@@ -213,15 +214,15 @@ export type AnalyticsRollup = {
     signals: number
     attempts: number
     paidOrders: number
-  }>
-  topQueries: Array<{ query: string; uses: number }>
-  topReferrers: Array<{ referrer: string; visits: number }>
+  }[]
+  topQueries: { query: string; uses: number }[]
+  topReferrers: { referrer: string; visits: number }[]
   activePageIds: string[]
 }
 
 export type FinanceRollup = {
   schemaVersion: 1
-  currencies: Array<{
+  currencies: {
     currency: string
     transactions: number
     grossCents: number
@@ -235,11 +236,11 @@ export type FinanceRollup = {
     partialRefunds: number
     snapshotTransactions: number
     estimatedTransactions: number
-  }>
-  channels: Array<{ currency: string; channel: string; transactions: number; grossCents: number; netCents: number }>
-  daily: Array<{ currency: string; date: string; transactions: number; grossCents: number; outflowCents: number; netCents: number }>
-  topOffers: Array<{ currency: string; pageId: string | null; slug: string; offerKey: string; offerName: string; transactions: number; grossCents: number; netCents: number }>
-  escrow: Array<{
+  }[]
+  channels: { currency: string; channel: string; transactions: number; grossCents: number; netCents: number }[]
+  daily: { currency: string; date: string; transactions: number; grossCents: number; outflowCents: number; netCents: number }[]
+  topOffers: { currency: string; pageId: string | null; slug: string; offerKey: string; offerName: string; transactions: number; grossCents: number; netCents: number }[]
+  escrow: {
     currency: string
     deals: number
     fundedCents: number
@@ -253,8 +254,8 @@ export type FinanceRollup = {
     partialRefunds: number
     snapshotDeals: number
     estimatedDeals: number
-  }>
-  negotiatedWindow: Array<{ currency: string; deals: number; fundedCents: number; heldCents: number; capturedCents: number; outflowCents: number; netCents: number }>
+  }[]
+  negotiatedWindow: { currency: string; deals: number; fundedCents: number; heldCents: number; capturedCents: number; outflowCents: number; netCents: number }[]
   operations: { openRequests: number; disputedOrders: number; disputedNegotiations: number; heldNegotiations: number; staleHeldNegotiations: number; estimatedEconomics: number }
 }
 
@@ -396,4 +397,3 @@ export type SimulationResult = {
   llmEnhanced?: boolean
   error?: string
 }
-import type { NegotiationStatus } from '../../../../lib/negotiations'

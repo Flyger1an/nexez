@@ -600,7 +600,11 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
 
         <section className="border-t border-white/10 py-12">
           <h2 className="text-2xl font-semibold">Plain-text agent context</h2>
-          <pre className="mt-5 overflow-x-auto rounded-lg border border-white/10 bg-black p-5 text-sm leading-7 text-zinc-300">
+          <pre
+            className="mt-5 overflow-x-auto rounded-lg border border-white/10 bg-black p-5 text-sm leading-7 text-zinc-300"
+            aria-label="Plain-text agent context"
+            tabIndex={0}
+          >
 {`Name: ${page.name}
 URL: ${selfUrl}
 Agent JSON: ${effectiveBase}${agentJsonHref}
@@ -690,7 +694,7 @@ function ReviewSection({ summary }: { summary: ReviewSummary }) {
 
 function ReviewStars({ value, small = false }: { value: number; small?: boolean }) {
   return (
-    <div className="flex items-center gap-1 text-[var(--amber)]" aria-label={`${value} out of 5 stars`}>
+    <div className="flex items-center gap-1 text-[var(--amber)]" role="img" aria-label={`${value} out of 5 stars`}>
       {[1, 2, 3, 4, 5].map((star) => (
         <Star key={star} className={small ? 'size-3.5' : 'size-4'} fill={star <= Math.round(value) ? 'currentColor' : 'none'} />
       ))}

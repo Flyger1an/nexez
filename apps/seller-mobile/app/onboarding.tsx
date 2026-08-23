@@ -7,7 +7,7 @@ import { AppButton, AvatarChip, Glass, Screen } from '@/src/components/ui'
 import { useSession } from '@/src/hooks/useSession'
 import { colors, fonts } from '@/src/theme/colors'
 
-const POINTS: Array<{ icon: LucideIcon; title: string; sub: string }> = [
+const POINTS: { icon: LucideIcon; title: string; sub: string }[] = [
   { icon: Layers, title: 'Agent-ready listings', sub: 'Create and publish clean pages agents can read and transact.' },
   { icon: Bot, title: 'See agent discovery', sub: 'Track AI traffic, top buyer agents, and conversions in real time.' },
   { icon: BarChart3, title: 'Close deals on the go', sub: 'Accept, counter, and refund negotiations + orders from your phone.' },

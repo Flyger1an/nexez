@@ -13,6 +13,7 @@ let fixturePageName = ''
 let fixturePageSlug = ''
 let fixtureTargetHost = ''
 let fixtureResearchIds: string[] = []
+let fixtureAiFeaturesEnabled = false
 let originalPlanMetadata: unknown = null
 let planMetadataAdjusted = false
 
@@ -86,6 +87,21 @@ async function prepareFixtures() {
   }
   fixtureOwnerId = authData.user.id
 
+  const selectedPlan = authData.user.user_metadata?.plan
+  if (!['free', 'launch', 'pro', 'scale'].includes(selectedPlan)) {
+    originalPlanMetadata = selectedPlan ?? null
+    const { error: metadataError } = await fixtureClient.auth.updateUser({ data: { plan: 'free' } })
+    if (metadataError) throw new Error(`Could not prepare golden-path fixture onboarding: ${metadataError.message}`)
+    planMetadataAdjusted = true
+  }
+
+  const { data: entitlements, error: entitlementError } = await fixtureClient.rpc('get_my_plan_entitlements')
+  if (entitlementError) throw new Error(`Could not resolve golden-path entitlements: ${entitlementError.message}`)
+  fixtureAiFeaturesEnabled = Boolean(
+    (entitlements as { features?: { aiFeatures?: boolean } } | null)?.features?.aiFeatures,
+  )
+  if (!fixtureAiFeaturesEnabled) return
+
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   fixturePageName = `Agent Lab golden path ${unique}`
   fixturePageSlug = `agent-lab-golden-path-${unique}`
@@ -118,14 +134,6 @@ async function prepareFixtures() {
     throw new Error(`Could not create the golden-path listing: ${pageError?.message || 'no id returned'}`)
   }
   fixturePageId = pageData.id
-
-  const selectedPlan = authData.user.user_metadata?.plan
-  if (!['free', 'launch', 'pro', 'scale'].includes(selectedPlan)) {
-    originalPlanMetadata = selectedPlan ?? null
-    const { error } = await fixtureClient.auth.updateUser({ data: { plan: 'free' } })
-    if (error) throw new Error(`Could not prepare the golden-path workspace plan: ${error.message}`)
-    planMetadataAdjusted = true
-  }
 
   const now = Date.now()
   const targetUrl = `https://${fixtureTargetHost}/pricing`
@@ -194,6 +202,7 @@ test.describe('Settings and Agent Lab five-pass golden path', () => {
   })
 
   test('carries attributable evidence and research from Agent Lab back into Settings operations', async ({ page }) => {
+    test.skip(!fixtureAiFeaturesEnabled || !fixturePageId, 'requires a Launch-or-higher E2E entitlement')
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(String(error)))
 
@@ -248,6 +257,7 @@ test.describe('Settings and Agent Lab five-pass golden path', () => {
   })
 
   test('runs the per-listing simulator against an owner-only draft and stays responsive', async ({ page }) => {
+    test.skip(!fixtureAiFeaturesEnabled || !fixturePageId, 'requires a Launch-or-higher E2E entitlement')
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(String(error)))
 

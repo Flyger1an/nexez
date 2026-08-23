@@ -321,7 +321,7 @@ export default function NexezHome() {
             </div>
           </div>
           <div className="grid gap-4">
-            <div className="nx-tile overflow-hidden p-5" aria-label="Nexez buying flow">
+            <div className="nx-tile overflow-hidden p-5" role="group" aria-label="Nexez buying flow">
               <div className="relative grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
                 {discoveryFlow.map(({ title, label, Icon }, index) => (
                   <div key={title} className="contents">

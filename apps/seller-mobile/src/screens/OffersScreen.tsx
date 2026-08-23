@@ -1,37 +1,36 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Save } from 'lucide-react-native'
-import { useEffect, useState } from 'react'
-import { Text, View } from 'react-native'
+import { useState } from 'react'
+import { Text } from 'react-native'
 import { AppButton, Card, ErrorState, LoadingState, Screen, StackHeader, TextField } from '@/src/components/ui'
 import { formatOfferLines, parseOfferLines } from '@/src/lib/agent-page'
 import { updatePage } from '@/src/lib/data'
 import { colors, fonts } from '@/src/theme/colors'
 import { useListing } from '@/src/hooks/useListings'
+import type { AgentPage } from '@/src/types/nexez'
 
 export function OffersScreen() {
-  const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const { data: page, loading, error, reload } = useListing(id)
-  const [services, setServices] = useState('')
-  const [products, setProducts] = useState('')
-  const [message, setMessage] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (!page) return
-    setServices(formatOfferLines(page.services))
-    setProducts(formatOfferLines(page.products))
-  }, [page])
 
   if (loading) return <LoadingState label="Loading offers" />
   if (error || !page) return <ErrorState message={error || 'Listing not found.'} onRetry={reload} />
-  const current = page
+
+  return <OffersEditor key={page.id} page={page} />
+}
+
+function OffersEditor({ page }: { page: AgentPage }) {
+  const router = useRouter()
+  const [services, setServices] = useState(() => formatOfferLines(page.services))
+  const [products, setProducts] = useState(() => formatOfferLines(page.products))
+  const [message, setMessage] = useState('')
+  const [saving, setSaving] = useState(false)
 
   async function save() {
     setSaving(true)
     setMessage('')
     try {
-      await updatePage(current.id, { ...current, services: parseOfferLines(services), products: parseOfferLines(products) })
+      await updatePage(page.id, { ...page, services: parseOfferLines(services), products: parseOfferLines(products) })
       router.back()
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Could not save offers.')

@@ -8,6 +8,9 @@ vi.mock('../../../../utils/supabase/admin', () => ({
   createAdminClient: vi.fn(),
 }))
 vi.mock('../../../../lib/observability', () => ({ captureError: vi.fn() }))
+vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({
+  cleanupExpiredBillingCheckoutAttempts: vi.fn(async () => ({ scanned: 0, cleaned: 0, failed: 0 })),
+}))
 
 import { GET } from './route'
 import { createAdminClient } from '../../../../utils/supabase/admin'

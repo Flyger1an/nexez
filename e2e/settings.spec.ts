@@ -22,13 +22,17 @@ const UUID_DASHBOARD_LINK = /^\/dashboard\/[0-9a-f-]{36}$/
 
 let disposablePageId: string | null = null
 let fixtureClient: SupabaseClient | null = null
+let fixtureOwnerId: string | null = null
+let fixtureOutboundWebhooksEnabled = false
+let fixtureIntegrationsEnabled = false
+let fixtureCustomDomainEnabled = false
 let originalPlanMetadata: unknown = null
 let planMetadataAdjusted = false
 
-async function createDisposableListing(): Promise<string> {
-  if (disposablePageId) return disposablePageId
+async function initializeSettingsFixture(): Promise<string> {
+  if (fixtureClient && fixtureOwnerId) return fixtureOwnerId
   if (!email || !password || !supabaseUrl || !supabaseKey) {
-    throw new Error('E2E fixture creation requires the test credentials and public Supabase connection keys')
+    throw new Error('E2E fixture setup requires the test credentials and public Supabase connection keys')
   }
 
   fixtureClient = createClient(supabaseUrl, supabaseKey, {
@@ -38,12 +42,37 @@ async function createDisposableListing(): Promise<string> {
   if (authError || !authData.user) {
     throw new Error(`Could not authenticate the E2E fixture owner: ${authError?.message || 'no user returned'}`)
   }
+  fixtureOwnerId = authData.user.id
+
+  const { data: entitlements, error: entitlementError } = await fixtureClient.rpc('get_my_plan_entitlements')
+  if (entitlementError) throw new Error(`Could not resolve settings fixture entitlements: ${entitlementError.message}`)
+  const features = (entitlements as {
+    features?: { outboundWebhooks?: boolean; integrations?: boolean; customDomain?: boolean }
+  } | null)?.features
+  fixtureOutboundWebhooksEnabled = Boolean(features?.outboundWebhooks)
+  fixtureIntegrationsEnabled = Boolean(features?.integrations)
+  fixtureCustomDomainEnabled = Boolean(features?.customDomain)
+
+  const selectedPlan = authData.user.user_metadata?.plan
+  if (!['free', 'launch', 'pro', 'scale'].includes(selectedPlan)) {
+    originalPlanMetadata = selectedPlan ?? null
+    const { error: metadataError } = await fixtureClient.auth.updateUser({ data: { plan: 'free' } })
+    if (metadataError) throw new Error(`Could not prepare settings fixture onboarding: ${metadataError.message}`)
+    planMetadataAdjusted = true
+  }
+
+  return fixtureOwnerId
+}
+
+async function createDisposableListing(): Promise<string> {
+  if (disposablePageId) return disposablePageId
+  const ownerId = await initializeSettingsFixture()
 
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  const { data, error } = await fixtureClient
+  const { data, error } = await fixtureClient!
     .from('pages')
     .insert({
-      owner_id: authData.user.id,
+      owner_id: ownerId,
       name: 'Nexez settings E2E',
       slug: `nexez-settings-e2e-${unique}`,
       description: 'Disposable private listing used to verify the settings experience.',
@@ -64,22 +93,6 @@ async function createDisposableListing(): Promise<string> {
   }
   disposablePageId = data.id
 
-  // A plan-less test owner is intentionally redirected through onboarding by the
-  // dashboard layout. Prepare a temporary Free selection only after the disposable
-  // row exists; afterAll restores the prior value even when a UI assertion fails.
-  const selectedPlan = authData.user.user_metadata?.plan
-  if (!['free', 'launch', 'pro', 'scale'].includes(selectedPlan)) {
-    originalPlanMetadata = selectedPlan ?? null
-    const { error: metadataError } = await fixtureClient.auth.updateUser({ data: { plan: 'free' } })
-    if (metadataError) {
-      await fixtureClient.from('pages').delete().eq('id', disposablePageId)
-      disposablePageId = null
-      await fixtureClient.auth.signOut()
-      throw new Error(`Could not prepare the E2E workspace plan: ${metadataError.message}`)
-    }
-    planMetadataAdjusted = true
-  }
-
   return data.id
 }
 
@@ -97,6 +110,10 @@ async function loginToDashboard(page: Page) {
 
 async function loginAndOpenFirstPageSettings(page: Page) {
   await loginToDashboard(page)
+  // Resolve the authenticated fixture's authoritative entitlements even when
+  // the account already owns a listing. Previously this only happened in the
+  // no-listings fallback, so paid CI fixtures were incorrectly asserted as Free.
+  await initializeSettingsFixture()
   await page
     .waitForFunction(
       () => [...document.querySelectorAll('a[href]')].some((a) => /^\/dashboard\/[0-9a-f-]{36}$/.test(a.getAttribute('href') || '')),
@@ -127,8 +144,8 @@ test.describe('page settings', () => {
       if (error || data?.id !== id) cleanupErrors.push(error?.message || 'fixture row was not deleted')
     }
     if (planMetadataAdjusted) {
-      const { error: metadataError } = await fixtureClient.auth.updateUser({ data: { plan: originalPlanMetadata } })
-      if (metadataError) cleanupErrors.push(`plan metadata was not restored: ${metadataError.message}`)
+      const { error } = await fixtureClient.auth.updateUser({ data: { plan: originalPlanMetadata } })
+      if (error) cleanupErrors.push(`plan metadata: ${error.message}`)
     }
     await fixtureClient.auth.signOut()
     if (cleanupErrors.length) {
@@ -158,7 +175,17 @@ test.describe('page settings', () => {
     await expect(page.getByText('Agent links')).toBeVisible()
     await expect(page.getByText('Agent Manifest Preview')).toBeVisible()
     await expect(page.getByTestId('availability-panel')).toBeVisible()
-    await expect(page.getByTestId('outbound-webhooks-panel')).toBeVisible()
+    if (fixtureOutboundWebhooksEnabled) {
+      await expect(page.getByTestId('outbound-webhooks-panel')).toBeVisible()
+    } else {
+      const webhookGate = page.getByText('Booking event webhooks', { exact: true }).locator('..').locator('..')
+      await expect(webhookGate).toBeVisible()
+      await expect(webhookGate.getByRole('link', { name: 'Upgrade to Pro', exact: true })).toHaveAttribute(
+        'href',
+        /\/dashboard\/billing\?plan=pro$/,
+      )
+      await expect(page.getByTestId('outbound-webhooks-panel')).toHaveCount(0)
+    }
 
     await expect(page.getByText(/future automated sync/i)).toHaveCount(0)
     await expect(page.getByText(/Phase 3 stub/i)).toHaveCount(0)
@@ -170,24 +197,30 @@ test.describe('page settings', () => {
     }).toPass()
 
     const calendarId = page.getByTestId('google-calendar-id-input')
-    const originalCalendarId = await calendarId.inputValue()
-    await calendarId.fill('')
-    await expect(page.getByTestId('availability-save-button')).toHaveText(/Save Manual Availability/)
-    await calendarId.fill('e2e-calendar@example.com')
-    // Google Calendar is intentionally sample-only until a real sync contract
-    // exists; never let the credentialed E2E reintroduce misleading import copy.
-    await expect(page.getByTestId('availability-save-button')).toHaveText(/Generate Sample Availability/)
-    await calendarId.fill(originalCalendarId)
+    if (fixtureIntegrationsEnabled) {
+      const originalCalendarId = await calendarId.inputValue()
+      await calendarId.fill('')
+      await expect(page.getByTestId('availability-save-button')).toHaveText(/Save Manual Availability/)
+      await calendarId.fill('e2e-calendar@example.com')
+      // Google Calendar is intentionally sample-only until a real sync contract
+      // exists; never let the credentialed E2E reintroduce misleading import copy.
+      await expect(page.getByTestId('availability-save-button')).toHaveText(/Generate Sample Availability/)
+      await calendarId.fill(originalCalendarId)
+    } else {
+      await expect(calendarId).toBeDisabled()
+    }
 
-    const webhookPanel = page.getByTestId('outbound-webhooks-panel')
-    const webhookUrl = 'https://example.com/nexez-e2e-webhook'
-    await webhookPanel.getByPlaceholder(/hooks\.zapier/i).fill(webhookUrl)
-    await webhookPanel.getByPlaceholder(/Optional signing secret/i).fill('e2e-secret')
-    await webhookPanel.getByRole('button', { name: 'Add' }).click()
-    await expect(webhookPanel.getByText(webhookUrl)).toBeVisible()
-    await expect(webhookPanel.getByTestId('outbound-secret-chip-0')).toBeVisible()
-    await webhookPanel.getByRole('button', { name: 'remove' }).click()
-    await expect(webhookPanel.getByText(webhookUrl)).toHaveCount(0)
+    if (fixtureOutboundWebhooksEnabled) {
+      const webhookPanel = page.getByTestId('outbound-webhooks-panel')
+      const webhookUrl = 'https://example.com/nexez-e2e-webhook'
+      await webhookPanel.getByPlaceholder(/hooks\.zapier/i).fill(webhookUrl)
+      await webhookPanel.getByPlaceholder(/Optional signing secret/i).fill('e2e-secret')
+      await webhookPanel.getByRole('button', { name: 'Add' }).click()
+      await expect(webhookPanel.getByText(webhookUrl)).toBeVisible()
+      await expect(webhookPanel.getByTestId('outbound-secret-chip-0')).toBeVisible()
+      await webhookPanel.getByRole('button', { name: 'remove' }).click()
+      await expect(webhookPanel.getByText(webhookUrl)).toHaveCount(0)
+    }
 
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
@@ -352,8 +385,16 @@ test.describe('page settings', () => {
     const originalCustomDomain = await customDomainInput.inputValue()
     await customDomainInput.fill('agents.e2e-example.test')
     const domainSetup = page.getByRole('group', { name: 'Recommended next step: attach and detect DNS' })
-    await expect(domainSetup).toHaveClass(/\bsettings-priority-card\b/)
-    await expect(domainSetup.getByRole('button', { name: 'Attach & detect DNS' })).toHaveClass(/\bsettings-emphasis-action\b/)
+    if (fixtureCustomDomainEnabled) {
+      await expect(domainSetup).toHaveClass(/\bsettings-priority-card\b/)
+      await expect(domainSetup.getByRole('button', { name: 'Attach & detect DNS' })).toHaveClass(/\bsettings-emphasis-action\b/)
+    } else {
+      await expect(domainSetup).toHaveCount(0)
+      await expect(page.locator('a[title^="Custom domain - Launch plan"]')).toHaveAttribute(
+        'href',
+        /\/dashboard\/billing\?plan=launch$/,
+      )
+    }
     await customDomainInput.fill(originalCustomDomain)
 
     const apacheRecipe = page.getByRole('button', { name: 'Apache (.htaccess)', exact: true })
@@ -450,6 +491,8 @@ test.describe('page settings', () => {
   })
 
   test('uses webhook colors only for observed test outcomes', async ({ page }) => {
+    await createDisposableListing()
+    test.skip(!fixtureOutboundWebhooksEnabled, 'requires a Pro-or-higher E2E entitlement')
     let releaseSuccessResponse = () => {}
     const successResponseGate = new Promise<void>((resolve) => {
       releaseSuccessResponse = () => resolve()

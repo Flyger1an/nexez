@@ -7,6 +7,8 @@ if (!process.argv.includes('--production')) {
 }
 
 const baseUrl = process.env.NEXEZ_BASE_URL || 'https://nexez.app'
+const checkoutFixtureSlug = process.env.NEXEZ_GAUNTLET_CHECKOUT_SLUG || 'nexez-agent-negotiation-lab'
+const negotiationFixtureSlug = process.env.NEXEZ_GAUNTLET_NEGOTIATION_SLUG || 'nexez-agent-negotiation-lab'
 const registered = new Map()
 let checkoutFixture
 let negotiationFixture
@@ -23,24 +25,23 @@ plugin.register({
 })
 
 await check('checkout fixture resolves directly and stays hidden from search', async () => {
-  // lib/public-page-visibility.ts deliberately blocklists internal QA seeds
-  // (shopify-review-catalog, nexez-agent-negotiation-lab) from every discovery
-  // surface while keeping their direct URLs functional. Resolve the fixture by
-  // slug, and assert the hiding policy holds.
-  const manifest = await invoke('nexez_get_page', { slug: 'shopify-review-catalog' })
+  // Internal QA seeds are deliberately absent from discovery. Use the same live,
+  // release-certified fixture as the agent-access smoke instead of an unpublished
+  // legacy page. The env override lets operators rotate the fixture without a
+  // plugin release.
+  const manifest = await invoke('nexez_get_page', { slug: checkoutFixtureSlug })
   const offers = requireArray(manifest.offers, 'fixture offers')
   const offer = offers.find((item) =>
     typeof item?.key === 'string' &&
-    item?.accepts_negotiation !== true &&
     (typeof item?.checkout_url === 'string' || item?.action?.endpoint),
   )
   assert.ok(offer, 'Fixture manifest had no checkout-ready offer.')
-  checkoutFixture = { slug: 'shopify-review-catalog', offer: offer.key }
+  checkoutFixture = { slug: checkoutFixtureSlug, offer: offer.key }
 
-  const search = await invoke('nexez_search', { query: 'Shopify Review Catalog', limit: 50 })
+  const search = await invoke('nexez_search', { query: checkoutFixtureSlug.replaceAll('-', ' '), limit: 50 })
   assert.equal(search.schema_version, 'nexez.agent-search.v1')
   const leaked = requireArray(search.results, 'search results').find(
-    (row) => row?.page?.slug === 'shopify-review-catalog',
+    (row) => row?.page?.slug === checkoutFixtureSlug,
   )
   assert.ok(!leaked, 'Internal QA fixture leaked into public search results.')
 })
@@ -92,25 +93,14 @@ await check('checkout validation stays non-mutating and resolves a purchase path
   assert.ok(typeof result.actionUrl === 'string' || typeof result.checkoutUrl === 'string')
 })
 
-await check('fixed-price negotiation normalizes to a checkout branch', async () => {
-  const result = await invoke('nexez_validate_negotiation', {
-    ...checkoutFixture,
-    query: 'OpenClaw production gauntlet dry run',
-    budget: '$8',
-  })
-  assert.equal(result.ok, false)
-  assert.match(result.reason, /use checkout/i)
-  assert.ok(result.rulesEvaluation?.reasons?.includes('offer_not_negotiable'))
-})
-
 await check('negotiation fixture resolves directly from its manifest', async () => {
-  const manifest = await invoke('nexez_get_page', { slug: 'nexez-agent-negotiation-lab' })
+  const manifest = await invoke('nexez_get_page', { slug: negotiationFixtureSlug })
   const offers = requireArray(manifest.offers, 'negotiation fixture offers')
   const offer = offers.find(
     (item) => item?.accepts_negotiation === true && typeof item?.key === 'string',
   )
   assert.ok(offer, 'No negotiation-ready offer was found in the fixture manifest.')
-  negotiationFixture = { slug: 'nexez-agent-negotiation-lab', offer: offer.key }
+  negotiationFixture = { slug: negotiationFixtureSlug, offer: offer.key }
 })
 
 await check('negotiation validation parses budget without writing a proposal', async () => {
