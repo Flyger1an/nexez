@@ -98,7 +98,7 @@ export function BuyerRequestsPanel({ requests }: { requests: BuyerRequestRow[] }
               {!closed ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <a
-                    href={r.order_kind === 'negotiation' ? `/dashboard/negotiations#negotiation-${r.order_id}` : `#order-${r.order_id}`}
+                    href={r.order_kind === 'negotiation' ? `/dashboard/negotiations#negotiation-${r.order_id}` : `/dashboard/orders/${r.order_id}`}
                     className="inline-flex items-center rounded-lg border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--signal)] hover:bg-[var(--signal)]/20"
                   >
                     Review {r.order_kind === 'negotiation' ? 'deal' : 'order'}

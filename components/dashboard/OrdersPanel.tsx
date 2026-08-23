@@ -114,7 +114,7 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
               return (
                 <tr id={`order-${o.id}`} key={o.id} className="scroll-mt-6 border-b border-white/5 last:border-0">
                   <td className="px-4 py-3">
-                    <span className="text-zinc-200">{o.offer_name || 'Offer'}</span>
+                    <a href={`/dashboard/orders/${o.id}`} className="text-zinc-200 hover:text-[var(--signal)] hover:underline">{o.offer_name || 'Offer'}</a>
                     {o.slug ? <span className="ml-2 text-xs text-zinc-500">/{o.slug}</span> : null}
                   </td>
                   <td className="px-4 py-3">
@@ -143,7 +143,7 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
                   </td>
                   <td className="px-4 py-3 text-right">
                     {o.status !== 'paid' ? (
-                      <span className="text-xs text-zinc-600">-</span>
+                      <a href={`/dashboard/orders/${o.id}`} className="text-xs text-[var(--signal)] hover:underline">View</a>
                     ) : confirmId === o.id ? (
                       <span className="inline-flex items-center gap-2">
                         <span className="text-xs text-zinc-400">Refund</span>
@@ -164,9 +164,12 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
                         </button>
                       </span>
                     ) : (
-                      <button type="button" onClick={() => openConfirm(o)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-zinc-200 hover:bg-white/5">
-                        <RotateCcw className="size-3.5" /> Refund
-                      </button>
+                      <span className="inline-flex items-center gap-2">
+                        <a href={`/dashboard/orders/${o.id}`} className="text-xs text-[var(--signal)] hover:underline">View</a>
+                        <button type="button" onClick={() => openConfirm(o)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-zinc-200 hover:bg-white/5">
+                          <RotateCcw className="size-3.5" /> Refund
+                        </button>
+                      </span>
                     )}
                   </td>
                 </tr>
