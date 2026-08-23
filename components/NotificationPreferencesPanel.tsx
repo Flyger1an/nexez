@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { BellRing, Check, Loader2, LockKeyhole } from 'lucide-react'
+import { BellRing, LockKeyhole } from 'lucide-react'
 import {
   isSellerNotificationPreferences,
   type MutableSellerNotificationCategory,
   type SellerNotificationPreferences,
 } from '../lib/seller-notification-policy'
+import { SettingsSwitch } from './settings/SettingsPrimitives'
 
 const PREFERENCE_ROWS = [
   {
@@ -100,6 +101,7 @@ export function NotificationPreferencesPanel({
         {PREFERENCE_ROWS.map((row) => {
           const enabled = preferences[row.category]
           const isSaving = !row.required && saving === row.category
+          const descriptionId = `seller-notification-${row.category}-description`
           return (
             <div key={row.category} className="flex min-h-20 items-center justify-between gap-4 px-4 py-4 sm:px-5">
               <div className="min-w-0">
@@ -111,25 +113,19 @@ export function NotificationPreferencesPanel({
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">{row.description}</p>
+                <p id={descriptionId} className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">{row.description}</p>
               </div>
 
-              <button
-                type="button"
-                role="switch"
-                aria-checked={enabled}
-                aria-label={`${row.title}: ${enabled ? 'on' : 'off'}`}
-                disabled={row.required || Boolean(saving)}
-                onClick={() => {
-                  if (!row.required) void updatePreference(row.category, !enabled)
+              <SettingsSwitch
+                checked={enabled}
+                onCheckedChange={(checked) => {
+                  if (!row.required) void updatePreference(row.category, checked)
                 }}
-                data-testid={`seller-notification-${row.category}`}
-                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:cursor-not-allowed ${enabled ? 'border-[var(--signal)] bg-[var(--signal)]' : 'border-[var(--line)] bg-[var(--surface)]'} ${row.required ? 'opacity-75' : ''}`}
-              >
-                <span className={`flex size-5 items-center justify-center rounded-full bg-white text-[var(--signal)] shadow-sm transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`}>
-                  {isSaving ? <Loader2 className="size-3 animate-spin" aria-hidden="true" /> : enabled ? <Check className="size-3" aria-hidden="true" /> : null}
-                </span>
-              </button>
+                label={row.title}
+                describedBy={descriptionId}
+                disabled={row.required || Boolean(saving)}
+                pending={isSaving}
+              />
             </div>
           )
         })}

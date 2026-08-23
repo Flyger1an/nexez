@@ -17,9 +17,12 @@ afterEach(() => {
 describe('NotificationPreferencesPanel', () => {
   it('renders transaction notices as required and immutable', () => {
     render(<NotificationPreferencesPanel initialPreferences={defaults} />)
-    const control = screen.getByTestId('seller-notification-transactions')
+    const control = screen.getByRole('switch', { name: 'Transactions and money state' })
     expect(control).toBeDisabled()
     expect(control).toHaveAttribute('aria-checked', 'true')
+    expect(control).toHaveAccessibleDescription('Payments, escrow, captures, refunds, disputes, and confirmed orders.')
+    expect(control.firstElementChild).toHaveClass('bg-[var(--control-on)]')
+    expect(control.firstElementChild?.firstElementChild).toHaveClass('bg-[var(--control-on-thumb)]')
     expect(screen.getByText('Required')).toBeVisible()
   })
 
@@ -35,7 +38,7 @@ describe('NotificationPreferencesPanel', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<NotificationPreferencesPanel initialPreferences={defaults} />)
 
-    fireEvent.click(screen.getByTestId('seller-notification-negotiations'))
+    fireEvent.click(screen.getByRole('switch', { name: 'Negotiations' }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
     expect(fetchMock).toHaveBeenCalledWith('/api/seller/notification-preferences', {
@@ -44,7 +47,7 @@ describe('NotificationPreferencesPanel', () => {
       body: JSON.stringify({ preferences: { negotiations: false } }),
     })
     await waitFor(() => {
-      expect(screen.getByTestId('seller-notification-negotiations')).toHaveAttribute('aria-checked', 'false')
+      expect(screen.getByRole('switch', { name: 'Negotiations' })).toHaveAttribute('aria-checked', 'false')
       expect(screen.getByText(/saved across your devices/i)).toBeVisible()
     })
   })
@@ -56,9 +59,9 @@ describe('NotificationPreferencesPanel', () => {
     })))
     render(<NotificationPreferencesPanel initialPreferences={defaults} />)
 
-    fireEvent.click(screen.getByTestId('seller-notification-reviews'))
+    fireEvent.click(screen.getByRole('switch', { name: 'Reviews' }))
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Policy store unavailable.'))
-    expect(screen.getByTestId('seller-notification-reviews')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: 'Reviews' })).toHaveAttribute('aria-checked', 'true')
   })
 })
