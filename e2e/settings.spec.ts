@@ -221,6 +221,28 @@ test.describe('page settings', () => {
     await expect(page.getByRole('heading', { name: 'Remove personal buyer data', exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: /Open Agent Lab/i })).toBeVisible()
 
+    const endpointCards = page.getByTestId('settings-endpoint-card')
+    await expect(endpointCards).toHaveCount(6)
+    for (const theme of ['Light', 'Dark']) {
+      await page.getByRole('radio', { name: theme, exact: true }).click()
+      await expect(page.locator('html')).toHaveClass(new RegExp(theme.toLowerCase()))
+      const endpointStyles = await endpointCards.evaluateAll((cards) => {
+        const expectedSurface = document.createElement('span')
+        expectedSurface.style.backgroundColor = 'var(--fill-1)'
+        document.body.append(expectedSurface)
+        const expectedBackground = getComputedStyle(expectedSurface).backgroundColor
+        expectedSurface.remove()
+        return {
+          backgrounds: cards.map((card) => getComputedStyle(card).backgroundColor),
+          expectedBackground,
+          colorScheme: getComputedStyle(cards[0]).colorScheme,
+        }
+      })
+      expect(new Set(endpointStyles.backgrounds).size).toBe(1)
+      expect(endpointStyles.backgrounds[0]).toBe(endpointStyles.expectedBackground)
+      expect(endpointStyles.colorScheme).toContain(theme.toLowerCase())
+    }
+
     const desktopMetrics = await page.getByTestId('account-settings-screen').evaluate((element) => ({
       viewport: window.innerWidth,
       documentWidth: document.documentElement.scrollWidth,
