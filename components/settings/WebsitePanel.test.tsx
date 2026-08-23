@@ -27,7 +27,6 @@ function contextResponse(overrides: Record<string, unknown> = {}) {
       secrets: {},
       plan: 'free',
       agenticCommerce: {
-        planAllowsCheckout: true,
         connectReady: false,
         chatgptLive: false,
         googleLive: false,

@@ -1,19 +1,25 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../../../utils/supabase/server'
-import { createAdminClient } from '../../../../../../../utils/supabase/admin'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../../../utils/supabase/admin'
 import { gateIntegrationImport } from '../../../../../../../lib/server/integration-importers'
 import { syncPageIntegration, isSyncProvider } from '../../../../../../../lib/server/integration-sync'
-import { getShopifyInstallCredentials } from '../../../../../../../lib/server/shopify-install'
+import { resolvePageAccess } from '../../../../../../../lib/server/page-access'
+import {
+  activeShopifyInstallMapping,
+  getInstallByPage,
+  getShopifyInstallCredentialsByShop,
+} from '../../../../../../../lib/server/shopify-install'
 import { enforceRateLimit } from '../../../../../../../lib/rate-limit'
 
 /**
- * One per-listing "Sync now" for every stored-credential integration
- * (calendly, shopify): pulls the seller's live catalog (and Calendly
- * availability) from the STORED per-page credential — never re-prompts for a
- * token. Owner/editor authorized, rate-limited, and Pro gated except for an
- * OAuth-installed Shopify app connection. Dormant without INTEGRATION_SECRET_KEY;
- * 400 if the provider isn't connected for this page.
+ * One per-listing "Sync now" for every stored-credential integration. Premium
+ * token connections are Pro-gated. An active Shopify App Store OAuth install is
+ * the explicit all-plan exception: authorize the page, prove the install belongs
+ * to that page owner, then pass its exact credentials so this route can never
+ * fall back to manually supplied Shopify credentials. Dormant without the
+ * service role / INTEGRATION_SECRET_KEY; 400 when a premium provider is not
+ * connected and 409 when an installed Shopify app must be reconnected.
  */
 export async function POST(request: Request, ctx: { params: Promise<{ id: string; provider: string }> }) {
   const limited = await enforceRateLimit(request, 'integration-sync', 10, 60_000)
@@ -31,6 +37,57 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
+  if (provider === 'shopify' && hasSupabaseAdminEnv()) {
+    const access = await resolvePageAccess({
+      pageId,
+      userId: user.id,
+      userEmail: user.email,
+      userEmailConfirmedAt: user.email_confirmed_at,
+      requireEditor: true,
+    })
+    if (!access) {
+      return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+    }
+
+    const admin = createAdminClient()
+    let install
+    try {
+      install = await getInstallByPage(admin, access.pageId)
+    } catch {
+      return NextResponse.json({ error: 'Could not verify the Shopify app connection.' }, { status: 503 })
+    }
+    if (install) {
+      const mapping = activeShopifyInstallMapping(install)
+      if (!mapping || mapping.ownerId !== access.ownerId || mapping.pageId !== access.pageId) {
+        return NextResponse.json({ error: 'Reconnect the Shopify app to this listing before syncing.' }, { status: 409 })
+      }
+      const credentials = await getShopifyInstallCredentialsByShop(admin, mapping.shop)
+      if (!credentials) {
+        return NextResponse.json({ error: 'Reconnect the Shopify app to resume catalog sync.' }, { status: 409 })
+      }
+      const installedResult = await syncPageIntegration(admin, 'shopify', access.pageId, {
+        shopifyCredentials: credentials,
+        shopifyMapping: mapping,
+        clearShopifyCatalogSyncState: true,
+      })
+      if (!installedResult.ok) {
+        return NextResponse.json({ error: installedResult.error }, { status: installedResult.status })
+      }
+      return NextResponse.json({
+        ok: true,
+        provider: installedResult.provider,
+        imported: installedResult.imported,
+        windows: installedResult.windows,
+        availability_synced: installedResult.availabilitySynced,
+        note: installedResult.note,
+      })
+    }
+  } else if (provider === 'shopify') {
+    return NextResponse.json({ error: 'Server is not configured for this action.' }, { status: 503 })
+  }
+
+  // No active Shopify OAuth install (or a non-Shopify provider): this is the
+  // premium stored-credential path and must remain Pro-gated.
   const gate = await gateIntegrationImport({
     supabase,
     user,
@@ -38,14 +95,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     proMessage: 'Syncing integrations is a Pro feature. Upgrade to pull live catalogs + availability.',
   })
   if (!gate.ok) {
-    // Shopify's public app connector is free. A 402 proves the shared gate has
-    // already authorized this owner/editor; bypass only when this exact listing
-    // has a live OAuth installation. Manually supplied Shopify tokens and every
-    // other integration retain their existing Nexez plan requirement.
-    const installedShopify = provider === 'shopify' && gate.status === 402
-      ? await getShopifyInstallCredentials(createAdminClient(), pageId)
-      : null
-    if (!installedShopify) return NextResponse.json({ error: gate.error }, { status: gate.status })
+    return NextResponse.json({ error: gate.error }, { status: gate.status })
   }
 
   const admin = createAdminClient()

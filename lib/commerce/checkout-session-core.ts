@@ -527,7 +527,7 @@ export type DelegatedPayment = {
  * protocol adapter never re-derives money/eligibility logic.
  *
  * INVARIANT: obtain this ONLY from `resolveSettlementContext` (settlement-bridge).
- * That resolver is where the suspension and charges_enabled gates live - a
+ * That resolver is where the suspension, charge, and payout-readiness gates live - a
  * hand-constructed context skips them and can charge an ineligible seller. Never build one
  * directly for a live charge. */
 export type SettlementContext = {

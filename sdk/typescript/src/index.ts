@@ -46,6 +46,9 @@ export type SearchOptions = NexezRequestOptions & {
   minReadiness?: number
   minTrust?: number
   verified?: boolean
+  nexezCheckoutReady?: boolean
+  /** @deprecated Use nexezCheckoutReady for settlement readiness. This legacy
+   * filter means only that an offer exposes some buyer action or handoff. */
   supportsCheckout?: boolean
   supportsNegotiation?: boolean
   priceBand?: NexezMarketplacePriceBand
@@ -94,6 +97,7 @@ export type NexezSearchResponse = {
     min_readiness: number | null
     min_trust: number | null
     verified: boolean | null
+    nexez_checkout_ready: boolean | null
     supports_checkout: boolean | null
     supports_negotiation: boolean | null
     price_band: NexezMarketplacePriceBand | null
@@ -185,7 +189,13 @@ export type NexezMarketplaceSummary = {
   certified: boolean
   has_credentials: boolean
   has_recent_activity: boolean
+  /** At least one published offer exposes a buyer action or provider handoff. */
+  has_actionable_offer: boolean
+  /** Private payout state confirms Nexez can settle an actionable offer. */
+  nexez_checkout_ready: boolean
+  /** @deprecated Compatibility alias for has_actionable_offer. */
   supports_checkout: boolean
+  /** Offer configuration plus the owner's current plan entitlement. */
   supports_negotiation: boolean
   price_band: NexezMarketplacePriceBand
   badges: string[]
@@ -622,6 +632,7 @@ export class NexezClient {
     if (options.minReadiness != null) url.searchParams.set('min_readiness', String(options.minReadiness))
     if (options.minTrust != null) url.searchParams.set('min_trust', String(options.minTrust))
     if (options.verified != null) url.searchParams.set('verified', String(options.verified))
+    if (options.nexezCheckoutReady != null) url.searchParams.set('nexez_checkout_ready', String(options.nexezCheckoutReady))
     if (options.supportsCheckout != null) url.searchParams.set('supports_checkout', String(options.supportsCheckout))
     if (options.supportsNegotiation != null) url.searchParams.set('supports_negotiation', String(options.supportsNegotiation))
     if (options.priceBand) url.searchParams.set('price_band', options.priceBand)

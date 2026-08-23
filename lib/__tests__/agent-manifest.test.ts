@@ -45,6 +45,16 @@ describe('buildAgentPagePayload', () => {
     expect(payload.offers[0].action.endpoint).toContain('/api/checkout')
   })
 
+  it('keeps sold-out offers discoverable without advertising an executable action', () => {
+    const soldOut = buildAgentPagePayload({
+      ...page,
+      services: [{ ...page.services![0], availability: 'sold_out' }],
+    } as AgentPage) as any
+
+    expect(soldOut.offers[0]).toMatchObject({ availability: 'sold_out', action: { available: false } })
+    expect(soldOut.recommended_actions[0]).toMatch(/No offer currently exposes/)
+  })
+
   it('keeps provider-preferred Shopify products on Shopify while preserving the Nexez action API', () => {
     const shopifyUrl = 'https://nexez-tester.myshopify.com/products/agent-ready-cap'
     const shopifyPayload = buildAgentPagePayload({

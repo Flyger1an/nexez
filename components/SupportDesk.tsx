@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Bot, CheckCircle2, HelpCircle, Loader2, Send, TicketCheck } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
 import { appUrl } from '../lib/site'
+import type { SupportService } from '../lib/support-routing'
 
 type PageOption = {
   id: string
@@ -24,7 +25,16 @@ type TicketResult = {
   status: string
   persisted: boolean
   message?: string
+  supportService?: SupportService
 }
+
+const STANDARD_SUPPORT: SupportService = {
+  planId: 'free',
+  tier: 'standard',
+  priorityRouting: false,
+  upgradePlanId: 'scale',
+}
+const SUPPORT_PLAN_IDS = new Set(['free', 'launch', 'pro', 'scale', 'enterprise'])
 
 const categories = [
   { value: 'page_setup', label: 'Listing setup' },
@@ -40,9 +50,10 @@ const categories = [
 export function SupportDesk() {
   const [pages, setPages] = useState<PageOption[]>([])
   const [loadingPages, setLoadingPages] = useState(true)
+  const [supportService, setSupportService] = useState<SupportService | null>(null)
   const [target, setTarget] = useState('workspace')
   const [category, setCategory] = useState('agent_visibility')
-  const [priority, setPriority] = useState('normal')
+  const [severity, setSeverity] = useState('normal')
   const [subject, setSubject] = useState('')
   const [query, setQuery] = useState('')
   const [reference, setReference] = useState('')
@@ -69,16 +80,20 @@ export function SupportDesk() {
         return
       }
 
-      const { data } = await supabase
-        .from('pages')
-        .select('id,name,slug')
-        .eq('owner_id', user.id)
-        .order('updated_at', { ascending: false })
-        .limit(50)
-        .returns<PageOption[]>()
+      const [{ data }, resolvedSupportService] = await Promise.all([
+        supabase
+          .from('pages')
+          .select('id,name,slug')
+          .eq('owner_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(50)
+          .returns<PageOption[]>(),
+        loadSupportService(),
+      ])
 
       if (!cancelled) {
         setPages(data ?? [])
+        setSupportService(resolvedSupportService)
         setLoadingPages(false)
       }
     }
@@ -136,7 +151,7 @@ export function SupportDesk() {
           targetName,
           subject: subject || inferSubject(query),
           category,
-          priority,
+          priority: severity,
           query,
           reference: category === 'transaction' ? reference : '',
           aiResponse: assist ? `${assist.summary}\n\n${assist.steps.join('\n')}` : '',
@@ -149,6 +164,7 @@ export function SupportDesk() {
       const json = await response.json()
       if (!response.ok && response.status !== 202) throw new Error(json.error || 'Ticket could not be created.')
       setTicket(json)
+      if (isSupportService(json.supportService)) setSupportService(json.supportService)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Ticket could not be created.')
     } finally {
@@ -240,10 +256,10 @@ export function SupportDesk() {
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">Priority</span>
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">Incident severity</span>
             <select
-              value={priority}
-              onChange={(event) => setPriority(event.target.value)}
+              value={severity}
+              onChange={(event) => setSeverity(event.target.value)}
               className="h-11 w-full rounded-md border border-border bg-[var(--fill-1)] px-3 text-sm text-white outline-none focus:border-zinc-500"
             >
               <option value="low">Low</option>
@@ -251,6 +267,9 @@ export function SupportDesk() {
               <option value="high">High</option>
               <option value="urgent">Urgent</option>
             </select>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+              Severity records operational impact. Urgent incident reporting is available on every plan.
+            </span>
           </label>
         </div>
 
@@ -289,6 +308,24 @@ export function SupportDesk() {
       </section>
 
       <aside className="space-y-4">
+        <div className="rounded-lg border border-border bg-white/[0.03] p-5">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Support service</p>
+          <h3 className="mt-3 text-lg font-semibold">
+            {supportService?.priorityRouting ? 'Priority support' : 'Standard support'}
+          </h3>
+          {loadingPages ? (
+            <p className="mt-1 text-sm text-muted-foreground">Checking your current plan...</p>
+          ) : supportService?.priorityRouting ? (
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Your current Scale or Enterprise entitlement places tickets in the priority support queue.
+            </p>
+          ) : (
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Tickets use the standard queue. <a href="/pricing" className="font-medium text-white underline decoration-white/30 underline-offset-4 hover:decoration-white">Upgrade to Scale</a> for priority routing.
+            </p>
+          )}
+        </div>
+
         <div className="rounded-lg border border-border bg-white/[0.03] p-5">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Selected context</p>
           <h3 className="mt-3 text-lg font-semibold">{targetName}</h3>
@@ -348,6 +385,11 @@ export function SupportDesk() {
               <p className="font-medium">{ticket.status === 'resolved' ? 'Solved by AI support' : 'Ticket created'}</p>
             </div>
             <p className="mt-2 font-mono text-xs text-[var(--ready)]/80">{ticket.id}</p>
+            {ticket.status !== 'resolved' && ticket.supportService ? (
+              <p className="mt-2 text-xs leading-5 text-[var(--ready)]/80">
+                Submitted to {ticket.supportService.priorityRouting ? 'priority support' : 'standard support'}.
+              </p>
+            ) : null}
             {ticket.message ? <p className="mt-2 text-xs leading-5 text-[var(--ready)]/80">{ticket.message}</p> : null}
             {!ticket.persisted && ticket.id !== 'resolved' ? (
               <p className="mt-2 text-xs leading-5 text-[var(--ready)]/80">
@@ -365,4 +407,27 @@ function inferSubject(query: string) {
   const first = query.trim().split(/[.\n]/)[0]?.trim()
   if (!first) return 'Support request'
   return first.length > 72 ? `${first.slice(0, 69)}...` : first
+}
+
+async function loadSupportService(): Promise<SupportService> {
+  try {
+    const response = await fetch('/api/support/tickets', { cache: 'no-store' })
+    if (!response.ok) return STANDARD_SUPPORT
+    const body = await response.json() as { supportService?: unknown }
+    return isSupportService(body.supportService) ? body.supportService : STANDARD_SUPPORT
+  } catch {
+    return STANDARD_SUPPORT
+  }
+}
+
+function isSupportService(value: unknown): value is SupportService {
+  if (!value || typeof value !== 'object') return false
+  const service = value as Partial<SupportService>
+  return (service.tier === 'standard' || service.tier === 'priority')
+    && typeof service.planId === 'string'
+    && SUPPORT_PLAN_IDS.has(service.planId)
+    && typeof service.priorityRouting === 'boolean'
+    && (service.upgradePlanId === 'scale' || service.upgradePlanId === null)
+    && service.priorityRouting === (service.tier === 'priority')
+    && service.upgradePlanId === (service.priorityRouting ? null : 'scale')
 }

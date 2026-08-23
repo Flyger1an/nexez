@@ -4,6 +4,11 @@ import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { getBillingPlan } from '../../../../lib/billing'
 import { isSelectablePlan } from '../../../../lib/server/trial'
+import {
+  entitlementAllocationRetryBody,
+  entitlementAllocationRetryInit,
+  isEntitlementAllocationRetry,
+} from '../../../../lib/entitlement-allocation-error'
 
 const TRIAL_DAYS = 7
 
@@ -96,6 +101,9 @@ export async function POST(request: Request) {
   if (error) {
     // owner_id PK race (a parallel start-trial won) → treat as already-started, not an error.
     if (error.code === '23505') return NextResponse.json({ ok: true, alreadyHadAccount: true })
+    if (isEntitlementAllocationRetry(error)) {
+      return NextResponse.json(entitlementAllocationRetryBody, entitlementAllocationRetryInit)
+    }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 

@@ -26,14 +26,6 @@ import {
   parseOfferLines,
   formatOfferLines,
 } from '../../lib/agent-page'
-import {
-  enhanceDescriptionForAgents,
-  generateAgentSummary,
-  generateStrongFaqs,
-  optimizeAllOffersForAgents,
-  rewriteOfferForAgents,
-} from '../../lib/ai-optimize'
-import { AICoPilot } from '../../components/AICoPilot'
 import { parseAgentCsv, sampleAgentCsv } from '../../lib/csv-import'
 import { NEXEZ_INDUSTRIES, getIndustrySuggestions } from '../../lib/industry-catalog'
 import { createClient } from '../../utils/supabase/client'
@@ -41,9 +33,13 @@ import { VisualOfferBuilder } from '../../components/VisualOfferBuilder'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 import { IntakeChat } from '../../components/intake/IntakeChat'
 import { ReadinessChecklist } from '../../components/ReadinessChecklist'
+import { PlanGate } from '../../components/billing/PlanGate'
+import { usePlan } from '../../components/billing/PlanProvider'
 import { AGENT_RUNTIME_HOST, agentRuntimeUrl, appUrl } from '../../lib/site'
 import { getCreatePageTemplate } from '../../lib/create-page-templates'
 import { isPublishLimitError, publishErrorMessage } from '../../lib/publish-error'
+import { isEntitlementAllocationRetry } from '../../lib/entitlement-allocation-error'
+import { planAllows } from '../../lib/billing'
 
 type GuidedImportReview = {
   suggestedPage?: {
@@ -83,6 +79,9 @@ type GuidedImportReview = {
 
 export default function CreatePage() {
   const router = useRouter()
+  const currentPlan = usePlan()
+  const integrationsAllowed = planAllows(currentPlan, 'integrations')
+  const negotiationAllowed = planAllows(currentPlan, 'negotiation')
   // The /create fork (intake spec §6): "Talk it through" (default, hero) vs
   // "Build with the form" (the wizard, fully preserved as fallback + power path).
   const [mode, setMode] = useState<'talk' | 'form'>('talk')
@@ -365,6 +364,12 @@ export default function CreatePage() {
     // the page they just built. Keep the build-first funnel intact: surface the limit
     // inline with a "Save as draft" action (re-runs this as a draft) instead of a
     // native confirm. Drafts can't hit the limit, so this is publish-only.
+    if (error && isEntitlementAllocationRetry(error)) {
+      closePendingPublicPageTab(publicPageTab)
+      setPublishError(publishErrorMessage(error))
+      return
+    }
+
     if (!asDraft && error && isPublishLimitError(error)) {
       closePendingPublicPageTab(publicPageTab)
       setPublishError(publishErrorMessage(error))
@@ -502,101 +507,6 @@ export default function CreatePage() {
 
     if (step < 2) setStep(2)
     setImportMessage(`Guided import applied. ${keptOffers.length} offer${keptOffers.length === 1 ? ' is' : 's are'} ready in the Visual Builder.`)
-  }
-
-  function aiFill() {
-    const businessName = name || 'This business'
-    const buyer = audience || 'customers'
-    const actionUrl = ctaUrl || websiteUrl || 'https://example.com/book'
-    const selectedIndustry = industry || ''
-
-    const smartDesc = enhanceDescriptionForAgents(description, businessName, buyer)
-    setDescription(smartDesc)
-
-    if (!slug && name) setSlug(normalizeSlug(name))
-    if (!ctaUrl && websiteUrl) setCtaUrl(websiteUrl)
-    if (!ctaLabel || ctaLabel === 'Visit website') setCtaLabel('Book Now')
-
-    if (!services && !products) {
-      let defaultOffers = ''
-
-      const isConsumerService = 
-        selectedIndustry.toLowerCase().includes('home') ||
-        selectedIndustry.toLowerCase().includes('plumbing') ||
-        selectedIndustry.toLowerCase().includes('cleaning') ||
-        selectedIndustry.toLowerCase().includes('fitness') ||
-        selectedIndustry.toLowerCase().includes('wellness') ||
-        selectedIndustry.toLowerCase().includes('massage') ||
-        selectedIndustry.toLowerCase().includes('beauty') ||
-        selectedIndustry.toLowerCase().includes('pet')
-
-      if (isConsumerService) {
-        defaultOffers = [
-          `Standard Visit | $129 | 45-60 min. Diagnosis + service. Mobile. | ${actionUrl}`,
-          `Full Service | From $249 | Premium materials + follow up. | ${actionUrl}`,
-        ].join('\n')
-      } else {
-        defaultOffers = [
-          `Discovery Call | $0 | 15 min conversation. | ${actionUrl}`,
-          `Core Package | $450 | Full scope with clear deliverables. | ${actionUrl}`,
-        ].join('\n')
-      }
-
-      setServices(defaultOffers)
-    }
-
-    if (!faqs) {
-      const strongFaqs = generateStrongFaqs(businessName, buyer, true)
-      setFaqs(strongFaqs.map((f) => `${f.question} | ${f.answer}`).join('\n'))
-    }
-
-    if (services || products) {
-      const { services: s2, products: p2 } = optimizeAllOffersForAgents(services, products, {
-        businessName,
-        audience: buyer,
-      })
-      if (s2) setServices(s2)
-      if (p2) setProducts(p2)
-    }
-  }
-
-  function optimizeOfferCopy() {
-    const businessName = name || 'This business'
-    const buyer = audience || 'qualified buyers'
-
-    const { services: optS, products: optP } = optimizeAllOffersForAgents(services, products, {
-      businessName,
-      audience: buyer,
-    })
-
-    if (optS) {
-      setServices(optS)
-      setServicesOffers(parseOfferLines(optS))
-    }
-    if (optP) {
-      setProducts(optP)
-      setProductsOffers(parseOfferLines(optP))
-    }
-  }
-
-  function rewriteServicesForAgents() {
-    const businessName = name || 'This business'
-    const buyer = audience || 'qualified buyers'
-    const { services: optS } = optimizeAllOffersForAgents(services, '', { businessName, audience: buyer })
-    if (optS) {
-      setServices(optS)
-      setServicesOffers(parseOfferLines(optS))
-    }
-  }
-
-  function rewriteProductsForAgents() {
-    const businessName = name || 'This business'
-    const buyer = audience || 'qualified buyers'
-    const { products: optP } = optimizeAllOffersForAgents('', products, { businessName, audience: buyer })
-    if (optP) {
-      setProducts(optP)
-      setProductsOffers(parseOfferLines(optP))
-    }
   }
 
   async function handleCsvFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -819,7 +729,7 @@ export default function CreatePage() {
             <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--signal)] to-[var(--ready)] text-lg font-bold text-[#0A0A0F]">N</div>
             <h2 className="mt-4 text-2xl font-semibold">Create a Free account to publish</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Your listing is saved. Create a Free account to publish one listing and open your dashboard. Verify your business to unlock six complimentary months of Launch tools.
+              Your listing is saved. Create a Free account to publish one listing and open your dashboard. Eligible verified businesses can receive six complimentary months of Launch tools while the campaign is available.
             </p>
             <div className="mt-6 flex flex-col gap-2">
               <a href="/onboard?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
@@ -1217,25 +1127,37 @@ export default function CreatePage() {
                       Type a category or exact niche.
                     </p>
                   </Field>
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <button
-                      className={secondaryButton}
-                      type="button"
-                      onClick={() => setStripeImportOpen(!stripeImportOpen)}
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(12rem,1fr)]">
+                    <PlanGate
+                      feature="integrations"
+                      currentPlan={currentPlan}
+                      title="Stripe & Calendly imports"
+                      description="Import connected catalogs and bookings without retyping them. CSV import stays available on every plan."
+                      variant="inline"
                     >
-                      Import Stripe
-                    </button>
-                    <button
-                      className={secondaryButton}
-                      type="button"
-                      onClick={() => setCalendlyImportOpen(!calendlyImportOpen)}
-                    >
-                      Import Calendly
-                    </button>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                          className={secondaryButton}
+                          type="button"
+                          onClick={() => setStripeImportOpen(!stripeImportOpen)}
+                          aria-expanded={stripeImportOpen}
+                        >
+                          Import Stripe
+                        </button>
+                        <button
+                          className={secondaryButton}
+                          type="button"
+                          onClick={() => setCalendlyImportOpen(!calendlyImportOpen)}
+                          aria-expanded={calendlyImportOpen}
+                        >
+                          Import Calendly
+                        </button>
+                      </div>
+                    </PlanGate>
                     <button className={secondaryButton} type="button" onClick={openCsvUpload}>Upload CSV</button>
                   </div>
 
-                  {stripeImportOpen && (
+                  {integrationsAllowed && stripeImportOpen && (
                     <div className="card !p-4 border border-[var(--signal)]/30">
                       <p className="text-sm font-medium text-[var(--signal)]">Stripe Product or Price Import</p>
                       <p className="mt-1 text-xs text-zinc-400">
@@ -1261,7 +1183,7 @@ export default function CreatePage() {
                     </div>
                   )}
 
-                  {calendlyImportOpen && (
+                  {integrationsAllowed && calendlyImportOpen && (
                     <div className="card !p-4 border border-[var(--signal)]/30">
                       <p className="text-sm font-medium text-[var(--signal)]">Calendly Bookings Import</p>
                       <p className="mt-1 text-xs text-zinc-400">
@@ -1307,9 +1229,9 @@ export default function CreatePage() {
                       {importMessage}
                     </p>
                   ) : null}
-                  <button onClick={aiFill} className="w-full rounded-lg bg-[var(--signal)] px-5 py-3 font-semibold text-zinc-950 hover:bg-[var(--signal)]" type="button">
-                    Agent Optimize
-                  </button>
+                  <p className="rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/[0.06] p-3 text-xs text-zinc-400">
+                    Build the listing manually here. Launch plan AI optimization becomes available in the listing editor after your plan is resolved.
+                  </p>
                 </div>
               ) : null}
 
@@ -1320,22 +1242,6 @@ export default function CreatePage() {
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-xs uppercase tracking-widest text-[var(--signal)]">Services</p>
                       <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const bn = name || 'This business'
-                            const aud = audience || 'qualified buyers'
-                            const enhanced = servicesOffers.map(o => ({
-                              ...o,
-                              description: enhanceDescriptionForAgents(o.description || '', bn, aud)
-                            }))
-                            setServicesOffers(enhanced)
-                            setServices(formatOfferLines(enhanced))
-                          }}
-                          className="text-[10px] rounded border border-[var(--signal)]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[var(--signal)]/10"
-                        >
-                          Enhance All
-                        </button>
                         {industry && (
                           <button
                             type="button"
@@ -1360,6 +1266,7 @@ export default function CreatePage() {
                       kind="services"
                       businessName={name}
                       audience={audience}
+                      negotiationEnabled={negotiationAllowed}
                       onChange={(newOffers) => {
                         setServicesOffers(newOffers)
                         setServices(formatOfferLines(newOffers))
@@ -1374,25 +1281,13 @@ export default function CreatePage() {
                       kind="products"
                       businessName={name}
                       audience={audience}
+                      negotiationEnabled={negotiationAllowed}
                       onChange={(newOffers) => {
                         setProductsOffers(newOffers)
                         setProducts(formatOfferLines(newOffers))
                       }}
                     />
 
-                    {/* Co-Pilot integration in create wizard */}
-                    <div className="mt-3">
-                      <AICoPilot
-                        businessName={name}
-                        audience={audience}
-                        servicesOffers={servicesOffers}
-                        productsOffers={productsOffers}
-                        onApplyServices={(text, offers) => { setServicesOffers(offers); setServices(text) }}
-                        onApplyProducts={(text, offers) => { setProductsOffers(offers); setProducts(text) }}
-                        onTrackUse={() => {}}
-                        llmOptIn={false}
-                      />
-                    </div>
                   </div>
 
                   {importMessage ? (
@@ -1427,11 +1322,9 @@ export default function CreatePage() {
                     </div>
                   </details>
 
-                  <div className="flex flex-wrap gap-3">
-                    <button type="button" onClick={optimizeOfferCopy} className={secondaryButton}>Optimize Offers</button>
-                    <button type="button" onClick={rewriteServicesForAgents} className={secondaryButton}>Rewrite Services</button>
-                    <button type="button" onClick={rewriteProductsForAgents} className={secondaryButton}>Rewrite Products</button>
-                  </div>
+                  <p className="text-xs text-zinc-500">
+                    AI Optimize, bulk rewrite, and Co-Pilot tools unlock on Launch after this draft has an authoritative owner plan.
+                  </p>
                 </div>
               ) : null}
 
@@ -1469,9 +1362,9 @@ export default function CreatePage() {
                   <Field label="FAQs, one per line: question | answer">
                     <textarea value={faqs} onChange={(event) => setFaqs(event.target.value)} className={textareaClass} placeholder="Can agents book directly? | Yes, use the booking URL on this page." />
                   </Field>
-                  <button type="button" onClick={aiFill} className="w-full rounded-lg bg-[var(--signal)] px-5 py-3 font-semibold text-zinc-950 hover:bg-[var(--signal)]">
-                    Fill Agent Context
-                  </button>
+                  <p className="rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/[0.06] p-3 text-xs text-zinc-400">
+                    Add the context manually now; Launch plan AI refinement is available after the listing is created.
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -1540,7 +1433,7 @@ Action: ${ctaLabel || 'Visit website'}`}
                     {loading ? <Loader2 className="size-3.5 animate-spin" /> : null}
                     {loading ? 'Saving…' : 'Save as draft'}
                   </button>
-                  <a href={appUrl('/dashboard/billing?plan=pro')} className="text-xs font-medium underline hover:no-underline">
+                  <a href={appUrl('/dashboard/billing')} className="text-xs font-medium underline hover:no-underline">
                     Upgrade to publish more
                   </a>
                 </div>

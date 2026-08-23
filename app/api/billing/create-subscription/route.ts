@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
-import { getBillingPlan, getPlanPriceId, isSelfServePlanId, isStripePriceId } from '../../../../lib/billing'
+import { getBillingPlan, getPlanPriceId, isSelfServePlanId, isStripePriceId, isUniqueSelfServePlanPrice } from '../../../../lib/billing'
 import { getSubscriptionPriceId, pickLiveStripeSubscription } from '../../../../lib/stripe-billing'
 import {
   claimBillingCheckoutAttempt,
@@ -61,6 +61,13 @@ export async function POST(request: Request) {
       console.error('[billing/create-subscription] plan price id is not a Stripe Price id', { plan: plan.id, priceId })
       return NextResponse.json(
         { error: 'Stripe Billing for this plan is misconfigured: the configured value is not a Stripe Price ID (it must start with "price_"). Set the plan’s STRIPE_PRICE_… env var to the live Price ID and redeploy.' },
+        { status: 412 },
+      )
+    }
+    if (!isUniqueSelfServePlanPrice(plan)) {
+      console.error('[billing/create-subscription] duplicate self-serve Stripe Price mapping', { plan: plan.id })
+      return NextResponse.json(
+        { error: 'Stripe Billing is misconfigured: Launch, Pro, and Scale must each use a distinct Price ID.' },
         { status: 412 },
       )
     }

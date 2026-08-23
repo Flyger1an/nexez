@@ -5,6 +5,7 @@ import { searchAgentPages, type AgentSearchResult } from '../agent-search'
 import { publicLaunchVisiblePages } from '../public-page-visibility'
 import { filterPagesByLocation } from '../location-filter'
 import { loadReviewSummariesForSlugs } from '../server/reviews'
+import { resolvePublicCommerceCapabilities } from '../server/public-commerce-capabilities'
 import { mergeRankedResults, semanticSearch } from './semantic-search'
 // Brave is the active external discovery source (AI-friendly terms). The Yelp + Google adapters are
 // intentionally NOT imported/registered here - see external-sources.ts for the ToS rationale.
@@ -49,11 +50,17 @@ export const nexezAdapter: SourceAdapter = {
       .returns<AgentPage[]>()
     if (error) throw new Error(`Nexez search is temporarily unavailable: ${error.message}`)
     const visiblePages = filterPagesByLocation(publicLaunchVisiblePages(data), ctx.location)
-    const reviewSummaries = await loadReviewSummariesForSlugs(
-      visiblePages.map((page) => page.slug),
-      0,
-    )
-    const rankingOptions = { location: ctx.location, reviewSummaries }
+    const visibleSlugs = visiblePages.map((page) => page.slug)
+    const [reviewSummaries, commerceCapabilities] = await Promise.all([
+      loadReviewSummariesForSlugs(visibleSlugs, 0),
+      resolvePublicCommerceCapabilities(visibleSlugs),
+    ])
+    const rankingOptions = {
+      location: ctx.location,
+      reviewSummaries,
+      negotiationEligibleSlugs: commerceCapabilities.negotiationEligibleSlugs,
+      checkoutReadySlugs: commerceCapabilities.checkoutReadySlugs,
+    }
     const lexical = searchAgentPages(visiblePages, query, limit, ctx.baseUrl, rankingOptions)
     // Semantic retrieval widens recall to lexically-different-but-similar pages. It's a no-op
     // (→ lexical only) until the embeddings key + page backfill are in place, so prod search is

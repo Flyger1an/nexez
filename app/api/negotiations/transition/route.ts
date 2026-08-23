@@ -5,6 +5,7 @@ import {
   canTransitionNegotiation,
   type AgentNegotiation,
   type NegotiationStatus,
+  isNegotiationExpansionAction,
   NEGOTIATION_STATUSES,
 } from '../../../../lib/negotiations'
 import {
@@ -16,6 +17,8 @@ import { getCheckoutOffer } from '../../../../lib/agent-page'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { notifyBuyerOfNegotiationDecision } from '../../../../lib/server/negotiation-notifications'
 import { captureError } from '../../../../lib/observability'
+import { minPlanForFeature } from '../../../../lib/billing'
+import { ownerAllows } from '../../../../lib/server/plan'
 
 type TransitionBody = {
   negotiationId?: string
@@ -86,6 +89,28 @@ export async function POST(request: Request) {
   // is useful only for isolated tests/pre-migration local environments; database
   // grants reject it after the integrity migration.
   const writer = hasSupabaseAdminEnv() ? createAdminClient() : supabase
+  const entitlementOwnerId = negotiation.owner_id
+
+  async function expansionGate(): Promise<NextResponse | null> {
+    // The persisted negotiation owner is the canonical page owner for this
+    // lifecycle and its economics. Never substitute the viewer or a mutable
+    // current page owner: a page transfer must not change an in-flight deal's
+    // entitlement authority.
+    const allowed = entitlementOwnerId
+      ? await ownerAllows(writer, entitlementOwnerId, 'negotiation')
+      : false
+    if (allowed) return null
+
+    const required = minPlanForFeature('negotiation')
+    return NextResponse.json(
+      {
+        error: `Continuing or revising a negotiation requires the ${required.name} plan. You can still accept, reject, pause, settle, cancel, or refund an existing deal.`,
+        code: 'negotiation_expansion_requires_plan',
+        upgrade: required.id,
+      },
+      { status: 402 },
+    )
+  }
 
   if (body.amountCents != null) {
     if (!Number.isInteger(body.amountCents) || body.amountCents < 50) {
@@ -94,6 +119,15 @@ export async function POST(request: Request) {
     if (!['negotiation', 'agreement_proposed'].includes(negotiation.status) || negotiation.stripe_payment_intent_id) {
       return NextResponse.json({ error: `Cannot change amount in status '${negotiation.status}'.` }, { status: 409 })
     }
+    // An exact no-op is safe after downgrade and avoids turning a harmless retry
+    // into an upgrade error. Every material standalone amount change expands the
+    // commercial terms and is gated against the persisted owner.
+    if (body.amountCents === negotiation.amount_cents) {
+      return NextResponse.json({ ok: true, status: negotiation.status, amountCents: body.amountCents })
+    }
+    const gate = await expansionGate()
+    if (gate) return gate
+
     const { error: updateError } = await writer
       .from('agent_negotiations')
       .update({ amount_cents: body.amountCents, updated_at: new Date().toISOString() })
@@ -183,6 +217,20 @@ export async function POST(request: Request) {
       { error: 'Accept requires amountCents of at least 50, or a previously saved agreed amount.' },
       { status: 400 },
     )
+  }
+
+  // Accept/reject/pause remain available after downgrade so a seller can close
+  // an in-flight negotiation. An accept that silently rewrites a previously
+  // saved amount is still a commercial expansion and must not bypass the gate.
+  // Run this only after transition/amount validation so an invalid action keeps
+  // its canonical error rather than being misreported as a plan restriction.
+  const changesSavedAmount = decision.action === 'accept'
+    && decision.amountCents != null
+    && negotiation.amount_cents != null
+    && decision.amountCents !== negotiation.amount_cents
+  if (isNegotiationExpansionAction(decision.action) || changesSavedAmount) {
+    const gate = await expansionGate()
+    if (gate) return gate
   }
 
   let settlementState: SettlementState | null = null

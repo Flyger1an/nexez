@@ -54,10 +54,10 @@ describe('IntegrationsPanel priority emphasis', () => {
       },
       {
         provider: 'stripe',
-        label: 'Stripe',
+        label: 'Stripe payouts',
         connected: true,
         kind: 'connect',
-        autoSync: true,
+        autoSync: false,
         canSync: false,
         lastSyncedAt: null,
       },
@@ -162,5 +162,66 @@ describe('IntegrationsPanel priority emphasis', () => {
 
     expect(await screen.findByText('Connected')).toHaveClass('text-[var(--fg-muted)]')
     expect(screen.getByText('Synced')).toHaveClass('text-[var(--ready)]')
+  })
+
+  it('keeps foundational Stripe payout setup available below Pro', async () => {
+    mockContext([{
+      provider: 'stripe',
+      label: 'Stripe payouts',
+      connected: false,
+      kind: 'connect',
+      autoSync: false,
+      canSync: false,
+      lastSyncedAt: null,
+    }])
+
+    render(<IntegrationsPanel pageId="page-1" isPro={false} onMessage={() => {}} />)
+
+    expect(await screen.findByText('Stripe payouts')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Set up payouts' })).toHaveAttribute('href', '/dashboard/billing')
+    expect(screen.queryByText('Connecting live integrations is a Pro feature.')).not.toBeInTheDocument()
+  })
+
+  it('pauses retained premium sync below Pro while keeping disconnect available', async () => {
+    mockContext([{
+      provider: 'calendly',
+      label: 'Calendly',
+      connected: true,
+      kind: 'token',
+      autoSync: true,
+      canSync: true,
+      lastSyncedAt: '2026-08-14T12:00:00.000Z',
+      syncStatus: 'attention',
+      syncError: 'Reconnect to resume automatic updates.',
+    }])
+
+    render(<IntegrationsPanel pageId="page-1" isPro={false} onMessage={() => {}} />)
+
+    expect(await screen.findByText('Paused by plan')).toBeVisible()
+    expect(screen.getByText(/Connection retained · sync paused until Pro/)).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Sync Calendly' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Disconnect Calendly' })).toBeEnabled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('keeps an installed Shopify OAuth connection active below Pro', async () => {
+    mockContext([{
+      provider: 'shopify',
+      label: 'Shopify',
+      connected: true,
+      kind: 'oauth',
+      autoSync: true,
+      canSync: true,
+      lastSyncedAt: '2026-08-14T12:00:00.000Z',
+      syncStatus: 'idle',
+      syncError: null,
+    }])
+
+    render(<IntegrationsPanel pageId="page-1" isPro={false} onMessage={() => {}} />)
+
+    expect(await screen.findByRole('button', { name: 'Sync Shopify' })).toBeEnabled()
+    expect(screen.getByText(/Installed securely through Shopify · available on every plan/)).toBeVisible()
+    expect(screen.queryByText('Paused by plan')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Disconnect Shopify' })).not.toBeInTheDocument()
   })
 })

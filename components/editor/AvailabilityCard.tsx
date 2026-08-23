@@ -16,7 +16,7 @@ export function AvailabilityCard({ e }: { e: PageEditor }) {
         {nextAvailable ? nextAvailable.split(' ||WINDOWS||')[0] : 'Not set - agents will see "Contact for current slots"'}
       </div>
       {googleCalendarId && (
-        <div className="mt-1 text-[10px] text-[var(--ready)]">Google Calendar connected</div>
+        <div className="mt-1 text-[10px] text-[var(--ready)]">Calendar ID saved for sample availability</div>
       )}
       {page.availability && (
         <div className="mt-1 text-[10px] text-[var(--ready)]">Upcoming slots ready for agents</div>
@@ -27,13 +27,13 @@ export function AvailabilityCard({ e }: { e: PageEditor }) {
         </div>
       )}
       <p className="mt-1 text-[10px] text-[var(--fg-muted-2)]">
-        Import availability in Settings to show upcoming windows on the public listing and in agent data.
+        Generate sample availability in Settings to show upcoming windows on the public listing and in agent data.
         Booking webhooks fire automatically when configured.
       </p>
       {nextAvailable && (
         <div className="mt-1 text-[10px] text-[var(--ready)]">Availability data live for agents</div>
       )}
-      <div className="mt-1 text-[10px] text-[var(--fg-muted)]">Google Calendar import adds upcoming slots for agents.</div>
+      <div className="mt-1 text-[10px] text-[var(--fg-muted)]">Sample windows are not read from or synced with Google Calendar.</div>
       <div className="mt-1 text-[10px] text-[var(--ready)]">
         {page.outbound_webhooks?.length
           ? `${page.outbound_webhooks.length} webhook URL${page.outbound_webhooks.length === 1 ? '' : 's'} configured`

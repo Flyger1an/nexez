@@ -1,4 +1,5 @@
 import 'server-only'
+import { isEntitlementAllocationRetry } from '../entitlement-allocation-error'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
@@ -342,7 +343,7 @@ export async function applyGrowthCampaignControl(
     const message = error.message || 'The campaign control could not be applied.'
     const code = error.code === 'P0002'
       ? 'not_found'
-      : error.code === '23514' || error.code === '23505'
+      : isEntitlementAllocationRetry(error) || error.code === '23514' || error.code === '23505'
         ? 'conflict'
         : error.code === '22023'
           ? 'invalid'

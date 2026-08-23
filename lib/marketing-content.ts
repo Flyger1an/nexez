@@ -240,14 +240,14 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     primaryCta: { label: 'Open integrations', href: appUrl('/dashboard/integrations') },
     secondaryCta: { label: 'Read integration docs', href: '/docs#integrations-automation' },
     stats: [
-      { value: '8', label: 'Named connection paths' },
+      { value: '8', label: 'Named integration paths' },
       { value: 'CSV', label: 'No-code fallback' },
       { value: 'API', label: 'Developer-ready' },
     ],
     visualTitle: 'Integration sources',
     visualItems: [
       'Stripe, Shopify, Square, CSV, and website flows shape editable catalogs and prices.',
-      'Calendly, Google Calendar, and Acuity connect service context, booking, and availability.',
+      'Calendly and Acuity connect service context and booking data; availability samples can be generated without claiming a Google Calendar connection.',
       'Inbound signatures, outbound webhooks, resync, and reconciliation keep state attributable.',
     ],
     sections: [
@@ -258,7 +258,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
           'Agents need to know whether a buyer can book, when the service is available, how long it takes, and what happens after the booking. Scheduling integrations reduce stale offer listings.',
         cards: [
           { title: 'Calendly', copy: 'Import service names, booking links, durations, and meeting context.' },
-          { title: 'Google Calendar', copy: 'Surface availability windows without exposing private calendar details.' },
+          { title: 'Google Calendar', copy: 'Generate clearly labeled sample availability without reading or syncing a Google Calendar.' },
           { title: 'Acuity', copy: 'Import services through encrypted per-listing credentials and preserve source context.' },
         ],
       },
@@ -555,7 +555,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
 export const pricingFaqs = [
   { question: 'Do I pay a commission if no one books?', answer: 'No. Nexez commission applies only to successful transactions settled through Nexez. Paid-plan subscriptions and card-processing fees are separate.' },
   { question: 'Can I change plans later?', answer: 'Yes, upgrade or downgrade from your Billing page. Prorated billing.' },
-  { question: 'How does complimentary Launch access work?', answer: 'Start on Free, then verify and publish your business. Eligible businesses receive six months of Launch access with no card and no automatic charge. Afterward, the account returns to Free unless upgraded.' },
+  { question: 'How does complimentary Launch access work?', answer: 'Start on Free, then verify and publish your business. While the capped campaign is available, eligible businesses can receive six months of Launch access with no card and no automatic charge. Afterward, the account returns to Free unless upgraded.' },
   { question: 'What if I need custom pricing?', answer: 'Enterprise plans are fully customizable. Reach out via support.' },
 ] as const
 

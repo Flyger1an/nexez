@@ -16,8 +16,8 @@ import {
 } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { createClient } from '../../../utils/supabase/server'
-import { getOwnerPlanId } from '../../../lib/server/plan'
-import { planAllows, getBillingPlan } from '../../../lib/billing'
+import { getCommercialPlanDefaultCommission, getOwnerBillingState, getOwnerCommission } from '../../../lib/server/plan'
+import { planAllows, getBillingPlan, minPlanForFeature } from '../../../lib/billing'
 import { clampHistoryRange, analyticsRangeBounds, previousPeriodBounds, pctDelta, type KpiDelta } from '../../../lib/analytics'
 import {
   rollupFinanceByCurrency,
@@ -36,15 +36,16 @@ import { formatCurrencyAmount, normalizeCurrency } from '../../../lib/currency'
 import { EmptyState, type EmptyStateCta } from '../../../components/EmptyState'
 import { OrdersPanel, type OrderRow } from '../../../components/dashboard/OrdersPanel'
 import { BuyerRequestsPanel, type BuyerRequestRow } from '../../../components/dashboard/BuyerRequestsPanel'
-import { getCommissionPercentForPlan, billingStatusCopy, type BillingSubscription } from '../../../lib/stripe-billing'
+import { billingStatusCopy, type BillingSubscription } from '../../../lib/stripe-billing'
 import { getConnectPayoutSnapshot, getNextPayout } from '../../../lib/server/connect-finance'
 import { getNegotiationStatusLabel, getNegotiationStatusTone, type NegotiationStatus } from '../../../lib/negotiations'
 import { GlassCard } from '../../../components/billing/billing-ui'
-import { ProBadge } from '../../../components/billing/PlanGate'
+import { PlanBadge } from '../../../components/billing/PlanGate'
 import { appUrl } from '../../../lib/site'
 import { RevenueChart } from './RevenueChart'
 import { DataLoadNotice } from '../../../components/dashboard/DataLoadNotice'
 import { loadFinanceRollup, type FinanceRollup } from '../../../lib/finance-report'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 
 type FinanceProps = {
   searchParams: Promise<{ range?: string; from?: string; to?: string; currency?: string }>
@@ -85,14 +86,15 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   }
 
   // analyticsHistory (Pro): All-time + custom ranges are Pro; clamp server-side.
-  const [planId, billingResult] = await Promise.all([
-    getOwnerPlanId(supabase, user.id),
+  const [billingState, billingResult] = await Promise.all([
+    getOwnerBillingState(supabase, user.id),
     supabase
       .from('billing_subscriptions')
       .select('*')
       .eq('owner_id', user.id)
       .maybeSingle<BillingSubscription>(),
   ])
+  const planId = billingState.planId
   const fullHistory = planAllows(planId, 'analyticsHistory')
   const historyWindow = clampHistoryRange({ range: filters.range, from: filters.from, to: filters.to }, fullHistory)
   const range = historyWindow.range || '30d'
@@ -102,13 +104,16 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   // Billing + Connect (the seller's own subscription + payout account).
   const { data: billing, error: billingError } = billingResult
   const activePlan = getBillingPlan(planId)
-  const commissionPct = getCommissionPercentForPlan(planId)
+  const commission = hasSupabaseAdminEnv()
+    ? await getOwnerCommission(createAdminClient(), user.id, billingState)
+    : getCommercialPlanDefaultCommission(billingState)
+  const commissionPct = commission.percent
   const connectAccountId = billing?.stripe_connect_account_id ?? null
   const payoutsReady = Boolean(billing?.stripe_connect_payouts_enabled)
   const cutoffIso = cutoff.toISOString()
   const untilIso = until?.toISOString()
   const prevBounds = previousPeriodBounds(rangeBounds)
-  const fallbackCommissionBps = Math.round(commissionPct * 100)
+  const fallbackCommissionBps = commission.basisPoints
   const [financeResult, previousFinanceResult, negotiationResult, orderResult, requestResult, payouts] = await Promise.all([
     loadFinanceRollup(supabase, { from: cutoff, to: until, fallbackCommissionBps }),
     prevBounds
@@ -319,7 +324,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                   return (
                     <a
                       key={r.value}
-                      href={appUrl('/dashboard/billing?plan=pro')}
+                      href={appUrl(`/dashboard/billing?plan=${minPlanForFeature('analyticsHistory').id}`)}
                       title="All-time history is on the Pro plan"
                       className="platform-tab !min-h-9 !px-3 !py-1.5"
                     >
@@ -339,7 +344,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                 )
               })}
               </nav>
-              {!fullHistory && <ProBadge feature="analyticsHistory" />}
+              {!fullHistory && <PlanBadge feature="analyticsHistory" />}
             </div>
             {currencyOptions.length > 1 && (
               <div className="flex flex-wrap items-center gap-2">

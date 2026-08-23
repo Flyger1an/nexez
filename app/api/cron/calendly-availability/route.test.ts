@@ -2,17 +2,24 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(), hasSupabaseAdminEnv: vi.fn() }))
-const { credRef } = vi.hoisted(() => ({ credRef: { configured: true, pat: 'pat' as string | null, availability: null as any } }))
+const { credRef, planRef } = vi.hoisted(() => ({
+  credRef: { configured: true, pat: 'pat' as string | null, availability: null as any },
+  planRef: { allowed: true },
+}))
 vi.mock('../../../../lib/server/page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => credRef.configured,
-  getCalendlyPat: async () => credRef.pat,
+  getCalendlyPat: vi.fn(async () => credRef.pat),
 }))
 vi.mock('../../../../lib/server/calendly-write', () => ({
-  fetchCalendlyEventTypeAvailability: async () => credRef.availability,
+  fetchCalendlyEventTypeAvailability: vi.fn(async () => credRef.availability),
 }))
+vi.mock('../../../../lib/server/plan', () => ({ ownerAllows: vi.fn(async () => planRef.allowed) }))
 
 import { GET } from './route'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { fetchCalendlyEventTypeAvailability } from '../../../../lib/server/calendly-write'
+import { getCalendlyPat } from '../../../../lib/server/page-integration-credentials'
+import { ownerAllows } from '../../../../lib/server/plan'
 
 const req = (auth?: string) =>
   new Request('https://nexez.test/api/cron/calendly-availability', { headers: auth ? { authorization: auth } : {} })
@@ -49,7 +56,15 @@ function drive(page: any | null) {
   return updates
 }
 
-const pageWith = (over: Record<string, any> = {}) => ({ id: 'pg1', slug: 'acme', services: [calOffer()], products: [], next_available: null, ...over })
+const pageWith = (over: Record<string, any> = {}) => ({
+  id: 'pg1',
+  owner_id: 'owner-1',
+  slug: 'acme',
+  services: [calOffer()],
+  products: [],
+  next_available: null,
+  ...over,
+})
 
 describe('GET /api/cron/calendly-availability', () => {
   beforeEach(() => {
@@ -59,6 +74,7 @@ describe('GET /api/cron/calendly-availability', () => {
     credRef.configured = true
     credRef.pat = 'pat'
     credRef.availability = openAvailability()
+    planRef.allowed = true
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -137,6 +153,19 @@ describe('GET /api/cron/calendly-availability', () => {
     const updates = drive(pageWith())
     const json = await (await GET(req())).json()
     expect(json.failed).toBe(1)
+    expect(updates).toHaveLength(0)
+  })
+
+  it('stops automatic Calendly access after an integrations downgrade', async () => {
+    planRef.allowed = false
+    const updates = drive(pageWith())
+
+    const json = await (await GET(req())).json()
+
+    expect(json).toMatchObject({ ok: true, synced: 0, failed: 0, entitlement_skipped: 1 })
+    expect(getCalendlyPat).not.toHaveBeenCalled()
+    expect(fetchCalendlyEventTypeAvailability).not.toHaveBeenCalled()
+    expect(ownerAllows).toHaveBeenCalledWith(expect.anything(), 'owner-1', 'integrations')
     expect(updates).toHaveLength(0)
   })
 

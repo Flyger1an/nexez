@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { commitIntakeSession } from '../../../../../../../lib/agents/intake'
 import { enforceRateLimit } from '../../../../../../../lib/rate-limit'
+import { ownerAllows } from '../../../../../../../lib/server/plan'
 import { resolveRequestAuth } from '../../../../../../../lib/server/request-auth'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../../../utils/supabase/admin'
 
@@ -25,7 +26,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const { id } = await params
-  const result = await commitIntakeSession({ db: supabase, admin: createAdminClient(), user, sessionId: id })
+  const negotiationAllowed = await ownerAllows(supabase, user.id, 'negotiation')
+  const result = await commitIntakeSession({
+    db: supabase,
+    admin: createAdminClient(),
+    user,
+    sessionId: id,
+    negotiationAllowed,
+  })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
   return NextResponse.json({
     ok: true,

@@ -17,6 +17,26 @@ export const NEGOTIATION_STATUSES = [
 
 export type NegotiationStatus = (typeof NEGOTIATION_STATUSES)[number]
 
+// Actions that expand a negotiation after it already exists. Downgraded owners
+// retain the controls needed to close, pause, settle, or clean up an in-flight
+// deal; these actions continue or materially revise the commercial exchange and
+// therefore require the negotiation entitlement.
+export const NEGOTIATION_EXPANSION_ACTIONS = [
+  'resume',
+  'counter',
+  'clarify',
+  'change_amount',
+  'change_rules',
+] as const
+
+export type NegotiationExpansionAction = (typeof NEGOTIATION_EXPANSION_ACTIONS)[number]
+
+export function isNegotiationExpansionAction(
+  action: string | null | undefined,
+): action is NegotiationExpansionAction {
+  return typeof action === 'string' && NEGOTIATION_EXPANSION_ACTIONS.includes(action as NegotiationExpansionAction)
+}
+
 export type NegotiationEscrowMode =
   | 'not_configured'
   | 'manual_capture_ready'

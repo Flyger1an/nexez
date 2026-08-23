@@ -7,6 +7,7 @@ const refs = vi.hoisted(() => ({
   upsertError: null as any,
   cryptoKey: true,
   calendlyCheck: { ok: true, uri: 'u1' } as any,
+  allowedFeatures: new Set(['integrations', 'outboundWebhooks']),
 }))
 vi.mock('../../../../../lib/server/secret-crypto', () => ({
   hasSecretCryptoKey: () => refs.cryptoKey,
@@ -14,6 +15,9 @@ vi.mock('../../../../../lib/server/secret-crypto', () => ({
 }))
 vi.mock('../../../../../lib/server/calendly-write', () => ({
   getCalendlyUser: async () => refs.calendlyCheck,
+}))
+vi.mock('../../../../../lib/server/plan', () => ({
+  ownerAllows: async (_admin: unknown, _ownerId: string, feature: string) => refs.allowedFeatures.has(feature),
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
@@ -48,6 +52,7 @@ describe('POST /api/pages/[id]/secrets', () => {
     refs.upsertError = null
     refs.cryptoKey = true
     refs.calendlyCheck = { ok: true, uri: 'u1' }
+    refs.allowedFeatures = new Set(['integrations', 'outboundWebhooks'])
   })
 
   it('401 unauth / 403 stranger', async () => {
@@ -73,6 +78,57 @@ describe('POST /api/pages/[id]/secrets', () => {
     expect(refs.upsertArg.owner_id).toBe('owner-1') // NOT the client-supplied 'attacker'
     expect(refs.upsertArg.page_id).toBe('p1') // NOT 'evil'
     expect('evil' in refs.upsertArg).toBe(false)
+  })
+
+  it('blocks non-empty integration credentials below the entitled plan', async () => {
+    refs.allowedFeatures.delete('integrations')
+    for (const body of [
+      { calendly_webhook_secret: 'signing-secret' },
+      { calendly_pat: 'cal_live_secret' },
+      { shopify_credentials: { shop: 'demo.myshopify.com', token: 'shop-token' } },
+      { square_credentials: { accessToken: 'square-token' } },
+      { acuity_credentials: { userId: 'user', apiKey: 'acuity-key' } },
+    ]) {
+      refs.upsertArg = null
+      const res = await POST(post(body), { params })
+      expect(res.status).toBe(402)
+      expect(refs.upsertArg).toBeNull()
+    }
+  })
+
+  it('blocks non-empty outbound endpoints below the entitled plan', async () => {
+    refs.allowedFeatures.delete('outboundWebhooks')
+    const res = await POST(post({ outbound_webhooks: [{ url: 'https://hooks.example.test/nexez' }] }), { params })
+    expect(res.status).toBe(402)
+    expect(refs.upsertArg).toBeNull()
+  })
+
+  it('keeps disconnects and clears available after downgrade', async () => {
+    refs.allowedFeatures.clear()
+    const res = await POST(post({
+      calendly_webhook_secret: null,
+      calendly_pat: '',
+      shopify_credentials: {},
+      square_credentials: {},
+      acuity_credentials: {},
+      outbound_webhooks: [],
+    }), { params })
+    expect(res.status).toBe(200)
+    expect(refs.upsertArg).toMatchObject({
+      calendly_webhook_secret: null,
+      calendly_pat_encrypted: null,
+      shopify_credentials_encrypted: null,
+      square_credentials_encrypted: null,
+      acuity_credentials_encrypted: null,
+      outbound_webhooks: [],
+    })
+  })
+
+  it('does not plan-gate domain verification secrets', async () => {
+    refs.allowedFeatures.clear()
+    const res = await POST(post({ domain_verification_token: 'verify-token' }), { params })
+    expect(res.status).toBe(200)
+    expect(refs.upsertArg.domain_verification_token).toBe('verify-token')
   })
 
   it('500 when the upsert fails', async () => {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { planAllows, type PlanId } from '../../lib/billing'
-import { ProBadge } from '../billing/PlanGate'
+import { PlanBadge } from '../billing/PlanGate'
 import { createClient } from '../../utils/supabase/client'
 import { SettingRow, SettingsSwitch } from './SettingsPrimitives'
 
@@ -46,8 +46,20 @@ export function BrandingPanel({
 }) {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const { brandName, accentColor, logoUrl, hideNexezBadge } = values
+  const brandingEnabled = planAllows(plan, 'whiteLabel')
+  const badgeRemovalEnabled = planAllows(plan, 'removeBadge')
+  const hasRetainedBranding = Boolean(brandName.trim() || accentColor.trim() || logoUrl.trim() || hideNexezBadge)
+
+  function resetPremiumBranding() {
+    onChange({ brandName: '', accentColor: '', logoUrl: '', hideNexezBadge: false })
+    onMessage('Premium branding reset. Click Save Settings to remove the retained configuration.')
+  }
 
   async function handleLogoFileUpload(file: File) {
+    if (!brandingEnabled) {
+      onMessage('Logo uploads require the white-label branding feature. Existing branding remains available to reset.')
+      return
+    }
     if (!file.type.startsWith('image/')) {
       onMessage('Please choose an image file (PNG, JPG, SVG, etc).')
       return
@@ -82,6 +94,10 @@ export function BrandingPanel({
   }
 
   async function oneClickDetectLogo() {
+    if (!brandingEnabled) {
+      onMessage('Logo detection requires the white-label branding feature. Existing branding remains available to reset.')
+      return
+    }
     if (!websiteUrl) {
       onMessage('Add a Website URL above first (in the General section) to auto-detect logo.')
       return
@@ -114,45 +130,79 @@ export function BrandingPanel({
     <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3" data-testid="branding-panel">
       <p className="flex items-center gap-2 text-[11px] font-medium text-zinc-200">
         Branding / White-label
-        {!planAllows(plan, 'whiteLabel') && <ProBadge feature="whiteLabel" />}
+        {!brandingEnabled && <PlanBadge feature="whiteLabel" />}
       </p>
       <p className="mt-0.5 text-[10px] text-zinc-500">
         Applied to the public listing (especially on your custom domain).
       </p>
+      {!brandingEnabled ? (
+        <div
+          id="premium-branding-plan-status"
+          role="status"
+          className="mt-2 flex flex-col gap-2 rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] p-3 text-[10px] text-zinc-300 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>
+            {hasRetainedBranding
+              ? 'Premium branding is configured but paused on this plan. It is retained for an upgrade and does not render publicly.'
+              : 'Brand name, accent color, logo, and badge removal are premium branding features.'}
+          </span>
+          {hasRetainedBranding ? (
+            <button
+              type="button"
+              onClick={resetPremiumBranding}
+              className="shrink-0 rounded border border-red-400/40 px-2 py-1 font-medium text-red-300 hover:bg-red-400/10"
+            >
+              Reset premium branding
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="block text-[11px]">
           <span className="text-zinc-400">Brand name</span>
           <input
             value={brandName}
-            onChange={(e) => onChange({ brandName: e.target.value })}
+            readOnly={!brandingEnabled}
+            aria-describedby={!brandingEnabled ? 'premium-branding-plan-status' : undefined}
+            onChange={(e) => {
+              if (brandingEnabled) onChange({ brandName: e.target.value })
+            }}
             placeholder="Apex Plumbing Co."
-            className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm read-only:cursor-not-allowed read-only:opacity-60"
           />
         </label>
         <label className="block text-[11px]">
           <span className="text-zinc-400">Accent color (hex)</span>
           <input
             value={accentColor}
-            onChange={(e) => onChange({ accentColor: e.target.value })}
+            readOnly={!brandingEnabled}
+            aria-describedby={!brandingEnabled ? 'premium-branding-plan-status' : undefined}
+            onChange={(e) => {
+              if (brandingEnabled) onChange({ accentColor: e.target.value })
+            }}
             placeholder="#7C3AED"
-            className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm read-only:cursor-not-allowed read-only:opacity-60"
           />
         </label>
         <label className="block text-[11px] sm:col-span-2">
           <span className="text-zinc-400">Logo URL (https)</span>
           <input
             value={logoUrl}
-            onChange={(e) => onChange({ logoUrl: e.target.value })}
+            readOnly={!brandingEnabled}
+            aria-describedby={!brandingEnabled ? 'premium-branding-plan-status' : undefined}
+            onChange={(e) => {
+              if (brandingEnabled) onChange({ logoUrl: e.target.value })
+            }}
             placeholder="https://apexplumbing.com/logo.svg"
-            className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
+            className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm read-only:cursor-not-allowed read-only:opacity-60"
           />
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <label className="cursor-pointer inline-flex items-center gap-1 rounded border border-white/20 px-2 py-1 text-[10px] hover:bg-white/5">
+            <label className={`inline-flex items-center gap-1 rounded border border-white/20 px-2 py-1 text-[10px] ${brandingEnabled ? 'cursor-pointer hover:bg-white/5' : 'cursor-not-allowed opacity-60'}`}>
               <input
                 type="file"
                 accept="image/*"
                 className="hidden"
-                disabled={uploadingLogo}
+                disabled={!brandingEnabled || uploadingLogo}
                 onChange={(e) => {
                   const f = e.target.files?.[0]
                   if (f) handleLogoFileUpload(f)
@@ -183,7 +233,7 @@ export function BrandingPanel({
             <button
               type="button"
               onClick={oneClickDetectLogo}
-              disabled={!websiteUrl || uploadingLogo}
+              disabled={!brandingEnabled || !websiteUrl || uploadingLogo}
               className="text-[10px] rounded border border-[var(--signal)]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
             >
               ✨ One-click: detect logo from my website
@@ -199,7 +249,10 @@ export function BrandingPanel({
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
             Hide the Nexez header link for a fully white-label listing. Saves with the listing settings.
-            {!planAllows(plan, 'removeBadge') ? <ProBadge feature="removeBadge" /> : null}
+            {!badgeRemovalEnabled ? <PlanBadge feature="removeBadge" /> : null}
+            {!badgeRemovalEnabled && hideNexezBadge ? (
+              <span className="text-[var(--amber)]">Configured · paused; turn off to clear.</span>
+            ) : null}
           </span>
         }
         htmlFor="hide-nexez-attribution"
@@ -208,9 +261,16 @@ export function BrandingPanel({
         <SettingsSwitch
           id="hide-nexez-attribution"
           checked={hideNexezBadge}
-          onCheckedChange={(checked) => onChange({ hideNexezBadge: checked })}
+          disabled={!badgeRemovalEnabled && !hideNexezBadge}
+          onCheckedChange={(checked) => {
+            if (checked && !badgeRemovalEnabled) {
+              onMessage('Badge removal requires the white-label branding feature.')
+              return
+            }
+            onChange({ hideNexezBadge: checked })
+          }}
           label="Nexez attribution"
-          checkedLabel="Hidden"
+          checkedLabel={badgeRemovalEnabled ? 'Hidden' : 'Configured · paused'}
           uncheckedLabel="Shown"
         />
       </SettingRow>

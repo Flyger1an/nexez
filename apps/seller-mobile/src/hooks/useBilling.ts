@@ -1,6 +1,5 @@
-import { getBillingSubscription, getFinanceRollup, getSellerPages } from '@/src/lib/data'
+import { getBillingSubscription, getFinanceRollup, getMyPlanEntitlements, getSellerPages } from '@/src/lib/data'
 import { getOfferCount } from '@/src/lib/agent-page'
-import { commissionPercentForPlan } from '@/src/lib/billing'
 import { useAsyncData } from './useAsyncData'
 import { useSession } from './useSession'
 
@@ -8,21 +7,22 @@ export function useBilling() {
   const { user } = useSession()
   return useAsyncData(async () => {
     if (!user) throw new Error('Sign in required.')
-    const billing = await getBillingSubscription(user.id)
-    const planId = billing?.plan_id ?? 'free'
-    const commissionPercent = commissionPercentForPlan(planId)
-    const [pages, finance] = await Promise.all([
-      getSellerPages(user.id),
-      getFinanceRollup(
-        new Date(Date.now() - 30 * 86400000),
-        Math.round(commissionPercent * 100),
-      ),
+    const billingPromise = getBillingSubscription(user.id)
+    const pagesPromise = getSellerPages(user.id)
+    const entitlements = await getMyPlanEntitlements(user.id)
+    const [billing, pages, finance] = await Promise.all([
+      billingPromise,
+      pagesPromise,
+      getFinanceRollup(new Date(Date.now() - 30 * 86400000), entitlements.commissionBps),
     ])
+    const planId = entitlements.featurePlanId
+    const commissionPercent = entitlements.commissionBps / 100
     const primaryCurrency = finance.currencies[0]
     const agentRevenueCents = primaryCurrency?.grossCents ?? 0
 
     return {
       billing,
+      entitlements,
       planId,
       status: billing?.status ?? 'unconfigured',
       pageCount: pages.length,

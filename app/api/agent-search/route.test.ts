@@ -17,6 +17,12 @@ vi.mock('../../../lib/server/storefront', () => ({
 vi.mock('../../../lib/server/reviews', () => ({
   loadReviewSummariesForSlugs: vi.fn(async () => new Map()),
 }))
+vi.mock('../../../lib/server/public-commerce-capabilities', () => ({
+  resolvePublicCommerceCapabilities: vi.fn(async () => ({
+    negotiationEligibleSlugs: new Set(['demo']),
+    checkoutReadySlugs: new Set(['demo']),
+  })),
+}))
 
 import { GET } from './route'
 
@@ -48,6 +54,10 @@ describe('GET /api/agent-search', () => {
     expect(body.schema_version).toBe('nexez.agent-search.v1')
     expect(body.ranking_policy).toBe('nexez.discovery-ranking.v1')
     expect(body.result_count).toBeGreaterThan(0)
+    expect(body.results[0].marketplace).toMatchObject({
+      has_actionable_offer: true,
+      nexez_checkout_ready: true,
+    })
     expect(body.results[0].ranking).toMatchObject({
       policy_version: 'nexez.discovery-ranking.v1',
       relevance: expect.any(Number),
@@ -109,5 +119,14 @@ describe('GET /api/agent-search', () => {
     const res = await GET(new Request('https://nexez.test/api/agent-search?q=consult&verified=yes'))
     expect(res.status).toBe(400)
     expect((await res.json()).code).toBe('invalid_search_filter')
+  })
+
+  it('validates the authoritative checkout-readiness filter', async () => {
+    const valid = await GET(new Request('https://nexez.test/api/agent-search?q=consult&nexez_checkout_ready=true'))
+    expect(valid.status).toBe(200)
+    expect((await valid.json()).result_count).toBeGreaterThan(0)
+
+    const invalid = await GET(new Request('https://nexez.test/api/agent-search?q=consult&nexez_checkout_ready=yes'))
+    expect(invalid.status).toBe(400)
   })
 })

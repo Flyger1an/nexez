@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   hasBranding,
+  brandingForPlan,
   normalizeBranding,
   sanitizeAccentColor,
   sanitizeLogoUrl,
@@ -75,5 +76,27 @@ describe('hasBranding', () => {
     expect(hasBranding(normalizeBranding({}))).toBe(false)
     expect(hasBranding(normalizeBranding({ brand_name: 'Acme' }))).toBe(true)
     expect(hasBranding(normalizeBranding({ hide_nexez_badge: true }))).toBe(true)
+  })
+})
+
+describe('brandingForPlan', () => {
+  const customized = normalizeBranding({
+    brand_name: 'Acme',
+    accent_color: '#abc',
+    logo_url: 'https://acme.com/logo.svg',
+    hide_nexez_badge: true,
+  })
+
+  it('retains but does not publicly expose paid branding on Free', () => {
+    expect(brandingForPlan(customized, 'free')).toEqual({
+      brand_name: null,
+      accent_color: null,
+      logo_url: null,
+      hide_nexez_badge: false,
+    })
+  })
+
+  it('exposes the complete branding allocation on Launch and above', () => {
+    expect(brandingForPlan(customized, 'launch')).toEqual(customized)
   })
 })

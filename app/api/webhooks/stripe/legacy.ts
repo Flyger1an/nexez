@@ -32,6 +32,8 @@ import { cancelCalendlyForRefund } from '../../../../lib/server/calendly-cancel-
 import { releaseBillingCheckoutAttempt } from '../../../../lib/server/billing-checkout-attempt'
 import { acpOrderWebhookConfigured, acpStatusFromOrderStatus, sendAcpOrderEvent } from '../../../../lib/server/acp-order-webhook'
 import { insertVerifiedCheckoutEvent } from '../../../../lib/server/analytics-ingestion'
+import { planAllows } from '../../../../lib/billing'
+import { getOwnerPlanIds } from '../../../../lib/server/plan'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -122,6 +124,7 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
     const connectedAccount = (event as { account?: string }).account ?? null
     let ownerId: string | null = null
+    const eligibleOwners = new Set<string>()
     if (connectedAccount) {
       const { data: sub } = await admin
         .from('billing_subscriptions')
@@ -132,6 +135,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true, type: event.type, skipped: 'unknown connected account' }, { status: 200 })
       }
       ownerId = sub.owner_id
+      const plansByOwner = await getOwnerPlanIds(admin, [ownerId])
+      if (!planAllows(plansByOwner[ownerId] ?? 'free', 'integrations')) {
+        // Keep the verified webhook ledger claim, but acknowledge without
+        // provider lookups or listing mutation after a downgrade.
+        return NextResponse.json(
+          { received: true, type: event.type, skipped: 'plan not eligible' },
+          { status: 200 },
+        )
+      }
+      eligibleOwners.add(ownerId)
     }
 
     let price: Stripe.Price
@@ -204,10 +217,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'price sync lookup failed', type: event.type }, { status: 500 })
     }
 
+    if (!ownerId) {
+      const candidateOwnerIds = [...new Set(
+        [...candidates.values()].map((row) => row.owner_id).filter(Boolean),
+      )] as string[]
+      const plansByOwner = await getOwnerPlanIds(admin, candidateOwnerIds)
+      for (const candidateOwnerId of candidateOwnerIds) {
+        if (planAllows(plansByOwner[candidateOwnerId] ?? 'free', 'integrations')) {
+          eligibleOwners.add(candidateOwnerId)
+        }
+      }
+    }
+
     let offersUpdated = 0
     let pagesTouched = 0
+    let entitlementSkipped = 0
     let updateFailed = false
     for (const row of candidates.values()) {
+      if (!row.owner_id || !eligibleOwners.has(row.owner_id)) {
+        entitlementSkipped += 1
+        continue
+      }
       const services = applyPriceToOffers(row.services ?? [], target)
       const products = applyPriceToOffers(row.products ?? [], target)
       const changed = services.changed + products.changed
@@ -253,6 +283,15 @@ export async function POST(request: NextRequest) {
       await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
       return NextResponse.json({ error: 'price sync update failed', type: event.type }, { status: 500 })
     }
+    if (entitlementSkipped > 0) {
+      captureEvent('integration.price_sync_skipped', {
+        provider: 'stripe',
+        priceId: price.id,
+        pages: entitlementSkipped,
+        reason: 'plan_not_eligible',
+        connect: Boolean(connectedAccount),
+      })
+    }
     captureEvent('integration.price_synced', {
       provider: 'stripe',
       priceId: price.id,
@@ -261,7 +300,10 @@ export async function POST(request: NextRequest) {
       pagesTouched,
       connect: Boolean(connectedAccount),
     })
-    return NextResponse.json({ received: true, type: event.type, offersUpdated, pagesTouched }, { status: 200 })
+    return NextResponse.json(
+      { received: true, type: event.type, offersUpdated, pagesTouched, entitlementSkipped },
+      { status: 200 },
+    )
   }
 
   // Negotiation escrow: a buyer-funded Checkout completed.

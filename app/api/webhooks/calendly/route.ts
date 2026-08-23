@@ -225,6 +225,14 @@ export async function POST(request: NextRequest) {
       slug: page.slug,
       reason: 'no_booking_cap',
     })
+  } else if (!(await ownerAllows(supabase, page.owner_id, 'integrations'))) {
+    // The signed inbound event and commerce linkage above remain durable after a
+    // downgrade; only paid listing automation is suspended.
+    captureEvent('integration.availability_skipped', {
+      provider: 'calendly',
+      slug: page.slug,
+      reason: 'plan_not_eligible',
+    })
   } else {
     const offerKey = getCheckoutOfferKey(offerMatch.kind, offerMatch.index)
     const booked = await countRecentBookings(supabase, {

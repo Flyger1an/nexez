@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { agenticCommerceStatus } from '../agentic-commerce-status'
 
-const FULL = { published: true, planAllowsCheckout: true, connectReady: true, chatgptLive: true, googleLive: true }
+const FULL = { published: true, connectReady: true, chatgptLive: true, googleLive: true }
 
 describe('agenticCommerceStatus', () => {
   it('unpublished → both layers off, not eligible', () => {
@@ -13,8 +13,8 @@ describe('agenticCommerceStatus', () => {
     })
   })
 
-  it('published on Free can check out when settlement-ready', () => {
-    const s = agenticCommerceStatus({ ...FULL, planAllowsCheckout: false })
+  it('published sellers can check out when settlement-ready', () => {
+    const s = agenticCommerceStatus(FULL)
     expect(s.discovery).toBe('live')
     expect(s.checkout).toBe('live')
     expect(s.checkoutEligible).toBe(true)
@@ -48,15 +48,9 @@ describe('agenticCommerceStatus', () => {
     expect(s.liveSurfaces).toEqual(['google'])
   })
 
-  it('an obsolete false plan input cannot revoke foundational checkout', () => {
-    const s = agenticCommerceStatus({ published: true, planAllowsCheckout: false, connectReady: false, chatgptLive: true, googleLive: true })
-    expect(s.checkout).toBe('needs_payouts')
-  })
-
   it('checkoutEligible is true iff checkout === live', () => {
     for (const inp of [
       FULL,
-      { ...FULL, planAllowsCheckout: false },
       { ...FULL, connectReady: false },
       { ...FULL, chatgptLive: false, googleLive: false },
       { ...FULL, published: false },

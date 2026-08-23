@@ -338,7 +338,7 @@ export async function buildTeamInviteEmail(opts: {
   acceptUrl: string
 }): Promise<Built> {
   const { inviterEmail, inviteeEmail, role, acceptUrl } = opts
-  const roleCopy = role === 'editor' ? 'edit their listings and negotiations' : 'view their listings (read-only)'
+  const roleCopy = role === 'editor' ? 'edit their listings' : 'view their listings (read-only)'
   const subject = `${inviterEmail} invited you to collaborate on Nexez`
   const lead = `${inviterEmail} invited you to their Nexez workspace as a ${role}. You'll be able to ${roleCopy}.`
   const text = [

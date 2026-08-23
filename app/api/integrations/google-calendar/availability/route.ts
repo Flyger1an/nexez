@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { deriveAvailabilityWindows, type BusyPeriod } from '../../../../../lib/integrations'
 import { createClient } from '../../../../../utils/supabase/server'
+import { createAdminClient } from '../../../../../utils/supabase/admin'
 import { ownerAllows } from '../../../../../lib/server/plan'
+import { resolveFeatureOwner } from '../../../../../lib/server/page-access'
 
 /**
- * Google Calendar Availability Import.
+ * Google Calendar Availability Generation.
  *
  * Real path: POST { calendarId, accessToken } → live Google Calendar freeBusy
  * API. Busy periods are subtracted from business hours to derive open windows.
- * Falls back to deterministic sample windows when no OAuth token is supplied or
- * the call fails, so the import always returns something usable.
+ * Without a token, or when the live call fails, the response is explicitly marked
+ * as deterministic sample data. Sample data must never be presented as connected
+ * to or synchronized from Google Calendar.
  */
 
 type AvailabilityWindow = {
@@ -23,7 +26,8 @@ type AvailabilityWindow = {
 type AvailabilityPayload = {
   calendar_id: string
   source: 'google_calendar_stub' | 'google_calendar'
-  last_synced: string
+  generated_at: string
+  last_synced?: string
   windows: AvailabilityWindow[]
   summary_note: string
 }
@@ -84,12 +88,12 @@ function generateStubAvailability(calendarId: string): AvailabilityPayload {
   }
 
   const firstFew = windows.slice(0, 3).map((w) => w.label).join(', ')
-  const summary_note = `Next open slots: ${firstFew} (synced from Google Calendar)`
+  const summary_note = `Sample open slots: ${firstFew} (not synced with Google Calendar)`
 
   return {
     calendar_id: calendarId,
     source: 'google_calendar_stub',
-    last_synced: new Date().toISOString(),
+    generated_at: new Date().toISOString(),
     windows: windows.slice(0, 6),
     summary_note,
   }
@@ -123,6 +127,7 @@ async function fetchGoogleAvailability(calendarId: string, accessToken: string):
     return {
       calendar_id: calendarId,
       source: 'google_calendar',
+      generated_at: now.toISOString(),
       last_synced: now.toISOString(),
       windows,
       summary_note: windows.length
@@ -160,13 +165,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'calendarId is required' }, { status: 400 })
   }
 
+  // Sample generation is intentionally part of the premium integrations surface,
+  // even though it does not contact Google. Resolve the effective page owner so an
+  // editor collaborator neither borrows their own plan nor loses the owner's access.
+  const access = await resolveFeatureOwner({
+    pageId: typeof body?.pageId === 'string' ? body.pageId : undefined,
+    userId: user.id,
+    userEmail: user.email,
+    userEmailConfirmedAt: user.email_confirmed_at,
+  })
+  if (!access.ok) {
+    return NextResponse.json(
+      { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
+      { status: access.status },
+    )
+  }
+  if (!(await ownerAllows(access.scoped ? createAdminClient() : supabase, access.ownerId, 'integrations'))) {
+    return NextResponse.json({ error: 'Availability generation requires a plan with integrations.' }, { status: 402 })
+  }
+
   const accessToken = (body?.accessToken || body?.access_token || '').trim()
 
   if (accessToken) {
-    // Live free/busy sync is a paid integration - gate it (the stub stays available).
-    if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
-      return NextResponse.json({ error: 'Live Google Calendar sync requires a plan with integrations.' }, { status: 402 })
-    }
     const live = await fetchGoogleAvailability(calendarId, accessToken)
     if (live) {
       return NextResponse.json({ success: true, connected: true, availability: live, next_available: live.summary_note })
@@ -181,14 +201,14 @@ export async function POST(request: NextRequest) {
     next_available: availability.summary_note,
     note: accessToken
       ? 'Could not reach Google Calendar (check the access token and calendar id). Showing sample availability.'
-      : 'Sample availability. POST { calendarId, accessToken } to sync live free/busy.',
+      : 'Sample availability only. No Google Calendar connection was created and no calendar data was read.',
   })
 }
 
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
-    message: 'POST { calendarId: "..." } to create agent-readable availability windows.',
-    note: 'Add accessToken for live Google Calendar free/busy. Without a token, Nexez returns deterministic sample windows so page setup can continue.',
+    message: 'POST { calendarId: "..." } to generate deterministic sample availability windows.',
+    note: 'Add accessToken for live Google Calendar free/busy. Without a token, no calendar connection is made and the response is explicitly sample data.',
   })
 }

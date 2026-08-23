@@ -1,6 +1,7 @@
 import { normalizeSlug } from '../../lib/agent-page'
 import { Field, inputClass, textareaClass } from './Field'
 import { PageEditor } from './usePageEditor'
+import { PlanBadge } from '../billing/PlanGate'
 
 const industries = [
   'Consulting & Strategy', 'Coaching & Training', 'Creative & Design', 'Legal & Professional Services', 'Marketing & Sales',
@@ -21,15 +22,20 @@ export function EditorFields({ e }: { e: PageEditor }) {
         </Field>
       </div>
 
-      <Field label="Short AI summary">
+      <Field label="Short listing summary">
         <textarea value={e.description} onChange={(event) => e.setDescription(event.target.value)} className={textareaClass} required />
-        <button
-          type="button"
-          onClick={e.enhanceDescriptionWithAI}
-          className="mt-2 rounded-lg border border-[var(--signal)]/40 px-3 py-1 text-xs text-[var(--signal)] hover:bg-[var(--signal)]/10"
-        >
-          Enhance for AI agents
-        </button>
+        {e.aiFeaturesEnabled ? (
+          <button
+            type="button"
+            disabled={e.aiBusy}
+            onClick={e.enhanceDescriptionWithAI}
+            className="mt-2 rounded-lg border border-[var(--signal)]/40 px-3 py-1 text-xs text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
+          >
+            {e.aiBusy ? 'Enhancing…' : 'Enhance for AI agents'}
+          </button>
+        ) : (
+          <div className="mt-2"><PlanBadge feature="aiFeatures" /></div>
+        )}
       </Field>
 
       <div className="grid gap-5 md:grid-cols-2">

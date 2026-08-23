@@ -391,6 +391,7 @@ export function TextField({
   keyboardType,
   autoCapitalize = 'none',
   mono,
+  editable = true,
 }: {
   label: string
   value: string
@@ -401,23 +402,24 @@ export function TextField({
   keyboardType?: 'default' | 'email-address' | 'url'
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'
   mono?: boolean
+  editable?: boolean
 }) {
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.textTertiary} multiline={multiline} secureTextEntry={secureTextEntry} keyboardType={keyboardType} autoCapitalize={autoCapitalize} style={[styles.input, mono ? { fontFamily: fonts.mono, fontSize: 14 } : null, multiline ? styles.textarea : null]} />
+      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.textTertiary} multiline={multiline} secureTextEntry={secureTextEntry} keyboardType={keyboardType} autoCapitalize={autoCapitalize} editable={editable} style={[styles.input, mono ? { fontFamily: fonts.mono, fontSize: 14 } : null, multiline ? styles.textarea : null, !editable ? { opacity: 0.55 } : null]} />
     </View>
   )
 }
 
-export function ToggleRow({ label, detail, value, onValueChange }: { label: string; detail?: string; value: boolean; onValueChange: (value: boolean) => void }) {
+export function ToggleRow({ label, detail, value, onValueChange, disabled = false }: { label: string; detail?: string; value: boolean; onValueChange: (value: boolean) => void; disabled?: boolean }) {
   return (
     <View style={styles.toggleRow}>
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle}>{label}</Text>
         {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
       </View>
-      <Switch value={value} onValueChange={onValueChange} trackColor={{ false: 'rgba(255,255,255,0.15)', true: colors.ember }} thumbColor={colors.white} ios_backgroundColor="rgba(255,255,255,0.15)" />
+      <Switch value={value} onValueChange={onValueChange} disabled={disabled} trackColor={{ false: 'rgba(255,255,255,0.15)', true: colors.ember }} thumbColor={colors.white} ios_backgroundColor="rgba(255,255,255,0.15)" style={disabled ? { opacity: 0.55 } : undefined} />
     </View>
   )
 }

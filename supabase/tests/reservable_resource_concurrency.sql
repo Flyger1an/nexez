@@ -1,6 +1,15 @@
 -- True two-connection race for the final unit. This uses only fixed disposable
 -- fixture UUIDs, removes stale fixtures before starting, and cleans up after.
 
+-- dblink runs inside PostgreSQL, so its connection address can differ from the
+-- psql client's address when Supabase is published through Docker. Callers may
+-- override this default with:
+--   psql --set=resource_dblink_url='dbname=... host=... port=... user=... password=...'
+\if :{?resource_dblink_url}
+\else
+\set resource_dblink_url 'dbname=postgres user=postgres password=postgres host=host.docker.internal port=54322'
+\endif
+
 create extension if not exists dblink with schema extensions;
 
 delete from public.resource_allocation_events where hold_id in (
@@ -36,8 +45,8 @@ insert into public.resource_pools (
   'final-unit', 'Final unit', 'units', 'consumable', 1
 );
 
-select extensions.dblink_connect('resource_race_a', 'dbname=postgres user=postgres password=postgres host=host.docker.internal port=54322');
-select extensions.dblink_connect('resource_race_b', 'dbname=postgres user=postgres password=postgres host=host.docker.internal port=54322');
+select extensions.dblink_connect('resource_race_a', :'resource_dblink_url');
+select extensions.dblink_connect('resource_race_b', :'resource_dblink_url');
 select extensions.dblink_send_query('resource_race_a', $race$
   select public.acquire_resource_hold(
     '90909090-9090-4090-8090-909090909090',

@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     supabase,
     user,
     pageId: body.pageId,
-    proMessage: 'Connecting Shopify is a Pro feature. Upgrade to import your catalog, or add offers manually / upload a CSV (free).',
+    proMessage: 'Importing with manually supplied Shopify Admin credentials is a Pro feature. The installed Shopify app remains available on every plan.',
   })
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 

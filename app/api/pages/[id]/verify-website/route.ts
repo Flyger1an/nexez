@@ -10,6 +10,11 @@ import { captureEvent } from '../../../../../lib/observability'
 import { APP_HOST, MARKETING_HOST, AGENT_RUNTIME_HOST } from '../../../../../lib/site'
 import { findDoubledRecordMessage } from '../../../../../lib/server/doubled-txt-probe'
 import {
+  entitlementAllocationRetryBody,
+  entitlementAllocationRetryInit,
+  isEntitlementAllocationRetry,
+} from '../../../../../lib/entitlement-allocation-error'
+import {
   matchesVerificationFile,
   matchesVerificationMeta,
   verificationTxtHost,
@@ -151,6 +156,9 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     .eq('id', page.id)
     .eq('owner_id', access.ownerId)
   if (verifyError) {
+    if (isEntitlementAllocationRetry(verifyError)) {
+      return NextResponse.json(entitlementAllocationRetryBody, entitlementAllocationRetryInit)
+    }
     return NextResponse.json({ error: 'Verified, but saving the result failed. Please retry.' }, { status: 500 })
   }
   await admin

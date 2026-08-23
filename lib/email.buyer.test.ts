@@ -14,6 +14,8 @@ describe('buildTeamInviteEmail', () => {
     expect(m.html).toContain('mate@example.com') // the address they must use
     expect(m.text.toLowerCase()).toContain('this email address')
     expect(m.html.toLowerCase()).toContain('edit')
+    expect(m.text).toContain('edit their listings')
+    expect(m.text.toLowerCase()).not.toContain('negotiations')
   })
   it('uses read-only copy for a viewer role', async () => {
     const m = await buildTeamInviteEmail({ inviterEmail: 'o@x.com', inviteeEmail: 'v@x.com', role: 'viewer', acceptUrl: 'u' })

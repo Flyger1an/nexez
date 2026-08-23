@@ -15,6 +15,11 @@ import {
 import { validateOfferAttribute, validateOfferInputField } from '../offer-configuration'
 import { analyzeGaps, hasBlockingGaps, offerEntries } from './gaps'
 import {
+  hasPaidNegotiationRules,
+  stripPaidNegotiationRules,
+  unauthorizedNegotiationMutation,
+} from './negotiation-policy'
+import {
   VOLUNTEERED_PREFIX,
   offerProvenanceKey,
   pageProvenanceKey,
@@ -23,6 +28,7 @@ import {
   type IntakeApplyResult,
   type IntakeDraft,
   type IntakeErrorCode,
+  type IntakeEntitlementPolicy,
   type IntakeFieldUpdate,
   type IntakeMessage,
   type IntakePageField,
@@ -182,7 +188,11 @@ export function handoffEligible(state: IntakeState): boolean {
  * Apply one action. Everything the API layer (and therefore the LLM's tool
  * calls) can do to a session goes through here.
  */
-export function applyIntakeAction(state: IntakeState, action: IntakeAction): IntakeApplyResult {
+export function applyIntakeAction(
+  state: IntakeState,
+  action: IntakeAction,
+  policy: IntakeEntitlementPolicy = { negotiationAllowed: false },
+): IntakeApplyResult {
   if (state.handoff && action.type !== 'ADD_MESSAGE') {
     return fail('already_handed_off', 'The interview has already handed off to the builder.')
   }
@@ -281,6 +291,16 @@ export function applyIntakeAction(state: IntakeState, action: IntakeAction): Int
       // Validate + fold every update before committing any of them.
       const folded = foldAnswers(state, action.answers)
       if (!folded.ok) return folded
+      if (!policy.negotiationAllowed) {
+        const renamedOffers = renamedOfferBaselines(state, folded.draft, action.answers)
+        const unauthorized = unauthorizedNegotiationMutation(state.draft, folded.draft, renamedOffers)
+        if (unauthorized) {
+          return fail(
+            'feature_not_available',
+            `Open-to-offers pricing is available on Pro. Keep "${unauthorized.name || 'this offer'}" fixed, or upgrade before adding or changing negotiation rules.`,
+          )
+        }
+      }
       const answers = dedupeAnswers(state.answers, action.answers)
       const phase: IntakePhase = ANALYZED.includes(state.phase) ? 'SYNTHESIS' : state.phase
       const next: IntakeState = {
@@ -304,6 +324,15 @@ export function applyIntakeAction(state: IntakeState, action: IntakeAction): Int
       }
       const result = foldProposedOffers(state, action.kind, action.offers)
       if (!result.ok) return result
+      if (!policy.negotiationAllowed) {
+        const unauthorized = unauthorizedNegotiationMutation(state.draft, result.draft)
+        if (unauthorized) {
+          return fail(
+            'feature_not_available',
+            `Open-to-offers pricing is available on Pro. Keep "${unauthorized.name || 'this offer'}" fixed, or upgrade before adding or changing negotiation rules.`,
+          )
+        }
+      }
       const next: IntakeState = { ...state, draft: result.draft, provenance: result.provenance }
       next.gaps = ANALYZED.includes(state.phase) ? analyzeGaps(next) : next.gaps
       return { ok: true, state: next }
@@ -406,6 +435,30 @@ function dedupeAnswers(existing: GapAnswer[], incoming: GapAnswer[]): GapAnswer[
   return [...kept, ...incoming]
 }
 
+/** Preserve a retained negotiable contract through an explicit scalar rename. */
+function renamedOfferBaselines(
+  state: IntakeState,
+  nextDraft: IntakeDraft,
+  answers: GapAnswer[],
+): Map<string, OfferItem> {
+  const renamed = new Map<string, OfferItem>()
+  const renamedKeys = new Set(
+    answers.flatMap((answer) => answer.fields ?? [])
+      .filter((update): update is Extract<IntakeFieldUpdate, { target: 'offer' }> => (
+        update.target === 'offer' && update.field === 'name'
+      ))
+      .map((update) => update.offerKey),
+  )
+  const before = new Map(offerEntries(state.draft).map((entry) => [entry.key, entry.offer]))
+  const after = new Map(offerEntries(nextDraft).map((entry) => [entry.key, entry.offer]))
+  for (const key of renamedKeys) {
+    const retained = before.get(key)
+    const current = after.get(key)
+    if (retained && current) renamed.set(normalizeOfferName(current.name), retained)
+  }
+  return renamed
+}
+
 type FoldOutcome =
   | { ok: true; draft: IntakeDraft; provenance: Record<string, Provenance> }
   | { ok: false; code: IntakeErrorCode; error: string }
@@ -479,8 +532,11 @@ function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
             return { ok: false, code: 'unknown_offer_key', error: `No offer at ${update.offerKey}.` }
           }
           entry.offer.rules = { ...entry.offer.rules, ...update.rules }
-          // Rules imply the offer is negotiable unless explicitly typed.
-          if (!entry.offer.offerType) entry.offer.offerType = 'negotiable'
+          // Only paid pricing/automation rules imply negotiation. Booking,
+          // scope, and forward-compatible unknown rules remain core on every plan.
+          if (!entry.offer.offerType && hasPaidNegotiationRules(entry.offer)) {
+            entry.offer.offerType = 'negotiable'
+          }
           provenance[offerFieldProvenanceKey(entry.offer, 'rules')] = mark
           break
         }
@@ -583,6 +639,13 @@ function applyOfferField(
         return { ok: false, code: 'invalid_field_update', error: `offerType must be fixed or negotiable, got ${String(update.value)}.` }
       }
       offer.offerType = update.value
+      // Choosing Fixed is explicit paid-feature cleanup. Preserve ordinary
+      // booking/business rules authored on every plan.
+      if (update.value === 'fixed') {
+        const cleaned = stripPaidNegotiationRules(offer)
+        if (cleaned.rules) offer.rules = cleaned.rules
+        else delete offer.rules
+      }
       return null
     }
     case 'name':

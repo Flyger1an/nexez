@@ -522,6 +522,12 @@ export function getCheckoutOffers(page: Pick<AgentPage, 'products' | 'services'>
   ]
 }
 
+/** A sold-out offer may remain visible for discovery and detail, but no surface
+ * may advertise or execute a purchase, booking, or negotiation action for it. */
+export function isOfferActionAvailable(offer: Pick<OfferItem, 'availability'> | null | undefined): boolean {
+  return offer != null && offer.availability !== 'sold_out'
+}
+
 export function getCheckoutOfferKey(kind: OfferKind, index: number) {
   return `${kind}-${index}`
 }
@@ -751,7 +757,7 @@ export function getRequestBaseUrl(input: Request | HeaderGetter) {
 }
 
 /**
- * Phase 3: Parse the compact ||WINDOWS|| marker we append during Google Calendar stub import.
+ * Parse the compact ||WINDOWS|| marker appended by availability sample generation.
  * Allows structured upcoming slots to roundtrip into agent.json and public page
  * without requiring a new DB column (consistent with the ||TIERS|| fidelity pattern).
  */

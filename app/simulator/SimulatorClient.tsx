@@ -24,6 +24,9 @@ import { ResearchArchive } from '../../components/simulator/ResearchArchive'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 import { SurfaceHeader, surfaceActionClass } from '../../components/dashboard/SurfacePrimitives'
 import { StatusPill } from '../../components/settings/SettingsPrimitives'
+import { usePlan } from '../../components/billing/PlanProvider'
+import { PlanBadge } from '../../components/billing/PlanGate'
+import { planAllows } from '../../lib/billing'
 import {
   AgentPage,
   BASIC_OWNER_PAGE_SELECT,
@@ -57,6 +60,8 @@ import { agentRuntimeUrl, appUrl } from '../../lib/site'
 const agentTabs = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent', 'LLM-Enhanced']
 
 export default function GlobalAgentSimulator() {
+  const currentPlan = usePlan()
+  const canSaveUrlResearch = planAllows(currentPlan, 'aiFeatures')
   const [hydrated, setHydrated] = useState(false)
   const [loading, setLoading] = useState(false)
   const [myPages, setMyPages] = useState<AgentPage[]>([])
@@ -334,7 +339,7 @@ export default function GlobalAgentSimulator() {
       const res = await fetch('/api/simulate-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, save: isLoggedIn && saveUrlScan }),
+        body: JSON.stringify({ url, save: isLoggedIn && canSaveUrlResearch && saveUrlScan }),
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -873,16 +878,25 @@ export default function GlobalAgentSimulator() {
                 </button>
               </div>
               {isLoggedIn ? (
-                <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-zinc-300">
+                <label className={`mt-3 flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-zinc-300 ${canSaveUrlResearch ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                   <input
                     type="checkbox"
-                    checked={saveUrlScan}
+                    checked={canSaveUrlResearch && saveUrlScan}
                     onChange={(event) => setSaveUrlScan(event.target.checked)}
+                    disabled={!canSaveUrlResearch}
+                    aria-describedby="url-research-save-description"
                     className="mt-0.5 size-4 accent-[var(--signal)]"
                   />
                   <span>
-                    <span className="flex items-center gap-1.5 font-medium text-zinc-200"><Save className="size-3.5" /> Save this scan privately</span>
-                    <span className="mt-1 block text-zinc-500">Stores the summarized result and provenance, never fetched HTML. Off by default.</span>
+                    <span className="flex flex-wrap items-center gap-1.5 font-medium text-zinc-200">
+                      <Save className="size-3.5" /> Save this scan privately
+                      {!canSaveUrlResearch ? <PlanBadge feature="aiFeatures" /> : null}
+                    </span>
+                    <span id="url-research-save-description" className="mt-1 block text-zinc-500">
+                      {canSaveUrlResearch
+                        ? 'Stores the summarized result and provenance, never fetched HTML. Off by default.'
+                        : 'New private reports require Launch or above. Existing saved scans remain available to replay or remove.'}
+                    </span>
                   </span>
                 </label>
               ) : (
@@ -912,7 +926,7 @@ export default function GlobalAgentSimulator() {
           {/* ── COMPARE A COMPETITOR (signed-in) ─────────────────────── */}
           {mode === 'compare' && (
             <div id="agent-lab-panel-compare" role="tabpanel" aria-labelledby="agent-lab-tab-compare" tabIndex={0} className="outline-none">
-              <CompetitorCompare isLoggedIn={isLoggedIn} myPages={myPages} />
+              <CompetitorCompare isLoggedIn={isLoggedIn} myPages={myPages} currentPlan={currentPlan} />
             </div>
           )}
 

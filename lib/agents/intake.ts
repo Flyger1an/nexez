@@ -20,12 +20,15 @@ import {
   applyIntakeAction,
   createIntakeState,
   handoffEligible,
+  hasNegotiationConfiguration,
+  normalizeIntakeDraftNegotiation,
   VOLUNTEERED_PREFIX,
   type Gap,
   type GapAnswer,
   type IntakeApplyResult,
   type IntakeDraft,
   type IntakeExtraction,
+  type IntakeEntitlementPolicy,
   type IntakePageField,
   type IntakeState,
 } from '../intake'
@@ -71,8 +74,9 @@ type ChatMessage =
 type ChatResponse = { choices?: Array<{ message?: { content?: string | null; tool_calls?: ToolCall[] } }> }
 
 export type IntakeDeps = {
-  /** OpenAI-compatible chat completion. Injectable for tests / alternates. */
-  llm?: (messages: ChatMessage[], tools: typeof INTAKE_TOOLS) => Promise<ChatResponse>
+  /** OpenAI-compatible chat completion. Injectable for tests / alternates.
+   * Explicit null disables the deployment model for deterministic-only plans. */
+  llm?: ((messages: ChatMessage[], tools: typeof INTAKE_TOOLS) => Promise<ChatResponse>) | null
   /** Site importer boundary (lib/importer analyzeSite). Injectable for tests. */
   importSite?: (url: string) => Promise<ImportResult>
   /** Clock + id source (kept out of the pure reducer; injectable for tests). */
@@ -318,12 +322,15 @@ export async function handleIntakeTurn(
     content?: string
     /** Structured quick-answers from the client's gap_batch card - bypasses LLM mapping. */
     structuredAnswers?: GapAnswer[]
+    /** Effective owner capability resolved by the route. Missing is fail-closed. */
+    negotiationAllowed?: boolean
   },
   deps: IntakeDeps = {},
 ): Promise<IntakeTurnResult> {
   const now = deps.now ?? (() => new Date())
   const newId = deps.newId ?? (() => crypto.randomUUID())
   const turnStartedAt = Date.now()
+  const policy: IntakeEntitlementPolicy = { negotiationAllowed: input.negotiationAllowed === true }
 
   const row = await loadIntakeSession(input.db, input.sessionId, input.user.id)
   if (!row) return { ok: false, status: 404, error: 'Interview not found.' }
@@ -339,33 +346,37 @@ export async function handleIntakeTurn(
     const applied = applyIntakeAction(state, {
       type: 'ADD_MESSAGE',
       message: { id: newId(), role: 'owner', content: input.content.trim().slice(0, 4000), at: now().toISOString() },
-    })
+    }, policy)
     if (applied.ok) state = applied.state
   }
 
   // 2. Structured quick-answers apply directly - no LLM interpretation needed.
   if (input.structuredAnswers?.length) {
-    const applied = applyIntakeAction(state, { type: 'RECORD_ANSWERS', answers: input.structuredAnswers })
-    if (!applied.ok) return { ok: false, status: 400, error: applied.error, code: applied.code }
+    const applied = applyIntakeAction(state, { type: 'RECORD_ANSWERS', answers: input.structuredAnswers }, policy)
+    if (!applied.ok) {
+      return { ok: false, status: applied.code === 'feature_not_available' ? 403 : 400, error: applied.error, code: applied.code }
+    }
     state = applied.state
   }
 
   // 3. Auto-advance through analysis once sources exist - the conversational
   //    surface never exposes ANALYZE_GAPS as something the LLM must remember.
   if ((state.phase === 'INGEST' || state.phase === 'EXTRACT') && state.sources.length > 0) {
-    const applied = applyIntakeAction(state, { type: 'ANALYZE_GAPS' })
+    const applied = applyIntakeAction(state, { type: 'ANALYZE_GAPS' }, policy)
     if (applied.ok) state = applied.state
   }
 
   // 4. The agent's turn: LLM when configured, deterministic interviewer otherwise.
-  const llm = deps.llm ?? (process.env.LLM_API_KEY ? defaultChatCompletion : null)
+  const llm = deps.llm === undefined
+    ? (process.env.LLM_API_KEY ? defaultChatCompletion : null)
+    : deps.llm
   let message: string
   if (llm && state.phase !== 'REVIEW_HANDOFF') {
-    const turn = await runLlmTurn(state, llm, { now, newId, importSite: deps.importSite, cards })
+    const turn = await runLlmTurn(state, llm, { now, newId, importSite: deps.importSite, cards, policy })
     state = turn.state
     message = turn.message
   } else {
-    const turn = deterministicTurn(state, { now, newId })
+    const turn = deterministicTurn(state, { now, newId, policy })
     state = turn.state
     message = turn.message
     cards.push(...turn.cards)
@@ -424,7 +435,7 @@ export function draftReadiness(draft: IntakeDraft): number {
 
 function deterministicTurn(
   state: IntakeState,
-  ids: { now: () => Date; newId: () => string },
+  ids: { now: () => Date; newId: () => string; policy: IntakeEntitlementPolicy },
 ): { state: IntakeState; message: string; cards: IntakeCard[] } {
   if (state.phase === 'REVIEW_HANDOFF') {
     return { state, message: 'This interview has wrapped - your draft is ready to review in the builder.', cards: [] }
@@ -449,7 +460,7 @@ function deterministicTurn(
     type: 'ASK_GAPS',
     gapIds: batch.map((g) => g.id),
     message: { id: ids.newId(), role: 'agent', content: phrasing, at: ids.now().toISOString() },
-  })
+  }, ids.policy)
   const next = applied.ok ? applied.state : state
   return { state: next, message: phrasing, cards: [{ type: 'gap_batch', gaps: batch }] }
 }
@@ -460,12 +471,18 @@ function deterministicTurn(
 async function runLlmTurn(
   initial: IntakeState,
   llm: NonNullable<IntakeDeps['llm']>,
-  ctx: { now: () => Date; newId: () => string; importSite?: IntakeDeps['importSite']; cards: IntakeCard[] },
+  ctx: {
+    now: () => Date
+    newId: () => string
+    importSite?: IntakeDeps['importSite']
+    cards: IntakeCard[]
+    policy: IntakeEntitlementPolicy
+  },
 ): Promise<{ state: IntakeState; message: string }> {
   let state = initial
   const transcript: ChatMessage[] = [
     { role: 'system', content: INTAKE_SYSTEM_PROMPT },
-    { role: 'user', content: buildContextBlock(state) },
+    { role: 'user', content: buildContextBlock(state, 'opening', ctx.policy.negotiationAllowed) },
   ]
 
   let finalText = ''
@@ -500,7 +517,7 @@ async function runLlmTurn(
     // instruction differs from the opening one: re-sending "record their
     // answers first" after they were recorded made the model narrate
     // bookkeeping ("no new input to record") instead of talking to the owner.
-    transcript.push({ role: 'user', content: buildContextBlock(state, 'followup') })
+    transcript.push({ role: 'user', content: buildContextBlock(state, 'followup', ctx.policy.negotiationAllowed) })
   }
 
   if (!finalText) {
@@ -514,7 +531,11 @@ async function runLlmTurn(
 
 /** The machine-truth block the model reasons over each round. Owner words are
  *  already in state.messages; extraction/pasted content is fenced as data. */
-function buildContextBlock(state: IntakeState, stage: 'opening' | 'followup' = 'opening'): string {
+function buildContextBlock(
+  state: IntakeState,
+  stage: 'opening' | 'followup' = 'opening',
+  negotiationAllowed = false,
+): string {
   const gaps = state.gaps.slice(0, CONTEXT_GAPS).map((g) => ({ id: g.id, kind: g.kind, question: g.question, why: g.why }))
   const recent = state.messages.slice(-CONTEXT_MESSAGES).map((m) => `${m.role === 'owner' ? 'OWNER' : 'YOU'}: ${m.content}`)
   const draftSummary = {
@@ -533,6 +554,9 @@ function buildContextBlock(state: IntakeState, stage: 'opening' | 'followup' = '
   return [
     `PHASE: ${state.phase}`,
     `HANDOFF_ELIGIBLE: ${handoffEligible(state)}`,
+    negotiationAllowed
+      ? 'PLAN CAPABILITY: New open-to-offers pricing and negotiation rules are allowed.'
+      : 'PLAN CAPABILITY: Do not create or change open-to-offers pricing or negotiation rules. Existing retained settings may stay unchanged; Fixed/clear is allowed.',
     `CURRENT DRAFT:\n${JSON.stringify(draftSummary, null, 1)}`,
     `CURRENT GAPS (ask via ask_gaps with these ids):\n${JSON.stringify(gaps, null, 1)}`,
     recent.length ? `CONVERSATION SO FAR:\n${fenceUntrusted('OWNER CONVERSATION', recent.join('\n'))}` : 'CONVERSATION SO FAR: (none - this is your opening turn)',
@@ -586,7 +610,13 @@ type ExecutedTool = { state: IntakeState; result: Record<string, unknown>; messa
 async function executeToolCall(
   state: IntakeState,
   call: ToolCall,
-  ctx: { now: () => Date; newId: () => string; importSite?: IntakeDeps['importSite']; cards: IntakeCard[] },
+  ctx: {
+    now: () => Date
+    newId: () => string
+    importSite?: IntakeDeps['importSite']
+    cards: IntakeCard[]
+    policy: IntakeEntitlementPolicy
+  },
 ): Promise<ExecutedTool> {
   let args: Record<string, unknown>
   try {
@@ -611,7 +641,7 @@ async function executeToolCall(
           type: 'ASK_GAPS',
           gapIds,
           message: { id: ctx.newId(), role: 'agent', content: phrasing, at: ctx.now().toISOString() },
-        }),
+        }, ctx.policy),
         (next) => {
           ctx.cards.push({ type: 'gap_batch', gaps: next.gaps.filter((g) => gapIds.includes(g.id)) })
           return { message: phrasing }
@@ -620,7 +650,7 @@ async function executeToolCall(
     }
     case 'record_answers': {
       const answers = Array.isArray(args.answers) ? (args.answers as GapAnswer[]).map(normalizeLlmAnswer) : []
-      return fold(applyIntakeAction(state, { type: 'RECORD_ANSWERS', answers }), (next) => ({
+      return fold(applyIntakeAction(state, { type: 'RECORD_ANSWERS', answers }, ctx.policy), (next) => ({
         result: { remainingGaps: next.gaps.length, handoffEligible: handoffEligible(next) },
       }))
     }
@@ -633,12 +663,12 @@ async function executeToolCall(
         answer: statement,
         fields: [{ target: 'page', field, value }],
       }
-      return fold(applyIntakeAction(state, { type: 'RECORD_ANSWERS', answers: [answer] }))
+      return fold(applyIntakeAction(state, { type: 'RECORD_ANSWERS', answers: [answer] }, ctx.policy))
     }
     case 'propose_offers': {
       const kind = args.kind === 'products' ? 'products' : 'services'
       const offers = Array.isArray(args.offers) ? (args.offers as OfferItem[]) : []
-      return fold(applyIntakeAction(state, { type: 'PROPOSE_OFFERS', kind, offers }))
+      return fold(applyIntakeAction(state, { type: 'PROPOSE_OFFERS', kind, offers }, ctx.policy))
     }
     case 'ingest_url': {
       const url = typeof args.url === 'string' ? args.url.trim() : ''
@@ -649,7 +679,7 @@ async function executeToolCall(
       const added = applyIntakeAction(state, {
         type: 'ADD_SOURCE',
         source: { id: sourceId, kind: 'url', value: url, label: url, addedAt: ctx.now().toISOString() },
-      })
+      }, ctx.policy)
       if (!added.ok) return { state, result: { ok: false, code: added.code, error: added.error } }
       let extraction: IntakeExtraction
       try {
@@ -657,7 +687,7 @@ async function executeToolCall(
       } catch {
         return { state, result: { ok: false, code: 'import_failed', error: 'Could not crawl that URL. Ask the owner to paste the key details instead.' } }
       }
-      return fold(applyIntakeAction(added.state, { type: 'RECORD_EXTRACTION', extraction }), (next) => {
+      return fold(applyIntakeAction(added.state, { type: 'RECORD_EXTRACTION', extraction }, ctx.policy), (next) => {
         ctx.cards.push({ type: 'source_ingested', sourceId, label: url, offers: extraction.offers.length, confidence: extraction.confidence })
         return { result: { offersFound: extraction.offers.length, newGaps: next.gaps.length } }
       })
@@ -669,7 +699,7 @@ async function executeToolCall(
           type: 'REQUEST_HANDOFF',
           at: ctx.now().toISOString(),
           message: { id: ctx.newId(), role: 'agent', content: summary, at: ctx.now().toISOString() },
-        }),
+        }, ctx.policy),
         () => ({ message: summary }),
       )
     }
@@ -690,7 +720,14 @@ export type IntakeCommitResult =
   | { ok: false; status: number; error: string }
 
 export async function commitIntakeSession(
-  input: { db: Db; admin: Db; user: { id: string }; sessionId: string },
+  input: {
+    db: Db
+    admin: Db
+    user: { id: string }
+    sessionId: string
+    /** Effective owner capability resolved by the route. Missing is fail-closed. */
+    negotiationAllowed?: boolean
+  },
   deps: { now?: () => Date } = {},
 ): Promise<IntakeCommitResult> {
   const now = deps.now ?? (() => new Date())
@@ -705,9 +742,44 @@ export async function commitIntakeSession(
   let state = sessionState(row)
   if (state.phase !== 'REVIEW_HANDOFF') {
     // An owner-initiated commit is always allowed - it IS the exit.
-    const applied = applyIntakeAction(state, { type: 'EXIT_TO_BUILDER', at: now().toISOString() })
+    const applied = applyIntakeAction(
+      state,
+      { type: 'EXIT_TO_BUILDER', at: now().toISOString() },
+      { negotiationAllowed: input.negotiationAllowed === true },
+    )
     if (!applied.ok) return { ok: false, status: 409, error: applied.error }
     state = applied.state
+  }
+
+  let negotiationNormalized = 0
+  if (input.negotiationAllowed !== true) {
+    let trustedBaseline: Pick<IntakeDraft, 'services' | 'products'> | null = null
+    if (row.page_id) {
+      const { data: page, error: pageError } = await input.db
+        .from('pages')
+        .select('services, products')
+        .eq('id', row.page_id)
+        .eq('owner_id', input.user.id)
+        .maybeSingle<{ services: OfferItem[] | null; products: OfferItem[] | null }>()
+      const draftHasNegotiation = [...state.draft.services, ...state.draft.products]
+        .some(hasNegotiationConfiguration)
+      if ((pageError || !page) && draftHasNegotiation) {
+        return {
+          ok: false,
+          status: 503,
+          error: 'Could not verify this listing’s retained offer rules. Nothing was changed; please retry.',
+        }
+      }
+      if (page) {
+        trustedBaseline = {
+          services: Array.isArray(page.services) ? page.services : [],
+          products: Array.isArray(page.products) ? page.products : [],
+        }
+      }
+    }
+    const normalized = normalizeIntakeDraftNegotiation(state.draft, trustedBaseline)
+    state = { ...state, draft: normalized.draft }
+    negotiationNormalized = normalized.normalizedOffers
   }
 
   const draft = state.draft
@@ -789,6 +861,7 @@ export async function commitIntakeSession(
     abandonedGapIds: abandonedGapIds.slice(0, 20),
     readiness: draftReadiness(state.draft),
     offers: state.draft.services.length + state.draft.products.length,
+    negotiationNormalized,
     timeToHandoffMs: row.created_at ? Math.max(0, now().getTime() - new Date(row.created_at).getTime()) : null,
   })
   return { ok: true, pageId, slug, alreadyCommitted: false }

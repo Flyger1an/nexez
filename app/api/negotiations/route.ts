@@ -15,7 +15,6 @@ import { sanitizeBuyerInput } from '../../../lib/negotiation-input'
 import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
 import { resolveOwnerNotifyEmail } from '../../../lib/server/owner-email'
 import { sendPushToUser } from '../../../lib/push'
-import { supabase } from '../../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { ownerAllows, getOwnerBillingState } from '../../../lib/server/plan'
 import { negotiationService } from '../../../lib/negotiation.service'
@@ -62,10 +61,10 @@ type NegotiationInput = {
 
 async function getPublishedPage(slug: string) {
   // The negotiation flow needs the owner-private offer `rules` (floor clamp +
-  // dryRun rules eval), so read the base table with the service-role client -
-  // anon can't read it anymore and the public view strips `rules`. Falls back to
-  // the anon client only when no admin env is set (tests, where it's mocked).
-  const db = hasSupabaseAdminEnv() ? createAdminClient() : supabase
+  // dryRun rules eval), so read the base table with the service-role client.
+  // The public view strips `rules`, and POST fails closed before this helper
+  // whenever the privileged entitlement resolver is unavailable.
+  const db = createAdminClient()
 
   const { data, error } = await db
     .from('pages')
@@ -119,6 +118,12 @@ export async function POST(request: Request) {
   if (!input.slug || !input.offer) {
     return NextResponse.json({ error: 'Missing negotiation page or offer.' }, { status: 400 })
   }
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json(
+      { error: 'Negotiation is temporarily unavailable.', code: 'entitlement_unavailable' },
+      { status: 503 },
+    )
+  }
 
   const page = await getPublishedPage(input.slug)
   if (!page) {
@@ -143,17 +148,15 @@ export async function POST(request: Request) {
   // If the page owner isn't on Pro+, the page doesn't accept offers (resolved with
   // the admin client since this is a public, buyer-facing route).
   const ownerId = (page as { owner_id?: string | null }).owner_id ?? null
-  const admin = hasSupabaseAdminEnv() ? createAdminClient() : null
-  const ownerNegotiationAllowed = admin
-    ? (ownerId ? await ownerAllows(admin, ownerId, 'negotiation') : false)
-    : true
+  const admin = createAdminClient()
+  const ownerNegotiationAllowed = ownerId ? await ownerAllows(admin, ownerId, 'negotiation') : false
   if (!ownerNegotiationAllowed) {
     return NextResponse.json({ error: 'This page is not accepting offers - use the listed price to book or buy.' }, { status: 403 })
   }
 
   // Compatibility gate for an explicit operational suspension. Billing expiry
   // falls back to Free and does not suppress negotiation.
-  if (admin && ownerId && (await getOwnerBillingState(admin, ownerId)).isPaused) {
+  if (ownerId && (await getOwnerBillingState(admin, ownerId)).isPaused) {
     return NextResponse.json(
       { error: 'This seller’s storefront is paused and not accepting offers right now.' },
       { status: 402 },

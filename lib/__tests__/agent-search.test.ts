@@ -39,10 +39,15 @@ describe('searchAgentPages', () => {
     expect(results[0]?.matched_query_terms).toContain('detailer')
   })
 
-  it('returns offer-level results with checkout actions', () => {
-    const res = searchAgentPages([plumber], 'plumbing')
+  it('returns offer-level Nexez actions only with authoritative checkout readiness', () => {
+    const res = searchAgentPages([plumber], 'plumbing', 10, 'https://nexez.test', {
+      checkoutReadySlugs: new Set(['acme-plumb']),
+    })
     expect(res[0].offer?.checkout_url).toContain('/checkout/acme-plumb')
-    expect(res[0].offer?.action.endpoint).toContain('/api/checkout')
+    expect(res[0].offer?.action).toMatchObject({
+      type: 'nexez_checkout',
+      endpoint: 'https://nexez.test/api/checkout',
+    })
     expect(res[0].marketplace?.offer_count).toBe(1)
     expect(res[0].marketplace?.supports_checkout).toBe(true)
   })
@@ -69,7 +74,7 @@ describe('searchAgentPages', () => {
       checkout_url: shopifyUrl,
       provider_url: shopifyUrl,
     })
-    expect(res[0].offer?.action.endpoint).toBe('https://nexez.test/api/checkout')
+    expect(res[0].offer?.action).toBeNull()
   })
 
   it('breaks ties toward higher readiness (quality-aware)', () => {
@@ -149,6 +154,8 @@ describe('searchAgentPages', () => {
       supportsCheckout: true,
       supportsNegotiation: true,
       priceBand: '100_500',
+      negotiationEligibleSlugs: new Set(['verified-strategy']),
+      checkoutReadySlugs: new Set(['verified-strategy']),
     })
 
     expect(res).toHaveLength(1)
@@ -159,6 +166,78 @@ describe('searchAgentPages', () => {
       expect.stringMatching(/verification/i),
       expect.stringMatching(/negotiation/i),
     ]))
+  })
+
+  it('does not advertise or filter into negotiation without the owner entitlement', () => {
+    const configured = mk({
+      slug: 'configured-only',
+      services: [{ name: 'Strategy', description: '', price: '$300', url: '', offerType: 'negotiable' }],
+    })
+
+    expect(searchAgentPages([configured], '', 10)[0].marketplace?.supports_negotiation).toBe(false)
+    expect(searchAgentPages([configured], '', 10, 'https://nexez.test', {
+      supportsNegotiation: true,
+    })).toEqual([])
+    expect(searchAgentPages([configured], '', 10, 'https://nexez.test', {
+      supportsNegotiation: true,
+      negotiationEligibleSlugs: new Set(['configured-only']),
+    })).toHaveLength(1)
+  })
+
+  it('does not promote retained negotiation configuration after the entitlement is lost', () => {
+    const configured = mk({
+      slug: 'paused-negotiation',
+      services: [{ name: 'Strategy', description: '', price: 'Custom', url: '', offerType: 'negotiable' }],
+    })
+
+    const paused = searchAgentPages([configured], '', 10, 'https://nexez.test')[0]
+    expect(paused.marketplace?.supports_negotiation).toBe(false)
+    expect(paused.ranking?.actionability).toBe('needs-confirmation')
+    expect(paused.offer).toMatchObject({ checkout_url: null, action: null })
+
+    const entitled = searchAgentPages([configured], '', 10, 'https://nexez.test', {
+      negotiationEligibleSlugs: new Set(['paused-negotiation']),
+    })[0]
+    expect(entitled.marketplace?.supports_negotiation).toBe(true)
+    expect(entitled.ranking?.actionability).toBe('transaction-ready')
+    expect(entitled.offer?.checkout_url).toBe('https://nexez.test/paused-negotiation?negotiate=services-0#negotiate')
+    expect(entitled.offer?.action).toMatchObject({
+      type: 'negotiation',
+      endpoint: 'https://nexez.test/api/negotiations',
+      body: { slug: 'paused-negotiation', offer: 'services-0' },
+    })
+  })
+
+  it('requires operational settlement readiness before a price-only offer is transaction-ready', () => {
+    const priced = mk({
+      slug: 'priced-only',
+      services: [{ name: 'Strategy', description: '', price: '$300', url: '' }],
+    })
+
+    const unavailable = searchAgentPages([priced], '', 10, 'https://nexez.test')[0]
+    expect(unavailable.ranking?.actionability).toBe('needs-confirmation')
+    expect(unavailable.marketplace?.has_actionable_offer).toBe(false)
+    expect(unavailable.offer).toMatchObject({ checkout_url: null, action: null })
+
+    const ready = searchAgentPages([priced], '', 10, 'https://nexez.test', {
+      checkoutReadySlugs: new Set(['priced-only']),
+    })[0]
+    expect(ready.ranking?.actionability).toBe('transaction-ready')
+    expect(ready.marketplace?.has_actionable_offer).toBe(true)
+    expect(ready.offer?.checkout_url).toBe('https://nexez.test/checkout/priced-only?offer=services-0')
+    expect(ready.offer?.action?.type).toBe('nexez_checkout')
+  })
+
+  it('does not promote a non-preferred informational URL into a provider checkout handoff', () => {
+    const page = mk({
+      slug: 'details-only',
+      services: [{ name: 'Strategy', description: '', price: '$300', url: 'https://provider.example/details' }],
+    })
+
+    const result = searchAgentPages([page], '', 10, 'https://nexez.test')[0]
+    expect(result.offer?.provider_url).toBe('https://provider.example/details')
+    expect(result.offer).toMatchObject({ checkout_url: null, action: null })
+    expect(result.marketplace?.has_actionable_offer).toBe(false)
   })
 
   it('caps repeated keyword evidence so stuffing cannot beat an exact offer identity', () => {
@@ -256,7 +335,14 @@ describe('searchAgentPages', () => {
     const transactionReady = mk({
       slug: 'transaction-ready',
       name: 'Transaction Ready',
-      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '', availability: 'available' }],
+      services: [{
+        name: 'Strategy',
+        description: 'Planning.',
+        price: '$100',
+        url: 'https://provider.example/book',
+        prefer_original_for_this: true,
+        availability: 'available',
+      }],
     })
 
     const results = searchAgentPages([needsConfirmation, transactionReady], 'strategy')

@@ -284,7 +284,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
       .insert(buildDuplicatePayload(page, user.id, pages.map((p) => p.slug)))
 
     if (error) {
-      alert(`Could not duplicate this listing: ${error.message}`)
+      alert(publishErrorMessage(error))
       return
     }
     loadPages()

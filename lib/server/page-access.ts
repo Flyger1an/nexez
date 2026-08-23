@@ -1,5 +1,6 @@
 import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+import { getOwnerEntitlements } from './plan'
 
 // THE security primitive for team collaboration on a page. Feature routes used to
 // assume `req.user === page.owner` (gate on user.id + scope `.eq('owner_id', user.id)`),
@@ -41,12 +42,12 @@ export async function resolvePageAccess(opts: {
   if (!pageId || !userId || !hasSupabaseAdminEnv()) return null
 
   const admin = createAdminClient()
-  const { data: page } = await admin
+  const { data: page, error: pageError } = await admin
     .from('pages')
     .select('id, owner_id')
     .eq('id', pageId)
     .maybeSingle<{ id: string; owner_id: string | null }>()
-  if (!page || !page.owner_id) return null
+  if (pageError || !page || !page.owner_id) return null
 
   // The page's own owner always has full access.
   if (page.owner_id === userId) return { pageId: page.id, ownerId: page.owner_id, role: 'owner' }
@@ -63,15 +64,45 @@ export async function resolvePageAccess(opts: {
   // only as trustworthy as the email join key - require a CONFIRMED address. Fails
   // closed when the caller didn't pass a confirmation timestamp.
   if (!opts.userEmailConfirmedAt) return null
-  const { data: invite } = await admin
+
+  // Service-role reads bypass the collaborator RLS policies (including the
+  // entitlement-suspension ledger), so this helper must mirror BOTH parts of that
+  // decision before it can grant act-as-owner access: the Team Collaboration feature
+  // and the owner's finite seat allocation. Configuration remains retained after a
+  // downgrade, but collaborators outside the oldest-N accepted seats stop executing.
+  //
+  // The database ranks accepted invitations before pending ones, then by
+  // (created_at, id). Since only accepted invitations can authorize, selecting the
+  // first N accepted rows is exactly the same active-seat set without exposing the
+  // private suspension ledger through PostgREST.
+  const entitlements = await getOwnerEntitlements(admin, page.owner_id)
+  if (!entitlements.features.teamCollaboration) return null
+  const seatLimit = entitlements.limits.teamSeats
+  if (seatLimit !== null && (!Number.isInteger(seatLimit) || seatLimit <= 0)) return null
+
+  let inviteQuery = admin
     .from('team_invites')
-    .select('role, status')
+    .select('id, email, role, status, created_at')
     .eq('owner_id', page.owner_id)
-    .eq('email', email)
     .eq('status', 'accepted')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle<{ role: string; status: string }>()
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
+  if (seatLimit !== null) inviteQuery = inviteQuery.limit(seatLimit)
+
+  const { data: allocatedInvites, error: inviteError } = await inviteQuery.returns<Array<{
+    id: string
+    email: string
+    role: string
+    status: string
+    created_at: string
+  }>>()
+  if (inviteError || !allocatedInvites) return null
+
+  // Match the strongest allocated grant for this address. Multiple live invitations
+  // should not normally exist, but RLS grants when ANY allocated editor row matches,
+  // so the service-role path must not be stricter (or looser) than that policy.
+  const emailMatches = allocatedInvites.filter((candidate) => candidate.email.trim().toLowerCase() === email)
+  const invite = emailMatches.find((candidate) => candidate.role === 'editor') ?? emailMatches[0]
   if (!invite) return null
 
   const role: PageRole = invite.role === 'editor' ? 'editor' : 'viewer'

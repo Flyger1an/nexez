@@ -38,6 +38,9 @@ export async function POST(request: Request) {
   try {
     const admin = createAdminClient()
     const install = await ensureShopifySessionInstall(admin, session.shop, subjectToken)
+    if (install.mapping_transition_token) {
+      return json({ error: 'This Shopify listing change is still finishing. Try again shortly.' }, 409)
+    }
 
     let listing: { id: string; name: string | null; slug: string } | null = null
     if (install.page_id) {

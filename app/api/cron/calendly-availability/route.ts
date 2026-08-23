@@ -5,6 +5,7 @@ import { fetchCalendlyEventTypeAvailability } from '../../../../lib/server/calen
 import { getCalendlyPat, integrationCredentialsConfigured } from '../../../../lib/server/page-integration-credentials'
 import { parseAvailabilityWindows, type OfferItem } from '../../../../lib/agent-page'
 import { captureEvent } from '../../../../lib/observability'
+import { ownerAllows } from '../../../../lib/server/plan'
 
 export const maxDuration = 60
 
@@ -13,7 +14,14 @@ const PAGE_LIMIT = 15
 // Availability horizon (Calendly caps busy-times at 7 days per request).
 const HORIZON_DAYS = 7
 
-type CalPage = { id: string; slug: string; services: OfferItem[] | null; products: OfferItem[] | null; next_available: string | null }
+type CalPage = {
+  id: string
+  owner_id: string | null
+  slug: string
+  services: OfferItem[] | null
+  products: OfferItem[] | null
+  next_available: string | null
+}
 
 /**
  * Calendly write-side calendar blocking (Vercel cron). For every published page
@@ -57,7 +65,7 @@ export async function GET(request: Request) {
 
   const { data: pages, error } = await admin
     .from('pages')
-    .select('id, slug, services, products, next_available')
+    .select('id, owner_id, slug, services, products, next_available')
     .in('id', selectedIds)
     .eq('is_published', true)
     .returns<CalPage[]>()
@@ -67,9 +75,24 @@ export async function GET(request: Request) {
   let offersBlocked = 0
   let offersFreed = 0
   let failed = 0
+  let entitlementSkipped = 0
   const nowIso = new Date().toISOString()
+  const integrationsByOwner = new Map<string, boolean>()
 
   for (const page of pages ?? []) {
+    let integrationsAllowed = false
+    if (page.owner_id) {
+      const cached = integrationsByOwner.get(page.owner_id)
+      integrationsAllowed = cached ?? await ownerAllows(admin, page.owner_id, 'integrations')
+      if (cached === undefined) integrationsByOwner.set(page.owner_id, integrationsAllowed)
+    }
+    // Automatic provider access is a paid capability. A downgrade stops the
+    // background worker before credentials are decrypted or Calendly is called.
+    if (!integrationsAllowed) {
+      entitlementSkipped += 1
+      continue
+    }
+
     const pat = await getCalendlyPat(page.id)
     if (!pat) {
       failed += 1
@@ -134,6 +157,7 @@ export async function GET(request: Request) {
     offersBlocked,
     offersFreed,
     failed,
+    entitlementSkipped,
   })
   return NextResponse.json({
     ok: true,
@@ -143,6 +167,7 @@ export async function GET(request: Request) {
     offers_blocked: offersBlocked,
     offers_freed: offersFreed,
     failed,
+    entitlement_skipped: entitlementSkipped,
     ran_at: nowIso,
   })
 }

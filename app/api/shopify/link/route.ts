@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { readPendingShop, shopifyConfigured } from '../../../../lib/server/shopify'
 import {
+  abortShopifyMappingChange,
+  beginShopifyMappingChange,
+  finishShopifyRelink,
   getInstallByShop,
   getShopifyInstallCredentialsByShop,
-  markShopifySynced,
   removeShopifyCatalogFromPage,
+  ShopifyMappingChangeError,
 } from '../../../../lib/server/shopify-install'
 import { syncPageIntegration } from '../../../../lib/server/integration-sync'
-import { resolvePageAccess } from '../../../../lib/server/page-access'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { createClient } from '../../../../utils/supabase/server'
 import { requirePageAccess } from '../../../../lib/server/require-page-access'
@@ -75,39 +77,54 @@ export async function POST(request: Request) {
     )
   }
 
-  if (install.page_id && install.page_id !== pageId) {
-    try {
-      await removeShopifyCatalogFromPage(admin, install.page_id, shop)
-    } catch (cleanupError) {
-      console.error('[shopify-link] previous listing cleanup failed', {
-        shop,
-        error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
-      })
-      return NextResponse.json(
-        { error: 'Could not move this store from its previous listing. Try again.' },
-        { status: 503 },
-      )
-    }
-  }
-
-  const linkedAt = new Date().toISOString()
-  const { error } = await admin
-    .from('shopify_installs')
-    .update({
-      owner_id: access.ownerId,
-      page_id: pageId,
-      linked_at: linkedAt,
-      last_synced_at: null,
-      updated_at: linkedAt,
+  let lease: Awaited<ReturnType<typeof beginShopifyMappingChange>> = null
+  let mapping: Awaited<ReturnType<typeof finishShopifyRelink>>
+  try {
+    lease = await beginShopifyMappingChange(admin, {
+      shop,
+      kind: 'relink',
+      targetOwnerId: access.ownerId,
+      targetPageId: pageId,
     })
-    .eq('shop_domain', shop)
-    .is('uninstalled_at', null)
-  if (error) {
-    const status = (error as { code?: string }).code === '23505' ? 409 : 500
-    const message = status === 409
-      ? 'That listing is already connected to another Shopify store. Choose a different listing.'
-      : 'Could not link the shop.'
-    return NextResponse.json({ error: message }, { status })
+    if (!lease) return NextResponse.json({ error: 'Shop not found. Reinstall the app.' }, { status: 404 })
+
+    // Clean the exact catalog generation that existed when the lease began,
+    // even when this shop is being relinked to the same page. A stale request
+    // can never match a newer generation written after lease takeover.
+    await removeShopifyCatalogFromPage(
+      admin,
+      lease.pageId,
+      shop,
+      lease.catalogGeneration,
+    )
+    mapping = await finishShopifyRelink(admin, {
+      lease,
+      ownerId: access.ownerId,
+      pageId,
+    })
+  } catch (linkError) {
+    if (lease) {
+      try {
+        await abortShopifyMappingChange(admin, lease)
+      } catch {
+        // Preserve the original failure; a later attempt can recover a stale
+        // transition under the database lease timeout.
+      }
+    }
+    console.error('[shopify-link] serialized relink failed', {
+      shop,
+      error: linkError instanceof Error ? linkError.message : String(linkError),
+    })
+    const reason = linkError instanceof ShopifyMappingChangeError ? linkError.reason : ''
+    const conflict = reason === 'busy' || reason === 'target_conflict' || reason === 'lease_lost'
+    return NextResponse.json(
+      {
+        error: conflict
+          ? 'That Shopify connection changed while this listing was being linked. Try again.'
+          : 'Could not link the Shopify store. Try again.',
+      },
+      { status: conflict ? 409 : 503 },
+    )
   }
 
   let sync:
@@ -120,13 +137,11 @@ export async function POST(request: Request) {
     } else {
       const result = await syncPageIntegration(admin, 'shopify', pageId, {
         shopifyCredentials: credentials,
+        shopifyMapping: mapping,
+        clearShopifyCatalogSyncState: true,
       })
       if (result.ok) {
         const syncedAt = new Date().toISOString()
-        await markShopifySynced(admin, pageId, syncedAt, {
-          shop,
-          clearCatalogSyncState: true,
-        })
         sync = {
           status: 'synced',
           imported: result.imported,

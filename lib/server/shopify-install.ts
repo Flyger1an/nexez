@@ -26,6 +26,13 @@ export type ShopifyInstall = {
   catalog_sync_attempts?: number | null
   catalog_sync_error?: string | null
   catalog_sync_topic?: string | null
+  mapping_generation?: number
+  catalog_generation?: number | null
+  mapping_transition_token?: string | null
+  mapping_transition_kind?: ShopifyMappingChangeKind | null
+  mapping_transition_started_at?: string | null
+  mapping_transition_owner_id?: string | null
+  mapping_transition_page_id?: string | null
 }
 
 type ShopifyTokenRow = ShopifyInstall & {
@@ -40,9 +47,210 @@ export type ShopifyInstallCredentials = {
   accessToken: string
 }
 
+export type ShopifyInstallMapping = {
+  shop: string
+  ownerId: string
+  pageId: string
+  generation: number
+}
+
+export type ShopifyMappingChangeKind = 'relink' | 'owner_transfer' | 'uninstall' | 'redact'
+
+export type ShopifyMappingLease = {
+  shop: string
+  token: string
+  kind: ShopifyMappingChangeKind
+  generation: number
+  catalogGeneration: number | null
+  ownerId: string | null
+  pageId: string | null
+}
+
+export class ShopifyMappingChangeError extends Error {
+  constructor(readonly reason: string) {
+    super(`Shopify mapping change failed: ${reason}`)
+    this.name = 'ShopifyMappingChangeError'
+  }
+}
+
 const TOKEN_REFRESH_SKEW_MS = 2 * 60 * 1000
 const SHOPIFY_TOKEN_TIMEOUT_MS = 10_000
 const SHOPIFY_LINK_TOKEN_TTL_MS = 10 * 60 * 1000
+const INSTALL_SELECT = 'shop_domain, owner_id, page_id, scope, uninstalled_at, linked_at, last_synced_at, catalog_sync_pending_at, catalog_sync_attempted_at, catalog_sync_attempts, catalog_sync_error, catalog_sync_topic, mapping_generation, catalog_generation, mapping_transition_token, mapping_transition_kind, mapping_transition_started_at, mapping_transition_owner_id, mapping_transition_page_id'
+const TOKEN_SELECT = `${INSTALL_SELECT}, offline_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at`
+
+function clearedMappingTransition() {
+  return {
+    mapping_transition_token: null,
+    mapping_transition_kind: null,
+    mapping_transition_started_at: null,
+    mapping_transition_owner_id: null,
+    mapping_transition_page_id: null,
+  }
+}
+
+function positiveGeneration(value: unknown): number | null {
+  const generation = Number(value)
+  return Number.isSafeInteger(generation) && generation > 0 ? generation : null
+}
+
+export function activeShopifyInstallMapping(install: ShopifyInstall): ShopifyInstallMapping | null {
+  const generation = positiveGeneration(install.mapping_generation)
+  if (
+    !install.owner_id
+    || !install.page_id
+    || !generation
+    || install.uninstalled_at
+    || install.mapping_transition_token
+  ) return null
+  return {
+    shop: install.shop_domain,
+    ownerId: install.owner_id,
+    pageId: install.page_id,
+    generation,
+  }
+}
+
+export async function beginShopifyMappingChange(
+  admin: Pick<SupabaseClient, 'rpc'>,
+  input: {
+    shop: string
+    kind: ShopifyMappingChangeKind
+    targetOwnerId?: string | null
+    targetPageId?: string | null
+    at?: string
+    token?: string
+  },
+): Promise<ShopifyMappingLease | null> {
+  const token = input.token ?? crypto.randomUUID()
+  const { data, error } = await admin.rpc('nz_begin_shopify_mapping_change', {
+    p_shop: input.shop,
+    p_lease: token,
+    p_kind: input.kind,
+    p_target_owner_id: input.targetOwnerId ?? null,
+    p_target_page_id: input.targetPageId ?? null,
+    p_at: input.at ?? new Date().toISOString(),
+  })
+  if (error) throw new ShopifyMappingChangeError('storage_failed')
+  const result = data as {
+    status?: unknown
+    generation?: unknown
+    catalogGeneration?: unknown
+    ownerId?: unknown
+    pageId?: unknown
+  } | null
+  const status = typeof result?.status === 'string' ? result.status : 'invalid_response'
+  if (status === 'missing') return null
+  if (status !== 'begun') throw new ShopifyMappingChangeError(status)
+  const generation = positiveGeneration(result?.generation)
+  if (!generation) throw new ShopifyMappingChangeError('invalid_generation')
+  return {
+    shop: input.shop,
+    token,
+    kind: input.kind,
+    generation,
+    catalogGeneration: positiveGeneration(result?.catalogGeneration),
+    ownerId: typeof result?.ownerId === 'string' ? result.ownerId : null,
+    pageId: typeof result?.pageId === 'string' ? result.pageId : null,
+  }
+}
+
+export async function abortShopifyMappingChange(
+  admin: Pick<SupabaseClient, 'rpc'>,
+  lease: Pick<ShopifyMappingLease, 'shop' | 'token'>,
+  at = new Date().toISOString(),
+): Promise<boolean> {
+  const { data, error } = await admin.rpc('nz_abort_shopify_mapping_change', {
+    p_shop: lease.shop,
+    p_lease: lease.token,
+    p_at: at,
+  })
+  if (error) throw new ShopifyMappingChangeError('abort_failed')
+  return data === true
+}
+
+async function abortMappingChangeQuietly(
+  admin: Pick<SupabaseClient, 'rpc'>,
+  lease: Pick<ShopifyMappingLease, 'shop' | 'token'>,
+): Promise<void> {
+  try {
+    await abortShopifyMappingChange(admin, lease)
+  } catch {
+    // Preserve the original lifecycle error. A stale lease is recoverable by a
+    // later lifecycle retry after the database-enforced lease timeout.
+  }
+}
+
+export async function commitShopifyCatalogSync(
+  admin: Pick<SupabaseClient, 'rpc'>,
+  input: {
+    mapping: ShopifyInstallMapping
+    expectedPageUpdatedAt: string
+    services: OfferItem[]
+    products: OfferItem[]
+    syncedAt: string
+    clearCatalogSyncState: boolean
+  },
+): Promise<'written' | 'mapping_stale' | 'page_conflict'> {
+  const { data, error } = await admin.rpc('nz_commit_shopify_catalog_sync', {
+    p_shop: input.mapping.shop,
+    p_owner_id: input.mapping.ownerId,
+    p_page_id: input.mapping.pageId,
+    p_mapping_generation: input.mapping.generation,
+    p_expected_page_updated_at: input.expectedPageUpdatedAt,
+    p_services: input.services,
+    p_products: input.products,
+    p_synced_at: input.syncedAt,
+    p_clear_catalog_sync_state: input.clearCatalogSyncState,
+  })
+  if (error) throw new Error('Could not save the synced Shopify catalog.')
+  if (data === 'written' || data === 'mapping_stale' || data === 'page_conflict') return data
+  throw new Error('Shopify returned an invalid catalog commit result.')
+}
+
+/** Activate a relink only when the caller still owns the exact lease returned by
+ * beginShopifyMappingChange. Catalog cleanup must complete before calling this
+ * function because this is the point where the old page pointer is replaced. */
+export async function finishShopifyRelink(
+  admin: Pick<SupabaseClient, 'from'>,
+  input: {
+    lease: ShopifyMappingLease
+    ownerId: string
+    pageId: string
+    at?: string
+  },
+): Promise<ShopifyInstallMapping> {
+  if (input.lease.kind !== 'relink') throw new ShopifyMappingChangeError('invalid_lease_kind')
+  const at = input.at ?? new Date().toISOString()
+  const nextGeneration = input.lease.generation + 1
+  const { data, error } = await admin
+    .from('shopify_installs')
+    .update({
+      owner_id: input.ownerId,
+      page_id: input.pageId,
+      linked_at: at,
+      last_synced_at: null,
+      mapping_generation: nextGeneration,
+      catalog_generation: null,
+      ...clearedMappingTransition(),
+      updated_at: at,
+    })
+    .eq('shop_domain', input.lease.shop)
+    .eq('mapping_transition_token', input.lease.token)
+    .eq('mapping_generation', input.lease.generation)
+    .is('uninstalled_at', null)
+    .select('shop_domain, owner_id, page_id, mapping_generation, catalog_generation, uninstalled_at, mapping_transition_token')
+    .maybeSingle<ShopifyInstall>()
+  if (error) {
+    const reason = (error as { code?: string }).code === '23505' ? 'target_conflict' : 'storage_failed'
+    throw new ShopifyMappingChangeError(reason)
+  }
+  const mapping = data ? activeShopifyInstallMapping(data) : null
+  if (!mapping || mapping.ownerId !== input.ownerId || mapping.pageId !== input.pageId) {
+    throw new ShopifyMappingChangeError('lease_lost')
+  }
+  return mapping
+}
 
 function encryptRequired(value: string): string {
   const encrypted = encryptSecret(value)
@@ -61,11 +269,31 @@ export async function getInstallByShop(
 ): Promise<ShopifyInstall | null> {
   const { data } = await admin
     .from('shopify_installs')
-    .select('shop_domain, owner_id, page_id, scope, uninstalled_at, linked_at, last_synced_at, catalog_sync_pending_at, catalog_sync_attempted_at, catalog_sync_attempts, catalog_sync_error, catalog_sync_topic')
+    .select(INSTALL_SELECT)
     .eq('shop_domain', shop)
     .is('uninstalled_at', null)
     .maybeSingle()
   return (data as ShopifyInstall) ?? null
+}
+
+/** Latest active OAuth install linked to one listing, without credential
+ * material. Use this metadata check before deciding whether a seller-triggered
+ * sync belongs to the all-plan installed-app path or the Pro-gated manual
+ * credential path. */
+export async function getInstallByPage(
+  admin: Pick<SupabaseClient, 'from'>,
+  pageId: string,
+): Promise<ShopifyInstall | null> {
+  const { data, error } = await admin
+    .from('shopify_installs')
+    .select(INSTALL_SELECT)
+    .eq('page_id', pageId)
+    .is('uninstalled_at', null)
+    .order('linked_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<ShopifyInstall>()
+  if (error) throw new Error('Could not inspect the Shopify installation for this listing.')
+  return data ?? null
 }
 
 /**
@@ -75,7 +303,7 @@ export async function getInstallByShop(
  * without them) preserves an existing shop→listing link instead of nulling it.
  */
 export async function upsertInstall(
-  admin: Pick<SupabaseClient, 'from'>,
+  admin: Pick<SupabaseClient, 'from' | 'rpc'>,
   input: {
     shop: string
     ownerId?: string | null
@@ -89,18 +317,24 @@ export async function upsertInstall(
 ): Promise<void> {
   const { data: existing, error: readError } = await admin
     .from('shopify_installs')
-    .select('owner_id, page_id, uninstalled_at')
+    .select('owner_id, page_id, uninstalled_at, mapping_generation, catalog_generation, mapping_transition_token')
     .eq('shop_domain', input.shop)
-    .maybeSingle<{ owner_id: string | null; page_id: string | null; uninstalled_at: string | null }>()
+    .maybeSingle<{
+      owner_id: string | null
+      page_id: string | null
+      uninstalled_at: string | null
+      mapping_generation: number
+      catalog_generation: number | null
+      mapping_transition_token: string | null
+    }>()
   if (readError) throw new Error('Could not read the Shopify installation.')
 
   const ownerChanged = Boolean(
-    existing?.owner_id && input.ownerId !== undefined && input.ownerId !== existing.owner_id,
+    existing && input.ownerId !== undefined && input.ownerId !== existing.owner_id,
   )
-  const mustRelink = !existing || Boolean(existing.uninstalled_at) || ownerChanged
+  const mustRelink = Boolean(existing && (existing.uninstalled_at || ownerChanged))
   const now = new Date().toISOString()
   const row: Record<string, unknown> = {
-    shop_domain: input.shop,
     offline_token_encrypted: encryptRequired(input.offlineToken),
     refresh_token_encrypted: encryptRequired(input.refreshToken),
     access_token_expires_at: expiresAt(input.expiresIn),
@@ -109,26 +343,81 @@ export async function upsertInstall(
     uninstalled_at: null,
     updated_at: now,
   }
-  // A reinstall or owner change must never reactivate the previous merchant's
-  // listing before the new browser explicitly completes the link step.
-  if (mustRelink) {
-    row.page_id = null
-    row.linked_at = null
-    row.last_synced_at = null
-    row.link_token_hash = null
-    row.link_token_expires_at = null
+
+  if (!existing) {
+    const { error } = await admin.from('shopify_installs').insert({
+      shop_domain: input.shop,
+      owner_id: input.ownerId ?? null,
+      page_id: input.pageId ?? null,
+      ...row,
+    })
+    if (error) throw new Error('Could not save the Shopify installation.')
+    return
   }
-  // Only in the payload (and therefore ON CONFLICT update) when provided.
+
+  if (mustRelink) {
+    let lease: ShopifyMappingLease | null = null
+    try {
+      lease = await beginShopifyMappingChange(admin, {
+        shop: input.shop,
+        kind: 'owner_transfer',
+        targetOwnerId: input.ownerId ?? null,
+        at: now,
+      })
+      if (!lease) throw new ShopifyMappingChangeError('missing')
+
+      await removeShopifyCatalogFromPage(
+        admin,
+        lease.pageId,
+        input.shop,
+        lease.catalogGeneration,
+      )
+
+      // A transferred or reinstalled shop must be explicitly linked again.
+      // Never carry the previous owner's page pointer across the OAuth grant.
+      const { data, error } = await admin
+        .from('shopify_installs')
+        .update({
+          ...row,
+          owner_id: input.ownerId ?? null,
+          page_id: null,
+          linked_at: null,
+          last_synced_at: null,
+          mapping_generation: lease.generation + 1,
+          catalog_generation: null,
+          ...clearedMappingTransition(),
+        })
+        .eq('shop_domain', input.shop)
+        .eq('mapping_generation', lease.generation)
+        .eq('mapping_transition_token', lease.token)
+        .select('shop_domain')
+        .maybeSingle<{ shop_domain: string }>()
+      if (error || !data) throw new ShopifyMappingChangeError('lease_lost')
+      return
+    } catch (error) {
+      if (lease) await abortMappingChangeQuietly(admin, lease)
+      throw error
+    }
+  }
+
   if (input.ownerId !== undefined) row.owner_id = input.ownerId
   if (input.pageId !== undefined) row.page_id = input.pageId
-  const { error } = await admin.from('shopify_installs').upsert(row, { onConflict: 'shop_domain' })
-  if (error) throw new Error('Could not save the Shopify installation.')
+  const { data, error } = await admin
+    .from('shopify_installs')
+    .update(row)
+    .eq('shop_domain', input.shop)
+    .eq('mapping_generation', existing.mapping_generation)
+    .is('mapping_transition_token', null)
+    .is('uninstalled_at', null)
+    .select('shop_domain')
+    .maybeSingle<{ shop_domain: string }>()
+  if (error || !data) throw new Error('Could not save the Shopify installation.')
 }
 
 /** Exchange an App Bridge ID token for rotating offline credentials. Embedded
  * apps use this instead of a cookie-backed authorization-code callback. */
 export async function exchangeShopifySessionToken(
-  admin: Pick<SupabaseClient, 'from'>,
+  admin: Pick<SupabaseClient, 'from' | 'rpc'>,
   shop: string,
   subjectToken: string,
 ): Promise<void> {
@@ -186,10 +475,12 @@ export async function exchangeShopifySessionToken(
 /** Ensure an embedded app session has a usable offline install. Existing
  * credentials are reused or refreshed; token exchange is the recovery path. */
 export async function ensureShopifySessionInstall(
-  admin: Pick<SupabaseClient, 'from'>,
+  admin: Pick<SupabaseClient, 'from' | 'rpc'>,
   shop: string,
   subjectToken: string,
 ): Promise<ShopifyInstall> {
+  const current = await getInstallByShop(admin, shop)
+  if (current?.mapping_transition_token) return current
   const credentials = await getShopifyInstallCredentialsByShop(admin, shop)
   if (!credentials) await exchangeShopifySessionToken(admin, shop, subjectToken)
   const install = await getInstallByShop(admin, shop)
@@ -218,6 +509,7 @@ export async function issueShopifyLinkToken(
     })
     .eq('shop_domain', shop)
     .is('uninstalled_at', null)
+    .is('mapping_transition_token', null)
     .select('shop_domain')
     .maybeSingle<{ shop_domain: string }>()
   if (error || !data) throw new Error('Could not create the Shopify account-link session.')
@@ -238,6 +530,7 @@ export async function consumeShopifyLinkToken(
     .select('shop_domain, link_token_expires_at')
     .eq('link_token_hash', tokenHash)
     .is('uninstalled_at', null)
+    .is('mapping_transition_token', null)
     .maybeSingle<{ shop_domain: string; link_token_expires_at: string | null }>()
   if (readError || !row?.link_token_expires_at || row.link_token_expires_at <= now) return null
 
@@ -247,6 +540,7 @@ export async function consumeShopifyLinkToken(
     .eq('shop_domain', row.shop_domain)
     .eq('link_token_hash', tokenHash)
     .is('uninstalled_at', null)
+    .is('mapping_transition_token', null)
     .select('shop_domain')
     .maybeSingle<{ shop_domain: string }>()
   if (error || !data) return null
@@ -301,8 +595,16 @@ async function refreshInstallToken(
       scope: json.scope ?? row.scope,
       updated_at: new Date().toISOString(),
     }
-    const { error } = await admin.from('shopify_installs').update(update).eq('shop_domain', row.shop_domain)
-    if (error) return null
+    const { data, error } = await admin
+      .from('shopify_installs')
+      .update(update)
+      .eq('shop_domain', row.shop_domain)
+      .eq('mapping_generation', row.mapping_generation)
+      .is('mapping_transition_token', null)
+      .is('uninstalled_at', null)
+      .select('shop_domain')
+      .maybeSingle<{ shop_domain: string }>()
+    if (error || !data) return null
     return { shop: row.shop_domain, accessToken }
   } catch {
     return null
@@ -315,6 +617,7 @@ async function credentialsFromRow(
   admin: Pick<SupabaseClient, 'from'>,
   row: ShopifyTokenRow,
 ): Promise<ShopifyInstallCredentials | null> {
+  if (row.mapping_transition_token || !positiveGeneration(row.mapping_generation)) return null
   const accessToken = decryptSecret(row.offline_token_encrypted)
   const expires = row.access_token_expires_at ? Date.parse(row.access_token_expires_at) : Number.POSITIVE_INFINITY
   if (accessToken && expires > Date.now() + TOKEN_REFRESH_SKEW_MS) {
@@ -332,7 +635,7 @@ export async function getShopifyInstallCredentials(
 ): Promise<ShopifyInstallCredentials | null> {
   const { data, error } = await admin
     .from('shopify_installs')
-    .select('shop_domain, owner_id, page_id, scope, uninstalled_at, linked_at, last_synced_at, offline_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at')
+    .select(TOKEN_SELECT)
     .eq('page_id', pageId)
     .is('uninstalled_at', null)
     .order('linked_at', { ascending: false })
@@ -351,35 +654,12 @@ export async function getShopifyInstallCredentialsByShop(
 ): Promise<ShopifyInstallCredentials | null> {
   const { data, error } = await admin
     .from('shopify_installs')
-    .select('shop_domain, owner_id, page_id, scope, uninstalled_at, linked_at, last_synced_at, offline_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at')
+    .select(TOKEN_SELECT)
     .eq('shop_domain', shop)
     .is('uninstalled_at', null)
     .maybeSingle<ShopifyTokenRow>()
   if (error || !data) return null
   return credentialsFromRow(admin, data)
-}
-
-export async function markShopifySynced(
-  admin: Pick<SupabaseClient, 'from'>,
-  pageId: string,
-  at: string,
-  options: { shop?: string; clearCatalogSyncState?: boolean } = {},
-): Promise<void> {
-  const updates: Record<string, unknown> = { last_synced_at: at, updated_at: at }
-  if (options.clearCatalogSyncState) {
-    updates.catalog_sync_pending_at = null
-    updates.catalog_sync_attempted_at = null
-    updates.catalog_sync_attempts = 0
-    updates.catalog_sync_error = null
-  }
-  let query = admin
-    .from('shopify_installs')
-    .update(updates)
-    .eq('page_id', pageId)
-    .is('uninstalled_at', null)
-  if (options.shop) query = query.eq('shop_domain', options.shop)
-  const { error } = await query
-  if (error) throw new Error('Could not record the Shopify sync time.')
 }
 
 function belongsToShop(offer: OfferItem, shop: string): boolean {
@@ -392,10 +672,25 @@ function belongsToShop(offer: OfferItem, shop: string): boolean {
   return !offerShop || offerShop === shop.trim().toLowerCase()
 }
 
+/** Fence application-level catalog cleanup to the generation that existed when
+ * its mapping lease began. A stale cleanup can therefore never match offers
+ * written after a newer lease took over, even if the shop maps back to the same
+ * page. Null is the one-time legacy generation and matches only untagged data. */
+export function isShopifyCatalogOfferForGeneration(
+  offer: OfferItem,
+  shop: string,
+  catalogGeneration: number | null,
+): boolean {
+  if (!belongsToShop(offer, shop)) return false
+  const offerGeneration = positiveGeneration(offer.metadata?.shopify_mapping_generation)
+  return catalogGeneration === null ? offerGeneration === null : offerGeneration === catalogGeneration
+}
+
 export async function removeShopifyCatalogFromPage(
   admin: Pick<SupabaseClient, 'from'>,
   pageId: string | null,
   shop: string,
+  catalogGeneration: number | null,
 ): Promise<void> {
   if (!pageId) return
   const { data: page, error: readError } = await admin
@@ -406,8 +701,12 @@ export async function removeShopifyCatalogFromPage(
   if (readError) throw new Error('Could not read the linked listing during Shopify cleanup.')
   if (!page) return
 
-  const services = (page.services ?? []).filter((offer) => !belongsToShop(offer, shop))
-  const products = (page.products ?? []).filter((offer) => !belongsToShop(offer, shop))
+  const services = (page.services ?? []).filter(
+    (offer) => !isShopifyCatalogOfferForGeneration(offer, shop, catalogGeneration),
+  )
+  const products = (page.products ?? []).filter(
+    (offer) => !isShopifyCatalogOfferForGeneration(offer, shop, catalogGeneration),
+  )
   if (services.length === (page.services ?? []).length && products.length === (page.products ?? []).length) return
 
   const { data: written, error: writeError } = await admin
@@ -425,8 +724,18 @@ export async function removeShopifyCatalogFromPage(
 /** Mark a shop uninstalled, revoke every live credential/link immediately, and
  * remove its imported offers. owner_id/page_id remain only as service-role
  * cleanup pointers until Shopify sends the final shop/redact webhook. */
-export async function markUninstalled(admin: Pick<SupabaseClient, 'from'>, shop: string, at: string): Promise<void> {
-  const { data, error } = await admin
+export async function markUninstalled(
+  admin: Pick<SupabaseClient, 'from' | 'rpc'>,
+  shop: string,
+  at: string,
+): Promise<void> {
+  const lease = await beginShopifyMappingChange(admin, { shop, kind: 'uninstall', at })
+  if (!lease) return
+
+  // Revocation is the irreversible boundary. If it fails, restoring the prior
+  // active mapping is safe. Once it succeeds, never abort: a retained lease and
+  // pointer keep credentials closed while a Shopify retry finishes cleanup.
+  const { data: revoked, error: revokeError } = await admin
     .from('shopify_installs')
     .update({
       uninstalled_at: at,
@@ -441,23 +750,80 @@ export async function markUninstalled(admin: Pick<SupabaseClient, 'from'>, shop:
       updated_at: at,
     })
     .eq('shop_domain', shop)
-    .select('page_id')
-    .maybeSingle<{ page_id: string | null }>()
-  if (error) throw new Error('Could not mark the Shopify installation uninstalled.')
-  await removeShopifyCatalogFromPage(admin, data?.page_id ?? null, shop)
+    .eq('mapping_generation', lease.generation)
+    .eq('mapping_transition_token', lease.token)
+    .select('shop_domain')
+    .maybeSingle<{ shop_domain: string }>()
+  if (revokeError || !revoked) {
+    await abortMappingChangeQuietly(admin, lease)
+    throw new Error('Could not mark the Shopify installation uninstalled.')
+  }
+
+  await removeShopifyCatalogFromPage(admin, lease.pageId, shop, lease.catalogGeneration)
+
+  const finishedAt = new Date().toISOString()
+  const { data: finished, error: finishError } = await admin
+    .from('shopify_installs')
+    .update({
+      mapping_generation: lease.generation + 1,
+      catalog_generation: null,
+      ...clearedMappingTransition(),
+      updated_at: finishedAt,
+    })
+    .eq('shop_domain', shop)
+    .eq('mapping_generation', lease.generation)
+    .eq('mapping_transition_token', lease.token)
+    .not('uninstalled_at', 'is', null)
+    .select('shop_domain')
+    .maybeSingle<{ shop_domain: string }>()
+  if (finishError || !finished) {
+    throw new Error('Could not finish Shopify uninstall cleanup.')
+  }
 }
 
 /** `shop/redact` removes any remaining catalog copy before deleting the final
  * service-role-only installation record. Idempotent when uninstall cleanup
  * already removed the offers or the install no longer exists. */
-export async function redactShop(admin: Pick<SupabaseClient, 'from'>, shop: string): Promise<void> {
-  const { data, error: readError } = await admin
+export async function redactShop(
+  admin: Pick<SupabaseClient, 'from' | 'rpc'>,
+  shop: string,
+): Promise<void> {
+  const at = new Date().toISOString()
+  const lease = await beginShopifyMappingChange(admin, { shop, kind: 'redact', at })
+  if (!lease) return
+
+  const { data: revoked, error: revokeError } = await admin
     .from('shopify_installs')
-    .select('page_id')
+    .update({
+      uninstalled_at: at,
+      offline_token_encrypted: null,
+      refresh_token_encrypted: null,
+      access_token_expires_at: null,
+      refresh_token_expires_at: null,
+      linked_at: null,
+      last_synced_at: null,
+      link_token_hash: null,
+      link_token_expires_at: null,
+      updated_at: at,
+    })
     .eq('shop_domain', shop)
-    .maybeSingle<{ page_id: string | null }>()
-  if (readError) throw new Error('Could not read the Shopify installation for redaction.')
-  await removeShopifyCatalogFromPage(admin, data?.page_id ?? null, shop)
-  const { error } = await admin.from('shopify_installs').delete().eq('shop_domain', shop)
-  if (error) throw new Error('Could not redact the Shopify installation.')
+    .eq('mapping_generation', lease.generation)
+    .eq('mapping_transition_token', lease.token)
+    .select('shop_domain')
+    .maybeSingle<{ shop_domain: string }>()
+  if (revokeError || !revoked) {
+    await abortMappingChangeQuietly(admin, lease)
+    throw new Error('Could not revoke the Shopify installation for redaction.')
+  }
+
+  await removeShopifyCatalogFromPage(admin, lease.pageId, shop, lease.catalogGeneration)
+  const { data: deleted, error } = await admin
+    .from('shopify_installs')
+    .delete()
+    .eq('shop_domain', shop)
+    .eq('mapping_generation', lease.generation)
+    .eq('mapping_transition_token', lease.token)
+    .select('shop_domain')
+    .maybeSingle<{ shop_domain: string }>()
+  if (error || !deleted) throw new Error('Could not redact the Shopify installation.')
 }

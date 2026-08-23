@@ -7,6 +7,7 @@ import { createAdminClient } from '../../../utils/supabase/admin'
 import { ownerAllows } from '../../../lib/server/plan'
 import { resolveFeatureOwner } from '../../../lib/server/page-access'
 import { enforceRateLimit } from '../../../lib/rate-limit'
+import { minPlanForFeature } from '../../../lib/billing'
 
 export async function POST(request: Request) {
   // Dashboard-only feature that invokes a paid LLM - require auth and throttle.
@@ -94,10 +95,11 @@ export async function POST(request: Request) {
     // the no-LLM branch) so the feature still returns something useful.
     const aiAllowed = await ownerAllows(admin ?? supabase, access.ownerId, 'aiFeatures')
     if (!isLlmConfigured() || !aiAllowed) {
+      const required = minPlanForFeature('aiFeatures')
       return NextResponse.json({
         success: true,
         score,
-        report: `Trust Score: ${score}/100. Based on readiness (${readinessBase} base), server-backed verification, and transaction events.${aiAllowed ? ' Configure LLM for advanced report.' : ' Upgrade to Launch for an AI-written trust report.'}`,
+        report: `Trust Score: ${score}/100. Based on readiness (${readinessBase} base), server-backed verification, and transaction events.${aiAllowed ? ' Configure LLM for advanced report.' : ` Upgrade to ${required.name} for an AI-written trust report.`}`,
         llmEnhanced: false,
       })
     }

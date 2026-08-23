@@ -10,6 +10,7 @@ import { cleanLocationQuery, filterPagesByLocation, locationFilterMeta } from '.
 import { loadReviewSummariesForSlugs } from '../../../lib/server/reviews'
 import { loadStorefrontHandlesForSlugs } from '../../../lib/server/storefront'
 import { loadPublicPageField } from '../../../lib/server/public-page-field'
+import { resolvePublicCommerceCapabilities } from '../../../lib/server/public-commerce-capabilities'
 
 export async function GET(request: Request) {
   // Public agent-facing search - throttle to blunt scraping/DB abuse.
@@ -43,15 +44,18 @@ export async function GET(request: Request) {
   const baseUrl = getRequestBaseUrl(request)
   const visiblePages = field.pages
   const visibleSlugs = visiblePages.map((page) => page.slug)
-  const [storefrontHandles, reviewSummaries] = await Promise.all([
+  const [storefrontHandles, reviewSummaries, commerceCapabilities] = await Promise.all([
     loadStorefrontHandlesForSlugs(visibleSlugs),
     loadReviewSummariesForSlugs(visibleSlugs, 0),
+    resolvePublicCommerceCapabilities(visibleSlugs),
   ])
   const locationFilteredPages = filterPagesByLocation(visiblePages, location)
   const results = searchAgentPages(locationFilteredPages, query, Number.isFinite(limit) ? limit : 10, baseUrl, {
     location,
     storefrontHandles,
     reviewSummaries,
+    negotiationEligibleSlugs: commerceCapabilities.negotiationEligibleSlugs,
+    checkoutReadySlugs: commerceCapabilities.checkoutReadySlugs,
     ...filters.options,
   })
   const searchParams = new URLSearchParams({ q: query })
@@ -83,8 +87,8 @@ export async function GET(request: Request) {
       results,
       usage: {
         method: 'GET',
-        example: `${baseUrl}/api/agent-search?q=plumbing&location=Chicago%2C%20IL&verified=true&supports_checkout=true`,
-        note: 'Returns published AI-readable pages and offer-level checkout actions. Relevance is the hard first rank; exact location/service area, availability, actionability, verification, established verified-purchase reputation, readiness, and freshness resolve ties in that order. Sparse review history is neutral. lat/lng are context metadata only and do not filter or rerank results.',
+        example: `${baseUrl}/api/agent-search?q=plumbing&location=Chicago%2C%20IL&verified=true&nexez_checkout_ready=true`,
+        note: 'Returns published AI-readable pages and offer-level actions. has_actionable_offer covers a Nexez action or provider handoff; nexez_checkout_ready separately confirms private payout readiness. Relevance is the hard first rank; exact location/service area, availability, actionability, verification, established verified-purchase reputation, readiness, and freshness resolve ties in that order. Sparse review history is neutral. lat/lng are context metadata only and do not filter or rerank results.',
       },
     },
     {
@@ -118,6 +122,8 @@ function parseSearchFilters(searchParams: URLSearchParams):
 
   const verified = booleanParam(searchParams.get('verified'))
   if (verified === 'invalid') return { ok: false, error: 'verified must be true or false.' }
+  const nexezCheckoutReady = booleanParam(searchParams.get('nexez_checkout_ready'))
+  if (nexezCheckoutReady === 'invalid') return { ok: false, error: 'nexez_checkout_ready must be true or false.' }
   const supportsCheckout = booleanParam(searchParams.get('supports_checkout'))
   if (supportsCheckout === 'invalid') return { ok: false, error: 'supports_checkout must be true or false.' }
   const supportsNegotiation = booleanParam(searchParams.get('supports_negotiation'))
@@ -132,6 +138,7 @@ function parseSearchFilters(searchParams: URLSearchParams):
       minReadiness,
       minTrust,
       verified,
+      nexezCheckoutReady,
       supportsCheckout,
       supportsNegotiation,
       priceBand: priceBand as AgentSearchOptions['priceBand'],
@@ -159,6 +166,7 @@ function appendSearchFilters(searchParams: URLSearchParams, options: AgentSearch
   if (options.minReadiness != null) searchParams.set('min_readiness', String(options.minReadiness))
   if (options.minTrust != null) searchParams.set('min_trust', String(options.minTrust))
   if (options.verified != null) searchParams.set('verified', String(options.verified))
+  if (options.nexezCheckoutReady != null) searchParams.set('nexez_checkout_ready', String(options.nexezCheckoutReady))
   if (options.supportsCheckout != null) searchParams.set('supports_checkout', String(options.supportsCheckout))
   if (options.supportsNegotiation != null) searchParams.set('supports_negotiation', String(options.supportsNegotiation))
   if (options.priceBand) searchParams.set('price_band', options.priceBand)
@@ -171,6 +179,7 @@ function serializeSearchFilters(options: AgentSearchOptions) {
     min_readiness: options.minReadiness ?? null,
     min_trust: options.minTrust ?? null,
     verified: options.verified ?? null,
+    nexez_checkout_ready: options.nexezCheckoutReady ?? null,
     supports_checkout: options.supportsCheckout ?? null,
     supports_negotiation: options.supportsNegotiation ?? null,
     price_band: options.priceBand ?? null,

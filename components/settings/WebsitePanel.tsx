@@ -39,9 +39,9 @@ export function WebsitePanel({
   const [method, setMethod] = useState<Method>('dns')
   const [busy, setBusy] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  // The checkout gates from settings-context (Connect + each surface's program
-  // flag); the discovery/checkout STATUS is derived from these + the listing's published state.
-  const [agentic, setAgentic] = useState<{ planAllowsCheckout: boolean; connectReady: boolean; chatgptLive: boolean; googleLive: boolean } | null>(null)
+  // The readiness inputs from settings-context (Connect + each surface's program
+  // flag); discovery/checkout status is derived from these + published state.
+  const [agentic, setAgentic] = useState<{ connectReady: boolean; chatgptLive: boolean; googleLive: boolean } | null>(null)
 
   const host = websiteHostOf(page.website_url)
   const verifiedAt = page.website_verified_at ?? null
@@ -60,7 +60,6 @@ export function WebsitePanel({
   const agenticStatus: AgenticCommerceStatus | null = agentic
     ? agenticCommerceStatus({
         published: Boolean(page.is_published),
-        planAllowsCheckout: agentic.planAllowsCheckout,
         connectReady: agentic.connectReady,
         chatgptLive: agentic.chatgptLive,
         googleLive: agentic.googleLive,
@@ -77,7 +76,6 @@ export function WebsitePanel({
       }
       if (json?.agenticCommerce && typeof json.agenticCommerce === 'object') {
         setAgentic({
-          planAllowsCheckout: Boolean(json.agenticCommerce.planAllowsCheckout),
           connectReady: Boolean(json.agenticCommerce.connectReady),
           chatgptLive: Boolean(json.agenticCommerce.chatgptLive),
           googleLive: Boolean(json.agenticCommerce.googleLive),

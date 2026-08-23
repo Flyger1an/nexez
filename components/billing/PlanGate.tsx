@@ -125,7 +125,7 @@ export function UpgradeBanner({
  * A lightweight "this is a {Plan} feature" chip - for labelling a control that is
  * shown but gated (or to tease a feature) without replacing it with a full teaser.
  */
-export function ProBadge({ feature, className = '' }: { feature: PlanFeature; className?: string }) {
+export function PlanBadge({ feature, className = '' }: { feature: PlanFeature; className?: string }) {
   const plan = minPlanForFeature(feature)
   return (
     <a
@@ -137,3 +137,6 @@ export function ProBadge({ feature, className = '' }: { feature: PlanFeature; cl
     </a>
   )
 }
+
+/** @deprecated Use PlanBadge; the required tier is derived from the contract. */
+export const ProBadge = PlanBadge

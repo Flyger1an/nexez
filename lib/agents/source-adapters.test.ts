@@ -5,10 +5,16 @@ import type { ReviewSummary } from '../reviews'
 const rankingState = vi.hoisted(() => ({
   summaries: new Map<string, ReviewSummary>(),
   loadReviews: vi.fn(),
+  checkoutReady: new Set<string>(),
+  negotiationEligible: new Set<string>(),
+  resolveCapabilities: vi.fn(),
 }))
 
 vi.mock('../server/reviews', () => ({
   loadReviewSummariesForSlugs: rankingState.loadReviews,
+}))
+vi.mock('../server/public-commerce-capabilities', () => ({
+  resolvePublicCommerceCapabilities: rankingState.resolveCapabilities,
 }))
 import {
   getSourceAdapters,
@@ -48,6 +54,13 @@ describe('source adapters', () => {
     rankingState.summaries = new Map()
     rankingState.loadReviews.mockReset()
     rankingState.loadReviews.mockImplementation(async () => rankingState.summaries)
+    rankingState.checkoutReady = new Set()
+    rankingState.negotiationEligible = new Set()
+    rankingState.resolveCapabilities.mockReset()
+    rankingState.resolveCapabilities.mockImplementation(async () => ({
+      checkoutReadySlugs: rankingState.checkoutReady,
+      negotiationEligibleSlugs: rankingState.negotiationEligible,
+    }))
     delete process.env.EMBEDDINGS_API_KEY
     delete process.env.OPENAI_API_KEY
   })
@@ -65,6 +78,7 @@ describe('source adapters', () => {
       page('elsewhere', 'Chicago, IL'),
     ]
     rankingState.summaries = new Map([['broad', reviewSummary(5, 4.8)]])
+    rankingState.checkoutReady = new Set(['local'])
     const returns = vi.fn(async () => ({ data: pages, error: null }))
     const db = {
       from: vi.fn(() => ({
@@ -91,6 +105,9 @@ describe('source adapters', () => {
       review_evidence: 'established-positive',
     })
     expect(rankingState.loadReviews).toHaveBeenCalledWith(['local', 'broad'], 0)
+    expect(rankingState.resolveCapabilities).toHaveBeenCalledWith(['local', 'broad'])
+    expect(out[0].offer?.action?.type).toBe('nexez_checkout')
+    expect(out[1].offer?.action).toBeNull()
   })
 
   it('merges results across sources, ranks by score desc, and caps to limit', async () => {

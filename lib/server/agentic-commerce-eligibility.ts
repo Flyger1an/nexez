@@ -2,6 +2,7 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { acpCheckoutEnabled } from '../acp/constants'
+import { getStripeConnectPayoutReadiness } from '../stripe-connect-readiness'
 import { ucpCheckoutEnabled } from '../ucp/constants'
 
 // Server-side resolution of who may TRANSACT through an agent (ChatGPT/Google), used by
@@ -10,7 +11,7 @@ import { ucpCheckoutEnabled } from '../ucp/constants'
 //   - the merchant status card in Settings → show the true, per-listing status.
 //
 // Agentic checkout is foundational on every plan. Operational eligibility depends on a
-// charge-ready Stripe Connect account plus the program env flag supplied by callers.
+// charge-and-payout-ready Stripe Connect account plus the program env flag supplied by callers.
 // Everything FAILS CLOSED when settlement readiness cannot be verified.
 
 type Admin = Pick<SupabaseClient, 'from'>
@@ -19,30 +20,33 @@ type BillingRow = {
   owner_id?: string | null
   stripe_connect_account_id: string | null
   stripe_connect_charges_enabled: boolean | null
+  stripe_connect_payouts_enabled: boolean | null
 }
 
-/** Compatibility input for the existing card/API shape plus the authoritative
- * settlement-readiness check. The plan value is always true for a resolved owner. */
-function ownerCheckoutInputs(row: BillingRow | undefined): { planAllowsCheckout: boolean; connectReady: boolean } {
-  const connectReady = Boolean(row?.stripe_connect_account_id && row?.stripe_connect_charges_enabled === true)
-  return { planAllowsCheckout: true, connectReady }
+export type OwnerSettlementReadiness = { connectReady: boolean }
+
+/** Authoritative settlement-readiness input shared by the merchant card and
+ * protocol feeds. Agentic checkout is foundational; no subscription tier is part
+ * of this decision. */
+function ownerSettlementReadiness(row: BillingRow | undefined): OwnerSettlementReadiness {
+  return { connectReady: getStripeConnectPayoutReadiness(row).ready }
 }
 
-/** Per-owner checkout inputs for ONE owner (the status card). Fails closed to both-false. */
-export async function resolveOwnerCheckoutInputs(
+/** Per-owner settlement readiness for ONE owner (the status card). Fails closed. */
+export async function resolveOwnerSettlementReadiness(
   admin: Admin,
   ownerId: string | null | undefined,
-): Promise<{ planAllowsCheckout: boolean; connectReady: boolean }> {
-  if (!ownerId) return { planAllowsCheckout: false, connectReady: false }
+): Promise<OwnerSettlementReadiness> {
+  if (!ownerId) return { connectReady: false }
   try {
     const { data } = await admin
       .from('billing_subscriptions')
-      .select('stripe_connect_account_id, stripe_connect_charges_enabled')
+      .select('stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled')
       .eq('owner_id', ownerId)
       .maybeSingle<BillingRow>()
-    return ownerCheckoutInputs(data ?? undefined)
+    return ownerSettlementReadiness(data ?? undefined)
   } catch {
-    return { planAllowsCheckout: true, connectReady: false }
+    return { connectReady: false }
   }
 }
 
@@ -56,13 +60,13 @@ export async function resolveCheckoutEligibleOwners(admin: Admin, ownerIds: stri
   try {
     const { data } = await admin
       .from('billing_subscriptions')
-      .select('owner_id, stripe_connect_account_id, stripe_connect_charges_enabled')
+      .select('owner_id, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled')
       .in('owner_id', ids)
       .returns<BillingRow[]>()
     const byOwner = new Map<string, BillingRow>()
     for (const row of data ?? []) if (row.owner_id) byOwner.set(row.owner_id, row)
     for (const owner of ids) {
-      if (ownerCheckoutInputs(byOwner.get(owner)).connectReady) eligible.add(owner)
+      if (ownerSettlementReadiness(byOwner.get(owner)).connectReady) eligible.add(owner)
     }
   } catch {
     return new Set() // fail closed

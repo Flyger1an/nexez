@@ -93,6 +93,7 @@ function snapshot(overrides: Partial<LaunchControlSnapshot> = {}): LaunchControl
       support: true,
       checkoutSessions: true,
     },
+    supportQueue: [],
     incidents: [],
     ...overrides,
   }
@@ -100,7 +101,16 @@ function snapshot(overrides: Partial<LaunchControlSnapshot> = {}): LaunchControl
 
 describe('machine launch health', () => {
   it('returns only redacted required-check state', () => {
-    const health = buildMachineLaunchHealth(snapshot(), deployment)
+    const health = buildMachineLaunchHealth(snapshot({
+      supportQueue: [{
+        id: 'ticket-private',
+        subject: 'Private seller support subject',
+        severity: 'normal',
+        createdAt: '2026-07-18T11:00:00.000Z',
+        serviceTier: 'priority',
+        planId: 'scale',
+      }],
+    }), deployment)
     expect(health.ok).toBe(true)
     expect(health.requiredChecks).toEqual([
       expect.objectContaining({ area: 'configuration', id: 'config', status: 'ready' }),
@@ -108,6 +118,7 @@ describe('machine launch health', () => {
       expect.objectContaining({ area: 'certification', id: 'commerce', status: 'ready' }),
     ])
     expect(JSON.stringify(health)).not.toContain('redacted evidence')
+    expect(JSON.stringify(health)).not.toContain('Private seller support subject')
   })
 
   it('identifies every required launch blocker', () => {

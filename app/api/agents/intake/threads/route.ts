@@ -9,6 +9,7 @@ import { analyzeSite, getImportUrlError } from '../../../../../lib/importer'
 import { applyIntakeAction, createIntakeState, type IntakeState } from '../../../../../lib/intake'
 import { captureEvent } from '../../../../../lib/observability'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
+import { ownerAllows } from '../../../../../lib/server/plan'
 import { resolveRequestAuth } from '../../../../../lib/server/request-auth'
 
 // Creating a session may crawl the seller's site inline (same UX budget as the
@@ -41,6 +42,10 @@ export async function POST(request: NextRequest) {
   const sourceUrl = typeof body.source_url === 'string' ? body.source_url.trim() : ''
   const pageId = typeof body.page_id === 'string' ? body.page_id.trim() : ''
   const templateId = typeof body.template_id === 'string' ? body.template_id.trim() : ''
+  // Deterministic website import is core. Only the live owner's aiFeatures
+  // entitlement may enable the optional model refinement, and unreadable plan
+  // state fails closed through ownerAllows.
+  const aiAllowed = sourceUrl ? await ownerAllows(supabase, user.id, 'aiFeatures') : false
 
   if (pageId && templateId) {
     return NextResponse.json({ error: 'A template reference cannot replace the source of truth for an existing listing.' }, { status: 400 })
@@ -110,7 +115,10 @@ export async function POST(request: NextRequest) {
     })
     if (added.ok) state = added.state
     try {
-      const extraction = importResultToExtraction(sourceId, await analyzeSite(sourceUrl))
+      const extraction = importResultToExtraction(
+        sourceId,
+        await analyzeSite(sourceUrl, null, { skipLlm: !aiAllowed }),
+      )
       const recorded = applyIntakeAction(state, { type: 'RECORD_EXTRACTION', extraction })
       if (recorded.ok) state = recorded.state
     } catch (error) {

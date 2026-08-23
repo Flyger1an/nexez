@@ -311,6 +311,46 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
     )
   })
 
+  it('does not let a status check activate CNAME routing below the custom-domain plan', async () => {
+    providerRef.configured = true
+    providerRef.status = cnameStatus()
+    adminRef.subscription = null
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: null }]
+
+    const res = await POST(post({ action: 'status', domain: 'agents.acme.com', pageId: 'page-1' }))
+
+    expect(res.status).toBe(402)
+    expect(await res.json()).toMatchObject({ code: 'plan_feature_required', upgrade: 'launch' })
+    expect(adminRef.updates).toHaveLength(0)
+  })
+
+  it('maps the serialized database quota race to the next viable plan', async () => {
+    providerRef.configured = true
+    providerRef.status = cnameStatus()
+    adminRef.subscription = { plan_id: 'launch', status: 'active' }
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: null }]
+    adminRef.updateError = { code: '23514', message: 'Verified custom-domain limit reached for your plan.' }
+
+    const res = await POST(post({ action: 'attach', domain: 'agents.acme.com', pageId: 'page-1' }))
+
+    expect(res.status).toBe(402)
+    expect(await res.json()).toMatchObject({ code: 'plan_limit_reached', upgrade: 'pro' })
+  })
+
+  it('maps a contended domain allocation to a retryable conflict', async () => {
+    providerRef.configured = true
+    providerRef.status = cnameStatus()
+    adminRef.subscription = { plan_id: 'launch', status: 'active' }
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: null }]
+    adminRef.updateError = { code: '40001', message: 'NEXEZ_ENTITLEMENT_ALLOCATION_RETRY' }
+
+    const res = await POST(post({ action: 'attach', domain: 'agents.acme.com', pageId: 'page-1' }))
+
+    expect(res.status).toBe(409)
+    expect(res.headers.get('retry-after')).toBe('1')
+    expect(await res.json()).toMatchObject({ code: 'entitlement_allocation_retry', retryable: true })
+  })
+
   it('never persists verification when the provider configuration check failed', async () => {
     providerRef.configured = true
     providerRef.status = cnameStatus({ configChecked: false, misconfigured: null, error: 'config unavailable' })
@@ -367,7 +407,7 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
     expect(adminRef.updates).toHaveLength(0)
   })
 
-  it('clears persisted verification after a successful provider detach', async () => {
+  it('clears the saved hostname and verification after a successful provider detach', async () => {
     providerRef.configured = true
     adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: '2026-08-13T00:00:00Z' }]
 
@@ -377,8 +417,25 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
     expect(adminRef.updates).toContainEqual(
       expect.objectContaining({
         table: 'pages',
-        payload: { custom_domain_verified: null },
+        payload: { custom_domain: null, custom_domain_verified: null, domain_path: '/' },
         eqs: expect.objectContaining({ id: 'page-1', owner_id: 'owner-1', custom_domain: 'agents.acme.com' }),
+      }),
+    )
+  })
+
+  it('keeps cleanup available below plan even when managed hosting is not configured', async () => {
+    providerRef.configured = false
+    adminRef.subscription = null
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: '2026-08-13T00:00:00Z' }]
+
+    const res = await POST(post({ action: 'remove', domain: 'agents.acme.com', pageId: 'page-1' }))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, removed: true, providerConfigured: false })
+    expect(adminRef.updates).toContainEqual(
+      expect.objectContaining({
+        table: 'pages',
+        payload: { custom_domain: null, custom_domain_verified: null, domain_path: '/' },
       }),
     )
   })

@@ -28,6 +28,10 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const install = await getInstallByShop(admin, session.shop)
   if (!install) return json({ error: 'Reconnect the Shopify app before changing its listing.' }, 409)
+  if (install.mapping_transition_token) {
+    return json({ error: 'A Shopify listing change is already in progress. Try again shortly.' }, 409)
+  }
+  if (!install.owner_id) return json({ error: 'Connect this Shopify store to Nexez before changing its listing.' }, 409)
 
   try {
     const linkToken = await issueShopifyLinkToken(admin, session.shop)

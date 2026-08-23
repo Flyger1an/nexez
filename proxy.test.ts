@@ -5,6 +5,7 @@ const { supabaseRef } = vi.hoisted(() => ({
   // What the pages_public lookup resolves (or rejects) with, per test.
   supabaseRef: {
     respond: async (): Promise<{ data: unknown; error: unknown }> => ({ data: [], error: null }),
+    eqs: [] as Array<[string, unknown]>,
   },
 }))
 
@@ -20,7 +21,7 @@ vi.mock('@supabase/ssr', () => ({
       const builder: any = {
         select: () => builder,
         in: () => builder,
-        eq: () => builder,
+        eq: (column: string, value: unknown) => (supabaseRef.eqs.push([column, value]), builder),
         not: () => builder,
         returns: () => supabaseRef.respond(),
       }
@@ -48,6 +49,7 @@ describe('proxy: dual-surface APIs', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     supabaseRef.respond = rows([])
+    supabaseRef.eqs = []
   })
 
   it.each(['nexez.ai', 'app.nexez.ai'])(
@@ -71,6 +73,7 @@ describe('proxy: malformed artifact paths', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     supabaseRef.respond = rows([])
+    supabaseRef.eqs = []
   })
 
   const malformed = [
@@ -110,31 +113,26 @@ describe('proxy: malformed artifact paths', () => {
   })
 })
 
-// A Supabase blip (observed: TypeError: fetch failed / ECONNRESET) used to
-// produce an empty path map that was then cached for the full 60s TTL. Every
-// custom-domain request on that edge instance served nothing for a minute, with
-// nothing logged. A hostname's mapping changes rarely, so stale routing beats no
-// routing.
-describe('proxy: custom-domain lookup failures', () => {
+// Routing a custom host is an authorization decision: verification, the owner's
+// plan allocation, and public-serving state can all be revoked independently of
+// DNS. A process-local positive cache used to continue serving the old listing for
+// its TTL and, during database failures, could preserve that stale grant forever.
+describe('proxy: authoritative custom-domain routing', () => {
   let warn: ReturnType<typeof vi.spyOn>
-  let dateNow: ReturnType<typeof vi.spyOn>
-  let now: number
 
   beforeEach(() => {
     vi.clearAllMocks()
     warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    now = 1_760_000_000_000
-    dateNow = vi.spyOn(Date, 'now').mockImplementation(() => now)
+    supabaseRef.respond = rows([])
+    supabaseRef.eqs = []
   })
 
-  // Restore only these two spies. vi.restoreAllMocks() would also reset the
+  // Restore only this spy. vi.restoreAllMocks() would also reset the
   // module mocks defined above, taking createServerClient's implementation with it.
   afterEach(() => {
     warn.mockRestore()
-    dateNow.mockRestore()
   })
 
-  // Each test uses its own host: the cache is module state shared across the file.
   const prime = async (host: string, slug: string) => {
     supabaseRef.respond = rows([{ slug, domain_path: '/' }])
     const res = await proxy(request(`https://${host}/`, host))
@@ -147,25 +145,42 @@ describe('proxy: custom-domain lookup failures', () => {
     }
   }
 
-  it('keeps serving the stale map when the refresh fails', async () => {
-    const host = 'stale.example.com'
+  it('revalidates every request and stops routing immediately when the public allocation disappears', async () => {
+    const host = 'revoked.example.com'
     await prime(host, 'acme')
 
-    now += 61_000 // past the 60s TTL, so the next request refreshes
-    failWith(Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNRESET' } }))
-
+    vi.mocked(createServerClient).mockClear()
+    supabaseRef.respond = rows([]) // downgrade, unverify, or reallocation masks the domain
     const res = await proxy(request(`https://${host}/`, host))
-    expect(rewriteTarget(res)).toContain('/acme')
+
+    expect(createServerClient).toHaveBeenCalledOnce()
+    expect(rewriteTarget(res)).toBeNull()
+    expect(res.status).toBe(308)
+    expect(res.headers.get('location')).not.toContain(host)
   })
 
-  it('logs the host and error code instead of failing silently', async () => {
-    const host = 'logged.example.com'
+  it('routes the current allocation instead of a formerly cached slug', async () => {
+    const host = 'reallocated.example.com'
     await prime(host, 'acme')
 
-    now += 61_000
-    failWith(Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNRESET' } }))
-    await proxy(request(`https://${host}/`, host))
+    vi.mocked(createServerClient).mockClear()
+    supabaseRef.respond = rows([{ slug: 'new-owner', domain_path: '/' }])
+    const res = await proxy(request(`https://${host}/`, host))
 
+    expect(createServerClient).toHaveBeenCalledOnce()
+    expect(rewriteTarget(res)).toContain('/new-owner')
+    expect(rewriteTarget(res)).not.toContain('/acme')
+  })
+
+  it('fails closed instead of serving a stale grant when authoritative revalidation throws', async () => {
+    const host = 'lookup-failed.example.com'
+    await prime(host, 'acme')
+
+    failWith(Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNRESET' } }))
+    const res = await proxy(request(`https://${host}/`, host))
+
+    expect(rewriteTarget(res)).toBeNull()
+    expect(res.status).toBe(308)
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('custom-domain lookup failed'),
       host,
@@ -173,77 +188,15 @@ describe('proxy: custom-domain lookup failures', () => {
     )
   })
 
-  it('does not cache the failure: it retries once the backoff clears', async () => {
-    const host = 'retry.example.com'
-    await prime(host, 'acme')
-
-    now += 61_000
-    failWith(new Error('boom'))
-    await proxy(request(`https://${host}/`, host))
-
-    // Past the retry window but still well inside what would have been the failed
-    // entry's 60s TTL. A cached failure would serve an empty map from here on.
-    now += 3_100
-    vi.mocked(createServerClient).mockClear()
-    supabaseRef.respond = rows([{ slug: 'acme-v2', domain_path: '/' }])
-    const res = await proxy(request(`https://${host}/`, host))
-
-    expect(createServerClient).toHaveBeenCalled()
-    expect(rewriteTarget(res)).toContain('/acme-v2')
-  })
-
-  // Removing the negative cache outright made a SUSTAINED outage worse than the bug
-  // it replaced: every request paid the full failure latency and logged. The backoff
-  // bounds both while the stale map keeps serving.
-  it('does not re-query on every request during a sustained outage', async () => {
-    const host = 'storm.example.com'
-    await prime(host, 'acme')
-
-    now += 61_000
-    failWith(Object.assign(new TypeError('fetch failed'), { cause: { code: 'ETIMEDOUT' } }))
-    await proxy(request(`https://${host}/`, host))
-
-    vi.mocked(createServerClient).mockClear()
-    warn.mockClear()
-    for (let i = 0; i < 5; i += 1) {
-      const res = await proxy(request(`https://${host}/`, host))
-      // Still routing correctly the whole time.
-      expect(rewriteTarget(res)).toContain('/acme')
-    }
-
-    expect(createServerClient).not.toHaveBeenCalled()
-    expect(warn).not.toHaveBeenCalled()
-  })
-
-  it('clears the backoff as soon as a query succeeds', async () => {
-    const host = 'recover.example.com'
-    await prime(host, 'acme')
-
-    now += 61_000
-    failWith(new Error('boom'))
-    await proxy(request(`https://${host}/`, host))
-
-    now += 3_100
-    supabaseRef.respond = rows([{ slug: 'acme', domain_path: '/' }])
-    await proxy(request(`https://${host}/`, host))
-
-    // Recovered, so the fresh entry is cached normally: no query, no backoff.
-    vi.mocked(createServerClient).mockClear()
-    now += 1_000
-    const res = await proxy(request(`https://${host}/`, host))
-    expect(createServerClient).not.toHaveBeenCalled()
-    expect(rewriteTarget(res)).toContain('/acme')
-  })
-
-  it('treats a PostgREST error payload as a failure, not as an empty domain', async () => {
+  it('fails closed on a PostgREST error payload too', async () => {
     const host = 'pgerror.example.com'
     await prime(host, 'acme')
 
-    now += 61_000
     supabaseRef.respond = async () => ({ data: null, error: { code: '42501', message: 'permission denied' } })
 
     const res = await proxy(request(`https://${host}/`, host))
-    expect(rewriteTarget(res)).toContain('/acme')
+    expect(rewriteTarget(res)).toBeNull()
+    expect(res.status).toBe(308)
     expect(warn).toHaveBeenCalledWith(expect.any(String), host, '42501')
   })
 
@@ -258,15 +211,24 @@ describe('proxy: custom-domain lookup failures', () => {
     expect(warn).toHaveBeenCalled()
   })
 
-  it('still serves a healthy lookup from cache without re-querying', async () => {
-    const host = 'cached.example.com'
-    await prime(host, 'acme')
+  it('retries authoritatively on the very next request after a failure', async () => {
+    const host = 'recover.example.com'
+    failWith(new Error('boom'))
+    expect((await proxy(request(`https://${host}/`, host))).status).toBe(308)
 
     vi.mocked(createServerClient).mockClear()
-    now += 1_000 // well inside the TTL
+    supabaseRef.respond = rows([{ slug: 'acme', domain_path: '/' }])
     const res = await proxy(request(`https://${host}/`, host))
 
-    expect(createServerClient).not.toHaveBeenCalled()
+    expect(createServerClient).toHaveBeenCalledOnce()
     expect(rewriteTarget(res)).toContain('/acme')
+  })
+
+  it('requires both published and currently-serving projection rows', async () => {
+    await prime('filters.example.com', 'acme')
+    expect(supabaseRef.eqs).toEqual(expect.arrayContaining([
+      ['is_published', true],
+      ['serving', true],
+    ]))
   })
 })

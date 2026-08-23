@@ -23,10 +23,10 @@ type Connection = {
 
 const HELP: Record<Provider, string> = {
   calendly: 'Pull your event types in as bookable offers and keep availability in sync with your real calendar.',
-  shopify: 'Import your products as offers and re-sync the catalog whenever it changes.',
+  shopify: 'Install Nexez from Shopify on any plan, or use manually entered Admin API credentials on Pro.',
   square: 'Import your Square catalog items as offers and re-sync when they change.',
   acuity: 'Import your Acuity appointment types as bookable offers.',
-  stripe: 'Take payments and keep offer prices in sync — managed through Stripe Connect.',
+  stripe: 'Receive agent-driven transaction revenue through Stripe Connect. Payout setup is available on every plan.',
 }
 
 // Fields collected to connect a token provider. Empty = uses the stored value.
@@ -175,6 +175,7 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
   const priorityConnection =
     connections.find(
       (connection) =>
+        (isPro || (connection.provider === 'shopify' && connection.kind === 'oauth')) &&
         connection.kind !== 'connect' &&
         connection.connected &&
         connection.canSync &&
@@ -189,7 +190,14 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
         const isBusy = busy?.startsWith(`${c.provider}:`)
         const tokenProvider = c.kind === 'token' ? (c.provider as Exclude<Provider, 'stripe'>) : null
         const isPriority = c.provider === priorityConnection?.provider
-        const connectedStatus = c.syncStatus === 'attention'
+        const installedShopify = c.provider === 'shopify' && c.kind === 'oauth'
+        const premiumConnectionPaused = c.kind !== 'connect' && c.connected && !isPro && !installedShopify
+        const connectedStatus = premiumConnectionPaused
+          ? {
+              label: 'Paused by plan',
+              className: 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]',
+            }
+          : c.syncStatus === 'attention'
           ? {
               label: 'Needs attention',
               className: 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]',
@@ -234,11 +242,16 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
 
             {c.kind === 'connect' ? (
               <div className="mt-2 text-[10px] text-zinc-400">
-                {c.connected ? 'Prices auto-sync from your Stripe account.' : 'Connect Stripe from the Billing tab to take payments and auto-sync prices.'}
+                {c.connected
+                  ? 'Charges and payouts are enabled.'
+                  : 'Complete Stripe setup before Nexez can settle transaction revenue.'}{' '}
+                <a href="/dashboard/billing" className="text-[var(--signal)] hover:underline">
+                  {c.connected ? 'Manage payouts' : 'Set up payouts'}
+                </a>
               </div>
             ) : c.connected ? (
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {c.canSync ? (
+                {c.canSync && (isPro || installedShopify) ? (
                   <button
                     type="button"
                     disabled={isBusy}
@@ -263,7 +276,15 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                   </button>
                 ) : null}
                 <span className="text-[10px] text-zinc-500">
-                  {c.syncStatus === 'pending'
+                  {premiumConnectionPaused
+                    ? 'Connection retained · sync paused until Pro'
+                    : installedShopify
+                      ? c.syncStatus === 'pending'
+                        ? 'Catalog update queued · installed app available on every plan'
+                        : c.syncStatus === 'attention'
+                          ? 'Installed app needs attention · available on every plan'
+                          : 'Installed securely through Shopify · available on every plan'
+                    : c.syncStatus === 'pending'
                     ? 'Catalog update queued'
                     : c.syncStatus === 'attention'
                       ? 'Auto-sync needs attention'
@@ -274,13 +295,19 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                           : 'Manual re-sync'}
                   {last ? ` · last synced ${last}` : ''}
                 </span>
-                {c.syncStatus === 'attention' && c.syncError ? (
+                {!premiumConnectionPaused && c.syncStatus === 'attention' && c.syncError ? (
                   <span role="alert" className="w-full text-[10px] text-[var(--amber)]">{c.syncError}</span>
                 ) : null}
               </div>
             ) : (
               <div className="mt-2 flex flex-col gap-2">
-                {!isPro ? <div className="text-[10px] text-[var(--amber)]">Connecting live integrations is a Pro feature.</div> : null}
+                {!isPro ? (
+                  <div className="text-[10px] text-[var(--amber)]">
+                    {c.provider === 'shopify'
+                      ? 'Manual Shopify Admin credentials require Pro. The installed Nexez Shopify app is available on every plan.'
+                      : 'Connecting live integrations is a Pro feature.'}
+                  </div>
+                ) : null}
                 <div className="flex flex-col gap-2 sm:flex-row">
                   {tokenProvider &&
                     CONNECT_FIELDS[tokenProvider].map((f) => (

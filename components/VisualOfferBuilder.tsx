@@ -31,7 +31,8 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Copy, GripVertical, Plus, Trash2, Sparkles } from 'lucide-react'
 import type { OfferItem, PricingTier } from '../lib/agent-page'
-import { enhanceDescriptionForAgents } from '../lib/ai-optimize'
+import { hasPaidNegotiationRules, stripPaidNegotiationRules } from '../lib/intake/negotiation-policy'
+import { PlanBadge } from './billing/PlanGate'
 
 export type OfferKind = 'services' | 'products'
 
@@ -44,6 +45,10 @@ interface VisualOfferBuilderProps {
   businessName?: string
   audience?: string
   pageId?: string // enables real LLM-assist via /api/ai/enhance when the page opted in
+  /** Server-resolved owner entitlement. Defaults false so pre-plan builders fail closed. */
+  aiFeaturesEnabled?: boolean
+  /** Server-resolved owner entitlement for negotiation and smart pricing. Defaults false. */
+  negotiationEnabled?: boolean
 }
 
 const SERVICE_TEMPLATES: OfferItem[] = [
@@ -146,7 +151,16 @@ const PRODUCT_TEMPLATES: OfferItem[] = [
   },
 ]
 
-export function VisualOfferBuilder({ offers, kind, onChange, businessName, audience, pageId }: VisualOfferBuilderProps) {
+export function VisualOfferBuilder({
+  offers,
+  kind,
+  onChange,
+  businessName,
+  audience,
+  pageId,
+  aiFeaturesEnabled = false,
+  negotiationEnabled = false,
+}: VisualOfferBuilderProps) {
   // Normalize offers to ensure tiers is always an array
   const normalizedOffers = offers.map(o => ({
     ...o,
@@ -320,6 +334,8 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
                       businessName={businessName}
                       audience={audience}
                       pageId={pageId}
+                      aiFeaturesEnabled={aiFeaturesEnabled}
+                      negotiationEnabled={negotiationEnabled}
                     />
                   )
                 })}
@@ -351,6 +367,8 @@ function SortableOfferCard({
   businessName,
   audience,
   pageId,
+  aiFeaturesEnabled,
+  negotiationEnabled,
 }: {
   id: string
   offer: OfferItem
@@ -362,6 +380,8 @@ function SortableOfferCard({
   businessName?: string
   audience?: string
   pageId?: string
+  aiFeaturesEnabled: boolean
+  negotiationEnabled: boolean
 }) {
   const [enhancing, setEnhancing] = useState(false)
   const {
@@ -378,6 +398,9 @@ function SortableOfferCard({
   }
 
   const tiers = offer.tiers || []
+  const hasPaidRules = hasPaidNegotiationRules(offer)
+  const hasRetainedNegotiation = offer.offerType === 'negotiable' || hasPaidRules
+  const negotiationStatusId = `negotiation-paused-${id.replace(/[^a-zA-Z0-9_-]/g, '-')}`
 
   const updateConsumerField = (field: string, value: any) => {
     if (onUpdateFull) {
@@ -409,6 +432,21 @@ function SortableOfferCard({
       }
     }
     onUpdateFull(index, { rules: Object.keys(merged).length ? (merged as OfferItem['rules']) : undefined })
+  }
+
+  function clearPaidNegotiationRules() {
+    if (!onUpdateFull) return
+    const cleaned = stripPaidNegotiationRules(offer)
+    onUpdateFull(index, { rules: cleaned.rules })
+  }
+
+  function switchToFixed() {
+    if (!onUpdateFull) return
+    const cleaned = stripPaidNegotiationRules(offer)
+    onUpdateFull(index, {
+      offerType: undefined,
+      rules: cleaned.rules,
+    })
   }
 
   return (
@@ -477,40 +515,43 @@ function SortableOfferCard({
               placeholder="Description optimized for agents and customers"
               className="min-h-[72px] w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-sm text-white pr-16"
             />
-            <button
-              type="button"
-              disabled={enhancing}
-              onClick={async () => {
-                const bn = businessName || 'This business'
-                const aud = audience || 'qualified buyers'
-                const apply = (text: string) =>
-                  onUpdateFull ? onUpdateFull(index, { description: text }) : onUpdate(index, 'description', text)
-                setEnhancing(true)
-                try {
-                  // Uses the LLM when the deployment is configured + the page opted in;
-                  // otherwise the route returns the deterministic rewrite.
-                  const res = await fetch('/api/ai/enhance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ description: offer.description || '', businessName: bn, audience: aud, pageId }),
-                  })
-                  if (res.ok) {
-                    const data = await res.json()
-                    apply(data.enhanced || enhanceDescriptionForAgents(offer.description || '', bn, aud))
-                  } else {
-                    apply(enhanceDescriptionForAgents(offer.description || '', bn, aud))
+            {aiFeaturesEnabled ? (
+              <button
+                type="button"
+                disabled={enhancing}
+                onClick={async () => {
+                  const bn = businessName || 'This business'
+                  const aud = audience || 'qualified buyers'
+                  setEnhancing(true)
+                  try {
+                    // The server re-checks the current owner entitlement and returns
+                    // an entitled deterministic fallback if the LLM is unavailable.
+                    const res = await fetch('/api/ai/enhance', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ description: offer.description || '', businessName: bn, audience: aud, pageId }),
+                    })
+                    if (res.ok) {
+                      const data = await res.json()
+                      if (typeof data.enhanced === 'string' && data.enhanced.trim()) {
+                        onUpdateFull
+                          ? onUpdateFull(index, { description: data.enhanced })
+                          : onUpdate(index, 'description', data.enhanced)
+                      }
+                    }
+                  } catch {
+                    // Keep the seller's original copy. Any fallback must come from
+                    // the server after it re-checks the current entitlement.
+                  } finally {
+                    setEnhancing(false)
                   }
-                } catch {
-                  apply(enhanceDescriptionForAgents(offer.description || '', bn, aud))
-                } finally {
-                  setEnhancing(false)
-                }
-              }}
-              className="absolute top-2 right-2 text-[10px] flex items-center gap-1 rounded border border-[var(--signal)]/40 bg-black/50 px-1.5 py-0.5 text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
-              title="Enhance this offer description for AI agents"
-            >
-              <Sparkles className="size-3" /> {enhancing ? 'Enhancing…' : 'Enhance'}
-            </button>
+                }}
+                className="absolute top-2 right-2 text-[10px] flex items-center gap-1 rounded border border-[var(--signal)]/40 bg-black/50 px-1.5 py-0.5 text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
+                title="Enhance this offer description for AI agents"
+              >
+                <Sparkles className="size-3" /> {enhancing ? 'Enhancing…' : 'Enhance'}
+              </button>
+            ) : null}
           </div>
 
           {/* Pricing Tiers */}
@@ -535,7 +576,7 @@ function SortableOfferCard({
                       const newTiers = [...tiers]; newTiers[tIndex].description = e.target.value;
                       onUpdateFull ? onUpdateFull(index, { tiers: newTiers }) : onUpdate(index, 'description', JSON.stringify({ __tiers: newTiers }));
                     }} />
-                    <button onClick={() => {
+                    <button type="button" onClick={() => {
                       const newTiers = tiers.filter((_, i) => i !== tIndex);
                       onUpdateFull ? onUpdateFull(index, { tiers: newTiers }) : onUpdate(index, 'description', JSON.stringify({ __tiers: newTiers }));
                     }} className="text-red-400 py-1 sm:col-span-1">×</button>
@@ -549,12 +590,15 @@ function SortableOfferCard({
           {onUpdateFull && (
             <div className="border border-white/10 rounded-lg p-3 bg-black/20">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-[var(--signal)]">Offer type & rules</span>
+                <span className="flex flex-wrap items-center gap-2 text-xs font-medium text-[var(--signal)]">
+                  Offer type & rules
+                  {!negotiationEnabled ? <PlanBadge feature="negotiation" /> : null}
+                </span>
                 <div className="flex gap-1" role="group" aria-label="Offer type">
                   <button
                     type="button"
                     aria-pressed={offer.offerType !== 'negotiable'}
-                    onClick={() => onUpdateFull(index, { offerType: undefined })}
+                    onClick={switchToFixed}
                     className={`rounded px-2 py-0.5 text-[10px] border ${offer.offerType !== 'negotiable' ? 'border-[var(--signal)]/60 bg-[var(--signal)]/10 text-[var(--signal)]' : 'border-white/15 text-zinc-400 hover:text-white'}`}
                   >
                     Fixed
@@ -562,13 +606,41 @@ function SortableOfferCard({
                   <button
                     type="button"
                     aria-pressed={offer.offerType === 'negotiable'}
-                    onClick={() => onUpdateFull(index, { offerType: 'negotiable' })}
-                    className={`rounded px-2 py-0.5 text-[10px] border ${offer.offerType === 'negotiable' ? 'border-[var(--signal)]/60 bg-[var(--signal)]/10 text-[var(--signal)]' : 'border-white/15 text-zinc-400 hover:text-white'}`}
+                    aria-describedby={!negotiationEnabled && hasRetainedNegotiation ? negotiationStatusId : undefined}
+                    disabled={!negotiationEnabled}
+                    onClick={() => {
+                      if (negotiationEnabled) onUpdateFull(index, { offerType: 'negotiable' })
+                    }}
+                    title={!negotiationEnabled ? 'Negotiation and smart pricing require Pro or above' : undefined}
+                    className={`rounded px-2 py-0.5 text-[10px] border disabled:cursor-not-allowed disabled:opacity-60 ${offer.offerType === 'negotiable' ? 'border-[var(--signal)]/60 bg-[var(--signal)]/10 text-[var(--signal)]' : 'border-white/15 text-zinc-400 hover:text-white'}`}
                   >
                     Negotiable
                   </button>
                 </div>
               </div>
+
+              {!negotiationEnabled && hasRetainedNegotiation ? (
+                <div
+                  id={negotiationStatusId}
+                  role="status"
+                  className="mb-2 flex flex-col gap-2 rounded border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-2 text-[10px] text-zinc-300 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span>
+                    Negotiation is configured but paused on this plan. {offer.offerType === 'negotiable'
+                      ? 'Switch to Fixed to atomically remove its paid posture and rules.'
+                      : 'Clear all paid rules to remove the retained configuration.'}
+                  </span>
+                  {offer.offerType !== 'negotiable' && hasPaidRules ? (
+                    <button
+                      type="button"
+                      onClick={clearPaidNegotiationRules}
+                      className="shrink-0 rounded border border-red-400/40 px-2 py-1 font-medium text-red-300 hover:bg-red-400/10"
+                    >
+                      Clear paid negotiation rules
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
 
               {offer.offerType === 'negotiable' && (
                 <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -577,16 +649,23 @@ function SortableOfferCard({
                     <input
                       value={offer.rules?.minPrice || ''}
                       placeholder="e.g. $800"
-                      onChange={(e) => updateRules({ minPrice: e.target.value })}
-                      className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"
+                      readOnly={!negotiationEnabled}
+                      aria-describedby={!negotiationEnabled ? negotiationStatusId : undefined}
+                      onChange={(e) => {
+                        if (negotiationEnabled) updateRules({ minPrice: e.target.value })
+                      }}
+                      className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white read-only:cursor-not-allowed read-only:opacity-60"
                     />
                   </label>
                   <label className="flex items-end gap-2 pb-1.5 text-[10px] text-zinc-300">
                     <input
                       type="checkbox"
                       checked={!!offer.rules?.autoAccept}
-                      onChange={(e) => updateRules({ autoAccept: e.target.checked })}
-                      className="size-3 accent-[var(--signal)]"
+                      disabled={!negotiationEnabled}
+                      onChange={(e) => {
+                        if (negotiationEnabled) updateRules({ autoAccept: e.target.checked })
+                      }}
+                      className="size-3 accent-[var(--signal)] disabled:cursor-not-allowed disabled:opacity-60"
                     />
                     Auto-accept proposals that meet every rule
                   </label>
@@ -629,7 +708,7 @@ function SortableOfferCard({
                 </label>
               </div>
               <p className="mt-1.5 text-[9px] text-zinc-500">
-                Pricing rules are private - never shown to agents. Notice, blackout, and weekly-cap constraints are published in agent.json so agents can respect them.
+                Minimum price and auto-accept rules are private - never shown to agents. Notice, blackout, and weekly-cap constraints are published in agent.json so agents can respect them.
               </p>
             </div>
           )}

@@ -1,16 +1,19 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
   buildBillingSubscriptionRow,
   calculateApplicationFeeCents,
   calculateApplicationFeeCentsFromBps,
   getCommissionBpsForPlan,
   getCommissionPercentForPlan,
+  getPlanIdForStripePrice,
   hasScheduledCancellation,
   LIVE_SUBSCRIPTION_STATUSES,
   isDbManagedBillingStatus,
   pickLiveStripeSubscription,
   shouldSkipSubscriptionSync,
 } from '../stripe-billing'
+
+afterEach(() => vi.unstubAllEnvs())
 
 const sub = (status: string, id = status) => ({ id, status })
 
@@ -124,6 +127,40 @@ describe('scheduled cancellation normalization', () => {
     })
 
     expect(row.cancel_at_period_end).toBe(true)
+  })
+
+  it('persists Stripe trial_end so trial entitlements always have a finite window', () => {
+    const row = buildBillingSubscriptionRow({
+      ownerId: 'owner-1',
+      fallbackPlanId: 'launch',
+      subscription: {
+        id: 'sub_trial',
+        status: 'trialing',
+        trial_end: 1_786_920_857,
+        cancel_at_period_end: false,
+        items: { data: [] },
+      } as any,
+    })
+
+    expect(row.trial_ends_at).toBe(new Date(1_786_920_857 * 1000).toISOString())
+  })
+})
+
+describe('Stripe Price to plan authority', () => {
+  it('fails closed when one Stripe Price is mapped to multiple plans', () => {
+    vi.stubEnv('STRIPE_PRICE_LAUNCH', 'price_shared')
+    vi.stubEnv('STRIPE_PRICE_PRO', 'price_shared')
+    vi.stubEnv('STRIPE_PRICE_SCALE', 'price_scale')
+    expect(getPlanIdForStripePrice('price_shared')).toBeNull()
+  })
+
+  it('does not let claimed metadata replace an unknown concrete Stripe Price', () => {
+    const row = buildBillingSubscriptionRow({
+      ownerId: 'owner-1',
+      fallbackPlanId: 'scale',
+      fallbackPriceId: 'price_not_in_catalog',
+    })
+    expect(row.plan_id).toBeNull()
   })
 })
 

@@ -4,6 +4,11 @@ import { authenticateApiKey } from '../../../../../lib/server/api-auth'
 import { SERVER_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../../lib/agent-page'
 import { isPageLimitError, pickWritablePageFields, wantsCustomDomain } from '../../../../../lib/api-pages'
 import { ownerAllows } from '../../../../../lib/server/plan'
+import {
+  entitlementAllocationRetryBody,
+  entitlementAllocationRetryInit,
+  isEntitlementAllocationRetry,
+} from '../../../../../lib/entitlement-allocation-error'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateApiKey(request)
@@ -52,9 +57,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     )
   }
 
-  // The published-page limit (plan + grandfathered baseline) is enforced by a DB
-  // trigger on the draft → published transition - the single source of truth, so
-  // we attempt the update and map the trigger's check_violation to a 402.
+  // The exact canonical published-page limit is enforced by a DB trigger on the
+  // draft → published transition, so we attempt the update and map its
+  // check_violation to a 402.
   // Scope the update to the owner so a key can never touch another tenant's page.
   const { data, error } = await admin
     .from('pages')
@@ -65,6 +70,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .maybeSingle()
 
   if (error) {
+    if (isEntitlementAllocationRetry(error)) {
+      return NextResponse.json(entitlementAllocationRetryBody, entitlementAllocationRetryInit)
+    }
     if (isPageLimitError(error)) {
       return NextResponse.json(
         { error: `${error.message} Upgrade your plan to publish more.` },

@@ -5,6 +5,11 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
 import { createStripeConnectAccount, createStripeConnectOnboardingLink } from '../../../../lib/stripe-billing'
 import { appUrl } from '../../../../lib/site'
 import { billingPlans } from '../../../../lib/billing'
+import {
+  entitlementAllocationRetryBody,
+  entitlementAllocationRetryInit,
+  isEntitlementAllocationRetry,
+} from '../../../../lib/entitlement-allocation-error'
 import Stripe from 'stripe'
 
 /**
@@ -35,14 +40,51 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const stripe = new Stripe(secret)
 
-  // Read the owner's billing row (owner SELECT is RLS-allowed on the session client).
-  const { data: billing } = await supabase
+  // Read through the service role before any Stripe side effect. An unreadable
+  // billing row must not be treated as a missing row: doing so could create a
+  // second Connect account and overwrite live subscription state with defaults.
+  const { data: billing, error: billingError } = await admin
     .from('billing_subscriptions')
     .select('*')
     .eq('owner_id', user.id)
     .maybeSingle()
+  if (billingError) {
+    return NextResponse.json({ error: 'Failed to load billing state for Connect setup.' }, { status: 500 })
+  }
 
   let accountId = billing?.stripe_connect_account_id
+
+  if (!accountId) {
+    // Establish the durable local row before creating anything in Stripe. This
+    // is also the first entitlement-locked write, so normal allocation
+    // contention returns the retry contract with no external side effect.
+    const reservationWrite = billing
+      ? admin.from('billing_subscriptions').upsert({
+          owner_id: user.id,
+          stripe_connect_status: 'pending',
+        }, { onConflict: 'owner_id' })
+      : admin.from('billing_subscriptions').upsert({
+          owner_id: user.id,
+          plan_id: 'free',
+          status: 'unconfigured',
+          account_origin: 'free',
+          stripe_connect_status: 'pending',
+        }, { onConflict: 'owner_id' })
+    const { data: reservedBilling, error: reserveError } = await reservationWrite
+      .select('stripe_connect_account_id')
+      .maybeSingle<{ stripe_connect_account_id: string | null }>()
+    if (reserveError) {
+      console.error('Failed to reserve Connect billing state', reserveError)
+      if (isEntitlementAllocationRetry(reserveError)) {
+        return NextResponse.json(entitlementAllocationRetryBody, entitlementAllocationRetryInit)
+      }
+      return NextResponse.json({ error: 'Failed to prepare your Connect account.' }, { status: 500 })
+    }
+
+    // A parallel request may have persisted the owner-scoped account while this
+    // request was reserving the row. Never create another one in that case.
+    accountId = reservedBilling?.stripe_connect_account_id ?? null
+  }
 
   if (!accountId) {
     // Create new Express account
@@ -59,19 +101,23 @@ export async function POST(request: Request) {
     }
     accountId = account.id
 
-    // Persist the account id via the service-role client; surface a failure instead
-    // of silently 200-ing (which previously left the account orphaned).
-    const { error: upsertError } = await admin.from('billing_subscriptions').upsert({
-      owner_id: user.id,
-      stripe_connect_account_id: accountId,
-      stripe_connect_status: 'pending',
-      plan_id: billing?.plan_id || 'free',
-      status: billing?.status || 'unconfigured',
-      metadata: { ...(billing?.metadata || {}), connect_onboarding_started: new Date().toISOString() },
-    }, { onConflict: 'owner_id' })
-    if (upsertError) {
-      console.error('Failed to persist Connect account id', upsertError)
-      return NextResponse.json({ error: 'Failed to save your Connect account: ' + upsertError.message }, { status: 500 })
+    // The helper uses a stable owner-scoped Stripe idempotency key. If this
+    // persistence loses an allocation race, the documented retry recovers the
+    // same remote account rather than creating a duplicate.
+    const { error: persistError } = await admin
+      .from('billing_subscriptions')
+      .update({
+        stripe_connect_account_id: accountId,
+        stripe_connect_status: 'pending',
+        metadata: { ...(billing?.metadata || {}), connect_onboarding_started: new Date().toISOString() },
+      })
+      .eq('owner_id', user.id)
+    if (persistError) {
+      console.error('Failed to persist Connect account id', persistError)
+      if (isEntitlementAllocationRetry(persistError)) {
+        return NextResponse.json(entitlementAllocationRetryBody, entitlementAllocationRetryInit)
+      }
+      return NextResponse.json({ error: 'Failed to save your Connect account: ' + persistError.message }, { status: 500 })
     }
   }
 
@@ -79,6 +125,7 @@ export async function POST(request: Request) {
   // These fields (details_submitted, charges_enabled, payouts_enabled) are updated asynchronously
   // by Stripe after the user completes steps or after review.
   let statusUpdate: Record<string, any> = {}
+  let statusRefreshFailed = false
   try {
     const account = await stripe.accounts.retrieve(accountId)
     statusUpdate = {
@@ -88,13 +135,23 @@ export async function POST(request: Request) {
       stripe_connect_payouts_enabled: account.payouts_enabled,
     }
     const { error: updateError } = await admin.from('billing_subscriptions').update(statusUpdate).eq('owner_id', user.id)
-    if (updateError) console.error('Failed to update Connect account status', updateError)
+    if (updateError) {
+      console.error('Failed to update Connect account status', updateError)
+      if (isEntitlementAllocationRetry(updateError)) {
+        return NextResponse.json(entitlementAllocationRetryBody, entitlementAllocationRetryInit)
+      }
+      return NextResponse.json({ error: 'Failed to save the latest Connect account status.' }, { status: 500 })
+    }
   } catch (e: any) {
-    console.error('Failed to retrieve/update Connect account status', e)
+    statusRefreshFailed = true
+    console.error('Failed to retrieve Connect account status', e)
   }
 
   // If caller just wants a status refresh (no redirect), return early
   if (requestUrl.searchParams.get('refresh') === 'true') {
+    if (statusRefreshFailed) {
+      return NextResponse.json({ error: 'Failed to retrieve the latest Connect account status.' }, { status: 502 })
+    }
     return NextResponse.json({ refreshed: true, ...statusUpdate })
   }
 

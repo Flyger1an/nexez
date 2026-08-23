@@ -7,10 +7,20 @@ import {
   getNegotiationStatusLabel,
   getNegotiationStatusTone,
   humanizeTermKey,
+  isNegotiationExpansionAction,
   isMissingTableError,
   isTerminalNegotiationStatus,
   summarizeNegotiations,
 } from '../negotiations'
+
+describe('negotiation expansion actions', () => {
+  it('gates only continuation and commercial-term expansion actions', () => {
+    expect(['resume', 'counter', 'clarify', 'change_amount', 'change_rules']
+      .every((action) => isNegotiationExpansionAction(action))).toBe(true)
+    expect(['accept', 'reject', 'pause', 'complete', 'cancel', 'refund', null, undefined]
+      .some((action) => isNegotiationExpansionAction(action))).toBe(false)
+  })
+})
 
 describe('humanizeTermKey', () => {
   it('title-cases camelCase, snake_case, and kebab-case keys', () => {

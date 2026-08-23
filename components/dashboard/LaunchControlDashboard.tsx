@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ShieldCheck,
   TerminalSquare,
+  TicketCheck,
   Webhook,
 } from 'lucide-react'
 import { relativeAge, type LaunchCheck, type LaunchControlSnapshot, type LaunchStatus } from '../../lib/launch-control'
@@ -206,13 +207,65 @@ export function LaunchControlDashboard({
           <CheckGrid checks={snapshot.operations} />
         </section>
 
+        <section className="border-t border-border py-8" aria-labelledby="support-queue-heading">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <SectionHeading
+              icon={TicketCheck}
+              id="support-queue-heading"
+              title="Support queue"
+              detail="Routing is recalculated from each owner's current plan. Severity remains a separate incident signal available to every plan."
+            />
+            <span className="mb-5 w-fit rounded-full border border-border px-2.5 py-1 font-mono text-[11px] text-[var(--fg-muted)]">
+              {snapshot.sources.support ? `${snapshot.supportQueue.length} shown` : 'Unavailable'}
+            </span>
+          </div>
+          {!snapshot.sources.support ? (
+            <div className="flex min-h-24 items-center gap-4 rounded-lg border border-border bg-white/[0.025] px-5 backdrop-blur-xl">
+              <CircleDashed className="size-5 shrink-0 text-[var(--fg-muted)]" />
+              <div>
+                <p className="text-sm font-medium">Support queue unavailable</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">Current ticket routing could not be loaded, so no priority claim is shown.</p>
+              </div>
+            </div>
+          ) : snapshot.supportQueue.length ? (
+            <ol className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-white/[0.025] backdrop-blur-xl">
+              {snapshot.supportQueue.map((ticket) => (
+                <li key={ticket.id} className="grid gap-2 px-4 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
+                  <span className={`w-fit rounded-full border px-2 py-1 text-[11px] font-medium ${ticket.serviceTier === 'priority'
+                    ? 'border-[var(--signal)]/30 bg-[var(--signal)]/10 text-[var(--signal)]'
+                    : 'border-border bg-white/[0.03] text-[var(--fg-muted)]'
+                  }`}>
+                    {planName(ticket.planId)} · {ticket.serviceTier === 'priority' ? 'Priority' : 'Standard'}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">{ticket.subject || 'Untitled support request'}</span>
+                    <span className="mt-1 block font-mono text-[10px] text-[var(--fg-muted-2)]">{ticket.id}</span>
+                  </span>
+                  <span className="flex items-center gap-3 text-xs text-[var(--fg-muted)]">
+                    <span className={ticket.severity === 'urgent' ? 'font-medium text-red-300' : ''}>{severityName(ticket.severity)}</span>
+                    <span>{relativeAge(ticket.createdAt, snapshot.generatedAt)}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="flex min-h-24 items-center gap-4 rounded-lg border border-border bg-white/[0.025] px-5 backdrop-blur-xl">
+              <CheckCircle2 className="size-5 shrink-0 text-[var(--ready)]" />
+              <div>
+                <p className="text-sm font-medium">Support queue is clear</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">No open, waiting, or in-review tickets were returned.</p>
+              </div>
+            </div>
+          )}
+        </section>
+
         <section className="grid gap-8 border-t border-border py-8 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
           <div aria-labelledby="incidents-heading">
             <SectionHeading
               icon={AlertTriangle}
               id="incidents-heading"
               title="Recent incidents"
-              detail="Only actionable failures and urgent support pressure appear in this feed."
+              detail="Actionable failures and urgent support incidents appear here; support ordering is resolved from each owner's current plan."
             />
             {snapshot.incidents.length ? (
               <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-white/[0.025] backdrop-blur-xl">
@@ -429,6 +482,14 @@ function StatusPill({ status, label }: { status: LaunchStatus; label?: string })
       <Icon className="size-3" /> {label || style.label}
     </span>
   )
+}
+
+function planName(planId: string) {
+  return planId.charAt(0).toUpperCase() + planId.slice(1)
+}
+
+function severityName(severity: string) {
+  return `${severity.charAt(0).toUpperCase()}${severity.slice(1)} severity`
 }
 
 function certificationRollup(checks: LaunchCheck[]): LaunchStatus {

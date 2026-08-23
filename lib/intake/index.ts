@@ -3,7 +3,7 @@
 // composed around its gap projection here so web + mobile consume one behavior.
 import { applyCommerceAwareIntakeAction } from './commerce'
 import { applyIntakeAction as applyBaseIntakeAction } from './reducer'
-import type { IntakeAction, IntakeApplyResult, IntakeState } from './types'
+import type { IntakeAction, IntakeApplyResult, IntakeEntitlementPolicy, IntakeState } from './types'
 
 export * from './types'
 export { analyzeIntakeGaps as analyzeGaps, mergeCommerceTemplateGaps } from './commerce'
@@ -14,7 +14,17 @@ export {
   handoffEligible,
   normalizeOfferName,
 } from './reducer'
+export {
+  hasNegotiationConfiguration,
+  normalizeIntakeDraftNegotiation,
+  sameNegotiationConfiguration,
+  unauthorizedNegotiationMutation,
+} from './negotiation-policy'
 
-export function applyIntakeAction(state: IntakeState, action: IntakeAction): IntakeApplyResult {
-  return applyCommerceAwareIntakeAction(applyBaseIntakeAction, state, action)
+export function applyIntakeAction(
+  state: IntakeState,
+  action: IntakeAction,
+  policy?: IntakeEntitlementPolicy,
+): IntakeApplyResult {
+  return applyCommerceAwareIntakeAction(applyBaseIntakeAction, state, action, policy)
 }

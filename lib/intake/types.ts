@@ -175,6 +175,11 @@ export type IntakeState = {
   handoff: IntakeHandoff | null
 }
 
+/** Dynamic capabilities are caller-supplied and never persisted as authority. */
+export type IntakeEntitlementPolicy = {
+  negotiationAllowed: boolean
+}
+
 export type IntakeAction =
   | { type: 'ADD_SOURCE'; source: IntakeSource }
   | { type: 'RECORD_EXTRACTION'; extraction: IntakeExtraction }
@@ -196,6 +201,7 @@ export type IntakeErrorCode =
   | 'invented_offer'
   | 'unknown_offer_key'
   | 'invalid_field_update'
+  | 'feature_not_available'
   | 'blocking_gaps_remain'
   | 'already_handed_off'
 

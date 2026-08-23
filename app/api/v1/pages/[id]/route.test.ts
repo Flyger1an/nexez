@@ -65,4 +65,18 @@ describe('/api/v1/pages/[id]', () => {
     expect(eqs.id).toBe('p1')
     expect(eqs.owner_id).toBe('owner-A')
   })
+
+  it('PATCH → exposes a contended entitlement allocation as retryable', async () => {
+    vi.mocked(authenticateApiKey).mockResolvedValue({ ok: true, ownerId: 'owner-A', keyId: 'k' })
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((c) => c.op === 'update'
+        ? { data: null, error: { code: '40001', message: 'NEXEZ_ENTITLEMENT_ALLOCATION_RETRY' } }
+        : { data: null, error: null }) as any,
+    )
+
+    const res = await PATCH(req({ is_published: true }), ctx('p1'))
+    expect(res.status).toBe(409)
+    expect(res.headers.get('retry-after')).toBe('1')
+    expect(await res.json()).toMatchObject({ code: 'entitlement_allocation_retry', retryable: true })
+  })
 })

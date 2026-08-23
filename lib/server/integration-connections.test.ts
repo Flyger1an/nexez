@@ -38,12 +38,31 @@ describe('getPageIntegrationConnections', () => {
     expect(c.shopify).toMatchObject({ connected: false, kind: 'token', autoSync: false, canSync: true })
   })
 
-  it('marks Stripe connected only when the owner has Connect charges enabled', async () => {
-    drive({ calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null }, { stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
+  it('marks Stripe connected only when account, charges, and payouts are ready', async () => {
+    drive(
+      { calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null },
+      { stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true, stripe_connect_payouts_enabled: true },
+    )
     let c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
-    expect(c.stripe).toMatchObject({ connected: true, kind: 'connect', autoSync: true, canSync: false })
+    expect(c.stripe).toMatchObject({
+      label: 'Stripe payouts',
+      connected: true,
+      kind: 'connect',
+      autoSync: false,
+      canSync: false,
+    })
 
-    drive({ calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null }, { stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: false })
+    drive(
+      { calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null },
+      { stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true, stripe_connect_payouts_enabled: false },
+    )
+    c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+    expect(c.stripe.connected).toBe(false)
+
+    drive(
+      { calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null },
+      { stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: false, stripe_connect_payouts_enabled: true },
+    )
     c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
     expect(c.stripe.connected).toBe(false)
   })

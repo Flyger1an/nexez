@@ -15,6 +15,7 @@ import { parseMoney } from './checkout';
 import { normalizeCurrency } from './currency';
 import { parseBuyerIdentity } from './buyer-identity';
 import { notifyBuyerOfNegotiationDecision } from './server/negotiation-notifications';
+import { ownerAllows } from './server/plan';
 
 /**
  * Core Negotiation Service - the brain of the Intelligent Negotiation Engine.
@@ -300,8 +301,21 @@ export class NegotiationService {
       { proposedPriceCents: buyerProposal.proposedPriceCents || null },
     );
 
+    // Per-page consent is necessary but not sufficient for paid AI execution.
+    // A queued negotiation can outlive a plan downgrade, so resolve the current
+    // owner entitlement at decision time. Entitlement reads fail closed to the
+    // deterministic rules path; they must never strand a polling buyer.
+    let aiAllowed = false;
+    if (page?.llm_opt_in === true && page?.owner_id) {
+      try {
+        aiAllowed = await ownerAllows(this.db(), page.owner_id, 'aiFeatures');
+      } catch {
+        aiAllowed = false;
+      }
+    }
+
     let llmDecision: NegotiationDecision;
-    if (page?.llm_opt_in === true) {
+    if (aiAllowed) {
       try {
         llmDecision = await this.getLLM().negotiate(rules, proposalForLLM, history);
       } catch {
@@ -310,10 +324,9 @@ export class NegotiationService {
         llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules);
       }
     } else {
-      // No per-page LLM consent → deterministic decision only. Every other LLM
-      // surface (simulate-llm / public-simulate) gates on llm_opt_in; without this
-      // an anonymous POST /api/negotiations spent a paid LLM completion per request
-      // against any published page, opted-in or not.
+      // Missing consent, a below-Launch owner, or an entitlement-read failure →
+      // deterministic decision only. This keeps the core negotiation state machine
+      // moving without spending a paid LLM completion.
       llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules);
     }
 

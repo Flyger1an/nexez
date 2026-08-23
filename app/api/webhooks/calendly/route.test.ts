@@ -3,15 +3,25 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(), hasSupabaseAdminEnv: vi.fn() }))
+const { planRef } = vi.hoisted(() => ({ planRef: { integrationsAllowed: true } }))
+vi.mock('../../../../lib/server/plan', () => ({
+  ownerAllows: vi.fn(async (_admin: unknown, _ownerId: string, feature: string) =>
+    feature === 'integrations' ? planRef.integrationsAllowed : false),
+}))
 
 import { POST } from './route'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { ownerAllows } from '../../../../lib/server/plan'
 
 const post = (opts: { slug?: string; headers?: Record<string, string> } = {}) => {
   const u = new URL('https://nexez.test/api/webhooks/calendly')
   if (opts.slug) u.searchParams.set('slug', opts.slug)
   return new Request(u, { method: 'POST', headers: opts.headers || {}, body: '{}' }) as any
 }
+
+beforeEach(() => {
+  planRef.integrationsAllowed = true
+})
 
 describe('POST /api/webhooks/calendly', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -178,11 +188,12 @@ describe('POST /api/webhooks/calendly - availability sync', () => {
   type Counts = { checkout?: number; created?: number; canceled?: number }
   // Full-flow harness: page lookup, dev header-secret path (page_secrets null),
   // event insert, the 3 booking-count legs, and the pages update capture.
-  function drive(page: Record<string, any>, counts: Counts) {
+  function drive(page: Record<string, any>, counts: Counts, contexts: any[] = []) {
     const updates: any[] = []
     vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
     vi.mocked(createAdminClient).mockReturnValue(
       createSupabaseMock((ctx) => {
+        contexts.push(ctx)
         if (ctx.table === 'pages' && ctx.op === 'select') return { data: [page], error: null }
         if (ctx.table === 'pages' && ctx.op === 'update') {
           updates.push(ctx.payload)
@@ -255,5 +266,20 @@ describe('POST /api/webhooks/calendly - availability sync', () => {
     const res = await POST(bookingPost('invitee.created', 'Deep Tissue Massage'))
     expect((await res.json()).availability_sync).toBeNull()
     expect(updates.find((u) => u.services)).toBeUndefined()
+  })
+
+  it('records the inbound booking but suspends listing automation after downgrade', async () => {
+    planRef.integrationsAllowed = false
+    const contexts: any[] = []
+    const updates = drive(pageRow(), { created: 2 }, contexts)
+
+    const res = await POST(bookingPost('invitee.created', 'Deep Tissue Massage'))
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).availability_sync).toBeNull()
+    expect(contexts.some((ctx) => ctx.table === 'checkout_events' && ctx.op === 'insert')).toBe(true)
+    expect(updates.some((update) => update.last_booking)).toBe(true)
+    expect(updates.some((update) => update.services || update.products)).toBe(false)
+    expect(ownerAllows).toHaveBeenCalledWith(expect.anything(), 'o1', 'integrations')
   })
 })

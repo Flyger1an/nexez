@@ -40,5 +40,5 @@ Do not imply processor fees are included, and do not describe external-provider 
 
 - Do not promise that a particular ACP/UCP surface is live for every merchant; enrollment is independent per surface.
 - Commission defaults come from `lib/billing.ts`; negotiated Enterprise rates come from the owner-aware server resolver.
-- `agenticCheckout` remains a compatibility capability at rank 0. Do not introduce a Pro upgrade gate for checkout, discovery, or settlement readiness.
+- Checkout is intentionally absent from the paid-feature matrix. Do not introduce an upgrade gate for checkout, discovery, or settlement readiness; resolve those from operational readiness instead.
 - Sell paid plans on leverage, scale, control, automation, and better economics.

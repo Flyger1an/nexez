@@ -8,6 +8,7 @@ import { StripeImporter, ShopifyImporter, AcuityImporter, SquareImporter } from 
 import { CalendlyTool } from '../../../components/tools/CalendlyTool'
 import { PlanGate } from '../../../components/billing/PlanGate'
 import { usePlan } from '../../../components/billing/PlanProvider'
+import { planAllows } from '../../../lib/billing'
 
 type OutboundWebhook = {
   id: string
@@ -21,12 +22,10 @@ type OutboundWebhook = {
 
 export default function ToolsPage() {
   const plan = usePlan()
+  const outboundWebhooksAllowed = planAllows(plan, 'outboundWebhooks')
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
-
-  // Developer platform - API keys are managed via <ApiKeysManager />
-  const revenueShare = 15 // % on agent-driven transactions
 
   // Account-level outbound webhooks: persisted server-side (DB + RLS) and
   // delivered, HMAC-signed, on real booking + checkout/re-sync events.
@@ -125,21 +124,13 @@ export default function ToolsPage() {
     <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-8">
       <h2 className="text-2xl font-semibold">Developer platform &amp; API</h2>
       <p className="mt-2 text-[#9CA3AF]">
-        Public APIs and agent endpoints, plus revenue share on agent-driven sales.
+        Public agent endpoints plus private management APIs for eligible plans.
       </p>
       <div className="mt-4">
-        <PlanGate
-          feature="apiAccess"
-          currentPlan={plan}
-          variant="tile"
-          title="API access & keys"
-          description="Mint API keys and manage your agent pages programmatically via the REST API. Available on the Pro plan and up."
-        >
-          <ApiKeysManager />
-        </PlanGate>
+        <ApiKeysManager currentPlan={plan} />
       </div>
       <div className="mt-4 text-sm space-y-1.5">
-        <div className="text-zinc-300">Revenue share: {revenueShare}% on agent-driven transactions.</div>
+        <div className="text-zinc-300">Your current settlement commission and transaction economics are shown in Billing.</div>
         <a href="/openapi.json" className="text-[var(--signal)] hover:underline block">OpenAPI spec - full endpoint reference →</a>
         <a href="/agent-pages.json" className="text-[var(--signal)] hover:underline block">Public agent index →</a>
         <a href="/api/directory" className="text-[var(--signal)] hover:underline block">Directory API - readiness &amp; trust signals →</a>
@@ -281,7 +272,17 @@ export default function ToolsPage() {
           )}
         </div>
 
-        <CalendlyTool />
+        <div className="mt-8">
+          <PlanGate
+            feature="integrations"
+            currentPlan={plan}
+            variant="tile"
+            title="Calendly import & sync"
+            description="Import event types, configure signed booking updates, and keep availability synchronized. Available on the Pro plan and up."
+          >
+            <CalendlyTool />
+          </PlanGate>
+        </div>
 
         {/* Import offers from your other connected tools */}
         <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
@@ -292,7 +293,7 @@ export default function ToolsPage() {
             <div>
               <h2 className="text-2xl font-semibold">Connect more tools</h2>
               <p className="mt-1 text-sm text-[#9CA3AF]">
-                Import offers from Stripe, Shopify, Square, and Acuity - each becomes an editable, agent-ready page.
+                Use Pro credentials to import offers from Stripe catalogs, Shopify Admin, Square, and Acuity. The installed Shopify App Store connector is available on every plan.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full border border-[var(--signal)]/25 bg-[var(--signal)]/10 px-2.5 py-0.5 text-[11px] text-[var(--signal)]">Stripe</span>
@@ -308,7 +309,7 @@ export default function ToolsPage() {
               currentPlan={plan}
               variant="tile"
               title="Connect your tools"
-              description="Import offers from Stripe, Shopify, Square, and Acuity - and keep them synced. Available on the Pro plan and up."
+              description="Import with manually supplied Stripe, Shopify, Square, and Acuity credentials and keep them synced. Available on Pro and up; installed Shopify OAuth is included on every plan."
             >
               <StripeImporter />
               <ShopifyImporter />
@@ -324,13 +325,13 @@ export default function ToolsPage() {
             <ul className="text-sm text-[#9CA3AF] space-y-1.5">
               <li>• <span className="text-[var(--ready)]">Calendly</span> - event types, plus webhooks and signing secrets</li>
               <li>• <span className="text-[var(--signal)]">Stripe</span> - products, prices, and live price re-sync</li>
-              <li>• <span className="text-[var(--signal)]">Shopify / Woo</span> - product catalog via the public feed</li>
+              <li>• <span className="text-[var(--signal)]">Shopify</span> - installed OAuth on every plan, or manual Admin credentials on Pro</li>
               <li>• <span className="text-[var(--signal)]">Square</span> - bookings and payments for mobile, wellness, and home services</li>
               <li>• <span className="text-[var(--amber)]">Acuity Scheduling</span> - appointment types for coaching, beauty, and wellness</li>
-              <li>• <span className="text-[var(--signal)]">Google Calendar</span> - availability windows</li>
+              <li>• <span className="text-[var(--signal)]">Google Calendar</span> - sample availability windows (not connected or synced)</li>
               <li>• CSV and website hybrid import</li>
             </ul>
-            <p className="mt-3 text-[10px] text-zinc-500">Connect once, then keep your pages fresh for agents automatically.</p>
+            <p className="mt-3 text-[10px] text-zinc-500">Connected providers can resync; Google samples and one-time imports remain explicitly labeled.</p>
           </div>
 
           {/* Account-level outbound webhooks for Zapier, Make, and custom automations. */}
@@ -348,28 +349,30 @@ export default function ToolsPage() {
               title="Outbound webhooks"
               description="deliver signed booking & checkout events to Zapier, Make, or your own URL. Pro plan and up."
             >
-            <div className="flex gap-2">
-              <input
-                type="url"
-                placeholder="https://your-webhook.site/endpoint"
-                className="flex-1 input text-sm"
-                value={outboundWebhookUrl}
-                onChange={(e) => setOutboundWebhookUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addWebhook()
-                  }
-                }}
-              />
-              <button
-                onClick={addWebhook}
-                disabled={webhookBusy || !outboundWebhookUrl.trim()}
-                className="rounded border border-white/20 px-4 text-sm hover:bg-white/5 disabled:opacity-50"
-              >
-                {webhookBusy ? <Loader2 className="size-4 animate-spin" /> : 'Add'}
-              </button>
-            </div>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="https://your-webhook.site/endpoint"
+                  className="flex-1 input text-sm"
+                  value={outboundWebhookUrl}
+                  onChange={(e) => setOutboundWebhookUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addWebhook()
+                    }
+                  }}
+                />
+                <button
+                  onClick={addWebhook}
+                  disabled={webhookBusy || !outboundWebhookUrl.trim()}
+                  className="rounded border border-white/20 px-4 text-sm hover:bg-white/5 disabled:opacity-50"
+                >
+                  {webhookBusy ? <Loader2 className="size-4 animate-spin" /> : 'Add'}
+                </button>
+              </div>
+            </PlanGate>
+
             {webhookError && <p className="mt-2 text-[11px] text-[var(--amber)]">{webhookError}</p>}
 
             {outboundWebhooks.length > 0 ? (
@@ -379,9 +382,11 @@ export default function ToolsPage() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="min-w-0 truncate font-mono text-[var(--ready)]">{wh.url}</span>
                       <div className="flex shrink-0 items-center gap-2">
-                        <button onClick={() => testWebhook(wh.id)} className="text-[10px] text-[var(--signal)] hover:underline">
-                          Send test
-                        </button>
+                        {outboundWebhooksAllowed ? (
+                          <button onClick={() => testWebhook(wh.id)} className="text-[10px] text-[var(--signal)] hover:underline">
+                            Send test
+                          </button>
+                        ) : null}
                         <button onClick={() => removeWebhook(wh.id)} className="text-[10px] text-zinc-500 hover:text-[var(--amber)]">
                           Remove
                         </button>
@@ -415,9 +420,12 @@ export default function ToolsPage() {
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-[11px] text-zinc-500">No webhooks yet - add a URL to start receiving signed events.</p>
+              <p className="mt-3 text-[11px] text-zinc-500">
+                {outboundWebhooksAllowed
+                  ? 'No webhooks yet - add a URL to start receiving signed events.'
+                  : 'No retained webhooks to remove.'}
+              </p>
             )}
-            </PlanGate>
           </div>
         </div>
 

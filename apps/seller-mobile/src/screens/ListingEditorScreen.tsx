@@ -2,8 +2,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { Card, ErrorState, LoadingState, Screen, SegmentedControl, StackHeader, TextField, ToggleRow } from '@/src/components/ui'
-import { formatFaqLines, formatOfferLines, getReadinessScore, normalizeSlug, parseFaqLines, parseOfferLines } from '@/src/lib/agent-page'
+import { formatFaqLines, formatOfferLines, getReadinessScore, mergeOfferLines, normalizeSlug, parseFaqLines, parseOfferLines } from '@/src/lib/agent-page'
 import { createPage, updatePage } from '@/src/lib/data'
+import { listingWriteErrorMessage } from '@/src/lib/listing-write-error'
 import { colors, fonts } from '@/src/theme/colors'
 import { useListing } from '@/src/hooks/useListings'
 import { useSession } from '@/src/hooks/useSession'
@@ -55,12 +56,18 @@ export function ListingEditorScreen({ create = false }: { create?: boolean }) {
     if (!user) return
     setSaving(true)
     setMessage('')
-    const payload = { ...page, slug: page.slug || normalizeSlug(page.name || ''), services: parseOfferLines(servicesText), products: parseOfferLines(productsText), faqs: parseFaqLines(faqsText) }
+    const payload = {
+      ...page,
+      slug: page.slug || normalizeSlug(page.name || ''),
+      services: mergeOfferLines(servicesText, page.services),
+      products: mergeOfferLines(productsText, page.products),
+      faqs: parseFaqLines(faqsText),
+    }
     try {
       const saved = create ? await createPage(user.id, payload) : await updatePage(id, payload)
       router.replace({ pathname: '/listing/[id]', params: { id: saved.id } })
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Could not save listing.')
+      setMessage(listingWriteErrorMessage(err))
     } finally {
       setSaving(false)
     }

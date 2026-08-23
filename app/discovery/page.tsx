@@ -8,6 +8,7 @@ import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
 import { loadReviewSummariesForSlugs } from '../../lib/server/reviews'
 import { loadPublicStorefronts, loadStorefrontHandlesForSlugs } from '../../lib/server/storefront'
+import { resolvePublicCommerceCapabilities } from '../../lib/server/public-commerce-capabilities'
 import { CopyButton } from './CopyButton'
 import { LocationFilter } from './LocationFilter'
 import { RankingReasons } from './RankingReasons'
@@ -73,10 +74,11 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
 
   const visiblePages = publicLaunchVisiblePages(pages)
   const visibleSlugs = visiblePages.map((page) => page.slug)
-  const [storefronts, storefrontHandles, reviewSummaries] = await Promise.all([
+  const [storefronts, storefrontHandles, reviewSummaries, commerceCapabilities] = await Promise.all([
     loadPublicStorefronts(8),
     loadStorefrontHandlesForSlugs(visibleSlugs),
     loadReviewSummariesForSlugs(visibleSlugs, 0),
+    resolvePublicCommerceCapabilities(visibleSlugs),
   ])
   let filteredPages = visiblePages
   if (categoryFilter !== 'all') {
@@ -105,6 +107,8 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
     location: cleanLocation,
     storefrontHandles,
     reviewSummaries,
+    negotiationEligibleSlugs: commerceCapabilities.negotiationEligibleSlugs,
+    checkoutReadySlugs: commerceCapabilities.checkoutReadySlugs,
   })
 
   const results = allResults.filter((result) => {
@@ -547,7 +551,7 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
             <Store className="size-4" />
           </TrackedDirectoryLink>
         ) : null}
-        {offer ? (
+        {offer?.checkout_url ? (
           <TrackedDirectoryLink
             href={offer.checkout_url}
             slug={result.page.slug}
@@ -557,7 +561,11 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
             offerKind={offer.type === 'product' ? 'products' : 'services'}
             className="btn-primary inline-flex items-center gap-2 text-sm"
           >
-            Checkout
+            {offer.action?.type === 'negotiation'
+              ? 'Make an offer'
+              : offer.action == null && offer.checkout_url === offer.provider_url
+                ? 'Open provider'
+                : 'Checkout'}
             <ArrowRight className="size-4" />
           </TrackedDirectoryLink>
         ) : null}

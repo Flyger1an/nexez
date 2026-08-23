@@ -83,7 +83,9 @@ describe('GET /api/pages/[id]/settings-context', () => {
         domain_verification_token: 'tok',
         calendly_connected: true, // boolean derived from ciphertext presence
       },
+      agenticCommerce: { connectReady: false },
     })
+    expect(json.agenticCommerce).not.toHaveProperty('planAllowsCheckout')
     // Unified connection state drives the Integrations panel (booleans only).
     const cal = (json.integrations as any[]).find((c) => c.provider === 'calendly')
     expect(cal).toMatchObject({ connected: true, kind: 'token', canSync: true })

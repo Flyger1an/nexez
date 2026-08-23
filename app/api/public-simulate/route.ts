@@ -28,6 +28,7 @@ import {
 } from '@/lib/public-simulator'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { scheduleCommerceDemandSignal } from '@/lib/server/commerce-demand'
+import { resolvePublicCommerceCapabilities } from '@/lib/server/public-commerce-capabilities'
 import { supabase } from '@/lib/supabase'
 
 const DISCOVERY_STOPWORDS = new Set([
@@ -513,7 +514,11 @@ export async function POST(request: Request) {
     requestId,
   }))
 
-  // Public, unauthenticated endpoint that may invoke a paid LLM and reads live marketplace supply - throttle it.
+  // Explicit core-discovery exception: this buyer-facing, unauthenticated
+  // simulator may use a platform-funded LLM only to compose public marketplace
+  // facts and reference-library guidance. It never rewrites a merchant listing
+  // or unlocks the private competitor-analysis/refinement tools covered by the
+  // owner's Launch `aiFeatures` entitlement. Throttle the public cost surface.
   const limited = await enforceRateLimit(request, 'public-simulate', 20, 60_000)
   if (limited) return limited
 
@@ -559,7 +564,13 @@ export async function POST(request: Request) {
 
     const visiblePages = publicLaunchVisiblePages(pages)
     const simulation = simulationPayload(trimmedQuery)
-    const searchResults = searchAgentPages(visiblePages, trimmedQuery, 5, baseUrl)
+    const commerceCapabilities = await resolvePublicCommerceCapabilities(
+      visiblePages.map((page) => page.slug),
+    )
+    const searchResults = searchAgentPages(visiblePages, trimmedQuery, 5, baseUrl, {
+      negotiationEligibleSlugs: commerceCapabilities.negotiationEligibleSlugs,
+      checkoutReadySlugs: commerceCapabilities.checkoutReadySlugs,
+    })
     const requiredIdentityTerms = simulation?.candidate.matchedIdentityTerms ??
       commerceRequestedCatalogIdentityTerms(trimmedQuery, commerceReferenceCandidates)
     const matchedResult = searchResults.find((result) =>

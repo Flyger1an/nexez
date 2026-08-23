@@ -1,9 +1,10 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../utils/supabase/server'
-import { getOwnerPlanId } from '../../lib/server/plan'
+import { getOwnerEntitlements } from '../../lib/server/plan'
+import { getPlanFeatureEntitlements, getSerializablePlanLimits, type PlanId } from '../../lib/billing'
 import { ensureBillingSeeded, hasBillingAccount, isSelectablePlan } from '../../lib/server/trial'
-import { PlanProvider } from '../../components/billing/PlanProvider'
+import { PlanProvider, type DashboardEntitlements } from '../../components/billing/PlanProvider'
 
 /**
  * Resolves the viewer's plan once for the whole dashboard and provides it via
@@ -15,7 +16,12 @@ import { PlanProvider } from '../../components/billing/PlanProvider'
  * (per-page gates still enforce), so a blip can't cause a redirect loop.
  */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  let plan: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
+  let plan: PlanId = 'free'
+  let entitlements: DashboardEntitlements = {
+    planId: plan,
+    features: getPlanFeatureEntitlements(plan),
+    limits: getSerializablePlanLimits(plan),
+  }
   let signedOut = false
   let needsPlanSelection = false
   // A transient auth/billing blip here should degrade to a free-gated dashboard,
@@ -29,7 +35,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       error: authError,
     } = await supabase.auth.getUser()
     signedOut = !user && !authError
-    plan = await getOwnerPlanId(supabase, user?.id)
+    const resolved = await getOwnerEntitlements(supabase, user?.id)
+    plan = resolved.planId
+    entitlements = { planId: plan, features: resolved.features, limits: resolved.limits }
     // Backstop for delayed email confirmation: seed only a plan the user explicitly
     // selected. A plan-less account is routed back to onboarding instead of receiving
     // an implicit Pro trial. Existing billing rows (legacy, paused, or paid) are preserved.
@@ -39,11 +47,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
       if (!hasBilling && !isSelectablePlan(planMeta)) {
         needsPlanSelection = true
       } else if (!hasBilling && await ensureBillingSeeded(user.id, planMeta)) {
-        plan = await getOwnerPlanId(supabase, user.id)
+        const reseeded = await getOwnerEntitlements(supabase, user.id)
+        plan = reseeded.planId
+        entitlements = { planId: plan, features: reseeded.features, limits: reseeded.limits }
       }
     }
   } catch {
     plan = 'free'
+    entitlements = {
+      planId: plan,
+      features: getPlanFeatureEntitlements(plan),
+      limits: getSerializablePlanLimits(plan),
+    }
   }
 
   // Outside the try: redirect() throws NEXT_REDIRECT, which the catch above
@@ -52,7 +67,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (needsPlanSelection) redirect('/onboard?next=/dashboard')
 
   return (
-    <PlanProvider plan={plan}>
+    <PlanProvider entitlements={entitlements}>
       <div className="nx-platform-surface contents">{children}</div>
     </PlanProvider>
   )

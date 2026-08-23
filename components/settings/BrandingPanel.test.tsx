@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../../test/dom'
 import { BrandingPanel, type BrandingValues } from './BrandingPanel'
+import type { PlanId } from '../../lib/billing'
 
 const uploadMock = vi.fn()
 const getPublicUrlMock = vi.fn()
@@ -15,20 +16,20 @@ vi.mock('../../utils/supabase/client', () => ({
 
 const EMPTY: BrandingValues = { brandName: '', accentColor: '', logoUrl: '', hideNexezBadge: false }
 
-function setup(values: Partial<BrandingValues> = {}, websiteUrl = 'https://example.com') {
+function setup(values: Partial<BrandingValues> = {}, websiteUrl = 'https://example.com', plan: PlanId = 'pro') {
   const onChange = vi.fn()
   const onMessage = vi.fn()
-  render(
+  const rendered = render(
     <BrandingPanel
       pageId="page-1"
-      plan="pro"
+      plan={plan}
       websiteUrl={websiteUrl}
       values={{ ...EMPTY, ...values }}
       onChange={onChange}
       onMessage={onMessage}
     />,
   )
-  return { onChange, onMessage }
+  return { onChange, onMessage, ...rendered }
 }
 
 afterEach(() => {
@@ -99,17 +100,81 @@ describe('BrandingPanel', () => {
     await waitFor(() => expect((screen.getByText(/One-click/) as HTMLButtonElement).disabled).toBe(false))
   })
 
-  it('gates the plan-limited features behind an upgrade badge on Free', () => {
-    render(
-      <BrandingPanel
-        pageId="page-1"
-        plan="free"
-        websiteUrl="https://example.com"
-        values={EMPTY}
-        onChange={vi.fn()}
-        onMessage={vi.fn()}
-      />,
-    )
-    expect(screen.getAllByText(/Pro|Upgrade|Launch/i).length).toBeGreaterThan(0)
+  it('fails closed for new branding, uploads, detection, and badge removal below Launch', () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const { onChange, container } = setup({}, 'https://example.com', 'free')
+
+    expect(screen.getByPlaceholderText('Apex Plumbing Co.')).toHaveAttribute('readonly')
+    expect(screen.getByPlaceholderText('#7C3AED')).toHaveAttribute('readonly')
+    expect(screen.getByPlaceholderText('https://apexplumbing.com/logo.svg')).toHaveAttribute('readonly')
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    expect(fileInput).toBeDisabled()
+    expect(screen.getByRole('button', { name: /One-click/ })).toBeDisabled()
+    expect(screen.getByRole('switch', { name: 'Nexez attribution' })).toBeDisabled()
+
+    fireEvent.change(screen.getByPlaceholderText('Apex Plumbing Co.'), { target: { value: 'Blocked' } })
+    fireEvent.change(fileInput, {
+      target: { files: [new File(['logo'], 'logo.png', { type: 'image/png' })] },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /One-click/ }))
+    expect(onChange).not.toHaveBeenCalled()
+    expect(uploadMock).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('link', { name: /Launch/ }).length).toBeGreaterThan(0)
+  })
+
+  it('labels retained branding paused and keeps explicit cleanup available after downgrade', () => {
+    const { onChange, onMessage } = setup({
+      brandName: 'Apex',
+      accentColor: '#7C3AED',
+      logoUrl: 'https://cdn.example.com/logo.png',
+      hideNexezBadge: true,
+    }, 'https://example.com', 'free')
+
+    expect(screen.getByText(/configured but paused/i)).toBeInTheDocument()
+    expect(screen.getByText(/Configured · paused; turn off to clear/i)).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Nexez attribution' })).toBeEnabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset premium branding' }))
+    expect(onChange).toHaveBeenCalledWith({
+      brandName: '',
+      accentColor: '',
+      logoUrl: '',
+      hideNexezBadge: false,
+    })
+    expect(onMessage).toHaveBeenCalledWith(expect.stringMatching(/Save Settings/i))
+  })
+
+  it('allows a downgraded owner to clear retained badge removal directly', () => {
+    const { onChange } = setup({ hideNexezBadge: true }, 'https://example.com', 'free')
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Nexez attribution' }))
+    expect(onChange).toHaveBeenCalledWith({ hideNexezBadge: false })
+  })
+
+  it('unlocks premium branding at the matrix-derived Launch tier', () => {
+    const { onChange } = setup({}, 'https://example.com', 'launch')
+
+    const brandName = screen.getByPlaceholderText('Apex Plumbing Co.')
+    expect(brandName).not.toHaveAttribute('readonly')
+    expect(screen.getByRole('button', { name: /One-click/ })).toBeEnabled()
+    expect(screen.getByRole('switch', { name: 'Nexez attribution' })).toBeEnabled()
+    fireEvent.change(brandName, { target: { value: 'Launch Brand' } })
+    expect(onChange).toHaveBeenCalledWith({ brandName: 'Launch Brand' })
+  })
+
+  it('allows an entitled owner to upload a new logo', async () => {
+    uploadMock.mockResolvedValue({ error: null })
+    getPublicUrlMock.mockReturnValue({ data: { publicUrl: 'https://cdn.example.com/new-logo.png' } })
+    const { onChange, container } = setup({}, 'https://example.com', 'launch')
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+
+    fireEvent.change(fileInput, {
+      target: { files: [new File(['logo'], 'logo.png', { type: 'image/png' })] },
+    })
+
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith({ logoUrl: 'https://cdn.example.com/new-logo.png' }))
+    expect(uploadMock).toHaveBeenCalledTimes(1)
   })
 })

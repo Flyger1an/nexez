@@ -8,7 +8,7 @@ import { TEAM_ROLES, TeamRole, isValidEmail, roleLabel } from '../lib/team'
 
 type Invite = { id: string; email: string; role: TeamRole; status: string; created_at: string }
 
-export function TeamInvites() {
+export function TeamInvites({ collaborationEnabled = true }: { collaborationEnabled?: boolean }) {
   const [invites, setInvites] = useState<Invite[]>([])
   const [loading, setLoading] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -49,7 +49,7 @@ export function TeamInvites() {
   }
 
   async function invite() {
-    if (inviting) return
+    if (inviting || !collaborationEnabled) return
     if (!isValidEmail(email)) {
       setMessageTone('error')
       setMessage('Enter a valid email.')
@@ -142,11 +142,12 @@ export function TeamInvites() {
         <h2 id="team-settings-title" className="text-xl font-semibold">Team access</h2>
       </div>
       <p className="mt-1 text-sm text-[var(--fg-muted)]">
-        Invite teammates by email - they get role-based access to your listings and negotiations. We email them a link to
-        join; they sign in with that same email to get access.
+        {collaborationEnabled
+          ? 'Invite teammates by email - editors can update listing content and page-scoped configuration under your plan. Account and storefront administration, transaction decisions, money movement, negotiation lifecycle, and final approvals remain owner-only. We email them a link to join; they sign in with that same email to get access.'
+          : 'Collaboration is inactive on this plan. Existing members remain listed so you can revoke retained access.'}
       </p>
 
-      <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
+      {collaborationEnabled ? <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
         <div className="relative flex-1">
           <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted-2)]" />
           <label htmlFor="team-invite-email" className="sr-only">Teammate email</label>
@@ -180,7 +181,7 @@ export function TeamInvites() {
           {inviting ? <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden="true" /> : null}
           {inviting ? 'Inviting…' : 'Invite'}
         </button>
-      </div>
+      </div> : null}
       {message && (
         <p
           role={messageTone === 'error' ? 'alert' : 'status'}
@@ -201,7 +202,7 @@ export function TeamInvites() {
           </div>
         ) : invites.length === 0 ? (
           <EmptyState icon={Users} title="No teammates yet">
-            Invite collaborators to help manage your listings and negotiations - they get scoped, role-based access without
+            Invite collaborators to help edit your listings - they get scoped, role-based access without
             sharing your login.
           </EmptyState>
         ) : (
@@ -220,7 +221,7 @@ export function TeamInvites() {
                 <select
                   id={`team-role-${inv.id}`}
                   value={inv.role}
-                  disabled={revoked || isBusy}
+                  disabled={revoked || isBusy || !collaborationEnabled}
                   onChange={(event) => void updateRole(inv.id, event.target.value as TeamRole)}
                   className="min-h-11 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-xs text-[var(--fg)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:opacity-50"
                 >

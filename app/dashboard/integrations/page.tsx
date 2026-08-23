@@ -3,24 +3,56 @@
 import { useEffect, useState } from 'react'
 import {
   Calendar,
+  CalendarClock,
   CheckCircle2,
   CreditCard,
   Download,
   ExternalLink,
+  Lock,
   MoreHorizontal,
   Settings,
   ShoppingCart,
+  Square as SquareIcon,
   Workflow,
 } from 'lucide-react'
-import { UpgradeBanner } from '../../../components/billing/PlanGate'
-import { usePlan } from '../../../components/billing/PlanProvider'
-import { planAllows } from '../../../lib/billing'
-import { appUrl } from '../../../lib/site'
-import { Lock } from 'lucide-react'
-import { loadIntegrations, type IntegrationStatusRow } from '../../../lib/integration-status'
+import { UpgradeBanner, upgradeHref } from '../../../components/billing/PlanGate'
+import { usePlanEntitlements } from '../../../components/billing/PlanProvider'
+import { minPlanForFeature } from '../../../lib/billing'
+import {
+  loadIntegrations,
+  loadStripeConnectStatus,
+  type IntegrationStatusRow,
+} from '../../../lib/integration-status'
+import {
+  getStripeConnectPayoutReadiness,
+  type StripeConnectReadinessInput,
+} from '../../../lib/stripe-connect-readiness'
 
 const integrations = [
   {
+    id: 'stripe-payouts',
+    name: 'Stripe payouts',
+    description: 'Set up your payout account for agent-driven transaction revenue. Available on every Nexez plan.',
+    status: 'Setup required',
+    action: 'Set up payouts',
+    href: '/dashboard/billing',
+    icon: CreditCard,
+    accent: 'cyan',
+    requiresIntegrations: false,
+  },
+  {
+    id: 'stripe-catalog',
+    name: 'Stripe catalog',
+    description: 'Import Stripe products and prices as offers, then keep catalog data in sync.',
+    status: 'Available',
+    action: 'Import in Tools',
+    href: '/dashboard/tools',
+    icon: ShoppingCart,
+    accent: 'cyan',
+    requiresIntegrations: true,
+  },
+  {
+    id: 'calendly',
     name: 'Calendly',
     description: 'Turn your event types into bookable offers with direct scheduling links.',
     status: 'Available',
@@ -28,26 +60,21 @@ const integrations = [
     href: '/dashboard/tools',
     icon: Calendar,
     accent: 'violet',
+    requiresIntegrations: true,
   },
   {
-    name: 'Stripe',
-    description: 'Billing (subs + Connect payouts) in Billing page. Import products/prices as offers in Tools (or re-sync Stripe-sourced offers).',
-    status: 'Available',
-    action: 'Billing / Tools',
-    href: '/dashboard/billing',
-    icon: CreditCard,
-    accent: 'cyan',
-  },
-  {
+    id: 'google-calendar',
     name: 'Google Calendar',
-    description: 'Expose real availability windows so agents can suggest open times.',
-    status: 'Available',
-    action: 'Connect',
-    href: '/create',
+    description: 'Generate sample availability windows in a listing. This does not connect to or sync Google Calendar.',
+    status: 'Sample only',
+    action: 'Open listings',
+    href: '/dashboard',
     icon: Calendar,
     accent: 'blue',
+    requiresIntegrations: true,
   },
   {
+    id: 'automation',
     name: 'Zapier / Make',
     description: 'Send every agent-driven booking to your CRM and thousands of other apps.',
     status: 'Available',
@@ -55,17 +82,54 @@ const integrations = [
     href: '/dashboard/settings',
     icon: Workflow,
     accent: 'zinc',
+    requiresIntegrations: true,
   },
   {
-    name: 'Shopify / Woo',
-    description: 'Import your product catalog with pricing, ready for agents to purchase.',
+    id: 'shopify-app',
+    name: 'Shopify App Store',
+    description: 'Install Nexez from Shopify admin for catalog sync and storefront agent artifacts. Available on every plan.',
+    status: 'Every plan',
+    action: 'Installation steps',
+    href: '/dashboard/shopify',
+    icon: ShoppingCart,
+    accent: 'purple',
+    requiresIntegrations: false,
+  },
+  {
+    id: 'shopify-admin',
+    name: 'Shopify Admin import',
+    description: 'Import and re-sync a catalog with manually entered Shopify Admin API credentials. Requires Pro.',
     status: 'Available',
     action: 'Import in Tools',
     href: '/dashboard/tools',
     icon: ShoppingCart,
     accent: 'purple',
+    requiresIntegrations: true,
   },
   {
+    id: 'square',
+    name: 'Square',
+    description: 'Import POS and inventory context for mobile, wellness, and local services.',
+    status: 'Available',
+    action: 'Import in Tools',
+    href: '/dashboard/tools',
+    icon: SquareIcon,
+    accent: 'blue',
+    requiresIntegrations: true,
+  },
+  {
+    id: 'acuity',
+    name: 'Acuity Scheduling',
+    description: 'Import appointment types, duration, and scheduling context as bookable offers.',
+    status: 'Available',
+    action: 'Import in Tools',
+    href: '/dashboard/tools',
+    icon: CalendarClock,
+    accent: 'violet',
+    requiresIntegrations: true,
+  },
+  {
+    id: 'csv',
     name: 'CSV Upload',
     description: 'Bulk-import products, services, and FAQs from a spreadsheet.',
     status: 'Manual',
@@ -73,15 +137,19 @@ const integrations = [
     href: '/create?import=csv',
     icon: Download,
     accent: 'zinc',
+    requiresIntegrations: false,
   },
-]
+] as const
 
 export default function IntegrationsPage() {
-  const plan = usePlan()
+  const entitlements = usePlanEntitlements()
+  const plan = entitlements.planId
   const [calendlyConnection, setCalendlyConnection] = useState<{ lastSync: string; maskedToken: string } | null>(null)
   const [calendlyWebhook, setCalendlyWebhook] = useState<{ lastSaved: string } | null>(null)
   const [stripeConnection, setStripeConnection] = useState<{ lastImport: string } | null>(null)
   const [shopifyConnection, setShopifyConnection] = useState<{ lastImport: string } | null>(null)
+  const [stripeConnectStatus, setStripeConnectStatus] = useState<StripeConnectReadinessInput>(null)
+  const [stripeConnectLoaded, setStripeConnectLoaded] = useState(false)
   // Server-of-record status (cross-device), keyed by provider. localStorage stays
   // as an instant/offline fallback for connections made before this row landed.
   const [dbStatus, setDbStatus] = useState<Record<string, IntegrationStatusRow>>({})
@@ -102,9 +170,11 @@ export default function IntegrationsPage() {
     } catch {}
 
     let cancelled = false
-    loadIntegrations().then((rows) => {
+    void Promise.all([loadIntegrations(), loadStripeConnectStatus()]).then(([rows, connectStatus]) => {
       if (cancelled) return
-      setDbStatus(Object.fromEntries(rows.map((r) => [r.provider, r])))
+      setDbStatus(Object.fromEntries(rows.map((row) => [row.provider, row])))
+      setStripeConnectStatus(connectStatus)
+      setStripeConnectLoaded(true)
     })
     return () => {
       cancelled = true
@@ -112,10 +182,35 @@ export default function IntegrationsPage() {
   }, [])
 
   const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const integrationsAllowed = entitlements.features.integrations === true
+  const payoutReadiness = getStripeConnectPayoutReadiness(stripeConnectStatus)
 
   // Dynamic status: DB row (cross-device) wins, localStorage is the fallback.
   const dynamicIntegrations = integrations.map((int) => {
-    if (int.name === 'Calendly') {
+    if (int.id === 'stripe-payouts') {
+      if (!stripeConnectLoaded) {
+        return { ...int, status: 'Checking setup', action: 'Open Billing' }
+      }
+      if (payoutReadiness.ready) {
+        return {
+          ...int,
+          status: 'Payouts ready',
+          description: 'Your Stripe account can accept agent-driven charges and receive payouts.',
+          action: 'Manage payouts',
+        }
+      }
+      if (payoutReadiness.accountCreated) {
+        return {
+          ...int,
+          status: 'Setup incomplete',
+          description: 'Your Stripe account is saved, but charges and payouts must both be enabled before settlement is ready.',
+          action: 'Finish setup',
+        }
+      }
+      return int
+    }
+
+    if (int.id === 'calendly') {
       const pat = dbStatus['calendly']
       const wh = dbStatus['calendly_webhook']
       const hasPat = !!pat || !!calendlyConnection
@@ -128,7 +223,7 @@ export default function IntegrationsPage() {
       }
     }
 
-    if (int.name === 'Stripe') {
+    if (int.id === 'stripe-catalog') {
       const row = dbStatus['stripe']
       if (row || stripeConnection) {
         return {
@@ -140,13 +235,25 @@ export default function IntegrationsPage() {
       }
     }
 
-    if (int.name === 'Shopify / Woo') {
+    if (int.id === 'shopify-admin') {
       const row = dbStatus['shopify']
       if (row || shopifyConnection) {
         return {
           ...int,
           status: 'Connected',
           description: `Connected • Last import ${fmtTime(row?.last_event_at ?? shopifyConnection!.lastImport)}`,
+          action: 'Manage in Tools',
+        }
+      }
+    }
+
+    if (int.id === 'square' || int.id === 'acuity') {
+      const row = dbStatus[int.id]
+      if (row) {
+        return {
+          ...int,
+          status: 'Connected',
+          description: `Connected • Last import ${fmtTime(row.last_event_at)}`,
           action: 'Manage in Tools',
         }
       }
@@ -161,16 +268,16 @@ export default function IntegrationsPage() {
         <UpgradeBanner
           feature="integrations"
           currentPlan={plan}
-          title="Integrations"
-          description="connect Calendly, Stripe, Shopify, Square & more and keep your offers in sync - on the Pro plan and up."
+          title="Premium integrations"
+          description="Manual catalog and scheduling connectors require Pro. Stripe payouts and the installed Shopify app stay available on every plan."
           className="mb-6"
         />
         <header className="surface-masthead">
           <p className="text-sm text-[var(--signal)]">Integrations &amp; imports</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight">Connect your tools. Import your offers.</h1>
           <p className="mt-4 max-w-3xl text-zinc-400">
-            Pull pricing, availability, and booking links from the tools you already use - then keep your agent listing in
-            sync automatically.
+            Set up transaction payouts or install the Shopify app on any plan. Pro and above can also connect manual
+            catalog and scheduling credentials and keep listing data in sync automatically.
           </p>
           <div className="mt-4 max-w-3xl rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-3 text-sm text-zinc-300">
             <span className="font-medium text-[var(--signal)]">New:</span> connect &amp; re-sync each integration right on the
@@ -192,9 +299,12 @@ export default function IntegrationsPage() {
               <p className="font-medium text-[var(--signal)] mb-3">What each integration does</p>
               <div className="space-y-2 text-zinc-300 text-[11px]">
                 <div className="flex justify-between gap-3"><span>Calendly</span><span className="text-right text-[var(--ready)]">Import, webhooks &amp; secrets</span></div>
-                <div className="flex justify-between gap-3"><span>Stripe</span><span className="text-right text-[var(--ready)]">Import &amp; live price sync</span></div>
-                <div className="flex justify-between gap-3"><span>Shopify</span><span className="text-right text-[var(--ready)]">Catalog import &amp; re-sync</span></div>
-                <div className="flex justify-between gap-3"><span>Google Calendar</span><span className="text-right text-[var(--ready)]">Availability windows</span></div>
+                <div className="flex justify-between gap-3"><span>Stripe payouts</span><span className="text-right text-[var(--ready)]">Every plan</span></div>
+                <div className="flex justify-between gap-3"><span>Stripe catalog</span><span className="text-right text-[var(--ready)]">Import &amp; live price sync</span></div>
+                <div className="flex justify-between gap-3"><span>Shopify App Store</span><span className="text-right text-[var(--ready)]">Every plan</span></div>
+                <div className="flex justify-between gap-3"><span>Shopify Admin API</span><span className="text-right text-[var(--ready)]">Manual import &amp; re-sync</span></div>
+                <div className="flex justify-between gap-3"><span>Square / Acuity</span><span className="text-right text-[var(--ready)]">Catalog &amp; scheduling</span></div>
+                <div className="flex justify-between gap-3"><span>Google Calendar</span><span className="text-right text-[var(--ready)]">Sample windows (not connected)</span></div>
                 <div className="flex justify-between gap-3"><span>Zapier / Make</span><span className="text-right text-[var(--ready)]">Outbound on every booking</span></div>
               </div>
               <div className="mt-3 pt-2 border-t border-[var(--signal)]/30 text-[var(--signal)] text-[10px]">
@@ -207,10 +317,12 @@ export default function IntegrationsPage() {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {dynamicIntegrations.map((integration) => (
                 <IntegrationCard
-                  key={integration.name}
+                  key={integration.id}
                   {...integration}
-                  // CSV / manual stays free; live connectors are gated to Pro.
-                  locked={!planAllows(plan, 'integrations') && integration.name !== 'CSV Upload'}
+                  status={!integrationsAllowed && integration.requiresIntegrations && integration.status === 'Connected'
+                    ? 'Paused by plan'
+                    : integration.status}
+                  locked={integration.requiresIntegrations && !integrationsAllowed}
                 />
               ))}
             </div>
@@ -231,35 +343,6 @@ export default function IntegrationsPage() {
               </a>
             </div>
 
-            {/* Consumer & local services */}
-            <div className="mt-6 card !p-5 border-[var(--signal)]/20 bg-[var(--signal)]/5">
-              <div className="font-semibold text-[var(--signal)] mb-3">Consumer &amp; local services</div>
-              <div className="grid gap-4 md:grid-cols-2 text-sm">
-                <div>
-                  <div className="flex items-center gap-2 font-medium">
-                    Square
-                    <span className="text-[9px] rounded bg-[var(--signal)]/10 px-1.5 py-0.5 text-[var(--signal)]">Consumer</span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-1.5 leading-5">
-                    Payments and bookings for mobile, wellness, and home services - with mobile, travel-fee, service-area,
-                    and duration fields.
-                  </p>
-                  <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-[var(--signal)] hover:underline">Import in Tools →</a>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 font-medium">
-                    Acuity Scheduling
-                    <span className="text-[9px] rounded bg-[var(--amber)]/10 px-1.5 py-0.5 text-[var(--amber)]">Consumer</span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-1.5 leading-5">
-                    Appointment types for coaching, beauty, medical, and fitness - time-based offers with duration and
-                    tiers.
-                  </p>
-                  <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-[var(--amber)] hover:underline">Import in Tools →</a>
-                </div>
-              </div>
-              <p className="mt-3 text-[11px] text-[var(--signal)]/80">Import once, then edit and re-sync from the listing editor.</p>
-            </div>
           </section>
         </div>
       </div>
@@ -286,7 +369,9 @@ function IntegrationCard({
   accent: string
   locked?: boolean
 }) {
-  const connected = status === 'Connected'
+  const connected = status === 'Connected' || status === 'Payouts ready'
+  const needsAttention = status === 'Setup incomplete' || status === 'Paused by plan'
+  const integrationsPlan = minPlanForFeature('integrations')
 
   return (
     <article className="card !p-5">
@@ -315,7 +400,7 @@ function IntegrationCard({
         {name}
         {locked && (
           <span className="inline-flex items-center gap-1 rounded-full border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--signal)]">
-            <Lock className="size-3" /> Pro
+            <Lock className="size-3" /> {integrationsPlan.name}
           </span>
         )}
       </h3>
@@ -324,7 +409,11 @@ function IntegrationCard({
       <div className="mt-6 flex flex-col gap-2 sm:flex-row">
         <span
           className={`inline-flex items-center justify-center gap-1 rounded-md px-3 py-2 text-sm font-medium ${
-            connected ? 'bg-[var(--ready)]/20 text-[var(--ready)]' : 'bg-white/10 text-zinc-300'
+            connected
+              ? 'bg-[var(--ready)]/20 text-[var(--ready)]'
+              : needsAttention
+                ? 'bg-[var(--amber)]/10 text-[var(--amber)]'
+                : 'bg-white/10 text-zinc-300'
           }`}
         >
           {connected ? <CheckCircle2 className="size-4" /> : <Settings className="size-4" />}
@@ -333,7 +422,7 @@ function IntegrationCard({
         {locked ? (
           // Gated for this plan - point straight at checkout instead of bouncing
           // through Tools to a teaser.
-          <a href={appUrl('/dashboard/billing?plan=pro')} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--signal-solid)] px-3 py-2 text-center text-sm font-semibold text-white hover:opacity-90">
+          <a href={upgradeHref(integrationsPlan.id)} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--signal-solid)] px-3 py-2 text-center text-sm font-semibold text-white hover:opacity-90">
             <Lock className="size-3.5" /> Upgrade to connect
           </a>
         ) : (

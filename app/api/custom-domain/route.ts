@@ -9,12 +9,21 @@ import {
   type VercelDomainStatus,
 } from '../../../lib/vercel-domains'
 import { getOwnerPlanId } from '../../../lib/server/plan'
-import { getPlanLimits, planAllows } from '../../../lib/billing'
+import { getBillingPlan, getFeatureUpgradeDecision, getLimitUpgradeDecision, getPlanLimits } from '../../../lib/billing'
 import { requirePageAccess } from '../../../lib/server/require-page-access'
 import { hasLegacyCustomDomainTxt } from '../../../lib/server/doubled-txt-probe'
 import { hasExpectedCname } from '../../../lib/server/cname-probe'
+import {
+  entitlementAllocationRetryBody,
+  entitlementAllocationRetryInit,
+  isEntitlementAllocationRetry,
+} from '../../../lib/entitlement-allocation-error'
 
 const NEXEZ_CNAME = 'cname.nexez.app'
+
+function allocationRetryResponse() {
+  return NextResponse.json(entitlementAllocationRetryBody, entitlementAllocationRetryInit)
+}
 
 /**
  * A2 - Custom domain provisioning (owner OR editor-collaborator).
@@ -47,6 +56,9 @@ export async function POST(request: Request) {
   }
 
   const action = body.action || 'status'
+  if (action !== 'attach' && action !== 'status' && action !== 'remove') {
+    return NextResponse.json({ error: 'Unsupported domain action' }, { status: 400 })
+  }
   const domain = normalizeDomain(body.domain || '')
   if (!domain || domain.length < 4) {
     return NextResponse.json({ error: 'A valid domain is required' }, { status: 400 })
@@ -83,39 +95,97 @@ export async function POST(request: Request) {
   })
   if (!gate.ok) return gate.response
   const { access, admin } = gate
+  let quotaRaceUpgrade: string | null = null
+  let allocationChecked = false
 
-  // Plan gate ON THE OWNER (not the logged-in collaborator): attaching a NEW custom domain
-  // requires Launch+ AND must stay within the OWNER's plan customDomains count. Status
-  // checks and removal stay open so a downgraded owner can still inspect/detach. (Free is
-  // already blocked by the boolean; the count caps Launch=1 / Pro=5 / Scale=25 / Enterprise=∞.)
-  if (action === 'attach') {
+  async function customDomainAllocationError(): Promise<NextResponse | null> {
+    if (allocationChecked) return null
+    allocationChecked = true
+
     const planId = await getOwnerPlanId(admin, access.ownerId)
-    if (!planAllows(planId, 'customDomain')) {
-      return NextResponse.json({ error: 'Custom domains are available on the Launch plan and up.', upgrade: 'launch' }, { status: 402 })
+    const featureDecision = getFeatureUpgradeDecision(planId, 'customDomain')
+    if (!featureDecision.allowed) {
+      const required = getBillingPlan(featureDecision.minimumPlanId)
+      return NextResponse.json(
+        {
+          error: `Custom domains are available on the ${required?.name ?? 'required'} plan and up.`,
+          code: 'plan_feature_required',
+          upgrade: featureDecision.upgradePlanId,
+        },
+        { status: 402 },
+      )
     }
+
     const limit = getPlanLimits(planId).customDomains
-    if (Number.isFinite(limit)) {
-      const { data: owned } = await admin
-        .from('pages')
-        .select('custom_domain')
-        .eq('owner_id', access.ownerId)
-        .not('custom_domain', 'is', null)
-        .neq('custom_domain', domain)
-        .returns<Array<{ custom_domain: string | null }>>()
-      const distinct = new Set((owned ?? []).map((p) => p.custom_domain).filter(Boolean) as string[])
-      if (distinct.size >= limit) {
-        return NextResponse.json(
-          {
-            error: `Your plan includes ${limit} custom domain${limit === 1 ? '' : 's'}. Upgrade to connect more.`,
-            upgrade: 'pro',
-          },
-          { status: 402 },
-        )
-      }
-    }
+    if (!Number.isFinite(limit)) return null
+
+    quotaRaceUpgrade = getLimitUpgradeDecision(planId, 'customDomains', limit + 1).upgradePlanId
+    const { data: owned } = await admin
+      .from('pages')
+      .select('custom_domain, custom_domain_verified')
+      .eq('owner_id', access.ownerId)
+      .not('custom_domain', 'is', null)
+      .not('custom_domain_verified', 'is', null)
+      .neq('custom_domain', domain)
+      .returns<Array<{ custom_domain: string | null; custom_domain_verified: string | null }>>()
+    const distinct = new Set(
+      (owned ?? [])
+        .map((ownedPage) => ownedPage.custom_domain?.trim().toLowerCase())
+        .filter(Boolean) as string[],
+    )
+    const limitDecision = getLimitUpgradeDecision(planId, 'customDomains', distinct.size + 1)
+    if (limitDecision.allowed) return null
+
+    return NextResponse.json(
+      {
+        error: `Your plan includes ${limit} custom domain${limit === 1 ? '' : 's'}. Upgrade to connect more.`,
+        code: 'plan_limit_reached',
+        limit,
+        upgrade: limitDecision.upgradePlanId,
+      },
+      { status: 402 },
+    )
+  }
+
+  // Status and removal stay open for diagnosis/cleanup after downgrade. Any path
+  // that can activate routing (attach now, or status after CNAME proof below)
+  // checks the owner feature and quota before the state-changing write.
+  if (action === 'attach') {
+    const allocationError = await customDomainAllocationError()
+    if (allocationError) return allocationError
   }
 
   const providerConfigured = isVercelDomainConfigured()
+
+  if (action === 'remove') {
+    const removed = providerConfigured ? await removeDomainFromProject(domain) : { ok: true }
+    if (!removed.ok) {
+      return NextResponse.json(
+        { error: removed.error || 'The managed domain could not be detached.' },
+        { status: 502 },
+      )
+    }
+
+    // Cleanup is intentionally available on every plan. Clear the saved host in
+    // the same authoritative boundary that detaches it from the provider so a
+    // downgraded client cannot strand a Vercel attachment by writing pages
+    // directly. A provider 404 is treated as already detached.
+    const { error: clearError } = await admin
+      .from('pages')
+      .update({ custom_domain: null, custom_domain_verified: null, domain_path: '/' })
+      .eq('id', access.pageId)
+      .eq('owner_id', access.ownerId)
+      .eq('custom_domain', domain)
+    if (clearError) {
+      if (isEntitlementAllocationRetry(clearError)) return allocationRetryResponse()
+      return NextResponse.json(
+        { error: 'Domain detached, but the saved hostname could not be cleared.' },
+        { status: 500 },
+      )
+    }
+    return NextResponse.json({ ok: true, removed: true, providerConfigured })
+  }
+
   let ownershipVerified = Boolean(page.custom_domain_verified)
   let verifiedAt = page.custom_domain_verified
   let cnameConfigured = false
@@ -132,22 +202,8 @@ export async function POST(request: Request) {
     recommendedIPv4: [],
   }
 
-  if (providerConfigured && action !== 'remove') {
+  if (providerConfigured) {
     status = action === 'attach' ? await addDomainToProject(domain) : await getDomainStatus(domain)
-  } else if (providerConfigured && action === 'remove') {
-    const removed = await removeDomainFromProject(domain)
-    if (removed.ok) {
-      const { error: clearError } = await admin
-        .from('pages')
-        .update({ custom_domain_verified: null })
-        .eq('id', access.pageId)
-        .eq('owner_id', access.ownerId)
-        .eq('custom_domain', domain)
-      if (clearError) {
-        return NextResponse.json({ error: 'Domain detached, but its verification state could not be cleared.' }, { status: 500 })
-      }
-    }
-    return NextResponse.json({ ok: removed.ok, removed: removed.ok, error: removed.error })
   }
 
   if (status.verificationMethod === 'cname') {
@@ -158,6 +214,9 @@ export async function POST(request: Request) {
   // fully checked provider response can persist verification; missing config
   // data or a provider error must never become a false-positive "Live" state.
   if (isCnameProviderProof(status, cnameConfigured) && !ownershipVerified) {
+    const allocationError = await customDomainAllocationError()
+    if (allocationError) return allocationError
+
     verifiedAt = new Date().toISOString()
     const { error: verifyError } = await admin
       .from('pages')
@@ -167,6 +226,17 @@ export async function POST(request: Request) {
       .eq('custom_domain', domain)
 
     if (verifyError) {
+      if (isEntitlementAllocationRetry(verifyError)) return allocationRetryResponse()
+      if (verifyError.code === '23514' || /custom[- ]domain limit/i.test(verifyError.message)) {
+        return NextResponse.json(
+          {
+            error: 'Your custom-domain limit was reached while this domain was being verified. Refresh your plan and try again.',
+            code: 'plan_limit_reached',
+            upgrade: quotaRaceUpgrade,
+          },
+          { status: 402 },
+        )
+      }
       return NextResponse.json({ error: 'Domain routing is verified, but saving verification failed.' }, { status: 500 })
     }
 

@@ -17,6 +17,7 @@ export type BillingSubscription = {
   status: string
   current_period_start: string | null
   current_period_end: string | null
+  trial_ends_at: string | null
   cancel_at_period_end: boolean
   checkout_session_id: string | null
   latest_invoice_id: string | null
@@ -71,7 +72,8 @@ export function isDbManagedBillingStatus(status: string | null | undefined): boo
 
 export function getPlanIdForStripePrice(priceId: string | null | undefined): BillingPlan['id'] | null {
   if (!priceId) return null
-  return billingPlans.find((plan) => getPlanPriceId(plan) === priceId)?.id ?? null
+  const matches = billingPlans.filter((plan) => getPlanPriceId(plan) === priceId)
+  return matches.length === 1 ? matches[0].id : null
 }
 
 export function normalizePlanId(value: string | null | undefined): BillingPlan['id'] | null {
@@ -124,6 +126,7 @@ export function buildBillingSubscriptionRow(input: {
   const subscription = input.subscription
   const session = input.session
   const priceId = getSubscriptionPriceId(subscription) ?? input.fallbackPriceId ?? null
+  const resolvedPricePlanId = getPlanIdForStripePrice(priceId)
   const period = getSubscriptionPeriod(subscription)
   const status = subscription?.status ?? (session?.payment_status === 'paid' ? 'active' : session?.status) ?? 'unknown'
 
@@ -132,10 +135,14 @@ export function buildBillingSubscriptionRow(input: {
     stripe_customer_id: stripeObjectId(subscription?.customer) ?? stripeObjectId(session?.customer),
     stripe_subscription_id: subscription?.id ?? stripeObjectId(session?.subscription),
     stripe_price_id: priceId,
-    plan_id: getPlanIdForStripePrice(priceId) ?? normalizePlanId(input.fallbackPlanId),
+    // Stripe's concrete Price is authoritative when present. Metadata fallback
+    // is only for payloads that genuinely have no Price yet; an unknown or
+    // duplicate Price must fail closed instead of granting its claimed plan.
+    plan_id: priceId ? resolvedPricePlanId : normalizePlanId(input.fallbackPlanId),
     status,
     current_period_start: period.currentPeriodStart,
     current_period_end: period.currentPeriodEnd,
+    trial_ends_at: stripeTimestamp(subscription?.trial_end),
     cancel_at_period_end: hasScheduledCancellation(subscription),
     checkout_session_id: session?.id ?? null,
     latest_invoice_id: stripeObjectId(subscription?.latest_invoice) ?? stripeObjectId(session?.invoice),
@@ -179,6 +186,11 @@ export async function createStripeConnectAccount(ownerId: string, email: string,
     email,
     business_profile: businessName ? { name: businessName } : undefined,
     metadata: { nexez_owner_id: ownerId },
+  }, {
+    // A database allocation race can reject persistence after Stripe accepts the
+    // request. Reusing the owner-scoped key makes the documented retry return the
+    // same Express account instead of creating another remote account.
+    idempotencyKey: `nexez-connect-account-v1:${ownerId}`,
   })
   return account
 }

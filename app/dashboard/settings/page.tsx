@@ -21,7 +21,7 @@ import {
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { type AgentPage, getBaseUrl, getOfferCount, getReadinessScore } from '../../../lib/agent-page'
-import { getBillingPlan, minPlanForFeature } from '../../../lib/billing'
+import { getBillingPlan, minPlanForFeature, planAllows } from '../../../lib/billing'
 import { loadStorefrontsForOwner } from '../../../lib/server/storefront'
 import { getOwnerPlanId } from '../../../lib/server/plan'
 import { loadAgentOperations } from '../../../lib/server/agent-operations'
@@ -32,7 +32,7 @@ import { PasskeySettings } from '../../../components/PasskeySettings'
 import { ProfileSettings } from '../../../components/ProfileSettings'
 import { StorefrontSettings, type StorefrontListing } from '../../../components/StorefrontSettings'
 import { TeamInvites } from '../../../components/TeamInvites'
-import { PlanGate } from '../../../components/billing/PlanGate'
+import { UpgradeBanner } from '../../../components/billing/PlanGate'
 import { SurfaceHeader, surfaceActionClass } from '../../../components/dashboard/SurfacePrimitives'
 import { StatusPill } from '../../../components/settings/SettingsPrimitives'
 import { AccountSettingsNav } from '../../../components/settings/AccountSettingsNav'
@@ -230,14 +230,14 @@ export default async function AccountSettingsPage() {
               description="Invite collaborators, adjust roles, and revoke open invitations without exposing another workspace."
               icon={Users}
             >
-              <PlanGate
+              <UpgradeBanner
                 feature="teamCollaboration"
                 currentPlan={currentPlan}
                 title="Team collaboration"
-                description="Invite editors and reviewers and run approval workflows on your listings—available on the Pro plan and up."
-              >
-                <TeamInvites />
-              </PlanGate>
+                description="New invitations and role changes require Pro. Existing access stays visible here so you can revoke it after a downgrade."
+                className="mb-4"
+              />
+              <TeamInvites collaborationEnabled={planAllows(currentPlan, 'teamCollaboration')} />
             </SettingsArea>
 
             <SettingsArea

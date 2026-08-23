@@ -1,4 +1,3 @@
-import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -42,7 +41,7 @@ vi.mock('../../../components/PasskeySettings', () => ({ PasskeySettings: () => <
 vi.mock('../../../components/ProfileSettings', () => ({ ProfileSettings: () => <div>Profile controls</div> }))
 vi.mock('../../../components/StorefrontSettings', () => ({ StorefrontSettings: () => <div>Storefront controls</div> }))
 vi.mock('../../../components/TeamInvites', () => ({ TeamInvites: () => <div>Team controls</div> }))
-vi.mock('../../../components/billing/PlanGate', () => ({ PlanGate: ({ children }: { children: React.ReactNode }) => <>{children}</> }))
+vi.mock('../../../components/billing/PlanGate', () => ({ UpgradeBanner: () => null }))
 
 vi.mock('../../../utils/supabase/server', () => ({
   createClient: () => ({

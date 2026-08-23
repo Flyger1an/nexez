@@ -1,12 +1,19 @@
 import { useMemo, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { Card, EmptyState, ErrorState, Header, LoadingState, MetricCard, Screen, SectionTitle } from '@/src/components/ui'
+import { Card, EmptyState, ErrorState, Header, LoadingState, MetricCard, Screen } from '@/src/components/ui'
 import { compactNumber, formatCurrency } from '@/src/lib/format'
 import { colors, fonts, radii } from '@/src/theme/colors'
 import { useAnalytics } from '@/src/hooks/useAnalytics'
+import type { MobileAnalyticsRangeDays } from '@/src/lib/plan-aware-analytics'
 
-type Range = '24h' | '7d' | '30d' | '90d'
-const RANGE_DAYS: Record<Range, number> = { '24h': 1, '7d': 7, '30d': 30, '90d': 90 }
+type Range = '24h' | '7d' | '30d' | '90d' | 'all'
+const RANGE_DAYS: Record<Range, MobileAnalyticsRangeDays> = {
+  '24h': 1,
+  '7d': 7,
+  '30d': 30,
+  '90d': 90,
+  all: null,
+}
 const DAY = 86400000
 
 export function AnalyticsScreen() {
@@ -15,7 +22,7 @@ export function AnalyticsScreen() {
 
   const stats = useMemo(() => {
     if (!data) return null
-    const now = Date.now()
+    const now = new Date(data.asOf).getTime()
     const ts = (v: string) => new Date(v).getTime()
     const currency = data.rollup.currencies[0]
     const paidRate = data.rollup.counts.checkoutStarts
@@ -67,33 +74,43 @@ export function AnalyticsScreen() {
       topPages,
       topQueries,
     }
-  }, [data, range])
+  }, [data])
 
   if (loading) return <LoadingState label="Loading analytics" />
   if (error || !data || !stats) return <ErrorState message={error || 'Analytics unavailable.'} onRetry={reload} />
+
+  const effectiveRange = rangeForDays(data.effectiveRangeDays)
+  const effectiveRangeLabel = effectiveRange === 'all' ? 'All time' : effectiveRange
+  const ranges: Range[] = data.fullHistory ? ['24h', '7d', '30d', '90d', 'all'] : ['24h', '7d', '30d']
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
       <Header title="Analytics" />
 
       <View style={st.ranges}>
-        {(['24h', '7d', '30d', '90d'] as Range[]).map((r) => {
-          const active = range === r
+        {ranges.map((r) => {
+          const active = effectiveRange === r
           return (
             <Pressable key={r} onPress={() => setRange(r)} style={[st.range, active ? st.rangeActive : null]}>
-              <Text style={[st.rangeText, active ? st.rangeTextActive : null]}>{r === '24h' ? '24h' : r === '7d' ? '7 days' : r}</Text>
+              <Text style={[st.rangeText, active ? st.rangeTextActive : null]}>
+                {r === '24h' ? '24h' : r === '7d' ? '7 days' : r === 'all' ? 'All time' : r}
+              </Text>
             </Pressable>
           )
         })}
       </View>
 
       <View style={st.heroRow}>
-        <View style={[st.hero, { backgroundColor: 'rgba(255,106,51,0.12)', borderColor: 'rgba(255,106,51,0.22)' }]}>
-          <Text style={st.heroLabel}>Gross sales · {range}</Text>
+        <View
+          style={[st.hero, { backgroundColor: 'rgba(255,106,51,0.12)', borderColor: 'rgba(255,106,51,0.22)' }]}
+        >
+          <Text style={st.heroLabel}>Gross sales · {effectiveRangeLabel}</Text>
           <Text style={st.heroValue}>{formatCurrency(stats.currency?.gmvCents ?? 0, stats.currency?.currency)}</Text>
         </View>
-        <View style={[st.hero, { backgroundColor: 'rgba(233,162,59,0.12)', borderColor: 'rgba(233,162,59,0.22)' }]}>
-          <Text style={st.heroLabel}>Paid orders · {range}</Text>
+        <View
+          style={[st.hero, { backgroundColor: 'rgba(233,162,59,0.12)', borderColor: 'rgba(233,162,59,0.22)' }]}
+        >
+          <Text style={st.heroLabel}>Paid orders · {effectiveRangeLabel}</Text>
           <Text style={st.heroValue}>{data.rollup.counts.paidOrders}</Text>
         </View>
       </View>
@@ -236,6 +253,12 @@ function channelLabel(channel: string) {
     reservable_resource: 'Reserved resource',
   }
   return labels[channel] ?? channel.replace(/_/g, ' ')
+}
+
+function rangeForDays(days: MobileAnalyticsRangeDays): Range {
+  if (days === null) return 'all'
+  if (days === 1) return '24h'
+  return `${days}d` as Range
 }
 
 const st = {

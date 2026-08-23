@@ -46,12 +46,86 @@ describe('marketplace intelligence', () => {
         verification_details: { docs_provided: [{ id: 'doc', name: 'License', status: 'verified' }] as any },
         services: [{ name: 'Proposal Sprint', description: '', price: '$1,200', url: '', offerType: 'negotiable' }],
       }),
+      { negotiationAllowed: true, nexezCheckoutReady: true },
     )
 
     expect(summary.verified).toBe(true)
     expect(summary.has_credentials).toBe(true)
     expect(summary.supports_negotiation).toBe(true)
+    expect(summary.has_actionable_offer).toBe(true)
+    expect(summary.nexez_checkout_ready).toBe(true)
     expect(summary.badges).toContain('Negotiable')
+    expect(summary.badges).toContain('Nexez checkout ready')
+  })
+
+  it('fails closed when a seller-authored negotiable offer lacks an entitlement decision', () => {
+    const summary = summarizeMarketplacePage(
+      page({
+        cta_url: null,
+        website_url: null,
+        contact_email: null,
+        services: [{ name: 'Proposal Sprint', description: '', price: '$1,200', url: '', offerType: 'negotiable' }],
+      }),
+    )
+
+    expect(summary.has_actionable_offer).toBe(false)
+    expect(summary.supports_checkout).toBe(false)
+    expect(summary.nexez_checkout_ready).toBe(false)
+    expect(summary.supports_negotiation).toBe(false)
+    expect(summary.badges).not.toContain('Actionable offer')
+    expect(summary.badges).not.toContain('Negotiable')
+  })
+
+  it('does not advertise an unpriced, destination-free negotiable offer below Pro', () => {
+    const inert = page({
+      cta_url: null,
+      website_url: null,
+      contact_email: null,
+      services: [{ name: 'Custom proposal', description: '', price: '', url: '', offerType: 'negotiable' }],
+    })
+
+    const belowPro = summarizeMarketplacePage(inert, { negotiationAllowed: false })
+    expect(belowPro.supports_negotiation).toBe(false)
+    expect(belowPro.has_actionable_offer).toBe(false)
+    expect(belowPro.supports_checkout).toBe(false)
+
+    const pro = summarizeMarketplacePage(inert, { negotiationAllowed: true })
+    expect(pro.supports_negotiation).toBe(true)
+    expect(pro.has_actionable_offer).toBe(true)
+    expect(pro.supports_checkout).toBe(true)
+  })
+
+  it('does not call an inert offer actionable', () => {
+    const summary = summarizeMarketplacePage(page({
+      cta_url: null,
+      website_url: null,
+      contact_email: null,
+      services: [{ name: 'Contact us', description: '', price: '', url: '' }],
+    }))
+
+    expect(summary.has_actionable_offer).toBe(false)
+    expect(summary.supports_checkout).toBe(false)
+    expect(summary.badges).not.toContain('Actionable offer')
+  })
+
+  it('keeps provider handoffs separate from Nexez settlement readiness', () => {
+    const summary = summarizeMarketplacePage(
+      page({
+        cta_url: null,
+        services: [{
+          name: 'External booking',
+          description: '',
+          price: '$250',
+          url: 'https://provider.example/checkout',
+          prefer_original_for_this: true,
+        }],
+      }),
+      { nexezCheckoutReady: true },
+    )
+
+    expect(summary.has_actionable_offer).toBe(true)
+    expect(summary.nexez_checkout_ready).toBe(false)
+    expect(summary.badges).toContain('Actionable offer')
   })
 
   it('treats credential metadata and email/domain flags as claims, not verification', () => {
@@ -82,13 +156,15 @@ describe('marketplace intelligence', () => {
   })
 
   it('builds marketplace-wide facets from public pages', () => {
-    const insights = buildMarketplaceInsights([
+    const pages = [
       page({ slug: 'a', industry: 'consulting' }),
       page({ slug: 'b', industry: 'home cleaning', services: [{ name: 'Deep clean', description: '', price: '$180', url: '' }] }),
-    ])
+    ]
+    const insights = buildMarketplaceInsights(pages, { checkoutReadySlugs: new Set(['b']) })
 
     expect(insights.totals.pages).toBe(2)
     expect(insights.totals.offers).toBe(2)
+    expect(insights.totals.checkoutReady).toBe(1)
     expect(insights.categories.find((category) => category.id === 'consumer')?.count).toBe(1)
     expect(insights.intentPresets.length).toBeGreaterThan(0)
   })

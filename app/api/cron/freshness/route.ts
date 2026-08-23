@@ -72,7 +72,9 @@ export async function GET(request: Request) {
     stale.slice(0, DRIFT_CHECK_LIMIT).map(async ({ page, days }) => {
       const current = getOfferCount(page)
       try {
-        const result = await analyzeSite(page.website_url as string)
+        // Drift detection is a core, read-only deterministic monitor. It never
+        // spends a seller's paid AI entitlement or reuses an AI-refined cache.
+        const result = await analyzeSite(page.website_url as string, null, { skipLlm: true })
         const found = result.structuredOffers?.length ?? 0
         return { slug: page.slug, name: page.name, days, current_offers: current, source_offers: found, drift_detected: found !== current }
       } catch {

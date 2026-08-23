@@ -59,6 +59,7 @@ vi.mock('../../../../lib/llm', () => ({
 
 vi.mock('../../../../lib/ai-optimize', () => ({
   enhanceDescriptionForAgents: vi.fn(() => 'DETERMINISTIC REWRITE'),
+  rewriteOfferForAgents: vi.fn((offer: any) => ({ ...offer, description: 'OPTIMIZED OFFER' })),
 }))
 
 vi.mock('../../../../lib/observability', () => ({ captureError: vi.fn() }))
@@ -134,15 +135,63 @@ describe('POST /api/ai/enhance', () => {
     expect(await res.json()).toMatchObject({ enhanced: 'DETERMINISTIC REWRITE', source: 'deterministic' })
   })
 
-  it('opted in but owner plan does NOT allow aiFeatures → deterministic fallback (silent)', async () => {
-    accessRef.fn = () => ({ pageId: 'p1', ownerId: 'owner-9', role: 'editor' })
-    ownerAllowsRef.value = false
+  it('entitled owner receives a deterministic fallback when the configured LLM fails', async () => {
+    accessRef.fn = () => ({ pageId: 'p1', ownerId: 'user-1', role: 'owner' })
+    const llm = await import('../../../../lib/llm')
+    ;(llm.llmComplete as any).mockRejectedValueOnce(new Error('provider unavailable'))
     const res = await POST(post({ description: 'hello', pageId: 'p1' }))
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ enhanced: 'DETERMINISTIC REWRITE', source: 'deterministic' })
   })
 
-  it('legacy self-gate: no pageId → gates on the logged-in user, deterministic (no opt-in source)', async () => {
+  it('opted in but owner plan does NOT allow aiFeatures → 402 with no rewrite', async () => {
+    accessRef.fn = () => ({ pageId: 'p1', ownerId: 'owner-9', role: 'editor' })
+    ownerAllowsRef.value = false
+    const res = await POST(post({ description: 'hello', pageId: 'p1' }))
+    expect(res.status).toBe(402)
+    expect(await res.json()).toMatchObject({ code: 'plan_upgrade_required' })
+    const optimize = await import('../../../../lib/ai-optimize')
+    expect(optimize.enhanceDescriptionForAgents).not.toHaveBeenCalled()
+  })
+
+  it.each(['enhance_offers', 'optimize_offers'] as const)(
+    'stale editor entitlement receives 402 before the %s bulk transform',
+    async (operation) => {
+      accessRef.fn = () => ({ pageId: 'p1', ownerId: 'owner-9', role: 'editor' })
+      ownerAllowsRef.value = false
+
+      const res = await POST(post({
+        operation,
+        offers: [{ name: 'Audit', description: 'Original copy' }],
+        pageId: 'p1',
+      }))
+
+      expect(res.status).toBe(402)
+      expect(await res.json()).toMatchObject({ code: 'plan_upgrade_required' })
+      const optimize = await import('../../../../lib/ai-optimize')
+      expect(optimize.enhanceDescriptionForAgents).not.toHaveBeenCalled()
+      expect(optimize.rewriteOfferForAgents).not.toHaveBeenCalled()
+    },
+  )
+
+  it('runs entitled bulk offer transforms only after the owner gate', async () => {
+    accessRef.fn = () => ({ pageId: 'p1', ownerId: 'owner-9', role: 'editor' })
+
+    const res = await POST(post({
+      operation: 'optimize_offers',
+      offers: [{ name: 'Audit', description: 'Original copy' }],
+      pageId: 'p1',
+    }))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({
+      source: 'deterministic',
+      offers: [{ name: 'Audit', description: 'OPTIMIZED OFFER' }],
+    })
+    expect(ownerAllowsRef.calls).toEqual([{ ownerId: 'owner-9', feature: 'aiFeatures' }])
+  })
+
+  it('legacy self-gate: no pageId → gates on the logged-in entitled user, deterministic (no opt-in source)', async () => {
     const res = await POST(post({ description: 'hello' }))
     expect(res.status).toBe(200)
     // No page → no opt-in → LLM never fires; deterministic path.
@@ -152,5 +201,12 @@ describe('POST /api/ai/enhance', () => {
     // resolvePageAccess must NOT be consulted when no pageId is provided.
     const pa = await import('../../../../lib/server/page-access')
     expect(pa.resolvePageAccess).not.toHaveBeenCalled()
+  })
+
+  it('legacy self-gate: Free receives 402 and no deterministic rewrite', async () => {
+    ownerAllowsRef.value = false
+    const res = await POST(post({ description: 'hello' }))
+    expect(res.status).toBe(402)
+    expect(await res.json()).toMatchObject({ code: 'plan_upgrade_required' })
   })
 })

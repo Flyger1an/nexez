@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
 import { EmptyState } from './EmptyState'
+import { planAllows, type PlanId } from '../lib/billing'
+import { PlanGate } from './billing/PlanGate'
 
 type ApiKey = {
   id: string
@@ -14,7 +16,8 @@ type ApiKey = {
   created_at: string
 }
 
-export function ApiKeysManager() {
+export function ApiKeysManager({ currentPlan }: { currentPlan: PlanId }) {
+  const canCreate = planAllows(currentPlan, 'apiAccess')
   const [keys, setKeys] = useState<ApiKey[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -98,22 +101,32 @@ export function ApiKeysManager() {
         <code className="bg-black/50 px-1">/api/v1/pages</code>.
       </p>
 
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder="Key name (e.g. Agency CI)"
-          className="flex-1 rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm"
-        />
-        <button
-          type="button"
-          disabled={creating}
-          onClick={createKey}
-          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-4 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/20 disabled:opacity-50"
+      <div className="mt-3">
+        <PlanGate
+          feature="apiAccess"
+          currentPlan={currentPlan}
+          variant="inline"
+          title="Generate API keys"
+          description="Mint new management credentials on the Pro plan and up. Retained keys remain visible below so you can revoke them after a downgrade."
         >
-          {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-          Generate key
-        </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Key name (e.g. Agency CI)"
+              className="flex-1 rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              disabled={creating}
+              onClick={createKey}
+              className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-4 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/20 disabled:opacity-50"
+            >
+              {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              Generate key
+            </button>
+          </div>
+        </PlanGate>
       </div>
 
       {freshKey && (
@@ -141,8 +154,9 @@ export function ApiKeysManager() {
           </div>
         ) : keys.length === 0 ? (
           <EmptyState icon={KeyRound} title="No API keys yet">
-            Create a key to let your own agents or back-end call the Nexez API on your behalf - programmatic access to your
-            listings, offers, and negotiations.
+            {canCreate
+              ? 'Create a key to let your own agents or back-end call the Nexez API on your behalf.'
+              : 'There are no retained keys to revoke. Upgrade to Pro when you are ready to create one.'}
           </EmptyState>
         ) : (
           keys.map((k) => (

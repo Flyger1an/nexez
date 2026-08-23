@@ -5,6 +5,17 @@ import { isValidEmail, TEAM_ROLES, type TeamRole } from '../../../../lib/team'
 import { buildTeamInviteEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 import { appUrl } from '../../../../lib/site'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { minPlanForFeature, planAllows } from '../../../../lib/billing'
+import { getOwnerPlanId } from '../../../../lib/server/plan'
+import {
+  entitlementAllocationRetryBody,
+  entitlementAllocationRetryInit,
+  isEntitlementAllocationRetry,
+} from '../../../../lib/entitlement-allocation-error'
+
+function allocationRetryResponse() {
+  return NextResponse.json(entitlementAllocationRetryBody, entitlementAllocationRetryInit)
+}
 
 /**
  * Create a team invite AND notify the invitee. Invites were previously a silent
@@ -61,6 +72,7 @@ export async function POST(request: Request) {
     .select('id, email, role, status, created_at')
     .maybeSingle<{ id: string; email: string; role: string; status: string; created_at: string }>()
   if (error) {
+    if (isEntitlementAllocationRetry(error)) return allocationRetryResponse()
     const isPlanGate = error.code === '23514' || /plan feature|seat limit/i.test(error.message)
     return NextResponse.json(
       { error: error.message },
@@ -120,6 +132,18 @@ export async function PATCH(request: Request) {
     if (!role || !TEAM_ROLES.includes(role)) {
       return NextResponse.json({ error: 'Invalid role.' }, { status: 400 })
     }
+    const planId = await getOwnerPlanId(supabase, user.id)
+    if (!planAllows(planId, 'teamCollaboration')) {
+      const required = minPlanForFeature('teamCollaboration')
+      return NextResponse.json(
+        {
+          error: `Role changes require the ${required.name} plan. You can still revoke retained access.`,
+          code: 'plan_feature_required',
+          upgrade: required.id,
+        },
+        { status: 402 },
+      )
+    }
     patch.role = role
   }
 
@@ -132,6 +156,7 @@ export async function PATCH(request: Request) {
     .maybeSingle<{ id: string; email: string; role: string; status: string; created_at: string }>()
 
   if (error) {
+    if (isEntitlementAllocationRetry(error)) return allocationRetryResponse()
     const isPlanGate = error.code === '23514' || /plan feature|seat limit/i.test(error.message)
     return NextResponse.json({ error: error.message }, { status: isPlanGate ? 402 : 400 })
   }

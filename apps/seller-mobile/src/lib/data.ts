@@ -1,5 +1,4 @@
 import { supabase } from './supabase'
-import { commissionPercentForPlan } from './billing'
 import {
   BASIC_OWNER_PAGE_SELECT,
   OWNER_PAGE_SELECT,
@@ -7,6 +6,7 @@ import {
   getReadinessScore,
   pageDraftPayload,
 } from './agent-page'
+import { toListingWriteError } from './listing-write-error'
 import type {
   ActivityItem,
   AgentNegotiation,
@@ -19,10 +19,46 @@ import type {
   CheckoutOrder,
   FinanceRollup,
   OrderReview,
+  OwnerPlanEntitlements,
   SellerOverview,
 } from '@/src/types/nexez'
 
 const OPEN_NEGOTIATION_STATUSES = ['negotiation', 'agreement_proposed', 'paused', 'held']
+
+const FREE_FEATURES: OwnerPlanEntitlements['features'] = {
+  customDomain: false,
+  aiFeatures: false,
+  removeBadge: false,
+  whiteLabel: false,
+  integrations: false,
+  outboundWebhooks: false,
+  apiAccess: false,
+  negotiation: false,
+  analyticsHistory: false,
+  teamCollaboration: false,
+  prioritySupport: false,
+  sso: false,
+}
+
+function freeEntitlements(ownerId: string): OwnerPlanEntitlements {
+  return {
+    schemaVersion: 1,
+    evaluatedAt: new Date().toISOString(),
+    ownerId,
+    featurePlanId: 'free',
+    featurePlanRank: 0,
+    featurePlanSource: 'free',
+    commercialPlanId: 'free',
+    commercialPlanRank: 0,
+    commercialPlanSource: 'free',
+    billing: { chosenPlanId: null, status: null, confers: false, trialEndsAt: null },
+    promotion: null,
+    limits: { listings: 1, customDomains: 0, teamSeats: 0, storefronts: 1 },
+    features: FREE_FEATURES,
+    commissionBps: 900,
+    commissionSource: 'plan_default',
+  }
+}
 
 function negotiationNeedsActionCount(value: unknown): number | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
@@ -258,6 +294,22 @@ export async function getBillingSubscription(userId: string): Promise<BillingSub
   return data ?? null
 }
 
+/** Authenticated, database-authoritative plan snapshot. The RPC folds paid
+ * billing, promotional grants, admin feature access, negotiated commercial
+ * terms, and limits into one atomic result. A pre-migration server fails closed
+ * to Free rather than reconstructing a second plan ladder in the app. */
+export async function getMyPlanEntitlements(userId: string): Promise<OwnerPlanEntitlements> {
+  const { data, error } = await supabase.rpc('get_my_plan_entitlements')
+  if (error) {
+    if (missingRelation(error) || error.code === 'PGRST202') return freeEntitlements(userId)
+    throw error
+  }
+  if (!data || typeof data !== 'object' || Number((data as { schemaVersion?: unknown }).schemaVersion) !== 1) {
+    throw new Error('Plan entitlements are not available yet.')
+  }
+  return data as OwnerPlanEntitlements
+}
+
 export async function getOverviewMetrics(userId: string): Promise<SellerOverview> {
   const financeFrom = new Date(Date.now() - 30 * 86400000)
   const [pages, visits, events, negotiations, orders, reviews, negotiationReport, financeReport, analyticsReport] = await Promise.all([
@@ -273,10 +325,10 @@ export async function getOverviewMetrics(userId: string): Promise<SellerOverview
       p_page_id: null,
       p_query: null,
     }),
-    getBillingSubscription(userId).then((billing) => supabase.rpc('nz_owner_finance_rollup', {
+    getMyPlanEntitlements(userId).then((entitlements) => supabase.rpc('nz_owner_finance_rollup', {
       p_from: financeFrom.toISOString(),
       p_to: null,
-      p_fallback_commission_bps: Math.round(commissionPercentForPlan(billing?.plan_id) * 100),
+      p_fallback_commission_bps: entitlements.commissionBps,
     })),
     getAnalyticsRollup(financeFrom).catch(() => null),
   ])
@@ -392,20 +444,20 @@ export async function createPage(userId: string, input: Partial<AgentPage>): Pro
     owner_id: userId,
   }
   const { data, error } = await supabase.from('pages').insert(payload).select(OWNER_PAGE_SELECT).single<AgentPage>()
-  if (error) throw error
+  if (error) throw toListingWriteError(error)
   return data
 }
 
 export async function updatePage(id: string, input: Partial<AgentPage>): Promise<AgentPage> {
   const payload = pageDraftPayload(input)
   const { data, error } = await supabase.from('pages').update(payload).eq('id', id).select(OWNER_PAGE_SELECT).single<AgentPage>()
-  if (error) throw error
+  if (error) throw toListingWriteError(error)
   return data
 }
 
 export async function publishPage(id: string, isPublished: boolean) {
   const { error } = await supabase.from('pages').update({ is_published: isPublished }).eq('id', id)
-  if (error) throw error
+  if (error) throw toListingWriteError(error)
 }
 
 export function pageSignals(page: AgentPage, visits: AgentVisit[], events: CheckoutEvent[]) {

@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 import { shopifyConfigured, verifyShopifySessionToken } from '../../../../../lib/server/shopify'
 import {
+  activeShopifyInstallMapping,
   getInstallByShop,
   getShopifyInstallCredentialsByShop,
-  markShopifySynced,
 } from '../../../../../lib/server/shopify-install'
 import { syncPageIntegration } from '../../../../../lib/server/integration-sync'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/supabase/admin'
@@ -29,22 +29,21 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient()
   const install = await getInstallByShop(admin, session.shop)
-  if (!install?.owner_id || !install.page_id) {
+  const mapping = install ? activeShopifyInstallMapping(install) : null
+  if (!mapping) {
     return json({ error: 'Connect this store to a Nexez listing before syncing.' }, 409)
   }
 
   const credentials = await getShopifyInstallCredentialsByShop(admin, session.shop)
   if (!credentials) return json({ error: 'Reconnect the Shopify app to resume catalog sync.' }, 409)
 
-  const result = await syncPageIntegration(admin, 'shopify', install.page_id, {
+  const result = await syncPageIntegration(admin, 'shopify', mapping.pageId, {
     shopifyCredentials: credentials,
+    shopifyMapping: mapping,
+    clearShopifyCatalogSyncState: true,
   })
   if (!result.ok) return json({ error: result.error }, result.status)
 
   const syncedAt = new Date().toISOString()
-  await markShopifySynced(admin, install.page_id, syncedAt, {
-    shop: session.shop,
-    clearCatalogSyncState: true,
-  })
   return json({ ok: true, imported: result.imported, syncedAt, note: result.note ?? null })
 }
