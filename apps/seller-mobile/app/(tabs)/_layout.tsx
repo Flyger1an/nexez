@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AuthGate } from '@/src/components/AuthGate'
 import { colors, shadows } from '@/src/theme/colors'
 
-const NAV: Array<{ name: string; icon: LucideIcon; label: string; dot?: boolean }> = [
+const NAV: { name: string; icon: LucideIcon; label: string; dot?: boolean }[] = [
   { name: 'overview', icon: LayoutDashboard, label: 'Overview' },
   { name: 'listings', icon: Layers, label: 'Listings' },
   { name: 'inbox', icon: Inbox, label: 'Inbox', dot: true },

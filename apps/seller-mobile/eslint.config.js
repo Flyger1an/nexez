@@ -5,8 +5,8 @@ module.exports = defineConfig([
   globalIgnores(['dist/*', '.expo/*']),
   expoConfig,
   {
-    // Existing SDK 56 React Compiler findings remain visible while the app
-    // adopts the rules incrementally; all other lint errors still fail CI.
+    // Keep React Compiler diagnostics visible while preserving Expo's
+    // current warning severity for these advisory rules.
     rules: {
       'react-hooks/purity': 'warn',
       'react-hooks/refs': 'warn',

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { Card, ErrorState, LoadingState, Screen, SegmentedControl, StackHeader, TextField, ToggleRow } from '@/src/components/ui'
 import { formatFaqLines, formatOfferLines, getReadinessScore, mergeOfferLines, normalizeSlug, parseFaqLines, parseOfferLines } from '@/src/lib/agent-page'
@@ -19,34 +19,41 @@ const emptyPage: Partial<AgentPage> = {
 }
 
 export function ListingEditorScreen({ create = false }: { create?: boolean }) {
-  const router = useRouter()
-  const { user } = useSession()
   const { id } = useLocalSearchParams<{ id: string }>()
   const listing = useListing(create ? undefined : id)
+
+  if (!create && listing.loading) return <LoadingState label="Loading editor" />
+  if (!create && (listing.error || !listing.data)) {
+    return <ErrorState message={listing.error || 'Listing not found.'} onRetry={listing.reload} />
+  }
+
+  const initialPage = create ? { ...emptyPage } : listing.data!
+  return <ListingEditorForm key={create ? 'new' : initialPage.id} create={create} id={id} initialPage={initialPage} />
+}
+
+function ListingEditorForm({
+  create,
+  id,
+  initialPage,
+}: {
+  create: boolean
+  id: string
+  initialPage: Partial<AgentPage>
+}) {
+  const router = useRouter()
+  const { user } = useSession()
   const [step, setStep] = useState<EditorStep>('basics')
-  const [page, setPage] = useState<Partial<AgentPage>>(emptyPage)
-  const [servicesText, setServicesText] = useState('')
-  const [productsText, setProductsText] = useState('')
-  const [faqsText, setFaqsText] = useState('')
+  const [page, setPage] = useState<Partial<AgentPage>>(initialPage)
+  const [servicesText, setServicesText] = useState(() => formatOfferLines(initialPage.services))
+  const [productsText, setProductsText] = useState(() => formatOfferLines(initialPage.products))
+  const [faqsText, setFaqsText] = useState(() => formatFaqLines(initialPage.faqs))
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (create || !listing.data) return
-    const next = listing.data
-    setPage(next)
-    setServicesText(formatOfferLines(next.services))
-    setProductsText(formatOfferLines(next.products))
-    setFaqsText(formatFaqLines(next.faqs))
-  }, [create, listing.data])
 
   const readiness = useMemo(
     () => getReadinessScore({ ...page, slug: page.slug || normalizeSlug(page.name || ''), services: parseOfferLines(servicesText), products: parseOfferLines(productsText), faqs: parseFaqLines(faqsText) }),
     [faqsText, page, productsText, servicesText],
   )
-
-  if (!create && listing.loading) return <LoadingState label="Loading editor" />
-  if (!create && listing.error) return <ErrorState message={listing.error} onRetry={listing.reload} />
 
   function set<K extends keyof AgentPage>(key: K, value: AgentPage[K]) {
     setPage((prev) => ({ ...prev, [key]: value }))

@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react-native'
 import { ArrowLeft } from 'lucide-react-native'
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { ActivityIndicator, Animated, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
@@ -276,7 +276,7 @@ export function Mono({ children, style }: { children: React.ReactNode; style?: o
 
 /* Pulsing skeleton block (nxpulse) for loading states. */
 export function Skeleton({ height = 16, width, radius = 10, style }: { height?: number; width?: number | string; radius?: number; style?: object }) {
-  const pulse = useRef(new Animated.Value(0.5)).current
+  const [pulse] = useState(() => new Animated.Value(0.5))
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -424,7 +424,7 @@ export function ToggleRow({ label, detail, value, onValueChange, disabled = fals
   )
 }
 
-export function SegmentedControl<T extends string>({ value, options, onChange }: { value: T; options: Array<{ label: string; value: T }>; onChange: (value: T) => void }) {
+export function SegmentedControl<T extends string>({ value, options, onChange }: { value: T; options: { label: string; value: T }[]; onChange: (value: T) => void }) {
   return (
     <View style={styles.segmented}>
       {options.map((option) => {

@@ -15,7 +15,7 @@ export function useToast() {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<ToastState>(null)
-  const opacity = useRef(new Animated.Value(0)).current
+  const [opacity] = useState(() => new Animated.Value(0))
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const show = useCallback(

@@ -21,7 +21,7 @@ export type IntakeGapAnswer = {
   gapId: string
   answer: string
   skipped?: boolean
-  fields?: Array<Record<string, unknown>>
+  fields?: Record<string, unknown>[]
 }
 
 export type IntakeDraftLite = {
@@ -50,8 +50,8 @@ export type IntakeSessionState = {
   phase: 'INGEST' | 'EXTRACT' | 'GAP_ANALYSIS' | 'INTERVIEW' | 'SYNTHESIS' | 'REVIEW_HANDOFF'
   gaps: IntakeGap[]
   messages: IntakeSessionMessage[]
-  sources: Array<{ id: string; kind: string; value: string; label?: string }>
-  extractions: Array<{ sourceId: string; offers: unknown[]; confidence?: number }>
+  sources: { id: string; kind: string; value: string; label?: string }[]
+  extractions: { sourceId: string; offers: unknown[]; confidence?: number }[]
   /** Present when the session seeded from an existing listing (re-interview). */
   draft?: { name?: string }
 }

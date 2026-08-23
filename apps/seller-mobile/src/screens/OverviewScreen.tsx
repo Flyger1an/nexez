@@ -5,7 +5,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import {
   AppButton,
   AvatarChip,
-  Card,
   EmptyState,
   ErrorState,
   GroupCard,

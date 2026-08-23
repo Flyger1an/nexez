@@ -31,7 +31,7 @@ export default function TrustRoute() {
   const label = score >= 90 ? 'Strong · agents weigh this heavily at checkout' : score >= 70 ? 'Solid · trusted by most agents' : 'Building · add proof to climb'
   const scoreColor = score >= 90 ? colors.success : score >= 70 ? colors.ember : colors.warning
 
-  const signals: Array<{ label: string; value: string; ok: boolean }> = [
+  const signals: { label: string; value: string; ok: boolean }[] = [
     { label: 'Readiness', value: `${readiness}%`, ok: readiness >= 80 },
     { label: 'Average rating', value: avgRating != null ? `${avgRating.toFixed(1)} ★` : 'No reviews yet', ok: avgRating != null && avgRating >= 4 },
     { label: 'Verified reviews', value: `${reviews.length}`, ok: reviews.length > 0 },

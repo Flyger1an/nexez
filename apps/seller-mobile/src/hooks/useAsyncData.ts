@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export function useAsyncData<T>(load: () => Promise<T>, deps: React.DependencyList = []) {
+export function useAsyncData<T>(load: () => Promise<T>) {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -18,8 +18,7 @@ export function useAsyncData<T>(load: () => Promise<T>, deps: React.DependencyLi
       if (silent) setRefreshing(false)
       else setLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps)
+  }, [load])
 
   // Full reload (swaps the screen to its loading state). Use for first load / retry.
   const reload = useCallback(() => run(false), [run])
@@ -27,8 +26,21 @@ export function useAsyncData<T>(load: () => Promise<T>, deps: React.DependencyLi
   const refresh = useCallback(() => run(true), [run])
 
   useEffect(() => {
-    void reload()
-  }, [reload])
+    let active = true
+    load()
+      .then((value) => {
+        if (active) setData(value)
+      })
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof Error ? err.message : 'Something went wrong.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [load])
 
   return { data, loading, refreshing, error, reload, refresh }
 }
