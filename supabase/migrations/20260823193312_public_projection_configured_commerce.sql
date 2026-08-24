@@ -1,3 +1,4 @@
+-- The version timestamp matches the migration already applied to production.
 -- Preserve the bounded merchant-authored commerce contract in the public page
 -- projection. The original offer allowlist predates configured inputs,
 -- recurring services, conditional fulfillment, staged settlement, and
