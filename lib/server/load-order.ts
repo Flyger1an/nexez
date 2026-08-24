@@ -44,16 +44,47 @@ export function deriveOrderStatus(status: string, metadata: Record<string, unkno
 
 type SellerInfo = { name: string | null; contact_email: string | null }
 
-async function loadSeller(admin: ReturnType<typeof createAdminClient>, slug: string | null): Promise<SellerInfo> {
-  if (!slug) return { name: null, contact_email: null }
-  // pages_public strips offer `rules` and is safe to read for the seller's display
-  // name + public contact email. A now-unpublished page simply resolves to null.
-  const { data } = await admin
-    .from('pages_public')
-    .select('name, contact_email')
-    .eq('slug', slug)
-    .maybeSingle<SellerInfo>()
-  return { name: data?.name ?? null, contact_email: data?.contact_email ?? null }
+export function resolveSellerDisplayName(
+  storefrontName: string | null,
+  listingName: string | null,
+): string | null {
+  return storefrontName?.trim() || listingName?.trim() || null
+}
+
+async function loadSeller(
+  admin: ReturnType<typeof createAdminClient>,
+  pageId: string | null,
+  slug: string | null,
+): Promise<SellerInfo> {
+  if (!pageId && !slug) return { name: null, contact_email: null }
+
+  // Orders belong to a listing, but the seller identity belongs to its storefront.
+  // Resolve through the stable page id first so a later slug change cannot rename or
+  // orphan an existing order. Only safe display fields leave this server-only helper.
+  let pageQuery = admin
+    .from('pages')
+    .select('name, contact_email, storefront_id')
+  pageQuery = pageId ? pageQuery.eq('id', pageId) : pageQuery.eq('slug', slug!)
+  const { data: page } = await pageQuery.maybeSingle<{
+    name: string | null
+    contact_email: string | null
+    storefront_id: string | null
+  }>()
+
+  let storefrontName: string | null = null
+  if (page?.storefront_id) {
+    const { data: storefront } = await admin
+      .from('storefronts')
+      .select('display_name')
+      .eq('id', page.storefront_id)
+      .maybeSingle<{ display_name: string | null }>()
+    storefrontName = storefront?.display_name ?? null
+  }
+
+  return {
+    name: resolveSellerDisplayName(storefrontName, page?.name ?? null),
+    contact_email: page?.contact_email ?? null,
+  }
 }
 
 async function loadRequests(
@@ -159,7 +190,7 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
     .maybeSingle<CheckoutRow>()
   if (order) {
     const [seller, requests, review, fulfillment] = await Promise.all([
-      loadSeller(admin, order.slug),
+      loadSeller(admin, order.page_id, order.slug),
       loadRequests(admin, 'checkout', order.id),
       loadReview(admin, 'checkout', order.id),
       loadCheckoutFulfillment(admin, order.id),
@@ -193,7 +224,7 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
     .maybeSingle<NegotiationRow>()
   if (neg) {
     const [seller, requests, review] = await Promise.all([
-      loadSeller(admin, neg.slug),
+      loadSeller(admin, neg.page_id, neg.slug),
       loadRequests(admin, 'negotiation', neg.id),
       loadReview(admin, 'negotiation', neg.id),
     ])
@@ -298,7 +329,10 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
       metadata: Record<string, unknown> | null
     }>()
   if (order) {
-    const [seller, stats] = await Promise.all([loadSeller(admin, order.slug), requestStats(admin, 'checkout', order.id)])
+    const [seller, stats] = await Promise.all([
+      loadSeller(admin, order.page_id, order.slug),
+      requestStats(admin, 'checkout', order.id),
+    ])
     return {
       kind: 'checkout',
       orderId: order.id,
@@ -337,7 +371,10 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
       metadata: Record<string, unknown> | null
     }>()
   if (neg) {
-    const [seller, stats] = await Promise.all([loadSeller(admin, neg.slug), requestStats(admin, 'negotiation', neg.id)])
+    const [seller, stats] = await Promise.all([
+      loadSeller(admin, neg.page_id, neg.slug),
+      requestStats(admin, 'negotiation', neg.id),
+    ])
     return {
       kind: 'negotiation',
       orderId: neg.id,

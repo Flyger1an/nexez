@@ -48,13 +48,13 @@ export function BrandedEmail({
           <Section style={styles.frame}>
             <Section style={styles.masthead}>
               <Row>
-                <Column style={{ width: '205px' }}>
+                <Column style={{ width: '170px' }}>
                   <Img
-                    alt="Nexez AI"
-                    height="25"
+                    alt="Nexez"
+                    height="24"
                     src={NEXEZ_EMAIL_LOGO_URL}
                     style={styles.logo}
-                    width="193"
+                    width="144"
                   />
                 </Column>
                 <Column>

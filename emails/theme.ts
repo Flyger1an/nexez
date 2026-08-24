@@ -16,7 +16,7 @@ export const BRAND = {
   white: '#ffffff',
 } as const
 
-export const NEXEZ_EMAIL_LOGO_URL = 'https://nexez.app/nexez-email-logo-white.png?v=20260823'
+export const NEXEZ_EMAIL_LOGO_URL = 'https://nexez.app/nexez-email-logo-white.png?v=20260824'
 
 const FONT = "system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 
@@ -42,12 +42,13 @@ export const styles = {
   } as const,
   masthead: {
     backgroundColor: BRAND.ink,
+    backgroundImage: `linear-gradient(${BRAND.ink}, ${BRAND.ink})`,
     padding: '18px 24px',
   } as const,
   logo: {
     display: 'block',
-    height: '25px',
-    width: '193px',
+    height: '24px',
+    width: '144px',
   } as const,
   productLabel: {
     color: BRAND.white,

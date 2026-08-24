@@ -8,6 +8,7 @@ const refs = vi.hoisted(() => ({
   ownerEmailCalls: [] as Array<{ ownerId?: string | null; contactEmail?: string | null }>,
   sent: [] as Array<{ to: string; subject: string; html: string; text?: string }>,
   buyerRequestBuilds: [] as Array<Record<string, unknown>>,
+  buyerStatusBuilds: [] as Array<Record<string, unknown>>,
 }))
 const { resolveRef, adminRef } = refs
 
@@ -40,7 +41,10 @@ vi.mock('../../../../lib/email', () => ({
     refs.buyerRequestBuilds.push(opts)
     return { subject: 'seller request', html: 'h', text: 't' }
   }),
-  buildBuyerStatusEmail: vi.fn(() => ({ subject: 'buyer receipt', html: 'h', text: 't' })),
+  buildBuyerStatusEmail: vi.fn((opts: Record<string, unknown>) => {
+    refs.buyerStatusBuilds.push(opts)
+    return { subject: 'buyer receipt', html: 'h', text: 't' }
+  }),
 }))
 vi.mock('../../../../lib/agent-page', () => ({ getBaseUrl: () => 'https://nexez.app' }))
 
@@ -81,6 +85,7 @@ describe('POST /api/order-portal/request', () => {
     refs.ownerEmailCalls = []
     refs.sent = []
     refs.buyerRequestBuilds = []
+    refs.buyerStatusBuilds = []
   })
 
   it('400 on a missing token', async () => {
@@ -170,6 +175,22 @@ describe('POST /api/order-portal/request', () => {
       expect.objectContaining({
         inboxUrl: 'https://app.nexez.ai/dashboard/orders/o1',
       }),
+    ])
+  })
+
+  it('uses the resolved storefront identity in both seller and buyer emails', async () => {
+    refs.emailEnabled = true
+    resolveRef.fn = () => target({ sellerName: 'Acme Merchant', slug: 'weekend-plumbing-special' })
+
+    const res = await POST(post({ token: 't', kind: 'refund_request' }))
+    expect(res.status).toBe(200)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(refs.buyerRequestBuilds).toEqual([
+      expect.objectContaining({ businessName: 'Acme Merchant' }),
+    ])
+    expect(refs.buyerStatusBuilds).toEqual([
+      expect.objectContaining({ businessName: 'Acme Merchant' }),
     ])
   })
 })

@@ -4,7 +4,7 @@ import { BrandedEmail, EmailEyebrow, EmailHeading, InfoRows, Lead, PrimaryButton
 import { NEXEZ_EMAIL_LOGO_URL } from './theme'
 
 describe('BrandedEmail', () => {
-  it('renders the official Nexez AI logo, semantic state, secure CTA, and support footer', async () => {
+  it('renders the official Nexez logo, semantic state, secure CTA, and support footer', async () => {
     const html = await render(
       <BrandedEmail preview="Your payment is confirmed" category="Buyer order">
         <EmailEyebrow>Order update</EmailEyebrow>
@@ -17,7 +17,9 @@ describe('BrandedEmail', () => {
     )
 
     expect(html).toContain(NEXEZ_EMAIL_LOGO_URL.replaceAll('&', '&amp;'))
-    expect(html).toContain('alt="Nexez AI"')
+    expect(html).toContain('alt="Nexez"')
+    expect(html).not.toContain('Nexez AI')
+    expect(html).toContain('background-image:linear-gradient(#0a0a0a, #0a0a0a)')
     expect(html).toContain('Payment confirmed')
     expect(html).toContain('$50.00')
     expect(html).not.toContain('Missing')

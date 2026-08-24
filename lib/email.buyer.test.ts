@@ -71,6 +71,19 @@ describe('buildBuyerStatusEmail', () => {
     expect(m.subject.toLowerCase()).toContain('received')
   })
 
+  it('request_received names the seller storefront without substituting the listing title', async () => {
+    const m = await buildBuyerStatusEmail({
+      kind: 'request_received',
+      businessName: 'Acme Merchant',
+      offerName: 'Weekend Plumbing Special',
+      manageUrl: 'u',
+    })
+    expect(m.subject).toContain('Acme Merchant')
+    expect(m.text).toContain("passed your request to Acme Merchant")
+    expect(m.text).toContain('Item: Weekend Plumbing Special')
+    expect(m.text).not.toContain('passed your request to Weekend Plumbing Special')
+  })
+
   it('partial_refund has its own subject', async () => {
     const m = await buildBuyerStatusEmail({ kind: 'partial_refund', businessName: 'Acme', offerName: 'X', manageUrl: 'u' })
     expect(m.subject.toLowerCase()).toContain('partial')
