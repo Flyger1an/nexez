@@ -23,6 +23,11 @@ import {
 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '../utils/supabase/client'
+import {
+  commerceAttentionBadgeLabel,
+  commerceAttentionIsIncomplete,
+  type CommerceAttentionSummary,
+} from '../lib/commerce-attention'
 
 type MobileNavItem = {
   href: string
@@ -57,11 +62,14 @@ function isItemActive(item: MobileNavItem, pathname: string) {
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`))
 }
 
-export function MobilePlatformNav() {
+export function MobilePlatformNav({
+  commerceAttention = null,
+}: {
+  commerceAttention?: CommerceAttentionSummary | null
+}) {
   const pathname = usePathname()
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [platformAdmin, setPlatformAdmin] = useState(false)
-  const [openNegotiations, setOpenNegotiations] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
@@ -78,26 +86,17 @@ export function MobilePlatformNav() {
       setAuthed(Boolean(user))
       if (!user) {
         setPlatformAdmin(false)
-        setOpenNegotiations(0)
         return
       }
 
-      const [{ data: admin }, { count }] = await Promise.all([
-        supabase
-          .from('platform_admins')
-          .select('user_id')
-          .eq('user_id', user.id)
-          .maybeSingle<{ user_id: string }>(),
-        supabase
-          .from('agent_negotiations')
-          .select('id', { count: 'exact', head: true })
-          .eq('owner_id', user.id)
-          .in('status', ['negotiation', 'agreement_proposed', 'held']),
-      ])
+      const { data: admin } = await supabase
+        .from('platform_admins')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle<{ user_id: string }>()
 
       if (!cancelled) {
         setPlatformAdmin(Boolean(admin))
-        setOpenNegotiations(count ?? 0)
       }
     }
 
@@ -105,7 +104,6 @@ export function MobilePlatformNav() {
       if (!cancelled) {
         setAuthed(false)
         setPlatformAdmin(false)
-        setOpenNegotiations(0)
       }
     })
 
@@ -191,7 +189,7 @@ export function MobilePlatformNav() {
                   key={item.href}
                   item={item}
                   pathname={pathname}
-                  badge={item.href === '/dashboard/negotiations' ? openNegotiations : 0}
+                  attention={item.href === '/dashboard/commerce' ? commerceAttention : null}
                   onNavigate={() => closeMenu(false)}
                 />
               ))}
@@ -217,10 +215,17 @@ export function MobilePlatformNav() {
           style={{ borderColor: '#FF6A33' }}
           aria-expanded={menuOpen}
           aria-controls="mobile-platform-nav-sheet"
+          aria-label={menuOpen
+            ? 'Close navigation menu'
+            : commerceAttention
+              ? `Open navigation menu, ${commerceAttentionBadgeLabel(commerceAttention)}`
+              : 'Open navigation menu'}
         >
           <span className="relative">
             {menuOpen ? <X className="size-[18px]" /> : <Menu className="size-[18px]" />}
-            {openNegotiations > 0 ? <Badge count={openNegotiations} /> : null}
+            {commerceAttention && (commerceAttention.visibleCount > 0 || commerceAttention.status !== 'complete')
+              ? <Badge summary={commerceAttention} />
+              : null}
           </span>
           <span>Menu</span>
         </button>
@@ -232,16 +237,17 @@ export function MobilePlatformNav() {
 function MobileSheetLink({
   item,
   pathname,
-  badge = 0,
+  attention = null,
   onNavigate,
 }: {
   item: MobileNavItem
   pathname: string
-  badge?: number
+  attention?: CommerceAttentionSummary | null
   onNavigate: () => void
 }) {
   const Icon = item.icon
   const active = isItemActive(item, pathname)
+  const attentionLabel = attention ? commerceAttentionBadgeLabel(attention) : null
 
   return (
     <a
@@ -253,25 +259,36 @@ function MobileSheetLink({
           : 'text-muted-foreground hover:bg-white/[0.05] hover:text-white'
       }`}
       aria-current={active ? 'page' : undefined}
-      title={badge > 0 ? `${item.label} (${badge} open)` : item.label}
+      title={attentionLabel ? `${item.label} (${attentionLabel})` : item.label}
+      aria-label={attentionLabel ? `${item.label}, ${attentionLabel}` : item.label}
     >
       <span className="relative shrink-0">
         <Icon className="size-4" />
-        {badge > 0 ? <Badge count={badge} /> : null}
+        {attention && (attention.visibleCount > 0 || attention.status !== 'complete')
+          ? <Badge summary={attention} />
+          : null}
       </span>
       <span className="min-w-0 truncate">{item.label}</span>
     </a>
   )
 }
 
-function Badge({ count }: { count: number }) {
+function Badge({ summary }: { summary: CommerceAttentionSummary }) {
+  const incomplete = commerceAttentionIsIncomplete(summary)
+  const content = summary.status === 'unavailable' || (!summary.visibleCount && incomplete)
+    ? '!'
+    : summary.visibleCount > 99
+      ? '99+'
+      : `${summary.visibleCount}${incomplete ? '+' : ''}`
+
   return (
     <span
-      className="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none text-[var(--color-pure-white)]"
-      style={{ backgroundColor: '#C94719' }}
-      aria-label={`${count} open`}
+      className={`absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none text-[var(--color-pure-white)] ${
+        summary.urgentCount ? 'bg-red-500' : 'bg-[var(--signal-solid)]'
+      }`}
+      aria-hidden="true"
     >
-      {count > 99 ? '99+' : count}
+      {content}
     </span>
   )
 }

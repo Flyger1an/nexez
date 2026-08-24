@@ -30,7 +30,6 @@ import { publishErrorMessage } from '../../lib/publish-error'
 import type { SellerGrowthState } from '../../lib/server/seller-growth'
 import type { OwnerAnalyticsRollup } from '../../lib/server/analytics-rollup'
 import { SellerGrowthInvites } from '../../components/growth/SellerGrowthInvites'
-import { loadNegotiationRollup } from '../../lib/negotiation-report'
 import type { NegotiationRollup } from '../../lib/negotiation-report'
 import type { FinanceRollup } from '../../lib/finance-report'
 import {
@@ -39,12 +38,13 @@ import {
 } from '../../lib/commercial-command-center'
 import { CommercialCommandCenter } from '../../components/dashboard/CommercialCommandCenter'
 import { DataLoadNotice } from '../../components/dashboard/DataLoadNotice'
+import { fetchCommerceAttention } from '../../lib/commerce-attention-client'
+import type { CommerceAttentionSummary } from '../../lib/commerce-attention'
 
 export type DashboardInitial = {
   pages: AgentPage[]
   events: CheckoutEvent[]
   agentVisits: AgentVisit[]
-  openNegotiations: number
   sharedPages: AgentPage[]
   displayName: string
   // Start-of-today (ISO), computed server-side from the same helper Analytics
@@ -58,6 +58,7 @@ export type DashboardInitial = {
   negotiationRollup?: NegotiationRollup | null
   financeRollup?: FinanceRollup | null
   commerceActions?: CommercialCommerceInput | null
+  commerceAttention?: CommerceAttentionSummary | null
   commercialDataIssues?: string[]
 }
 
@@ -70,7 +71,9 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
   const [pages, setPages] = useState<AgentPage[]>(initial?.pages ?? [])
   const [events, setEvents] = useState<CheckoutEvent[]>(initial?.events ?? [])
   const [agentVisits, setAgentVisits] = useState<AgentVisit[]>(initial?.agentVisits ?? [])
-  const [openNegotiations, setOpenNegotiations] = useState(initial?.openNegotiations ?? 0)
+  const [commerceAttention, setCommerceAttention] = useState<CommerceAttentionSummary | null>(
+    initial?.commerceAttention ?? null,
+  )
   // Server pre-rendered with data → no loading flash. Refresh happens in the background.
   const [loading, setLoading] = useState(!initial)
   const [displayName, setDisplayName] = useState(initial?.displayName ?? '')
@@ -181,7 +184,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
     }
 
     // Fetch everything independent of each other in one parallel wave.
-    const [pageResult, eventResult, visitResult, invitesResult, negotiationResult, negotiationReport] = await Promise.all([
+    const [pageResult, eventResult, visitResult, invitesResult, attention] = await Promise.all([
       fetchOwnedPages(supabase, user.id),
       supabase
         .from('checkout_events')
@@ -192,12 +195,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
         .returns<CheckoutEvent[]>(),
       fetchAgentVisits(supabase, user.id),
       supabase.from('team_invites').select('owner_id').eq('email', (user.email ?? '').toLowerCase()).eq('status', 'accepted'),
-      supabase
-        .from('agent_negotiations')
-        .select('id', { count: 'exact', head: true })
-        .eq('owner_id', user.id)
-        .in('status', ['negotiation', 'agreement_proposed', 'held']),
-      loadNegotiationRollup(supabase),
+      fetchCommerceAttention(),
     ])
 
     if (pageResult.error) {
@@ -223,14 +221,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
       setAgentVisits(visitResult.data || [])
     }
 
-    // Open negotiations (graceful if table missing).
-    if (negotiationResult.error && !isMissingRelationError(negotiationResult.error)) {
-      console.warn('Failed to count negotiations:', negotiationResult.error)
-    }
-    setOpenNegotiations(
-      negotiationReport.data?.counts.needsAction
-        ?? (negotiationResult.error ? 0 : negotiationResult.count ?? 0),
-    )
+    setCommerceAttention(attention)
 
     // Pages shared with me - one follow-up query keyed off the invites we already loaded.
     try {
@@ -428,7 +419,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
             </div>
 
             {(() => {
-              const notifications = buildNotifications({ pages, openNegotiations })
+              const notifications = buildNotifications({ pages, commerceAttention })
               if (!notifications.length) return null
               return (
                 <div className="mt-6 space-y-2">

@@ -4,6 +4,8 @@ import { ReactNode, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { hasSupabaseAuthCookieInDocument } from '../lib/auth-cookie'
+import { fetchCommerceAttention } from '../lib/commerce-attention-client'
+import type { CommerceAttentionSummary } from '../lib/commerce-attention'
 import { isDualPath, isMarketingPath } from '../lib/site'
 
 // The heavy chrome is code-split and only loaded where it's used:
@@ -21,10 +23,22 @@ const MarketingShell = dynamic(() => import('./MarketingShell').then((m) => m.Ma
 const platformPrefixes = ['/dashboard', '/create']
 
 function PlatformChrome({ children }: { children: ReactNode }) {
+  const [commerceAttention, setCommerceAttention] = useState<CommerceAttentionSummary | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchCommerceAttention().then((attention) => {
+      if (!cancelled) setCommerceAttention(attention)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div className="pb-16 md:pb-0 max-md:[&_.dashboard-sidebar]:hidden">
-      <PlatformShell>{children}</PlatformShell>
-      <MobilePlatformNav />
+      <PlatformShell commerceAttention={commerceAttention}>{children}</PlatformShell>
+      <MobilePlatformNav commerceAttention={commerceAttention} />
     </div>
   )
 }

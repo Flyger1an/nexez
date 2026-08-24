@@ -2,6 +2,10 @@
 // (Outbound webhooks already fire on real booking events; email is gated on a
 // provider. This powers the dashboard notifications panel.)
 import { AgentPage } from './agent-page'
+import {
+  commerceAttentionIsIncomplete,
+  type CommerceAttentionSummary,
+} from './commerce-attention'
 import { isStale } from './freshness'
 
 export type Notification = {
@@ -14,18 +18,42 @@ export type Notification = {
 
 export function buildNotifications(input: {
   pages: AgentPage[]
-  openNegotiations: number
+  commerceAttention: CommerceAttentionSummary | null
 }): Notification[] {
   const notifications: Notification[] = []
-  const { pages, openNegotiations } = input
+  const { pages, commerceAttention } = input
 
-  if (openNegotiations > 0) {
+  if (commerceAttention?.status === 'unavailable') {
     notifications.push({
-      id: 'negotiations',
+      id: 'commerce-attention',
       severity: 'action',
-      message: `${openNegotiations} negotiation${openNegotiations === 1 ? '' : 's'} need${openNegotiations === 1 ? 's' : ''} your attention`,
-      cta: 'Open inbox',
-      href: '/dashboard/negotiations',
+      message: 'Commerce actions could not be checked from the available sources',
+      cta: 'Review Commerce',
+      href: commerceAttention.href,
+    })
+  } else if (commerceAttention && !commerceAttention.visibleCount && commerceAttentionIsIncomplete(commerceAttention)) {
+    notifications.push({
+      id: 'commerce-attention',
+      severity: 'action',
+      message: 'Commerce action coverage is incomplete, additional records may require attention',
+      cta: 'Open queue',
+      href: '/dashboard/commerce',
+    })
+  } else if (commerceAttention && (
+    commerceAttention.visibleCount > 0 || commerceAttentionIsIncomplete(commerceAttention)
+  )) {
+    const incomplete = commerceAttentionIsIncomplete(commerceAttention)
+    const visibleLabel = `${commerceAttention.visibleCount}${incomplete ? '+' : ''}`
+    const urgentLabel = commerceAttention.urgentCount
+      ? `, ${commerceAttention.urgentCount} urgent`
+      : ''
+    const singular = commerceAttention.visibleCount === 1 && !incomplete
+    notifications.push({
+      id: 'commerce-attention',
+      severity: 'action',
+      message: `${visibleLabel} commerce record${singular ? '' : 's'} need${singular ? 's' : ''} your attention${urgentLabel}`,
+      cta: commerceAttention.href === '/dashboard/commerce' ? 'Open queue' : 'Review action',
+      href: commerceAttention.href,
     })
   }
 
