@@ -75,4 +75,3 @@ against the locally validated tree before opening the PR. The API decodes
 unicode escape sequences (backslash-u followed by four hex digits) in file
 content, which has silently altered committed source, and truncation in a
 large payload fails silently too.
-
