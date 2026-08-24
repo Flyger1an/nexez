@@ -12,7 +12,7 @@ The `Release Certification` workflow starts after the main `CI` workflow complet
 
 1. checks out the exact CI commit and verifies the source-gate conclusion;
 2. waits for production machine health to report that same Git SHA;
-3. verifies `nexez.ai`, `app.nexez.ai`, and `nexez.app` on their canonical roles;
+3. verifies `nexez.ai`, `app.nexez.ai`, `admin.nexez.ai`, and `nexez.app` on their canonical roles;
 4. verifies a public certification storefront plus its `agent.json`, `llms.txt`, and OpenAPI artifacts;
 5. verifies the global MCP, OpenAPI, `llms.txt`, and agent index;
 6. runs `npm run certify:commerce`, which never moves money;

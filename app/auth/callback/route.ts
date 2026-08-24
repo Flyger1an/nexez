@@ -5,6 +5,8 @@ import { safeNextPath } from '../../../lib/safe-redirect'
 import { sendOnceSystemEmail } from '../../../lib/server/system-email'
 import { buildWelcomeEmail } from '../../../lib/email'
 import { ensureBillingSeeded, hasBillingAccount, isSelectablePlan } from '../../../lib/server/trial'
+import { isPlatformAdmin } from '../../../lib/server/plan'
+import { isAdminHost } from '../../../lib/site'
 
 // A user counts as "new" (gets the welcome) only if their account was created very
 // recently - so an existing user signing in again never gets a backfill blast, and
@@ -15,7 +17,8 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   // Guard against open redirect: only allow a same-origin relative path.
-  const next = safeNextPath(requestUrl.searchParams.get('next'))
+  const adminRequest = isAdminHost(requestUrl.host)
+  const next = safeNextPath(requestUrl.searchParams.get('next'), adminRequest ? '/admin' : '/dashboard')
 
   // OAuth provider error / consent-cancel: Google -> Supabase forwards `error`
   // (e.g. access_denied) with NO code. Without this, we'd silently redirect an
@@ -45,6 +48,15 @@ export async function GET(request: Request) {
     // redirect; send-once-guarded so repeat logins don't re-fire. Gated on a recent
     // created_at so existing users aren't welcomed on their next login.
     const { data: { user } } = await supabase.auth.getUser()
+    if (adminRequest) {
+      if (!user || !(await isPlatformAdmin(supabase, user.id))) {
+        await supabase.auth.signOut()
+        const loginUrl = new URL('/login', requestUrl.origin)
+        loginUrl.searchParams.set('error', 'admin_access')
+        return NextResponse.redirect(loginUrl)
+      }
+      return NextResponse.redirect(new URL(next, requestUrl.origin))
+    }
     const createdMs = user?.created_at ? Date.parse(user.created_at) : NaN
     const isNew = Boolean(user?.id) && Number.isFinite(createdMs) && Date.now() - createdMs < WELCOME_WINDOW_MS
 

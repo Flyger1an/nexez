@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import {
   AGENT_RUNTIME_HOST,
+  ADMIN_HOST,
   APP_HOST,
   MARKETING_HOST,
   agentRuntimeUrl,
+  adminUrl,
   appUrl,
   canonicalHostFor,
   isAppPath,
+  isAdminPath,
   isDualPath,
   isHostNeutralPath,
   isMarketingPath,
@@ -83,8 +86,9 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/api/simulate-url')).toBe(MARKETING_HOST)
 
     expect(canonicalHostFor('/dashboard')).toBe(APP_HOST)
-    expect(canonicalHostFor('/admin')).toBe(APP_HOST)
-    expect(canonicalHostFor('/admin/growth')).toBe(APP_HOST)
+    expect(canonicalHostFor('/admin')).toBe(ADMIN_HOST)
+    expect(canonicalHostFor('/admin/growth')).toBe(ADMIN_HOST)
+    expect(canonicalHostFor('/api/admin/session')).toBe(ADMIN_HOST)
     expect(canonicalHostFor('/create')).toBe(APP_HOST)
     expect(canonicalHostFor('/api/billing')).toBe(APP_HOST)
     expect(canonicalHostFor('/shopify')).toBe(APP_HOST)
@@ -181,8 +185,8 @@ describe('isAppPath', () => {
   it('only flags human product routes', () => {
     expect(isAppPath('/dashboard')).toBe(true)
     expect(isAppPath('/dashboard/settings')).toBe(true)
-    expect(isAppPath('/admin')).toBe(true)
-    expect(isAppPath('/admin/audit')).toBe(true)
+    expect(isAppPath('/admin')).toBe(false)
+    expect(isAppPath('/admin/audit')).toBe(false)
     expect(isAppPath('/create')).toBe(true)
     expect(isAppPath('/shopify')).toBe(true)
     expect(isAppPath('/invite/claim')).toBe(true)
@@ -190,9 +194,18 @@ describe('isAppPath', () => {
   })
 })
 
+describe('isAdminPath', () => {
+  it('keeps platform operations separate from the merchant app', () => {
+    expect(isAdminPath('/admin')).toBe(true)
+    expect(isAdminPath('/admin/support/ticket-1')).toBe(true)
+    expect(isAdminPath('/dashboard')).toBe(false)
+  })
+})
+
 describe('appUrl / marketingUrl / agentRuntimeUrl', () => {
   it('build absolute cross-domain URLs and add a leading slash', () => {
     expect(appUrl('/login')).toBe(`https://${APP_HOST}/login`)
+    expect(adminUrl('/login')).toBe(`https://${ADMIN_HOST}/login`)
     expect(appUrl('onboard')).toBe(`https://${APP_HOST}/onboard`)
     expect(marketingUrl('/pricing')).toBe(`https://${MARKETING_HOST}/pricing`)
     expect(marketingUrl()).toBe(`https://${MARKETING_HOST}/`)
@@ -203,5 +216,7 @@ describe('appUrl / marketingUrl / agentRuntimeUrl', () => {
     expect(APP_HOST).not.toBe(MARKETING_HOST)
     expect(AGENT_RUNTIME_HOST).not.toBe(MARKETING_HOST)
     expect(AGENT_RUNTIME_HOST).not.toBe(APP_HOST)
+    expect(ADMIN_HOST).not.toBe(APP_HOST)
+    expect(ADMIN_HOST).not.toBe(MARKETING_HOST)
   })
 })

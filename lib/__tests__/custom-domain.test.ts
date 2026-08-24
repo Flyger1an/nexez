@@ -38,6 +38,7 @@ describe('isPlatformHost', () => {
     expect(isPlatformHost('nexez.vercel.app', site)).toBe(true)
     expect(isPlatformHost('app.nexez.com', 'https://app.nexez.com')).toBe(true)
     expect(isPlatformHost('www.nexez.com', 'https://nexez.com')).toBe(true)
+    expect(isPlatformHost('admin.nexez.ai', site)).toBe(true)
   })
 
   it('treats a real customer domain as NOT platform', () => {

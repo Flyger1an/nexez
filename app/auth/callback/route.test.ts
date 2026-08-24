@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const refs = vi.hoisted(() => ({
   user: null as any,
   exchangeError: null as any,
+  admin: true,
+  signOut: vi.fn(),
 }))
 
 const trial = vi.hoisted(() => ({
@@ -21,6 +23,7 @@ vi.mock('../../../utils/supabase/server', () => ({
     auth: {
       exchangeCodeForSession: async () => ({ error: refs.exchangeError }),
       getUser: async () => ({ data: { user: refs.user } }),
+      signOut: refs.signOut,
     },
   }),
 }))
@@ -31,10 +34,12 @@ vi.mock('../../../lib/server/trial', () => ({
 }))
 vi.mock('../../../lib/server/system-email', () => ({ sendOnceSystemEmail: vi.fn() }))
 vi.mock('../../../lib/email', () => ({ buildWelcomeEmail: vi.fn() }))
+vi.mock('../../../lib/server/plan', () => ({ isPlatformAdmin: vi.fn(async () => refs.admin) }))
 
 import { GET } from './route'
 
 const callback = (next = '/dashboard') => new Request(`https://app.nexez.test/auth/callback?code=ok&next=${encodeURIComponent(next)}`)
+const adminCallback = () => new Request('https://admin.nexez.ai/auth/callback?code=ok&next=%2Fadmin%2Fsupport')
 
 describe('GET /auth/callback plan routing', () => {
   beforeEach(() => {
@@ -46,6 +51,7 @@ describe('GET /auth/callback plan routing', () => {
       created_at: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
       user_metadata: {},
     }
+    refs.admin = true
     trial.hasBilling.mockResolvedValue(false)
     trial.ensure.mockResolvedValue(true)
   })
@@ -91,5 +97,22 @@ describe('GET /auth/callback plan routing', () => {
 
     expect(trial.ensure).toHaveBeenCalledWith('user-1', 'launch')
     expect(response.headers.get('location')).toBe('https://app.nexez.test/dashboard')
+  })
+
+  it('admits an approved operator on the isolated admin callback without seller onboarding', async () => {
+    const response = await GET(adminCallback())
+
+    expect(response.headers.get('location')).toBe('https://admin.nexez.ai/admin/support')
+    expect(trial.hasBilling).not.toHaveBeenCalled()
+    expect(trial.ensure).not.toHaveBeenCalled()
+  })
+
+  it('clears an unapproved admin session and returns to the dedicated login', async () => {
+    refs.admin = false
+
+    const response = await GET(adminCallback())
+
+    expect(refs.signOut).toHaveBeenCalledOnce()
+    expect(response.headers.get('location')).toBe('https://admin.nexez.ai/login?error=admin_access')
   })
 })

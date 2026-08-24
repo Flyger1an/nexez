@@ -14,12 +14,15 @@ import { AB_BUCKET_COOKIE, randomBucket } from './lib/ab-testing'
 import { hasSupabaseAuthCookie } from './lib/auth-cookie'
 import {
   AGENT_RUNTIME_HOST,
+  ADMIN_HOST,
   APP_HOST,
   MARKETING_HOST,
   canonicalHostFor,
+  isAdminAuthPath,
   isDualPath,
   isHostNeutralPath,
 } from './lib/site'
+import { getSupabaseCookieOptions } from './utils/supabase/cookie-options'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
 const AB_BUCKET_MAX_AGE = 60 * 60 * 24 * 365 // 1 year
@@ -115,7 +118,8 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
 // lives in `sb-<ref>-auth-token` cookie(s). Presence is a heuristic only — the
 // dashboard's auth gate still validates — so it's fine to act on without a round-trip.
 function hasPlatformSession(request: NextRequest): boolean {
-  return hasSupabaseAuthCookie(request.cookies.getAll())
+  const cookieName = getSupabaseCookieOptions(request.headers.get('host'))?.name
+  return hasSupabaseAuthCookie(request.cookies.getAll(), cookieName)
 }
 
 export async function proxy(request: NextRequest) {
@@ -161,6 +165,7 @@ export async function proxy(request: NextRequest) {
   const matchesFirstPartyHost = (firstPartyHost: string) =>
     currentHost === firstPartyHost || currentHost === `www.${firstPartyHost}`
   const isFirstPartyHost =
+    matchesFirstPartyHost(ADMIN_HOST) ||
     matchesFirstPartyHost(APP_HOST) ||
     matchesFirstPartyHost(MARKETING_HOST) ||
     matchesFirstPartyHost(AGENT_RUNTIME_HOST)
@@ -176,7 +181,11 @@ export async function proxy(request: NextRequest) {
     }
 
     const isOwnerPreview = request.nextUrl.searchParams.get('preview') === '1'
-    let wantHost = isOwnerPreview ? APP_HOST : canonicalHostFor(request.nextUrl.pathname)
+    let wantHost = matchesFirstPartyHost(ADMIN_HOST) && isAdminAuthPath(request.nextUrl.pathname)
+      ? ADMIN_HOST
+      : isOwnerPreview
+        ? APP_HOST
+        : canonicalHostFor(request.nextUrl.pathname)
     // Dual discovery surfaces (directory/leaderboard/marketplace/simulator/support)
     // are canonical to the marketing host for anonymous visitors, but a signed-in
     // visitor gets the in-app experience on the app host — so they keep the

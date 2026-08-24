@@ -10,6 +10,7 @@ import {
   BuyerReceiptEmail,
   BuyerStatusEmail,
   BuyerRequestEmail,
+  SupportTicketEmail,
   OrderLookupEmail,
   TeamInviteEmail,
   WelcomeEmail,
@@ -39,6 +40,7 @@ type SendEmailInput = {
   html: string
   text?: string
   idempotencyKey?: string
+  replyTo?: string
   tags?: SendEmailTag[]
 }
 type SendResult = { ok: boolean; skipped?: boolean; id?: string; error?: string }
@@ -71,7 +73,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
       body: JSON.stringify({
         from: resolveTransactionalFrom(),
         to: [input.to],
-        reply_to: NEXEZ_SUPPORT_REPLY_TO,
+        reply_to: input.replyTo?.trim() || NEXEZ_SUPPORT_REPLY_TO,
         subject: input.subject,
         html: input.html,
         ...(input.text ? { text: input.text } : {}),
@@ -108,6 +110,48 @@ const textBody = (lead: string, rows: Row[], cta: string, url: string) =>
 function basicHtml(text: string): string {
   const esc = text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] as string)
   return `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;white-space:pre-wrap;line-height:1.6;color:#0a0a0a;max-width:560px;margin:0 auto;padding:24px">${esc}</div>`
+}
+
+export async function buildSupportTicketEmail(opts: {
+  requesterEmail: string
+  ticketId: string
+  subject: string
+  category: string
+  priority: string
+  targetName: string
+  query: string
+  reference?: string | null
+  supportTier: string
+  adminUrl: string
+}): Promise<Built> {
+  const rows: Row[] = [
+    ['Ticket', opts.ticketId],
+    ['Subject', opts.subject],
+    ['Requester', opts.requesterEmail],
+    ['Target', opts.targetName],
+    ['Category', opts.category],
+    ['Priority', opts.priority],
+    ['Support level', opts.supportTier],
+    ['Reference', opts.reference],
+    ['Message', opts.query],
+  ]
+  const subject = `[Support ${opts.priority}] ${opts.subject}`
+  const text = textBody(
+    `${opts.requesterEmail} submitted a Nexez support request.`,
+    rows,
+    'Open support request',
+    opts.adminUrl,
+  )
+  const html = await renderHtml(
+    <SupportTicketEmail
+      requesterEmail={opts.requesterEmail}
+      subject={opts.subject}
+      rows={rows}
+      adminUrl={opts.adminUrl}
+    />,
+    text,
+  )
+  return { subject, html, text }
 }
 
 // Render a template to HTML, but NEVER let a render failure silently kill the email.

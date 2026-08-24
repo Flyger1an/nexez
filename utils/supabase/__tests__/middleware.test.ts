@@ -63,6 +63,28 @@ describe('Supabase session middleware', () => {
     expect(response.headers.get('set-cookie')).toBeNull()
   })
 
+  it('clears only the isolated admin session on the admin host', async () => {
+    getUser.mockResolvedValue({
+      data: { user: null },
+      error: { code: 'refresh_token_not_found', message: 'Invalid Refresh Token' },
+    })
+    const request = new NextRequest('https://admin.nexez.ai/admin/support', {
+      headers: {
+        host: 'admin.nexez.ai',
+        cookie: 'nexez-admin-auth-token.0=stale-admin; sb-project-auth-token=keep-seller',
+      },
+    })
+
+    const response = await updateSession(request)
+    const setCookie = response.headers.get('set-cookie') ?? ''
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toContain('/login?next=%2Fadmin%2Fsupport')
+    expect(setCookie).toContain('nexez-admin-auth-token.0=')
+    expect(setCookie).not.toContain('sb-project-auth-token=')
+    expect(setCookie).not.toContain('Domain=.nexez.ai')
+  })
+
   it('passes an authenticated dashboard request through', async () => {
     getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
 

@@ -34,7 +34,7 @@ import { NextRequest } from 'next/server'
 import { proxy } from './proxy'
 import { updateSession } from './utils/supabase/middleware'
 import { createServerClient } from '@supabase/ssr'
-import { AGENT_RUNTIME_HOST, APP_HOST } from './lib/site'
+import { ADMIN_HOST, AGENT_RUNTIME_HOST, APP_HOST } from './lib/site'
 
 const request = (url: string, host: string) => new NextRequest(url, { headers: { host } })
 
@@ -104,6 +104,34 @@ describe('proxy: staged settlement host split', () => {
     expect(res.headers.get('location')).toBe(
       `https://${APP_HOST}/api/staged-settlements/agreements/agreement-1/ready`,
     )
+  })
+})
+
+describe('proxy: isolated admin host', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    supabaseRef.respond = rows([])
+    supabaseRef.eqs = []
+  })
+
+  it('redirects admin routes from the merchant app to the admin host', async () => {
+    const response = await proxy(request(`https://${APP_HOST}/admin/support`, APP_HOST))
+    expect(response.status).toBe(308)
+    expect(response.headers.get('location')).toBe(`https://${ADMIN_HOST}/admin/support`)
+  })
+
+  it('keeps admin login and auth callbacks on the admin host', async () => {
+    for (const path of ['/login?next=/admin', '/auth/callback?next=/admin']) {
+      const response = await proxy(request(`https://${ADMIN_HOST}${path}`, ADMIN_HOST))
+      expect(response.status).toBe(200)
+      expect(response.headers.get('location')).toBeNull()
+    }
+  })
+
+  it('routes merchant pages away from the admin host', async () => {
+    const response = await proxy(request(`https://${ADMIN_HOST}/dashboard`, ADMIN_HOST))
+    expect(response.status).toBe(308)
+    expect(response.headers.get('location')).toBe(`https://${APP_HOST}/dashboard`)
   })
 })
 

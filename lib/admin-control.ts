@@ -1,7 +1,7 @@
 import type { GrowthControlAction } from './growth-control'
 import type { MarketplaceCurationStatus } from './marketplace-curation'
 
-export type AdminAuditSource = 'growth' | 'marketplace' | 'release'
+export type AdminAuditSource = 'access' | 'growth' | 'marketplace' | 'release'
 export type AdminAuditTone = 'ready' | 'attention' | 'blocked' | 'neutral'
 
 export type AdminOperator = {

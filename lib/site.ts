@@ -20,6 +20,8 @@ function hostOf(url: string | undefined | null, fallback: string): string {
 export const MARKETING_HOST = hostOf(process.env.NEXT_PUBLIC_MARKETING_URL, 'nexez.ai')
 /** The authenticated app host. */
 export const APP_HOST = hostOf(process.env.NEXT_PUBLIC_APP_URL, 'app.nexez.ai')
+/** The isolated platform administration host. */
+export const ADMIN_HOST = hostOf(process.env.NEXT_PUBLIC_ADMIN_URL, 'admin.nexez.ai')
 /** The public, crawlable agent-page runtime host. */
 export const AGENT_RUNTIME_HOST = hostOf(
   process.env.NEXT_PUBLIC_AGENT_RUNTIME_URL ?? process.env.NEXT_PUBLIC_SITE_URL,
@@ -60,7 +62,9 @@ const MARKETING_PREFIXES = [
 // visitor on the app host for these, and PlatformFrame picks the matching shell.
 const DUAL_PREFIXES = ['/discovery', '/leaderboard', '/simulator', '/support'] as const
 
-const APP_PREFIXES = ['/admin', '/dashboard', '/create', '/login', '/auth', '/onboard', '/invite', '/nexie', '/team', '/shopify'] as const
+const ADMIN_PREFIXES = ['/admin'] as const
+const ADMIN_API_PREFIXES = ['/api/admin'] as const
+const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard', '/invite', '/nexie', '/team', '/shopify'] as const
 
 const MARKETING_API_PREFIXES = [
   '/api/directory',
@@ -209,6 +213,22 @@ export function isAppPath(pathname: string): boolean {
   return APP_PREFIXES.some((pre) => p === pre || p.startsWith(`${pre}/`))
 }
 
+/** True when `pathname` belongs to platform administration. */
+export function isAdminPath(pathname: string): boolean {
+  return matchesPrefix(pathname, ADMIN_PREFIXES)
+}
+
+/** True for the dedicated admin host, including its local-development alias. */
+export function isAdminHost(host: string | null | undefined): boolean {
+  const normalized = (host ?? '').split(':')[0]!.toLowerCase()
+  return normalized === ADMIN_HOST || normalized === 'admin.localhost'
+}
+
+/** Login and callback paths that may remain on the admin host. */
+export function isAdminAuthPath(pathname: string): boolean {
+  return pathname === '/login' || pathname.startsWith('/auth/')
+}
+
 /** True when `pathname` should be served on the public agent runtime host. */
 export function isAgentRuntimePath(pathname: string): boolean {
   const p = pathname.replace(/\/+$/, '') || '/'
@@ -223,6 +243,9 @@ function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
 
 /** The host a given path is canonical to. */
 export function canonicalHostFor(pathname: string): string {
+  if (isAdminPath(pathname) || matchesPrefix(pathname, ADMIN_API_PREFIXES)) {
+    return ADMIN_HOST
+  }
   if (isMarketingPath(pathname) || matchesPrefix(pathname, MARKETING_API_PREFIXES)) {
     return MARKETING_HOST
   }
@@ -247,6 +270,11 @@ function urlFor(host: string, path: string): string {
 /** Absolute URL on the authenticated product host. */
 export function appUrl(path = '/'): string {
   return urlFor(APP_HOST, path)
+}
+
+/** Absolute URL on the platform administration host. */
+export function adminUrl(path = '/'): string {
+  return urlFor(ADMIN_HOST, path)
 }
 
 /** Absolute URL on the marketing host. */

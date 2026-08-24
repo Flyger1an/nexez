@@ -166,6 +166,27 @@ export function BuyerRequestEmail(p: {
   )
 }
 
+export function SupportTicketEmail(p: {
+  requesterEmail: string
+  subject: string
+  rows: Rows
+  adminUrl: string
+}) {
+  return (
+    <BrandedEmail preview={`New support request: ${p.subject}`} category="Support operations">
+      <EmailEyebrow>Support inbox</EmailEyebrow>
+      <StatusBadge tone="caution">Response needed</StatusBadge>
+      <EmailHeading>New support request</EmailHeading>
+      <Lead>
+        <strong>{p.requesterEmail}</strong> submitted a support request. Review the details and assign the next response from the admin desk.
+      </Lead>
+      <InfoRows rows={p.rows} />
+      <PrimaryButton href={p.adminUrl}>Open support request</PrimaryButton>
+      <Notice>Replying to this message sends your response directly to the requester.</Notice>
+    </BrandedEmail>
+  )
+}
+
 export function OrderLookupEmail(p: { lead: string; count: number; findUrl: string }) {
   return (
     <BrandedEmail preview="Your secure Nexez order link" category="Buyer order">

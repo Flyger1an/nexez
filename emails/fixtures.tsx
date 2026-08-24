@@ -11,6 +11,7 @@ import {
   PromotionExpiryEmail,
   SellerGrowthInviteEmail,
   StaleListingEmail,
+  SupportTicketEmail,
   StripeConnectedEmail,
   TeamInviteEmail,
   WelcomeEmail,
@@ -37,6 +38,16 @@ const buyerRows: Array<[string, string]> = [
 ]
 
 export const emailPreviewFixtures: EmailPreviewFixture[] = [
+  {
+    id: 'support-new-ticket',
+    element: <SupportTicketEmail requesterEmail="owner@example.com" subject="Checkout incident" rows={[
+      ['Ticket', 'ticket_123'],
+      ['Priority', 'urgent'],
+      ['Message', 'Checkout is returning an unexpected error.'],
+    ]} adminUrl="https://admin.nexez.ai/admin/support/ticket_123" />,
+    expectedCta: 'https://admin.nexez.ai/admin/support/ticket_123',
+    expectedState: 'Response needed',
+  },
   {
     id: 'merchant-booking',
     element: <BookingEmail businessName="Axle Plumbing Co." rows={[...merchantRows, ['When', 'August 24 at 9:00 AM']]} inboxUrl={`${APP}/dashboard/integrations`} />,

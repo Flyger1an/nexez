@@ -6,8 +6,14 @@
 // granting access. Keep all callers on this one matcher so decisions never drift.
 export function hasSupabaseAuthCookie(
   cookies: ReadonlyArray<{ name: string; value?: string }>,
+  cookieName?: string,
 ): boolean {
-  return cookies.some((c) => /^sb-.*-auth-token/.test(c.name) && Boolean(c.value))
+  return cookies.some((cookie) => {
+    const matches = cookieName
+      ? cookie.name === cookieName || cookie.name.startsWith(`${cookieName}.`)
+      : /^sb-.*-auth-token/.test(cookie.name)
+    return matches && Boolean(cookie.value)
+  })
 }
 
 /** Client-side variant over document.cookie (the auth cookie is deliberately not

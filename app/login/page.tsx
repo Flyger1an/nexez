@@ -1,13 +1,17 @@
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { LoginForm, LoginMode } from '../../components/LoginForm'
+import { AdminLoginForm } from '../../components/admin/AdminLoginForm'
 import { createClient } from '../../utils/supabase/server'
 import { safeNextPath } from '../../lib/safe-redirect'
+import { isAdminHost } from '../../lib/site'
+import { isPlatformAdmin } from '../../lib/server/plan'
 
 type LoginPageProps = {
   searchParams?: Promise<{
     mode?: string | string[]
     next?: string | string[]
+    error?: string | string[]
   }>
 }
 
@@ -23,12 +27,30 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams
   const initialMode = toLoginMode(firstValue(params?.mode))
   const nextPath = firstValue(params?.next)
+  const host = (await headers()).get('host')
+
+  if (isAdminHost(host)) {
+    const supabase = createClient(await cookies(), host)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user && await isPlatformAdmin(supabase, user.id)) {
+      redirect(safeNextPath(nextPath, '/admin'))
+    }
+    const accessError = firstValue(params?.error)
+    return (
+      <AdminLoginForm
+        nextPath={safeNextPath(nextPath, '/admin')}
+        clearExistingSession={Boolean(user)}
+        initialError={accessError === 'admin_access' || user ? 'This account does not have platform-admin access.' : undefined}
+      />
+    )
+  }
 
   // Already signed in? Don't show a login form. Shared .nexez.ai cookies let
   // nexez.ai and app.nexez.ai agree on auth state, while nexez.app stays focused
   // on public agent pages.
   if (initialMode !== 'reset') {
-    const host = (await headers()).get('host')
     const supabase = createClient(await cookies(), host)
     const {
       data: { user },
