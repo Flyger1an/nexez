@@ -1,115 +1,141 @@
 import * as React from 'react'
-import { BrandedEmail, EmailHeading, Lead, InfoRows, PrimaryButton, FinePrint } from './BrandedEmail'
-import { styles, BRAND } from './theme'
-import { Text } from '@react-email/components'
+import { Link, Text } from '@react-email/components'
+import {
+  BrandedEmail,
+  EmailEyebrow,
+  EmailHeading,
+  FinePrint,
+  InfoRows,
+  Lead,
+  Notice,
+  PrimaryButton,
+  StatusBadge,
+} from './BrandedEmail'
+import { BRAND, styles, type EmailTone } from './theme'
 
-// Presentational templates - one per live email. Props are already formatted by the
-// builders in lib/email.tsx (dates, currency, subjects live there); these stay pure.
-// Copy/voice is ported verbatim from the previous string builders.
+type Rows = Array<[string, string | null | undefined]>
 
-// ── Seller: new booking (Calendly etc.) ────────────────────────────────────────
+const BUYER_NOTE = 'This link is private to your order. It lets you track verified status, request help, and review seller updates.'
+
 export function BookingEmail(p: {
   businessName: string
-  rows: Array<[string, string | null | undefined]>
+  rows: Rows
   inboxUrl: string
 }) {
   return (
-    <BrandedEmail preview={`New booking on ${p.businessName}`}>
+    <BrandedEmail preview={`New booking on ${p.businessName}`} category="Merchant action">
+      <EmailEyebrow>Booking received</EmailEyebrow>
+      <StatusBadge tone="positive">Confirmed</StatusBadge>
       <EmailHeading>New booking</EmailHeading>
       <Lead>
-        A new booking came in on your Nexez listing <strong>{p.businessName}</strong>.
+        A booking was confirmed for <strong>{p.businessName}</strong>. Review the guest and schedule details below.
       </Lead>
       <InfoRows rows={p.rows} />
-      <PrimaryButton href={p.inboxUrl}>Open your dashboard</PrimaryButton>
+      <PrimaryButton href={p.inboxUrl}>Review booking</PrimaryButton>
+      <Notice>Nexez shows only the details confirmed by the connected booking source.</Notice>
     </BrandedEmail>
   )
 }
 
-// ── Seller: new negotiation request ─────────────────────────────────────────────
 export function NegotiationEmail(p: {
   businessName: string
-  rows: Array<[string, string | null | undefined]>
+  rows: Rows
   inboxUrl: string
 }) {
   return (
-    <BrandedEmail preview={`New negotiation request on ${p.businessName}`}>
+    <BrandedEmail preview={`New negotiation request on ${p.businessName}`} category="Merchant action">
+      <EmailEyebrow>Buyer inquiry</EmailEyebrow>
+      <StatusBadge tone="caution">Response needed</StatusBadge>
       <EmailHeading>New negotiation request</EmailHeading>
       <Lead>
-        You have a new negotiation request on your Nexez listing <strong>{p.businessName}</strong>.
+        A buyer wants to discuss an offer from <strong>{p.businessName}</strong>. Review the request before accepting or changing any terms.
       </Lead>
       <InfoRows rows={p.rows} />
-      <PrimaryButton href={p.inboxUrl}>Open your negotiation inbox</PrimaryButton>
+      <PrimaryButton href={p.inboxUrl}>Open negotiation</PrimaryButton>
+      <Notice>Budget and timing remain proposed until both sides agree.</Notice>
     </BrandedEmail>
   )
 }
 
-// ── Seller: buyer funded escrow (held = awaiting capture; else captured) ─────────
 export function EscrowFundedEmail(p: {
   lead: string
   held: boolean
-  rows: Array<[string, string | null | undefined]>
+  rows: Rows
   inboxUrl: string
 }) {
   return (
-    <BrandedEmail preview={p.lead}>
-      <EmailHeading tone={p.held ? 'neutral' : 'positive'}>
-        {p.held ? 'Payment held in escrow' : 'Payment received'}
-      </EmailHeading>
+    <BrandedEmail preview={p.lead} category="Merchant action">
+      <EmailEyebrow>Payment state</EmailEyebrow>
+      <StatusBadge tone={p.held ? 'caution' : 'positive'}>
+        {p.held ? 'Held for capture' : 'Payment received'}
+      </StatusBadge>
+      <EmailHeading>{p.held ? 'Funds are secured' : 'Payment received'}</EmailHeading>
       <Lead>{p.lead}</Lead>
       <InfoRows rows={p.rows} />
-      <PrimaryButton href={p.inboxUrl}>Open your negotiation inbox</PrimaryButton>
+      <PrimaryButton href={p.inboxUrl}>Review payment</PrimaryButton>
+      <Notice>
+        {p.held
+          ? 'Held funds are not settled revenue. Capture only when the agreement allows it.'
+          : 'This payment state comes from Stripe-confirmed evidence.'}
+      </Notice>
     </BrandedEmail>
   )
 }
 
-// ── Seller: refund / dispute money events ───────────────────────────────────────
 export function MoneyEventEmail(p: {
   heading: string
-  tone: 'neutral' | 'danger'
+  statusLabel: string
+  tone: EmailTone
   lead: string
-  rows: Array<[string, string | null | undefined]>
+  rows: Rows
   inboxUrl: string
+  cta: string
 }) {
   return (
-    <BrandedEmail preview={p.lead}>
-      <EmailHeading tone={p.tone}>{p.heading}</EmailHeading>
+    <BrandedEmail preview={p.lead} category="Merchant action">
+      <EmailEyebrow>Money state</EmailEyebrow>
+      <StatusBadge tone={p.tone}>{p.statusLabel}</StatusBadge>
+      <EmailHeading>{p.heading}</EmailHeading>
       <Lead>{p.lead}</Lead>
       <InfoRows rows={p.rows} />
-      <PrimaryButton href={p.inboxUrl}>Open your negotiation inbox</PrimaryButton>
+      <PrimaryButton href={p.inboxUrl}>{p.cta}</PrimaryButton>
+      <Notice>Amounts and outcomes reflect the latest recorded payment-provider evidence.</Notice>
     </BrandedEmail>
   )
 }
 
-// ── Buyer: shared fine print for portal-linked emails ───────────────────────────
-const BUYER_NOTE = 'You can view this order, track its status, request a refund, or report a problem at any time using the link above.'
-
-// ── Buyer: purchase receipt ─────────────────────────────────────────────────────
 export function BuyerReceiptEmail(p: {
   lead: string
-  rows: Array<[string, string | null | undefined]>
+  rows: Rows
   manageUrl: string
 }) {
   return (
-    <BrandedEmail preview={p.lead}>
-      <EmailHeading tone="positive">Order confirmed</EmailHeading>
+    <BrandedEmail preview={p.lead} category="Buyer order">
+      <EmailEyebrow>Purchase receipt</EmailEyebrow>
+      <StatusBadge tone="positive">Payment confirmed</StatusBadge>
+      <EmailHeading>Your order is confirmed</EmailHeading>
       <Lead>{p.lead}</Lead>
       <InfoRows rows={p.rows} />
       <PrimaryButton href={p.manageUrl}>View your order</PrimaryButton>
+      <Notice>Payment confirmation does not claim that the seller has completed fulfillment.</Notice>
       <FinePrint>{BUYER_NOTE}</FinePrint>
     </BrandedEmail>
   )
 }
 
-// ── Buyer: order status update ──────────────────────────────────────────────────
 export function BuyerStatusEmail(p: {
   heading: string
+  statusLabel: string
+  tone: EmailTone
   lead: string
   cta: string
-  rows: Array<[string, string | null | undefined]>
+  rows: Rows
   manageUrl: string
 }) {
   return (
-    <BrandedEmail preview={p.lead}>
+    <BrandedEmail preview={p.lead} category="Buyer order">
+      <EmailEyebrow>Order update</EmailEyebrow>
+      <StatusBadge tone={p.tone}>{p.statusLabel}</StatusBadge>
       <EmailHeading>{p.heading}</EmailHeading>
       <Lead>{p.lead}</Lead>
       <InfoRows rows={p.rows} />
@@ -119,53 +145,57 @@ export function BuyerStatusEmail(p: {
   )
 }
 
-// ── Seller: buyer filed a refund request / problem report ───────────────────────
 export function BuyerRequestEmail(p: {
   heading: string
-  tone: 'caution' | 'neutral'
+  statusLabel: string
+  tone: EmailTone
   lead: string
-  rows: Array<[string, string | null | undefined]>
+  rows: Rows
   inboxUrl: string
 }) {
   return (
-    <BrandedEmail preview={p.lead}>
-      <EmailHeading tone={p.tone}>{p.heading}</EmailHeading>
+    <BrandedEmail preview={p.lead} category="Merchant action">
+      <EmailEyebrow>Buyer recourse</EmailEyebrow>
+      <StatusBadge tone={p.tone}>{p.statusLabel}</StatusBadge>
+      <EmailHeading>{p.heading}</EmailHeading>
       <Lead>{p.lead}</Lead>
       <InfoRows rows={p.rows} />
-      <PrimaryButton href={p.inboxUrl}>Open your Finance dashboard</PrimaryButton>
+      <PrimaryButton href={p.inboxUrl}>Open order operations</PrimaryButton>
+      <Notice>Review the request separately from payment state. A request alone does not move money.</Notice>
     </BrandedEmail>
   )
 }
 
-// ── Buyer: "find my orders" magic link ──────────────────────────────────────────
 export function OrderLookupEmail(p: { lead: string; count: number; findUrl: string }) {
   return (
-    <BrandedEmail preview="Your Nexez orders">
-      <EmailHeading>Your orders</EmailHeading>
+    <BrandedEmail preview="Your secure Nexez order link" category="Buyer order">
+      <EmailEyebrow>Secure order access</EmailEyebrow>
+      <StatusBadge>Private link</StatusBadge>
+      <EmailHeading>{p.count === 1 ? 'Your order is ready to view' : 'Your orders are ready to view'}</EmailHeading>
       <Lead>{p.lead}</Lead>
-      <InfoRows rows={[['Orders', String(p.count)]]} />
+      <InfoRows rows={[[p.count === 1 ? 'Order found' : 'Orders found', String(p.count)]]} />
       <PrimaryButton href={p.findUrl}>View your orders</PrimaryButton>
-      <FinePrint>If you didn&apos;t request this, you can ignore this email.</FinePrint>
+      <FinePrint>If you did not request this link, you can safely ignore this email.</FinePrint>
     </BrandedEmail>
   )
 }
 
-// ── Teammate: collaboration invite ──────────────────────────────────────────────
 export function TeamInviteEmail(p: { lead: string; inviteeEmail: string; acceptUrl: string }) {
   return (
-    <BrandedEmail preview={p.lead}>
-      <EmailHeading>You&apos;re invited to collaborate</EmailHeading>
+    <BrandedEmail preview={p.lead} category="Account update">
+      <EmailEyebrow>Workspace invitation</EmailEyebrow>
+      <StatusBadge tone="positive">Invitation ready</StatusBadge>
+      <EmailHeading>You are invited to collaborate</EmailHeading>
       <Lead>{p.lead}</Lead>
-      <Text style={{ ...styles.lead, fontSize: '13px', color: BRAND.fgMuted }}>
-        Sign in or create your account using <strong>{p.inviteeEmail}</strong> - that exact address is how your access is granted.
+      <Text style={{ ...styles.lead, fontSize: '13px', color: BRAND.muted }}>
+        Use <strong>{p.inviteeEmail}</strong> when you sign in. Access is bound to that exact address.
       </Text>
-      <PrimaryButton href={p.acceptUrl}>Accept invite</PrimaryButton>
-      <FinePrint>If you weren&apos;t expecting this, you can ignore this email.</FinePrint>
+      <PrimaryButton href={p.acceptUrl}>Accept invitation</PrimaryButton>
+      <FinePrint>If you were not expecting this invitation, you can safely ignore it.</FinePrint>
     </BrandedEmail>
   )
 }
 
-// ── Seller growth: complimentary Launch invitation ──────────────────────────────
 export function SellerGrowthInviteEmail(p: {
   inviterBusinessName: string
   inviteeEmail: string
@@ -173,23 +203,28 @@ export function SellerGrowthInviteEmail(p: {
   claimUrl: string
 }) {
   return (
-    <BrandedEmail preview={`${p.inviterBusinessName} sent you complimentary Nexez Launch access.`}>
-      <EmailHeading tone="positive">Complimentary Launch access for your business</EmailHeading>
+    <BrandedEmail
+      preview={`${p.inviterBusinessName} sent your business complimentary Nexez Launch access.`}
+      category="Account update"
+    >
+      <EmailEyebrow>Complimentary access</EmailEyebrow>
+      <StatusBadge tone="positive">No card required</StatusBadge>
+      <EmailHeading>Your business has Launch access</EmailHeading>
       <Lead>
-        <strong>{p.inviterBusinessName}</strong> invited your business to use Nexez Launch for {p.durationLabel} at no
-        subscription cost. Publish an agent-ready listing and verify your business to activate it.
+        <strong>{p.inviterBusinessName}</strong> invited your business to use Nexez Launch for {p.durationLabel} at no subscription cost.
       </Lead>
-      <Text style={{ ...styles.lead, fontSize: '13px', color: BRAND.fgMuted }}>
-        Claim this pass using <strong>{p.inviteeEmail}</strong>. The invitation is for a separate business account and does
-        not grant access to the sender&apos;s workspace.
-      </Text>
+      <InfoRows rows={[
+        ['Access', `Nexez Launch for ${p.durationLabel}`],
+        ['Claim with', p.inviteeEmail],
+        ['Automatic charge', 'None'],
+      ]} />
       <PrimaryButton href={p.claimUrl}>Claim your Launch pass</PrimaryButton>
-      <FinePrint>No card is required. When complimentary access ends, the account returns to Free unless you choose a paid plan.</FinePrint>
+      <Notice>This creates a separate business account and does not grant access to the sender&apos;s workspace.</Notice>
+      <FinePrint>When complimentary access ends, the account returns to Free unless you choose a paid plan.</FinePrint>
     </BrandedEmail>
   )
 }
 
-// ── Seller growth: promotional grant expiry notice ──────────────────────────────
 export function PromotionExpiryEmail(p: {
   businessName: string
   daysBefore: number
@@ -199,56 +234,63 @@ export function PromotionExpiryEmail(p: {
 }) {
   const timing = p.daysBefore === 1 ? 'tomorrow' : `in ${p.daysBefore} days`
   return (
-    <BrandedEmail preview={`Your complimentary Nexez Launch access ends ${timing}.`}>
-      <EmailHeading tone="caution">Your Launch access ends {timing}</EmailHeading>
+    <BrandedEmail preview={`Your complimentary Nexez Launch access ends ${timing}.`} category="Account update">
+      <EmailEyebrow>Plan notice</EmailEyebrow>
+      <StatusBadge tone="caution">Changes {timing}</StatusBadge>
+      <EmailHeading>Your Launch access is ending</EmailHeading>
       <Lead>
-        <strong>{p.businessName}</strong> will return to the Free plan on {p.endsOn}. There is no automatic charge and your
-        business stays on Nexez.
+        <strong>{p.businessName}</strong> will return to the Free plan on {p.endsOn}. Your business remains on Nexez.
       </Lead>
-      <InfoRows
-        rows={[
-          ['Plan after promotion', 'Free'],
-          ['Listing kept published', p.fallbackListingName || 'Your oldest published listing'],
-          ['Automatic charge', 'None'],
-        ]}
-      />
-      <PrimaryButton href={p.billingUrl}>Review plans and fallback listing</PrimaryButton>
+      <InfoRows rows={[
+        ['Plan after promotion', 'Free'],
+        ['Listing kept published', p.fallbackListingName || 'Your oldest published listing'],
+        ['Automatic charge', 'None'],
+      ]} />
+      <PrimaryButton href={p.billingUrl}>Review plan details</PrimaryButton>
       <FinePrint>Drafts and extra listings are preserved. You can publish them again whenever your plan limit increases.</FinePrint>
     </BrandedEmail>
   )
 }
 
-// ── New-user welcome (branded; ready to wire to a send-once signup trigger) ──────
 export function WelcomeEmail(p: { name?: string | null; createUrl: string }) {
-  const greeting = p.name ? `Welcome to Nexez, ${p.name}.` : 'Welcome to Nexez.'
+  const greeting = p.name ? `Welcome, ${p.name}.` : 'Welcome to Nexez.'
   return (
-    <BrandedEmail preview="Welcome to Nexez - publish a listing agents can buy from.">
-      <EmailHeading tone="positive">{greeting}</EmailHeading>
+    <BrandedEmail preview="Publish a listing AI agents can understand and act on." category="Account update">
+      <EmailEyebrow>Your agent-ready business layer</EmailEyebrow>
+      <StatusBadge tone="positive">Account ready</StatusBadge>
+      <EmailHeading>{greeting}</EmailHeading>
       <Lead>
-        Publish a listing AI agents can read - then let them book and pay through, straight to your own Stripe. You only pay a
-        fee when you get paid.
+        Create a structured listing that AI agents can understand, recommend, and act on without replacing your existing website.
       </Lead>
-      <PrimaryButton href={p.createUrl}>Create your first agent listing</PrimaryButton>
-      <FinePrint>Need a hand getting started? Just reply to this email.</FinePrint>
+      <InfoRows rows={[
+        ['Start with', 'Your website or business details'],
+        ['Publish when', 'Every claim is accurate'],
+        ['Pay when', 'You receive a marketplace payment'],
+      ]} />
+      <PrimaryButton href={p.createUrl}>Create your first listing</PrimaryButton>
+      <FinePrint>Need help getting started? Reply to this email and our team will help.</FinePrint>
     </BrandedEmail>
   )
 }
 
-// ── Stripe Connect linked (branded; ready to wire to a send-once connect trigger) ─
 export function StripeConnectedEmail(p: { financeUrl: string }) {
   return (
-    <BrandedEmail preview="Stripe is connected - you can accept agent payments now.">
-      <EmailHeading tone="positive">Stripe is connected</EmailHeading>
-      <Lead>
-        Your Stripe account is linked and charges are enabled. You can now accept card payments from AI agents - payouts go
-        straight to your Stripe, and Nexez only takes its fee when you get paid.
-      </Lead>
-      <PrimaryButton href={p.financeUrl}>Open your Finance dashboard</PrimaryButton>
+    <BrandedEmail preview="Stripe is connected and your account can accept payments." category="Account update">
+      <EmailEyebrow>Payments</EmailEyebrow>
+      <StatusBadge tone="positive">Charges enabled</StatusBadge>
+      <EmailHeading>Stripe is connected</EmailHeading>
+      <Lead>Your Stripe account is linked and charges are enabled. Eligible Nexez checkout paths can now send buyer payments directly to your account.</Lead>
+      <InfoRows rows={[
+        ['Merchant of record', 'Your business'],
+        ['Payout destination', 'Your connected Stripe account'],
+        ['Nexez fee', 'Applied only when you get paid'],
+      ]} />
+      <PrimaryButton href={p.financeUrl}>Open Finance</PrimaryButton>
+      <Notice>Connection readiness does not claim that any buyer has paid or that a payout is due.</Notice>
     </BrandedEmail>
   )
 }
 
-// ── Stale-listing re-interview nudge (freshness cron; caution tone, cooldown-gated) ──
 export function StaleListingEmail(p: {
   businessName: string
   listingName: string
@@ -257,23 +299,21 @@ export function StaleListingEmail(p: {
   editUrl: string
 }) {
   return (
-    <BrandedEmail preview={`Your Nexez listing “${p.listingName}” may be out of date.`}>
-      <EmailHeading tone="caution">A quick refresh keeps agents accurate</EmailHeading>
+    <BrandedEmail preview={`Review “${p.listingName}” to keep agent-facing details current.`} category="Merchant action">
+      <EmailEyebrow>Listing health</EmailEyebrow>
+      <StatusBadge tone="caution">Review suggested</StatusBadge>
+      <EmailHeading>Keep this listing accurate</EmailHeading>
       <Lead>
-        Your listing <strong>{p.listingName}</strong> hasn’t changed in a while, so AI agents may be quoting stale prices or
-        offers. A short re-interview asks only about what’s missing or could be stronger - most people finish in a couple of
-        minutes.
+        <strong>{p.listingName}</strong> has not changed in a while. A short review helps prevent agents from relying on stale prices, offers, or availability.
       </Lead>
-      <InfoRows
-        rows={[
-          ['Business', p.businessName],
-          ['Listing', p.listingName],
-          ['Status', p.freshnessLabel],
-        ]}
-      />
-      <PrimaryButton href={p.reinterviewUrl}>Re-interview this listing</PrimaryButton>
+      <InfoRows rows={[
+        ['Business', p.businessName],
+        ['Listing', p.listingName],
+        ['Freshness', p.freshnessLabel],
+      ]} />
+      <PrimaryButton href={p.reinterviewUrl}>Review with Nexez</PrimaryButton>
       <FinePrint>
-        Prefer to edit by hand? Open the builder: {p.editUrl}. We’ll only nudge you about this listing once in a while.
+        Prefer the full editor? <Link href={p.editUrl} style={styles.footerLink}>Open the listing builder</Link>. Nexez sends these reminders sparingly.
       </FinePrint>
     </BrandedEmail>
   )

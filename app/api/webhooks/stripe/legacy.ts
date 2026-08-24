@@ -34,6 +34,7 @@ import { acpOrderWebhookConfigured, acpStatusFromOrderStatus, sendAcpOrderEvent 
 import { insertVerifiedCheckoutEvent } from '../../../../lib/server/analytics-ingestion'
 import { planAllows } from '../../../../lib/billing'
 import { getOwnerPlanIds } from '../../../../lib/server/plan'
+import { appUrl } from '../../../../lib/site'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -422,7 +423,7 @@ export async function POST(request: NextRequest) {
                 amount: formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd'),
                 held: !autoSettle,
                 buyerAgent: negotiation.buyer_agent,
-                inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
+                inboxUrl: appUrl('/dashboard/negotiations'),
               })
               await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
             }
@@ -582,7 +583,7 @@ export async function POST(request: NextRequest) {
                 amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
                 held: false,
                 buyerAgent: null,
-                inboxUrl: `${getBaseUrl()}/dashboard/finance`,
+                inboxUrl: appUrl('/dashboard/finance'),
               })
               await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
             }
@@ -726,7 +727,7 @@ export async function POST(request: NextRequest) {
               amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
               held: false,
               buyerAgent: md.nexez_buyer_agent || null,
-              inboxUrl: `${getBaseUrl()}/dashboard/finance`,
+              inboxUrl: appUrl('/dashboard/finance'),
             })
             await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
           }
@@ -940,7 +941,7 @@ export async function POST(request: NextRequest) {
                 offerName: order.offer_name || 'Your offer',
                 amount,
                 detail: on.detail,
-                inboxUrl: `${getBaseUrl()}/dashboard/finance`,
+                inboxUrl: appUrl('/dashboard/finance'),
               })
               await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
             }
@@ -1076,7 +1077,7 @@ export async function POST(request: NextRequest) {
               offerName: neg.offer_name || 'Agreement',
               amount,
               detail: n.detail,
-              inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
+              inboxUrl: appUrl('/dashboard/negotiations'),
             })
             await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
           }
@@ -1172,7 +1173,7 @@ export async function POST(request: NextRequest) {
             ownerId,
             kind: 'stripe_connected',
             to,
-            build: () => buildStripeConnectedEmail({ financeUrl: `${getBaseUrl()}/dashboard/finance` }),
+            build: () => buildStripeConnectedEmail({ financeUrl: appUrl('/dashboard/finance') }),
           })
         })
       }

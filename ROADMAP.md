@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-08-23 against `origin/main` at `659a908`._
+_Last reconciled: 2026-08-23 against `origin/main` at `1560da6`._
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -64,6 +64,7 @@ The next milestone remains growing real launch-quality supply and proving demand
 - Merchant Orders dashboard with owner-scoped search and filters, durable checkout-order economics, payment provenance, buyer context, commerce lineage, staged-payment detail, resource reservations, and explicit separation from negotiated escrow.
 - Subscription billing, embedded payment, plan changes, portal access, billing history, usage, Connect status, Finance dashboard, and multi-currency seller reporting.
 - Durable Free fallback, verified-business complimentary six-month Launch grants, two email-bound business passes, bounded referral delivery, expiry notices, and preserved draft/listing state.
+- Unified Resend and React Email transactional system for buyer orders, merchant actions, and account lifecycle notices. The shared shell uses the official Nexez icon, semantic state badges, explicit truth boundaries, responsive email-safe layout, support replies, and direct links to each authoritative operations surface. A deterministic 21-state render matrix covers payments, refunds, disputes, buyer recourse, booking, negotiation, invitations, onboarding, billing, and listing health.
 - Short-lived payload-bound approval tokens plus idempotency keys across checkout, negotiation, web clients, SDKs, and agent clients. Mandatory production enforcement is live.
 
 ### Integrations and automation

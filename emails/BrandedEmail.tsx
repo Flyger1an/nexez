@@ -11,47 +11,71 @@ import {
   Text,
   Button,
   Heading,
-  Hr,
   Link,
+  Img,
 } from '@react-email/components'
-import { BRAND, styles, TONE } from './theme'
+import { BRAND, NEXEZ_EMAIL_ICON_URL, styles, TONE, type EmailTone } from './theme'
 
-/**
- * The single branded shell every Nexez email shares: proper <Html>/<Head>, a
- * <Preview> (the inbox snippet line), the wordmark header, a white card, and a
- * footer. Email-safe (react-email primitives render Outlook-friendly tables;
- * inline styles only; exact brand palette from ./theme).
- */
-// Static MSO ghost-table wrappers. Outlook's Word engine ignores CSS max-width, so
-// these conditional comments cap the layout at 560px there. The content is PURE STATIC
-// markup (never any user input) - conditional comments can't be emitted any other way
-// from react-email, so this is the one sanctioned use of dangerouslySetInnerHTML here.
-const MSO_OPEN = '<!--[if mso]><table role="presentation" align="center" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td width="560"><![endif]-->'
+const MSO_OPEN = '<!--[if mso]><table role="presentation" align="center" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td width="600"><![endif]-->'
 const MSO_CLOSE = '<!--[if mso]></td></tr></table><![endif]-->'
-const Mso = ({ html }: { html: string }) => <div style={{ display: 'none', maxHeight: 0, overflow: 'hidden' }} dangerouslySetInnerHTML={{ __html: html }} />
+const Mso = ({ html }: { html: string }) => (
+  <div
+    style={{ display: 'none', maxHeight: 0, overflow: 'hidden' }}
+    dangerouslySetInnerHTML={{ __html: html }}
+  />
+)
 
-export function BrandedEmail({ preview, children }: { preview: string; children: React.ReactNode }) {
+export function BrandedEmail({
+  preview,
+  category,
+  children,
+}: {
+  preview: string
+  category?: 'Buyer order' | 'Merchant action' | 'Account update'
+  children: React.ReactNode
+}) {
   const year = new Date().getFullYear()
   return (
     <Html lang="en">
-      <Head />
+      <Head>
+        <meta name="color-scheme" content="light" />
+        <meta name="supported-color-schemes" content="light" />
+      </Head>
       <Preview>{preview}</Preview>
       <Body style={styles.body}>
         <Mso html={MSO_OPEN} />
         <Container style={styles.container}>
-          <Section style={styles.header}>
-            <Text style={styles.wordmark}>
-              <span style={styles.logoMark}>N</span>nexez<span style={{ color: BRAND.signal }}>.</span>
-            </Text>
+          <Section style={styles.frame}>
+            <Section style={styles.masthead}>
+              <Row>
+                <Column style={{ width: '46px' }}>
+                  <Img
+                    alt="Nexez"
+                    height="34"
+                    src={NEXEZ_EMAIL_ICON_URL}
+                    style={styles.iconTile}
+                    width="34"
+                  />
+                </Column>
+                <Column>
+                  <Text style={styles.wordmark}>Nexez</Text>
+                </Column>
+                <Column>
+                  <Text style={styles.productLabel}>{category || 'Account update'}</Text>
+                </Column>
+              </Row>
+            </Section>
+            <Section style={styles.content}>{children}</Section>
           </Section>
-          <Section style={styles.card}>{children}</Section>
-          <Hr style={styles.footerRule} />
           <Section style={styles.footer}>
             <Text style={styles.footerText}>
-              Nexez - where AI agents discover, book, and buy from your business.
+              Nexez keeps buyers, merchants, and AI agents aligned on verified commerce state.
             </Text>
             <Text style={styles.footerText}>
-              © {year} Nexez · <Link href="mailto:support@nexez.ai" style={styles.footerLink}>support@nexez.ai</Link>
+              © {year} Nexez ·{' '}
+              <Link href="mailto:support@nexez.ai" style={styles.footerLink}>
+                support@nexez.ai
+              </Link>
             </Text>
           </Section>
         </Container>
@@ -61,46 +85,71 @@ export function BrandedEmail({ preview, children }: { preview: string; children:
   )
 }
 
-/** Section heading inside the card, tone-colored (neutral/positive/caution/danger). */
-export function EmailHeading({ tone = 'neutral', children }: { tone?: keyof typeof TONE; children: React.ReactNode }) {
+export function EmailEyebrow({ children }: { children: React.ReactNode }) {
+  return <Text style={styles.eyebrow}>{children}</Text>
+}
+
+export function StatusBadge({ tone = 'neutral', children }: { tone?: EmailTone; children: React.ReactNode }) {
+  return <Text style={{ ...styles.status, ...TONE[tone] }}>{children}</Text>
+}
+
+export function EmailHeading({
+  tone = 'neutral',
+  children,
+}: {
+  tone?: EmailTone
+  children: React.ReactNode
+}) {
+  const color = tone === 'positive'
+    ? BRAND.ready
+    : tone === 'caution'
+      ? BRAND.amber
+      : tone === 'danger'
+        ? BRAND.danger
+        : BRAND.ink
   return (
-    <Heading as="h2" style={{ ...styles.heading, color: TONE[tone] }}>
+    <Heading as="h1" style={{ ...styles.heading, color }}>
       {children}
     </Heading>
   )
 }
 
-/** The intro paragraph. Also a good source for the <Preview> snippet. */
 export function Lead({ children }: { children: React.ReactNode }) {
   return <Text style={styles.lead}>{children}</Text>
 }
 
-/** Key/value detail table. Falsy values are dropped (matches the old builders). */
 export function InfoRows({ rows }: { rows: Array<[string, string | null | undefined]> }) {
-  const present = rows.filter(([, v]) => v)
+  const present = rows.filter(([, value]) => value)
   if (!present.length) return null
   return (
-    <Section style={{ margin: '0 0 22px' }}>
-      {present.map(([k, v]) => (
-        <Row key={k}>
-          <Column style={styles.rowKey}>{k}</Column>
-          <Column style={styles.rowVal}>{v}</Column>
+    <Section style={styles.details}>
+      {present.map(([key, value], index) => (
+        <Row key={`${key}-${index}`} style={index === present.length - 1 ? styles.rowLast : styles.row}>
+          <Column style={styles.rowKey}>{key}</Column>
+          <Column style={styles.rowVal}>{value}</Column>
         </Row>
       ))}
     </Section>
   )
 }
 
-/** Primary CTA - always periwinkle (brand) with white text. */
 export function PrimaryButton({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Button href={href} style={styles.button}>
-      {children}
-    </Button>
+    <>
+      <Button href={href} style={styles.button}>
+        {children} →
+      </Button>
+      <Text style={styles.linkFallback}>
+        Button not working? <Link href={href} style={styles.footerLink}>Open the secure link</Link>
+      </Text>
+    </>
   )
 }
 
-/** Small print under the CTA (e.g. "ignore if you weren't expecting this"). */
+export function Notice({ children }: { children: React.ReactNode }) {
+  return <Text style={styles.notice}>{children}</Text>
+}
+
 export function FinePrint({ children }: { children: React.ReactNode }) {
   return <Text style={styles.fine}>{children}</Text>
 }

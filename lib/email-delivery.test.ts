@@ -48,4 +48,28 @@ describe('sendEmail delivery observability', () => {
       provider: 'resend',
     })
   })
+
+  it('uses the approved sender, support reply address, transactional tag, and optional idempotency key', async () => {
+    vi.stubEnv('RESEND_API_KEY', 're_test')
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ id: 'email-1' })))
+
+    await expect(sendEmail({
+      to: 'owner@example.com',
+      subject: 'Seller update',
+      html: '<p>Update</p>',
+      idempotencyKey: 'seller-update/order-1',
+    })).resolves.toEqual({ ok: true, id: 'email-1' })
+
+    const fetchMock = vi.mocked(fetch)
+    const [, init] = fetchMock.mock.calls[0]
+    const headers = init?.headers as Record<string, string>
+    const body = JSON.parse(String(init?.body))
+
+    expect(headers['Idempotency-Key']).toBe('seller-update/order-1')
+    expect(body).toMatchObject({
+      from: 'Nexez <notifications@nexez.app>',
+      reply_to: 'support@nexez.ai',
+      tags: [{ name: 'stream', value: 'transactional' }],
+    })
+  })
 })

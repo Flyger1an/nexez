@@ -7,6 +7,7 @@ const refs = vi.hoisted(() => ({
   ownerEmail: 'owner@example.com' as string | null,
   ownerEmailCalls: [] as Array<{ ownerId?: string | null; contactEmail?: string | null }>,
   sent: [] as Array<{ to: string; subject: string; html: string; text?: string }>,
+  buyerRequestBuilds: [] as Array<Record<string, unknown>>,
 }))
 const { resolveRef, adminRef } = refs
 
@@ -35,7 +36,10 @@ vi.mock('../../../../lib/email', () => ({
     refs.sent.push(mail)
     return { ok: true }
   }),
-  buildBuyerRequestEmail: vi.fn(() => ({ subject: 'seller request', html: 'h', text: 't' })),
+  buildBuyerRequestEmail: vi.fn((opts: Record<string, unknown>) => {
+    refs.buyerRequestBuilds.push(opts)
+    return { subject: 'seller request', html: 'h', text: 't' }
+  }),
   buildBuyerStatusEmail: vi.fn(() => ({ subject: 'buyer receipt', html: 'h', text: 't' })),
 }))
 vi.mock('../../../../lib/agent-page', () => ({ getBaseUrl: () => 'https://nexez.app' }))
@@ -76,6 +80,7 @@ describe('POST /api/order-portal/request', () => {
     refs.ownerEmail = 'owner@example.com'
     refs.ownerEmailCalls = []
     refs.sent = []
+    refs.buyerRequestBuilds = []
   })
 
   it('400 on a missing token', async () => {
@@ -160,6 +165,11 @@ describe('POST /api/order-portal/request', () => {
     expect(refs.sent.map((mail) => mail.to)).toEqual([
       'owner@example.com',
       'buyer@example.com',
+    ])
+    expect(refs.buyerRequestBuilds).toEqual([
+      expect.objectContaining({
+        inboxUrl: 'https://app.nexez.ai/dashboard/orders/o1',
+      }),
     ])
   })
 })

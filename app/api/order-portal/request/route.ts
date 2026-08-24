@@ -13,7 +13,7 @@ import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
  * Buyer recourse from the order portal: file a refund request or a problem report.
  * The buyer's portal token IS the authorization (resolveOrderForRequest gates on it
  * with the service-role client). This NEVER moves money - it records an
- * `order_requests` row + notifies the seller, who refunds/responds from Finance.
+ * `order_requests` row + notifies the seller, who responds from order operations.
  *
  * Namespaced under /api/order-portal (NOT /api/orders) so it stays on the agent
  * runtime; the owner refund action /api/orders/refund stays on the app host.
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
   const amount = target.amountCents != null ? formatCurrencyAmount(target.amountCents, target.currency) : null
   const businessName = target.sellerName || target.slug || 'the seller'
 
-  // Notify the seller (drives them to Finance to refund/respond) + acknowledge to the
+  // Notify the seller (drives them to order operations) + acknowledge to the
   // buyer. Both via after() so neither blocks/​fails the response.
   if (hasEmailEnv()) {
     const buyerEmail = target.buyerEmail
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
           message: message || null,
           buyerEmail,
           // /dashboard/* lives on the APP host - use appUrl, not getBaseUrl (runtime host).
-          inboxUrl: appUrl('/dashboard/finance'),
+          inboxUrl: appUrl(`/dashboard/orders/${target.orderId}`),
         })
         await sendEmail({ to: sellerEmail, subject: mail.subject, html: mail.html, text: mail.text })
       }
