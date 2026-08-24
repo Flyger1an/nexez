@@ -90,10 +90,9 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
 
   return (
     <section className="nx-rise mt-8">
-      <h2 className="text-lg font-semibold">Settled orders</h2>
+      <h2 className="text-lg font-semibold">Paid orders</h2>
       <p className="mt-1 text-sm text-zinc-500">
-        Stripe-confirmed checkout, protocol, recurring, staged, and reserved-resource transactions. A refund returns the
-        buyer&rsquo;s money and gives Nexez&rsquo;s commission back too, in full, or partially with the rest still refundable.
+        Orders with a payment confirmed by Stripe. Full and partial refunds return money to the customer and adjust the Nexez fee.
       </p>
       {error ? <p className="mt-2 text-sm text-red-300">{error}</p> : null}
       <div className="mt-4 overflow-x-auto rounded-xl border border-white/10">
@@ -101,7 +100,7 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
           <thead className="text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr className="border-b border-white/10">
               <th className="px-4 py-2 font-medium">Offer</th>
-              <th className="px-4 py-2 font-medium">Buyer</th>
+              <th className="px-4 py-2 font-medium">Customer</th>
               <th className="px-4 py-2 font-medium">Amount</th>
               <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 text-right font-medium">Action</th>

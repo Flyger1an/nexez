@@ -161,12 +161,12 @@ export async function loadDashboardCommerceActions(
   const actionableCount = candidates.filter(Boolean).length
   const actions = mergeCommerceActionRecords(candidates, DASHBOARD_COMMERCE_ACTION_LIMIT)
   const issues = [
-    requestResult.error ? 'Buyer requests could not be checked for the action queue.' : null,
-    fulfillmentResult.error ? 'Checkout fulfillment could not be checked for the action queue.' : null,
-    disputedCheckoutResult.error ? 'Checkout disputes could not be checked for the action queue.' : null,
-    negotiationCandidateResult.error ? 'Negotiations could not be checked for the action queue.' : null,
-    relatedCheckoutResult.error ? 'Orders linked to operational actions could not be loaded.' : null,
-    relatedNegotiationResult.error ? 'Negotiations linked to buyer requests could not be loaded.' : null,
+    requestResult.error ? 'Customer requests could not be checked for tasks.' : null,
+    fulfillmentResult.error ? 'Order fulfillment could not be checked for tasks.' : null,
+    disputedCheckoutResult.error ? 'Payment disputes could not be checked for tasks.' : null,
+    negotiationCandidateResult.error ? 'Negotiations could not be checked for tasks.' : null,
+    relatedCheckoutResult.error ? 'Orders linked to tasks could not be loaded.' : null,
+    relatedNegotiationResult.error ? 'Negotiations linked to customer requests could not be loaded.' : null,
   ].filter((issue): issue is string => Boolean(issue))
 
   return {

@@ -104,10 +104,10 @@ export function OrderOperationsPanel({
     try {
       await postRequestStatus(id, status)
       setRequests((current) => current.map((request) => request.id === id ? { ...request, status } : request))
-      setNotice(`Buyer request marked ${REQUEST_STATUS_LABEL[status]?.toLowerCase() || status}.`)
+      setNotice(`Customer request marked ${REQUEST_STATUS_LABEL[status]?.toLowerCase() || status}.`)
       router.refresh()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not update the buyer request.')
+      setError(cause instanceof Error ? cause.message : 'Could not update the customer request.')
     } finally {
       setBusy('')
     }
@@ -123,7 +123,7 @@ export function OrderOperationsPanel({
       return
     }
     if (smallestUnitAmount > refundAccess.remainingCents) {
-      setError('Refund amount exceeds the remaining captured balance.')
+      setError('Refund amount exceeds the remaining refundable amount.')
       return
     }
     setConfirmation({
@@ -165,7 +165,7 @@ export function OrderOperationsPanel({
           await postRequestStatus(confirmation.requestId, 'resolved')
           setRequests((current) => current.map((request) => request.id === confirmation.requestId ? { ...request, status: 'resolved' } : request))
         } catch {
-          resolutionWarning = 'The refund succeeded, but the buyer request still needs to be marked resolved.'
+          resolutionWarning = 'The refund succeeded, but the customer request still needs to be marked resolved.'
         }
       }
 
@@ -188,7 +188,7 @@ export function OrderOperationsPanel({
       body: JSON.stringify({ id, status }),
     })
     const result = (await response.json().catch(() => ({}))) as { error?: string }
-    if (!response.ok) throw new Error(result.error || 'Could not update the buyer request.')
+    if (!response.ok) throw new Error(result.error || 'Could not update the customer request.')
   }
 
   function clearFeedback() {
@@ -202,9 +202,9 @@ export function OrderOperationsPanel({
     <section aria-labelledby="order-operations-title" className="rounded-[var(--r-card)] border border-[var(--line-soft)] bg-[var(--glass)] p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line-soft)] pb-4">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted-2)]">Merchant workspace</p>
-          <h2 id="order-operations-title" className="mt-1 text-lg font-semibold text-[var(--fg)]">Order operations</h2>
-          <p className="mt-1 text-sm text-[var(--fg-muted)]">Fulfillment and recourse stay distinct from Stripe-authoritative payment state.</p>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--fg-muted-2)]">Manage order</p>
+          <h2 id="order-operations-title" className="mt-1 text-lg font-semibold text-[var(--fg)]">Fulfillment and refunds</h2>
+          <p className="mt-1 text-sm text-[var(--fg-muted)]">Update fulfillment, issue refunds, and respond to customer requests. Stripe continues to control the payment status.</p>
         </div>
         {openRequests.length ? (
           <span className="rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 py-1.5 text-xs font-medium text-[var(--amber)]">
@@ -292,7 +292,7 @@ export function OrderOperationsPanel({
 
       {requests.length ? (
         <div className="mt-5 border-t border-[var(--line-soft)] pt-5">
-          <h3 className="text-sm font-semibold text-[var(--fg)]">Buyer requests</h3>
+          <h3 className="text-sm font-semibold text-[var(--fg)]">Customer requests</h3>
           <div className="mt-3 space-y-3">
             {requests.map((request) => {
               const closed = request.status === 'resolved' || request.status === 'declined'

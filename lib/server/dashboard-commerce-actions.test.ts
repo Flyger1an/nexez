@@ -109,7 +109,7 @@ describe('dashboard commerce action loader', () => {
 
     const loaded = await loadDashboardCommerceActions(client, 'owner-1')
     expect(loaded.actions).toEqual([])
-    expect(loaded.issues).toEqual(['Buyer requests could not be checked for the action queue.'])
+    expect(loaded.issues).toEqual(['Customer requests could not be checked for tasks.'])
   })
 
   it('marks the result bounded when any candidate source exceeds its returned window', async () => {

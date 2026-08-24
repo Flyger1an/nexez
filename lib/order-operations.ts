@@ -27,10 +27,10 @@ export function fulfillmentLabel(status: FulfillmentStatus | null | undefined) {
 }
 
 export function fulfillmentDescription(status: FulfillmentStatus | null | undefined) {
-  if (!status) return 'This order predates fulfillment tracking. Set a state only when the merchant can verify it.'
+  if (!status) return 'This older order has no fulfillment status. Update it only if you can confirm the work.'
   if (status === 'not_started') return 'Payment is recorded, but work has not started.'
-  if (status === 'in_progress') return 'The merchant has started fulfilling this order.'
-  return 'The merchant marked the work represented by this order as fulfilled.'
+  if (status === 'in_progress') return 'You have started fulfilling this order.'
+  return 'You marked this order as fulfilled.'
 }
 
 export function fulfillmentCapability(input: {
@@ -60,13 +60,13 @@ export function refundCapability(input: {
 }) {
   const remainingCents = Math.max(0, input.amountCents - Math.max(0, input.refundedCents ?? 0))
   if (input.paymentStatus !== 'paid') {
-    return { enabled: false, remainingCents, reason: 'Only a paid order with a remaining captured balance can be refunded.' }
+    return { enabled: false, remainingCents, reason: 'Only a paid order with money left to return can be refunded.' }
   }
   if (!input.paymentIntentId) {
-    return { enabled: false, remainingCents, reason: 'This order has no captured payment reference.' }
+    return { enabled: false, remainingCents, reason: 'This order does not have a payment reference for refunds.' }
   }
   if (!remainingCents) {
-    return { enabled: false, remainingCents, reason: 'The captured balance has already been fully refunded.' }
+    return { enabled: false, remainingCents, reason: 'This order has already been fully refunded.' }
   }
   return { enabled: true, remainingCents, reason: null }
 }
@@ -75,7 +75,7 @@ export function refundConsequence(channel: string | null) {
   if (channel === 'recurring_service') return 'This refunds only this payment. It does not cancel future subscription periods.'
   if (channel === 'reservable_resource') return 'This refunds the payment. It does not release or restock the reserved resource.'
   if (channel === 'staged_settlement') return 'This refunds only this paid stage. It does not cancel the full staged agreement.'
-  return 'A refund returns buyer funds and proportionally reverses the Nexez application fee.'
+  return 'A refund returns money to the customer and adjusts the Nexez fee by the same proportion.'
 }
 
 export function describeOrderActivity(event: OrderActivityEvent, currency: string): OrderActivityPresentation {
@@ -87,33 +87,33 @@ export function describeOrderActivity(event: OrderActivityEvent, currency: strin
 
   switch (event.event_type) {
     case 'order_recorded':
-      return { title: 'Order recorded', detail: `Durable ${stringValue(metadata.channel)?.replaceAll('_', ' ') || 'checkout'} order created.`, tone: 'neutral' }
+      return { title: 'Order recorded', detail: `${humanize(stringValue(metadata.channel) || 'checkout')} order created.`, tone: 'neutral' }
     case 'payment_confirmed':
       return {
         title: 'Payment confirmed',
-        detail: amount == null ? 'Stripe-confirmed payment recorded.' : `${formatCurrencyAmount(amount, stringValue(metadata.currency) || currency)} captured.`,
+        detail: amount == null ? 'Stripe-confirmed payment recorded.' : `${formatCurrencyAmount(amount, stringValue(metadata.currency) || currency)} collected.`,
         tone: 'ready',
       }
     case 'fulfillment_updated':
-      return { title: `Fulfillment ${fulfillmentLabel(asFulfillmentStatus(status)).toLowerCase()}`, detail: 'Merchant operational state updated.', tone: status === 'fulfilled' ? 'ready' : 'neutral' }
+      return { title: `Fulfillment ${fulfillmentLabel(asFulfillmentStatus(status)).toLowerCase()}`, detail: 'Fulfillment status updated.', tone: status === 'fulfilled' ? 'ready' : 'neutral' }
     case 'refund_recorded':
       return { title: 'Refund recorded', detail: refunded == null ? 'Stripe-confirmed refund recorded.' : `${formatCurrencyAmount(refunded, currency)} refunded in total.`, tone: 'attention' }
     case 'dispute_opened':
       return { title: 'Payment disputed', detail: stringValue(metadata.reason) ? `Stripe reason: ${stringValue(metadata.reason)}` : 'Stripe reported an open payment dispute.', tone: 'attention' }
     case 'dispute_resolved':
-      return { title: 'Dispute resolved', detail: stringValue(metadata.outcome) === 'won' ? 'The merchant retained the payment.' : 'The dispute closed without retained funds.', tone: 'neutral' }
+      return { title: 'Dispute resolved', detail: stringValue(metadata.outcome) === 'won' ? 'You kept the payment.' : 'The dispute closed without a payment to you.', tone: 'neutral' }
     case 'buyer_request_received':
-      return { title: kind === 'refund_request' ? 'Refund requested' : 'Problem reported', detail: 'Buyer submitted a request from the order portal.', tone: 'attention' }
+      return { title: kind === 'refund_request' ? 'Refund requested' : 'Problem reported', detail: 'The customer sent a request from their order page.', tone: 'attention' }
     case 'buyer_request_updated':
-      return { title: `Buyer request ${humanize(status || 'updated')}`, detail: kind === 'refund_request' ? 'Refund request status changed.' : 'Problem report status changed.', tone: status === 'resolved' ? 'ready' : 'neutral' }
+      return { title: `Customer request ${humanize(status || 'updated')}`, detail: kind === 'refund_request' ? 'Refund request status changed.' : 'Problem report status changed.', tone: status === 'resolved' ? 'ready' : 'neutral' }
     case 'review_received':
-      return { title: 'Verified review received', detail: numberValue(metadata.rating) == null ? 'Buyer feedback recorded.' : `${numberValue(metadata.rating)} out of 5 stars.`, tone: 'neutral' }
+      return { title: 'Verified review received', detail: numberValue(metadata.rating) == null ? 'Customer feedback recorded.' : `${numberValue(metadata.rating)} out of 5 stars.`, tone: 'neutral' }
     case 'resource_reserved':
-      return { title: 'Resource reserved', detail: 'Durable allocation lineage linked to this payment.', tone: 'ready' }
+      return { title: 'Resource reserved', detail: 'The reserved item or time is linked to this payment.', tone: 'ready' }
     case 'resource_fulfilled':
       return { title: 'Reserved resource fulfilled', detail: 'The linked reservation was marked fulfilled.', tone: 'ready' }
     default:
-      return { title: humanize(event.event_type), detail: 'Durable order activity recorded.', tone: 'neutral' }
+      return { title: humanize(event.event_type), detail: 'Order activity recorded.', tone: 'neutral' }
   }
 }
 

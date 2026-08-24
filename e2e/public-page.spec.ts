@@ -242,7 +242,7 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     await expect(page.getByRole('heading', { name: 'Your plan & payouts', exact: true })).toBeVisible({ timeout: 15000 })
 
     await page.goto('/dashboard/negotiations', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('heading', { name: 'Negotiation Inbox', exact: true })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Negotiations', exact: true })).toBeVisible({ timeout: 15000 })
 
     await page.goto('/dashboard/tools', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible({ timeout: 15000 })
@@ -260,7 +260,7 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     // - Display of turns, status, continuation form
     // - Submit a follow-up (appends to history via API + service, LLM would see full context on next step)
     await page.goto('/dashboard/negotiations', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('heading', { name: 'Negotiation Inbox', exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Negotiations', exact: true })).toBeVisible({ timeout: 10000 })
 
     const negotiateLink = page.locator('a[href*="/negotiate/"]').first()
     if (await negotiateLink.count() > 0) {

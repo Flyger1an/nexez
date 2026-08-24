@@ -17,10 +17,10 @@ afterEach(() => {
 describe('NotificationPreferencesPanel', () => {
   it('renders transaction notices as required and immutable', () => {
     render(<NotificationPreferencesPanel initialPreferences={defaults} />)
-    const control = screen.getByRole('switch', { name: 'Transactions and money state' })
+    const control = screen.getByRole('switch', { name: 'Orders and payments' })
     expect(control).toBeDisabled()
     expect(control).toHaveAttribute('aria-checked', 'true')
-    expect(control).toHaveAccessibleDescription('Payments, escrow, captures, refunds, disputes, and confirmed orders.')
+    expect(control).toHaveAccessibleDescription('Confirmed orders, payments, held funds, refunds, and disputes.')
     expect(control.firstElementChild).toHaveClass('bg-[var(--control-on)]')
     expect(control.firstElementChild?.firstElementChild).toHaveClass('bg-[var(--control-on-thumb)]')
     expect(screen.getByText('Required')).toBeVisible()

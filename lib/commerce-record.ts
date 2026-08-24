@@ -73,12 +73,12 @@ export type CheckoutFulfillmentSource = {
 
 const CHECKOUT_CHANNEL_LABELS: Record<string, string> = {
   agent_checkout: 'Agent checkout',
-  acp: 'ACP',
-  ucp: 'UCP',
+  acp: 'Agent checkout',
+  ucp: 'Agent checkout',
   nexie: 'Nexie',
   recurring_service: 'Recurring service',
-  staged_settlement: 'Staged settlement',
-  reservable_resource: 'Reserved resource',
+  staged_settlement: 'Staged payments',
+  reservable_resource: 'Reservation',
 }
 
 const NEGOTIATION_STATUS_LABELS: Record<string, string> = {
@@ -113,7 +113,7 @@ function buyerLabel(input: {
     || input.buyerReference
     || input.contact
     || input.buyerAgent
-    || 'Buyer identity unavailable'
+    || 'Customer details unavailable'
 }
 
 function checkoutStatus(row: CheckoutCommerceSource): CommerceStatus {
@@ -141,7 +141,7 @@ function negotiationPaymentState(row: NegotiatedCommerceSource): CommerceStatus 
     return { key: 'not_recorded', label: 'No Nexez payment', tone: 'muted' }
   }
   if (row.status === 'held') return { key: 'held', label: 'Funds held', tone: 'attention' }
-  if (row.status === 'complete') return { key: 'captured', label: 'Payment captured', tone: 'ready' }
+  if (row.status === 'complete') return { key: 'captured', label: 'Payment collected', tone: 'ready' }
   if (row.status === 'refunded') return { key: 'refunded', label: 'Refunded', tone: 'muted' }
   if (row.status === 'disputed') return { key: 'disputed', label: 'Disputed', tone: 'danger' }
   return { key: 'intent_created', label: 'Payment intent created', tone: 'signal' }
@@ -163,7 +163,7 @@ export function normalizeCheckoutCommerceRecord(
     key: `checkout:${row.id}`,
     id: row.id,
     rail: 'checkout',
-    railLabel: 'Checkout order',
+    railLabel: 'Order',
     offerName: row.offer_name || 'Order',
     buyerLabel: buyerLabel({
       buyerName: row.buyer_name,
@@ -194,7 +194,7 @@ export function normalizeNegotiatedCommerceRecord(row: NegotiatedCommerceSource)
     key: `negotiated:${row.id}`,
     id: row.id,
     rail: 'negotiated',
-    railLabel: 'Negotiated commerce',
+    railLabel: 'Negotiated deal',
     offerName: row.offer_name || 'Negotiation',
     buyerLabel: buyerLabel({
       buyerEmail: row.buyer_email,
@@ -202,7 +202,7 @@ export function normalizeNegotiatedCommerceRecord(row: NegotiatedCommerceSource)
       buyerAgent: row.buyer_agent,
     }),
     buyerEmail: row.buyer_email,
-    channelLabel: row.escrow_mode === 'not_configured' ? 'Negotiation' : 'Negotiated escrow',
+    channelLabel: row.escrow_mode === 'not_configured' ? 'Negotiation' : 'Payment-protected deal',
     sourceStatus: negotiationStatus(row.status),
     paymentState: negotiationPaymentState(row),
     fulfillmentState: null,

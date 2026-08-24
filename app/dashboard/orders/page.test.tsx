@@ -92,6 +92,6 @@ describe('orders dashboard', () => {
       error: null,
     }
     render(await OrdersPage({ searchParams: Promise.resolve({}) }))
-    expect(screen.getByText(/Simulator activity and abandoned checkout attempts never become orders/i)).toBeInTheDocument()
+    expect(screen.getByText(/Simulator activity and abandoned checkouts are not included/i)).toBeInTheDocument()
   })
 })

@@ -68,11 +68,10 @@ export function BuyerRequestsPanel({ requests }: { requests: BuyerRequestRow[] }
   return (
     <section id="buyer-requests" className="nx-rise mt-8 scroll-mt-6">
       <h2 className="flex items-center gap-2 text-lg font-semibold">
-        <MessageSquareWarning className="size-4 text-[var(--amber)]" /> Buyer requests
+        <MessageSquareWarning className="size-4 text-[var(--amber)]" /> Customer requests
       </h2>
       <p className="mt-1 text-sm text-[var(--fg-muted-2)]">
-        Refund requests and problem reports buyers filed from their order page. Open the linked order or negotiated deal
-        before resolving the request so the payment action and recourse record stay aligned.
+        Review refund requests and reported problems from customers. Open the linked order or deal before closing a request so its status matches any payment action.
       </p>
       {error ? <p className="mt-2 text-sm text-red-300">{error}</p> : null}
       <div className="mt-4 space-y-3">

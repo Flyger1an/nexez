@@ -158,7 +158,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
     billingError ? 'billing status' : null,
     negotiationResult.error ? 'recent negotiated transactions' : null,
     orderResult.error ? 'recent checkout orders' : null,
-    requestResult.error ? 'buyer requests' : null,
+    requestResult.error ? 'customer requests' : null,
     previousFinanceResult.error ? 'previous-period finance reporting' : null,
     connectAccountId && payouts == null ? 'payout status' : null,
   ].filter((issue): issue is string => Boolean(issue))
@@ -301,8 +301,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               </p>
               <h1 className="mt-2 text-4xl font-semibold tracking-tight">Money in &amp; out</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
-                Stripe-confirmed agent sales, refunds, platform fees, payouts to your bank, and funded escrow, kept separate
-                from your own Nexez subscription.
+                Track sales paid through Stripe, refunds, Nexez fees, payouts to your bank, and funds held for negotiated deals. Your Nexez subscription stays separate.
               </p>
               <DataLoadNotice issues={dataIssues} />
             </div>
@@ -317,7 +316,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
           {/* Controls: time window + currency */}
           <div className="mt-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="mr-1 text-xs uppercase tracking-[0.18em] text-zinc-500">Window</span>
+              <span className="mr-1 text-xs uppercase tracking-[0.18em] text-zinc-500">Date range</span>
               <nav className="platform-tablist flex-wrap" aria-label="Finance window">
               {RANGES.map((r) => {
                 if (r.value === 'all' && !fullHistory) {
@@ -370,7 +369,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
             <p className="mt-5 flex items-start gap-2 rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/[0.06] px-4 py-2.5 text-sm text-zinc-200">
               <Activity className="mt-0.5 size-4 shrink-0 text-[var(--signal)]" />
               <span>
-                Versus {periodHuman}, GMV is {deltaPhrase(gmvDelta)}
+                Versus {periodHuman}, gross sales are {deltaPhrase(gmvDelta)}
                 {netDelta && netDelta.dir !== 'flat' ? <> and net-to-you is {deltaPhrase(netDelta)}</> : null} ·{' '}
                 {selectedCurrency.toUpperCase()}.
               </span>
@@ -381,17 +380,17 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
           <div className="nx-rise-stagger mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <KpiTile label="Gross sales" value={money(sel.gmvCents)} sub={`${sel.orders} settled order${sel.orders === 1 ? '' : 's'}`} delta={gmvDelta} icon={<TrendingUp className="size-4" />} />
             <KpiTile label="Net to you" value={money(sel.netCents)} sub="after refunds and platform fees" delta={netDelta} icon={<Coins className="size-4" />} tone="ready" />
-            <KpiTile label="Nexez commission" value={money(sel.nexezFeeCents)} sub="retained after refunds" delta={feeDelta} icon={<Receipt className="size-4" />} />
-            <KpiTile label="Avg order value" value={money(sel.aovCents)} sub={selectedCurrency.toUpperCase()} delta={aovDelta} icon={<ArrowUpRight className="size-4" />} />
-            <KpiTile label="Escrow held" value={money(heldSel)} sub="pending settlement" icon={<Lock className="size-4" />} tone="amber" />
+            <KpiTile label="Nexez fees" value={money(sel.nexezFeeCents)} sub="after refunds" delta={feeDelta} icon={<Receipt className="size-4" />} />
+            <KpiTile label="Average order" value={money(sel.aovCents)} sub={selectedCurrency.toUpperCase()} delta={aovDelta} icon={<ArrowUpRight className="size-4" />} />
+            <KpiTile label="Funds held" value={money(heldSel)} sub="negotiated deals" icon={<Lock className="size-4" />} tone="amber" />
           </div>
 
           {report ? (
             <section id="operations" className="mt-4 grid scroll-mt-6 gap-3 rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-02)] p-4 sm:grid-cols-2 lg:grid-cols-4">
-              <OperationalStat label="Buyer requests" value={report.operations.openRequests} href="#buyer-requests" />
+              <OperationalStat label="Customer requests" value={report.operations.openRequests} href="#buyer-requests" />
               <OperationalStat label="Open disputes" value={report.operations.disputedOrders + report.operations.disputedNegotiations} href="/dashboard/negotiations" tone="danger" />
               <OperationalStat label="Held over 48h" value={report.operations.staleHeldNegotiations} href="/dashboard/negotiations" tone="attention" />
-              <OperationalStat label="Estimated economics" value={report.operations.estimatedEconomics} tone={report.operations.estimatedEconomics ? 'attention' : 'ready'} />
+              <OperationalStat label="Estimated fees" value={report.operations.estimatedEconomics} tone={report.operations.estimatedEconomics ? 'attention' : 'ready'} />
             </section>
           ) : null}
 
@@ -403,13 +402,13 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                   <ArrowLeftRight className="size-4 text-[var(--signal)]" /> Where the money goes
                 </h2>
                 <span className="text-sm text-[var(--fg-muted)]">
-                  {money(sel.gmvCents)} GMV · {selectedCurrency.toUpperCase()}
+                  {money(sel.gmvCents)} gross sales · {selectedCurrency.toUpperCase()}
                 </span>
               </div>
               <MoneyFlowBar netCents={sel.netCents} feeCents={sel.nexezFeeCents} refundedCents={sel.refundedCents} gmvCents={sel.gmvCents} />
               <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
                 <FlowLegend swatch="var(--ready)" label="Net to you" value={money(sel.netCents)} pct={pct(sel.netCents, sel.gmvCents)} />
-                <FlowLegend swatch="var(--signal)" label="Nexez commission" value={money(sel.nexezFeeCents)} pct={pct(sel.nexezFeeCents, sel.gmvCents)} />
+                <FlowLegend swatch="var(--signal)" label="Nexez fees" value={money(sel.nexezFeeCents)} pct={pct(sel.nexezFeeCents, sel.gmvCents)} />
                 {sel.refundedCents > 0 ? (
                   <FlowLegend swatch="var(--amber)" label="Refunded or disputed" value={money(sel.refundedCents)} pct={pct(sel.refundedCents, sel.gmvCents)} />
                 ) : null}
@@ -425,10 +424,10 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
             <GlassCard className="mt-6 p-6">
               <div className="flex flex-wrap items-end justify-between gap-2">
                 <div>
-                  <h2 className="flex items-center gap-2 text-lg font-semibold"><Handshake className="size-4 text-[var(--signal)]" /> Settlement channels</h2>
-                  <p className="mt-1 text-xs text-zinc-500">Captured transaction value by commerce rail · {selectedCurrency.toUpperCase()}</p>
+                  <h2 className="flex items-center gap-2 text-lg font-semibold"><Handshake className="size-4 text-[var(--signal)]" /> Sales by order type</h2>
+                  <p className="mt-1 text-xs text-zinc-500">Collected payments by order type · {selectedCurrency.toUpperCase()}</p>
                 </div>
-                <span className="text-xs text-zinc-500">Held escrow is excluded until capture</span>
+                <span className="text-xs text-zinc-500">Held funds are excluded until collected</span>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {settlementChannels.map((row) => (
@@ -447,24 +446,23 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
             <GlassCard className="mt-6 p-6">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="flex items-center gap-2 text-lg font-semibold">
-                  <ShieldCheck className="size-4 text-[var(--ready)]" /> Escrow lifecycle
+                  <ShieldCheck className="size-4 text-[var(--ready)]" /> Negotiated payments
                   <span className="text-sm font-normal text-zinc-500">· {selectedCurrency.toUpperCase()} · to date</span>
                 </h2>
                 {reversalRate != null && (
                   <span className={`rounded-md px-2 py-1 text-xs ${reversalRate > 0.05 ? 'bg-[var(--amber)]/15 text-[var(--amber)]' : 'bg-[var(--ready)]/15 text-[var(--ready)]'}`}>
-                    {(reversalRate * 100).toFixed(1)}% reversed
+                    {(reversalRate * 100).toFixed(1)}% refunded or disputed
                   </span>
                 )}
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <EscrowStat label="In escrow (held)" value={money(negSel.heldCents)} tone="amber" />
-                <EscrowStat label="Captured (complete)" value={money(negSel.completeCents)} tone="ready" />
-                <EscrowStat label="Reversed (refund/dispute)" value={money(negSel.reversedCents)} tone={negSel.reversedCents > 0 ? 'amber' : undefined} />
+                <EscrowStat label="Held" value={money(negSel.heldCents)} tone="amber" />
+                <EscrowStat label="Collected" value={money(negSel.completeCents)} tone="ready" />
+                <EscrowStat label="Refunded or disputed" value={money(negSel.reversedCents)} tone={negSel.reversedCents > 0 ? 'amber' : undefined} />
               </div>
               <p className="mt-3 text-[11px] text-zinc-500">
-                Held funds release to you on capture; refunds and disputes are money out and exist only on this channel.
-                These are Nexez records of agreed deals, reconciled with Stripe by our escrow job - distinct from your live
-                Stripe balance below.
+                Held funds become collected payments when the charge is completed. Refunds and disputes reduce the amount you keep.
+                Nexez tracks these deals separately from your live Stripe balance below.
               </p>
             </GlassCard>
           )}
@@ -484,7 +482,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               <RevenueChart data={trend} currency={selectedCurrency} />
             ) : hasNegWindow || hasEscrowActivity ? (
               <p className="rounded-xl border border-dashed border-[var(--bd-10)] p-8 text-center text-sm text-zinc-500">
-                No direct checkout sales in this window - your negotiated/escrow activity is shown above.
+                No direct checkout sales in this date range. Your negotiated deal activity is shown above.
               </p>
             ) : (
               <EmptyFinance payoutsReady={payoutsReady} connectAccountId={connectAccountId} />
@@ -504,10 +502,10 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                     <tr className="border-b border-[var(--bd-10)]">
                       <th className="py-2 font-medium">When</th>
                       <th className="py-2 font-medium">Offer</th>
-                      <th className="py-2 font-medium">Channel</th>
-                      <th className="py-2 font-medium">Buyer</th>
+                      <th className="py-2 font-medium">Order type</th>
+                      <th className="py-2 font-medium">Customer</th>
                       <th className="py-2 text-right font-medium">Amount</th>
-                      <th className="py-2 text-right font-medium">Est. fee</th>
+                      <th className="py-2 text-right font-medium">Estimated fee</th>
                       <th className="py-2 text-right font-medium">Net</th>
                     </tr>
                   </thead>
@@ -519,8 +517,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                 </table>
               </div>
               <p className="mt-3 text-[11px] text-zinc-500">
-                Direct rows are settled orders; negotiated rows are Stripe-funded escrow deals with their current status.
-                Each row keeps its own currency and is never mixed into a cross-currency total.
+                Paid orders and negotiated deals appear together here. Each row keeps its own currency, and different currencies are never added together.
               </p>
             </GlassCard>
           )}
@@ -633,7 +630,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                   <thead className="text-zinc-500">
                     <tr>
                       <th className="py-2 font-medium">Currency</th>
-                      <th className="py-2 text-right font-medium">GMV</th>
+                      <th className="py-2 text-right font-medium">Gross sales</th>
                       <th className="py-2 text-right font-medium">Fee</th>
                       <th className="py-2 text-right font-medium">Net</th>
                     </tr>
@@ -674,9 +671,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
           </GlassCard>
 
           <p className="mt-6 text-center text-[11px] text-zinc-600">
-            Financial totals include only transactions whose Stripe objects are verified as live mode. Gross sales come from
-            durable paid orders, and net amounts account for recorded refunds and sale-time platform fees. Test and unverified
-            historical records are excluded. Stripe balances remain the source of truth for available cash and payouts.
+            Totals include only live Stripe payments. Gross sales come from paid orders. Net sales subtract recorded refunds and the Nexez fee charged at the time of sale. Test and unverified older records are excluded. Stripe controls your available balance and payouts.
           </p>
         </div>
       </ErrorBoundary>
@@ -708,19 +703,19 @@ function financeChannelLabel(channel: string) {
   return ({
     direct: 'Direct checkout',
     agent_checkout: 'Direct checkout',
-    acp: 'ACP checkout',
-    ucp: 'UCP checkout',
-    agent_protocol: 'ACP / UCP',
+    acp: 'Agent checkout',
+    ucp: 'Agent checkout',
+    agent_protocol: 'Agent checkout',
     recurring: 'Recurring service',
     recurring_service: 'Recurring service',
-    staged: 'Staged settlement',
-    staged_settlement: 'Staged settlement',
-    reserved: 'Reserved resource',
-    reservable_resource: 'Reserved resource',
+    staged: 'Staged payments',
+    staged_settlement: 'Staged payments',
+    reserved: 'Reservation',
+    reservable_resource: 'Reservation',
     nexie: 'Nexxi-assisted',
-    negotiated: 'Negotiated capture',
-    negotiated_order: 'Negotiated order',
-    settled_orders: 'Settled orders',
+    negotiated: 'Negotiated deal',
+    negotiated_order: 'Negotiated deal',
+    settled_orders: 'Paid orders',
   } as Record<string, string>)[channel] ?? channel.replace(/_/g, ' ')
 }
 
@@ -807,7 +802,7 @@ function MoneyFlowBar({
   return (
     <div className="mt-4 flex h-9 overflow-hidden rounded-lg border border-[var(--bd-10)]">
       <div className="bg-[var(--ready)]/80" style={{ width: `${netPct}%` }} title={`Net to you · ${netPct}%`} />
-      <div className="bg-[var(--signal)]/80" style={{ width: `${feePct}%` }} title={`Nexez commission · ${feePct}%`} />
+      <div className="bg-[var(--signal)]/80" style={{ width: `${feePct}%` }} title={`Nexez fees · ${feePct}%`} />
       {refundPct > 0 ? <div className="bg-[var(--amber)]/80" style={{ width: `${refundPct}%` }} title={`Refunded or disputed · ${refundPct}%`} /> : null}
     </div>
   )
@@ -913,8 +908,7 @@ function EmptyFinance({ payoutsReady, connectAccountId }: { payoutsReady: boolea
   ctas.push({ label: 'View your listings', href: '/dashboard/listings', variant: 'secondary' })
   return (
     <EmptyState icon={Wallet} title="Your first sale lands here" ctas={ctas}>
-      When an agent buys through one of your listings, the revenue, Nexez fee, net-to-you, and payouts all show up here -
-      per currency.
+      When a customer or AI agent buys through one of your listings, the sale, Nexez fee, net to you, and payouts appear here by currency.
       {!connectAccountId
         ? ' First, connect Stripe so you can accept payments.'
         : !payoutsReady

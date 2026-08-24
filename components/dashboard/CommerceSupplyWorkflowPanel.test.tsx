@@ -31,7 +31,7 @@ describe('CommerceSupplyWorkflowPanel', () => {
 
     expect(screen.getByText('Verify before certification')).toBeInTheDocument()
     expect(screen.getByText(/does not prove location/i)).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Operator reason'), 'Recruit two qualified operators')
+    await user.type(screen.getByLabelText('Reason for change'), 'Recruit two qualified operators')
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(fetchMock).toHaveBeenCalledWith('/api/admin/commerce-supply-campaign', expect.objectContaining({
@@ -59,9 +59,9 @@ describe('CommerceSupplyWorkflowPanel', () => {
 
     render(<CommerceSupplyWorkflowPanel initialSnapshot={live} coverageGaps={0} />)
     expect(screen.getByText('Certified supply live')).toBeInTheDocument()
-    expect(screen.getByText(/does not prove.*availability/i)).toBeInTheDocument()
+    expect(screen.getByText(/Confirm the seller's location, availability, price, and fit/i)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /open recruitment brief/i }))
-    expect(screen.queryByLabelText('Operator reason')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Reason for change')).not.toBeInTheDocument()
   })
 
   it('reuses the exact idempotency key when a committed response may have been lost', async () => {
@@ -88,7 +88,7 @@ describe('CommerceSupplyWorkflowPanel', () => {
 
     render(<CommerceSupplyWorkflowPanel initialSnapshot={snapshot()} coverageGaps={0} />)
     await user.click(screen.getByRole('button', { name: /open recruitment brief/i }))
-    await user.type(screen.getByLabelText('Operator reason'), 'Start qualified outreach')
+    await user.type(screen.getByLabelText('Reason for change'), 'Start qualified outreach')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Failed to fetch')
 
@@ -101,7 +101,7 @@ describe('CommerceSupplyWorkflowPanel', () => {
 
   it('keeps aggregate gaps outside the campaign workflow', () => {
     render(<CommerceSupplyWorkflowPanel initialSnapshot={snapshot()} coverageGaps={2} />)
-    expect(screen.getByText(/2 unmapped requests remain aggregate-only/i)).toBeInTheDocument()
+    expect(screen.getByText(/2 searches do not match a service category yet/i)).toBeInTheDocument()
   })
 
   it('labels launch coverage as inventory planning without formatting zeroes as demand', () => {
@@ -120,9 +120,9 @@ describe('CommerceSupplyWorkflowPanel', () => {
 
     render(<CommerceSupplyWorkflowPanel initialSnapshot={coverage} coverageGaps={0} />)
 
-    expect(screen.getByText(/inventory planning, not evidence of buyer demand/i)).toBeInTheDocument()
+    expect(screen.getByText(/priorities come from the launch plan, not from customer searches/i)).toBeInTheDocument()
     expect(screen.getByText('Launch coverage')).toBeInTheDocument()
-    expect(screen.getByText(/no buyer demand inferred/i)).toBeInTheDocument()
+    expect(screen.getByText(/not based on customer searches/i)).toBeInTheDocument()
     expect(screen.queryByText(/0 unresolved/i)).not.toBeInTheDocument()
   })
 
@@ -130,7 +130,7 @@ describe('CommerceSupplyWorkflowPanel', () => {
     render(<CommerceSupplyWorkflowPanel initialSnapshot={snapshot()} coverageGaps={0} />)
 
     expect(screen.getByText('Observed demand')).toBeInTheDocument()
-    expect(screen.getByText(/4 unresolved · 3 reference only · 1 related · 0 live/i)).toBeInTheDocument()
+    expect(screen.getByText(/4 not covered · 3 guide only · 1 related seller · 0 seller match/i)).toBeInTheDocument()
   })
 
   it('disables campaign controls when marketplace certification cannot be verified', async () => {
@@ -139,10 +139,10 @@ describe('CommerceSupplyWorkflowPanel', () => {
     unavailable.verificationAvailable = false
 
     render(<CommerceSupplyWorkflowPanel initialSnapshot={unavailable} coverageGaps={0} />)
-    expect(screen.getByText(/campaign controls are disabled/i)).toBeInTheDocument()
+    expect(screen.getByText(/recruitment controls are off/i)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /open recruitment brief/i }))
-    expect(screen.getByLabelText('Next state')).toBeDisabled()
-    expect(screen.getByLabelText('Operator reason')).toBeDisabled()
+    expect(screen.getByLabelText('Next status')).toBeDisabled()
+    expect(screen.getByLabelText('Reason for change')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
   })
 })

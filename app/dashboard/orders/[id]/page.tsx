@@ -74,7 +74,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           eyebrow={`Order #${shortOrderReference(order.id)}`}
           icon={PackageCheck}
           title={order.offer_name || 'Order details'}
-          description={`Recorded ${formatDateTime(order.created_at)} through ${getOrderChannelLabel(order.channel)}. This is the merchant view of the durable transaction record.`}
+          description={`Placed ${formatDateTime(order.created_at)} through ${getOrderChannelLabel(order.channel)}. Review the payment, customer, and fulfillment details below.`}
           actions={(
             <>
               {order.slug ? (
@@ -90,7 +90,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           footer={(
             <>
               <OrderStatus order={order} />
-              <MetaPill label="Channel" value={getOrderChannelLabel(order.channel)} />
+              <MetaPill label="Order source" value={getOrderChannelLabel(order.channel)} />
               <MetaPill label="Currency" value={order.currency.toUpperCase()} />
               <MetaPill label="Mode" value={order.stripe_livemode === true ? 'Live' : order.stripe_livemode === false ? 'Test' : 'Unverified'} />
             </>
@@ -99,9 +99,9 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
 
         <DataLoadNotice issues={detail.issues} />
 
-        <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Order economics">
-          <MoneyCard label="Gross" value={formatCurrencyAmount(economics.grossCents, order.currency)} detail="Buyer payment" icon={ReceiptText} />
-          <MoneyCard label="Refunded" value={formatCurrencyAmount(economics.refundedCents, order.currency)} detail={economics.refundedCents ? 'Returned or disputed' : 'No recorded reversal'} icon={RefreshCcw} tone={economics.refundedCents ? 'attention' : undefined} />
+        <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Order totals">
+          <MoneyCard label="Gross sales" value={formatCurrencyAmount(economics.grossCents, order.currency)} detail="Customer payment" icon={ReceiptText} />
+          <MoneyCard label="Refunded" value={formatCurrencyAmount(economics.refundedCents, order.currency)} detail={economics.refundedCents ? 'Refunded or disputed' : 'No refunds or disputes'} icon={RefreshCcw} tone={economics.refundedCents ? 'attention' : undefined} />
           <MoneyCard label="Nexez fee" value={formatCurrencyAmount(economics.retainedFeeCents, order.currency)} detail={feeDetail(order)} icon={BadgeDollarSign} />
           <MoneyCard label="Net to you" value={formatCurrencyAmount(economics.netCents, order.currency)} detail="After recorded refunds and fees" icon={CircleDollarSign} tone="ready" />
         </section>
@@ -145,7 +145,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             ) : null}
 
             {detail.serviceAgreement ? (
-              <SectionCard icon={CalendarClock} title="Recurring agreement" eyebrow="Commerce lineage">
+              <SectionCard icon={CalendarClock} title="Recurring agreement" eyebrow="Subscription details">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Detail label="Agreement state" value={humanize(detail.serviceAgreement.status)} />
                   <Detail label="Per period" value={formatCurrencyAmount(detail.serviceAgreement.amount_per_period_cents, detail.serviceAgreement.currency)} />
@@ -156,7 +156,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             ) : null}
 
             {detail.resourceReservation ? (
-              <SectionCard icon={FileCheck2} title="Reserved resource" eyebrow="Fulfillment lineage">
+              <SectionCard icon={FileCheck2} title="Reserved resource" eyebrow="Reservation details">
                 <div className="grid gap-4 sm:grid-cols-3">
                   <Detail label="Reservation state" value={humanize(detail.resourceReservation.status)} />
                   <Detail label="Committed" value={formatDateTime(detail.resourceReservation.committed_at)} />
@@ -165,7 +165,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               </SectionCard>
             ) : null}
 
-            <SectionCard icon={Clock3} title="Activity" eyebrow="Append-only order evidence">
+            <SectionCard icon={Clock3} title="Activity" eyebrow="Order history">
               {detail.events.length ? (
                 <ol className="space-y-0">
                   {detail.events.map((event, index) => {
@@ -182,11 +182,11 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                     )
                   })}
                 </ol>
-              ) : <p className="text-sm leading-6 text-[var(--fg-muted)]">No append-only activity is available for this order yet. Nexez will not reconstruct events that were never durably recorded.</p>}
+              ) : <p className="text-sm leading-6 text-[var(--fg-muted)]">No activity has been recorded for this order yet.</p>}
             </SectionCard>
 
             {detail.reviews.length ? (
-              <SectionCard icon={Star} title="Verified review" eyebrow="Buyer feedback">
+              <SectionCard icon={Star} title="Verified review" eyebrow="Customer feedback">
                 {detail.reviews.map((review) => (
                   <article key={review.id}>
                     <div className="flex items-center gap-2 text-[var(--settings-emphasis)]" aria-label={`${review.rating} out of 5 stars`}>
@@ -202,12 +202,12 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           </div>
 
           <aside className="space-y-6">
-            <SectionCard icon={UserRound} title="Buyer" eyebrow="Customer context">
+            <SectionCard icon={UserRound} title="Customer" eyebrow="Contact details">
               <dl className="space-y-4">
                 <Detail label="Name" value={order.buyer_name || 'Not provided'} />
                 <Detail label="Email" value={order.buyer_email || 'Not provided'} />
-                <Detail label="Buyer reference" value={order.buyer_reference || 'Not provided'} mono={Boolean(order.buyer_reference)} />
-                <Detail label="Buyer agent" value={order.buyer_agent || 'Not recorded'} />
+                <Detail label="Customer reference" value={order.buyer_reference || 'Not provided'} mono={Boolean(order.buyer_reference)} />
+                <Detail label="Customer agent" value={order.buyer_agent || 'Not recorded'} />
               </dl>
             </SectionCard>
 
@@ -216,20 +216,20 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 <Detail label="Offer" value={order.offer_name || 'Offer name unavailable'} />
                 <Detail label="Offer key" value={order.offer_key || 'Not recorded'} mono />
                 <Detail label="Listing" value={order.slug ? `/${order.slug}` : 'Listing unavailable'} mono={Boolean(order.slug)} />
-                <Detail label="Channel" value={getOrderChannelLabel(order.channel)} />
+                <Detail label="Order source" value={getOrderChannelLabel(order.channel)} />
                 {order.service_period_start || order.service_period_end ? <Detail label="Service period" value={dateRange(order.service_period_start, order.service_period_end)} /> : null}
               </dl>
             </SectionCard>
 
-            <SectionCard icon={ShieldCheck} title="Payment provenance" eyebrow="Audit context">
+            <SectionCard icon={ShieldCheck} title="Payment details" eyebrow="References">
               <dl className="space-y-4">
                 <Detail label="Order ID" value={order.id} mono />
                 <Detail label="Payment intent" value={safeReference(order.stripe_payment_intent_id)} mono />
                 <Detail label="Checkout session" value={safeReference(order.stripe_session_id)} mono />
                 {order.stripe_invoice_id ? <Detail label="Invoice" value={safeReference(order.stripe_invoice_id)} mono /> : null}
                 <Detail label="Mode" value={order.stripe_livemode === true ? 'Live' : order.stripe_livemode === false ? 'Test' : 'Unverified'} />
-                <Detail label="Plan at purchase" value={order.plan_id_at_purchase ? humanize(order.plan_id_at_purchase) : 'Legacy or unavailable'} />
-                <Detail label="Commission source" value={order.commission_source ? humanize(order.commission_source) : 'Legacy or unavailable'} />
+                <Detail label="Plan at purchase" value={order.plan_id_at_purchase ? humanize(order.plan_id_at_purchase) : 'Older order or unavailable'} />
+                <Detail label="Fee calculation" value={order.commission_source ? humanize(order.commission_source) : 'Older order or unavailable'} />
               </dl>
             </SectionCard>
           </aside>
@@ -278,7 +278,7 @@ function StagedAgreementCard({
           )
         })}
       </ol>
-      <p className="mt-4 text-xs leading-5 text-[var(--fg-muted-2)]">Each paid stage remains a distinct checkout order, while this agreement preserves the buyer-approved schedule and payment lineage.</p>
+      <p className="mt-4 text-xs leading-5 text-[var(--fg-muted-2)]">Each paid stage creates its own order. The full agreement keeps the customer-approved payment schedule together.</p>
     </SectionCard>
   )
 }

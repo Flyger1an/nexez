@@ -145,9 +145,9 @@ export default async function NegotiationMetricsPage() {
   const decisions = exact?.decisions ?? DECISION_ACTIONS.map((action) => ({ action, count: fallback.decisionCounts[action] || 0 }))
   const throughput = exact?.daily ?? fallback.throughput.map((row) => ({ date: row.date, created: row.count, agreed: 0, captured: 0 }))
   const dataIssues = [
-    rollupResult.error ? 'exact negotiation reporting (showing a recent sample)' : null,
-    negotiationResult.error && !exact ? 'recent negotiation fallback' : null,
-    messageError && !exact ? 'decision latency fallback' : null,
+    rollupResult.error ? 'complete negotiation totals (showing recent deals)' : null,
+    negotiationResult.error && !exact ? 'recent negotiations' : null,
+    messageError && !exact ? 'response-time details' : null,
   ].filter((issue): issue is string => Boolean(issue))
   const statusData = NEGOTIATION_STATUSES.map((status) => ({ name: getNegotiationStatusLabel(status), value: Number(statusCounts[status] ?? 0) }))
   const decisionData = decisions.map((row) => ({ name: actionLabel(row.action), value: row.count }))
@@ -157,37 +157,37 @@ export default async function NegotiationMetricsPage() {
     <main className="nx-platform-surface min-h-screen bg-[var(--bg)] px-4 py-8 text-[var(--fg)] md:px-8 md:py-10">
       <div className="mx-auto max-w-6xl">
         <Link href="/dashboard/negotiations" className="mb-6 inline-flex min-h-[44px] items-center gap-2 text-sm text-zinc-400 hover:text-white">
-          <ArrowLeft className="size-4" /> Back to decision queue
+          <ArrowLeft className="size-4" /> Back to negotiations
         </Link>
         <header className="surface-masthead mb-8 flex items-start gap-3">
           <BarChart3 className="mt-0.5 size-7 text-[var(--signal)]" />
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Negotiation performance</h1>
-            <p className="mt-1 max-w-2xl text-sm text-zinc-400">Exact lifecycle totals, decision responsiveness, and currency-safe agreement value. Throughput covers the last {WINDOW_DAYS} days.</p>
+            <p className="mt-1 max-w-2xl text-sm text-zinc-400">Track deal status, response times, and agreed amounts. Proposal activity covers the last {WINDOW_DAYS} days.</p>
           </div>
         </header>
         <DataLoadNotice issues={dataIssues} />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard icon={<Handshake className="size-3.5" />} label="All negotiations" value={String(total)} sub={exact ? `${exact.counts.needsAction} need action · ${exact.counts.waiting} waiting` : `latest ${Math.min(FALLBACK_NEGOTIATIONS, total)} sampled`} />
+          <StatCard icon={<Handshake className="size-3.5" />} label="All negotiations" value={String(total)} sub={exact ? `${exact.counts.needsAction} need action · ${exact.counts.waiting} waiting` : `Showing the latest ${Math.min(FALLBACK_NEGOTIATIONS, total)}`} />
           <StatCard icon={<DollarSign className="size-3.5" />} label="Agreement value" value={primaryCurrency ? formatCurrencyAmount(primaryCurrency.agreedCents, primaryCurrency.currency) : '—'} sub={primaryCurrency ? `${primaryCurrency.agreedCount} agreements · ${currencies.length} ${currencies.length === 1 ? 'currency' : 'currencies'}` : 'no priced agreements'} />
-          <StatCard icon={<Gauge className="size-3.5" />} label="Decision latency" value={msToHuman(latency.p50)} sub={`p50 · p95 ${msToHuman(latency.p95)} · ${latency.count} paired turns`} />
-          <StatCard icon={<Hourglass className="size-3.5" />} label="Decision worker" value={String(pending)} sub={pending ? `oldest pending ${msToHuman(oldestPendingMs)}` : 'no decisions pending'} />
+          <StatCard icon={<Gauge className="size-3.5" />} label="Typical response time" value={msToHuman(latency.p50)} sub={`Slowest 5%: ${msToHuman(latency.p95)} · ${latency.count} responses`} />
+          <StatCard icon={<Hourglass className="size-3.5" />} label="Pending decisions" value={String(pending)} sub={pending ? `Oldest waiting: ${msToHuman(oldestPendingMs)}` : 'No decisions pending'} />
         </div>
 
         {exact ? (
           <section className="mt-6 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:grid-cols-3">
-            <OperationalStat label="Needs seller action" value={exact.counts.needsAction} tone={exact.counts.needsAction ? 'attention' : 'ready'} />
-            <OperationalStat label="Stale open deals" value={exact.counts.staleOpen} tone={exact.counts.staleOpen ? 'attention' : 'ready'} />
+            <OperationalStat label="Needs your attention" value={exact.counts.needsAction} tone={exact.counts.needsAction ? 'attention' : 'ready'} />
+            <OperationalStat label="Older open deals" value={exact.counts.staleOpen} tone={exact.counts.staleOpen ? 'attention' : 'ready'} />
             <OperationalStat label="Open disputes" value={exact.counts.disputed} tone={exact.counts.disputed ? 'danger' : 'ready'} />
           </section>
         ) : null}
 
         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <ChartCard title="Lifecycle distribution"><MetricsDonut data={statusData} emptyLabel="No negotiations yet" /></ChartCard>
+          <ChartCard title="Deals by status"><MetricsDonut data={statusData} emptyLabel="No negotiations yet" /></ChartCard>
           <ChartCard title="Decision outcomes"><MetricsDonut data={decisionData} emptyLabel="No decisions yet" /></ChartCard>
         </div>
-        <div className="mt-6"><ChartCard title={`Proposal cohorts · last ${WINDOW_DAYS} days`}><ThroughputChart data={throughput} /></ChartCard></div>
+        <div className="mt-6"><ChartCard title={`Proposals over the last ${WINDOW_DAYS} days`}><ThroughputChart data={throughput} /></ChartCard></div>
 
         <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
           <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-sm font-medium text-zinc-300">Agreement value by currency</h2><span className="text-xs text-zinc-500">Currencies are never combined</span></div>
@@ -199,8 +199,8 @@ export default async function NegotiationMetricsPage() {
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                     <MoneyStat label="Agreed" cents={row.agreedCents} currency={row.currency} />
                     <MoneyStat label="Held" cents={row.heldCents} currency={row.currency} />
-                    <MoneyStat label="Captured" cents={row.capturedCents} currency={row.currency} />
-                    <MoneyStat label="Returned/disputed" cents={row.refundedCents} currency={row.currency} />
+                    <MoneyStat label="Collected" cents={row.capturedCents} currency={row.currency} />
+                    <MoneyStat label="Refunded or disputed" cents={row.refundedCents} currency={row.currency} />
                   </div>
                 </div>
               ))}
@@ -210,10 +210,10 @@ export default async function NegotiationMetricsPage() {
 
         {exact?.topOffers.length ? (
           <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <h2 className="text-sm font-medium text-zinc-300">Offer negotiation health</h2>
+            <h2 className="text-sm font-medium text-zinc-300">Offer performance</h2>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-sm">
-                <thead className="text-xs uppercase tracking-wide text-zinc-500"><tr><th className="pb-3 font-medium">Offer</th><th className="pb-3 font-medium">Proposals</th><th className="pb-3 font-medium">Agreements</th><th className="pb-3 font-medium">Captured</th><th className="pb-3 font-medium">Agreement rate</th></tr></thead>
+                <thead className="text-xs uppercase tracking-wide text-zinc-500"><tr><th className="pb-3 font-medium">Offer</th><th className="pb-3 font-medium">Proposals</th><th className="pb-3 font-medium">Agreements</th><th className="pb-3 font-medium">Collected</th><th className="pb-3 font-medium">Agreement rate</th></tr></thead>
                 <tbody className="divide-y divide-white/10">
                   {exact.topOffers.map((offer) => (
                     <tr key={`${offer.pageId}:${offer.offerKey}`}>
@@ -228,7 +228,7 @@ export default async function NegotiationMetricsPage() {
           </section>
         ) : null}
 
-        <div className="mt-6 flex items-start gap-2 text-xs leading-5 text-zinc-500"><Clock className="mt-0.5 size-3 shrink-0" /> Decision latency pairs each buyer turn with the immediately following owner or Nexez response. Cohort outcomes reflect the current state of proposals created on each day. Agreement and captured amounts remain separated by settlement currency.</div>
+        <div className="mt-6 flex items-start gap-2 text-xs leading-5 text-zinc-500"><Clock className="mt-0.5 size-3 shrink-0" /> Response time measures the wait between a customer message and the next reply from you or Nexez. Daily results use each deal's current status. Amounts remain separated by currency.</div>
       </div>
     </main>
   )

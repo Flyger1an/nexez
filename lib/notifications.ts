@@ -27,16 +27,16 @@ export function buildNotifications(input: {
     notifications.push({
       id: 'commerce-attention',
       severity: 'action',
-      message: 'Commerce actions could not be checked from the available sources',
-      cta: 'Review Commerce',
+      message: 'Order and deal tasks could not be loaded',
+      cta: 'Open tasks',
       href: commerceAttention.href,
     })
   } else if (commerceAttention && !commerceAttention.visibleCount && commerceAttentionIsIncomplete(commerceAttention)) {
     notifications.push({
       id: 'commerce-attention',
       severity: 'action',
-      message: 'Commerce action coverage is incomplete, additional records may require attention',
-      cta: 'Open queue',
+      message: 'Some order and deal tasks could not be loaded',
+      cta: 'Open tasks',
       href: '/dashboard/commerce',
     })
   } else if (commerceAttention && (
@@ -51,8 +51,8 @@ export function buildNotifications(input: {
     notifications.push({
       id: 'commerce-attention',
       severity: 'action',
-      message: `${visibleLabel} commerce record${singular ? '' : 's'} need${singular ? 's' : ''} your attention${urgentLabel}`,
-      cta: commerceAttention.href === '/dashboard/commerce' ? 'Open queue' : 'Review action',
+      message: `${visibleLabel} order${singular ? ' or deal needs' : 's or deals need'} your attention${urgentLabel}`,
+      cta: commerceAttention.href === '/dashboard/commerce' ? 'Open tasks' : 'Review task',
       href: commerceAttention.href,
     })
   }
