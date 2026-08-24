@@ -33,7 +33,10 @@ import { SellerGrowthInvites } from '../../components/growth/SellerGrowthInvites
 import { loadNegotiationRollup } from '../../lib/negotiation-report'
 import type { NegotiationRollup } from '../../lib/negotiation-report'
 import type { FinanceRollup } from '../../lib/finance-report'
-import { buildCommercialCommandCenter } from '../../lib/commercial-command-center'
+import {
+  buildCommercialCommandCenter,
+  type CommercialCommerceInput,
+} from '../../lib/commercial-command-center'
 import { CommercialCommandCenter } from '../../components/dashboard/CommercialCommandCenter'
 import { DataLoadNotice } from '../../components/dashboard/DataLoadNotice'
 
@@ -54,6 +57,7 @@ export type DashboardInitial = {
   analyticsRollup?: OwnerAnalyticsRollup | null
   negotiationRollup?: NegotiationRollup | null
   financeRollup?: FinanceRollup | null
+  commerceActions?: CommercialCommerceInput | null
   commercialDataIssues?: string[]
 }
 
@@ -87,8 +91,9 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
     analytics: initial?.analyticsRollup,
     negotiations: initial?.negotiationRollup,
     finance: initial?.financeRollup,
+    commerce: initial?.commerceActions,
     readinessAlerts,
-  }), [initial?.analyticsRollup, initial?.financeRollup, initial?.negotiationRollup, readinessAlerts])
+  }), [initial?.analyticsRollup, initial?.commerceActions, initial?.financeRollup, initial?.negotiationRollup, readinessAlerts])
 
   // The Overview headline + KPIs report TODAY's activity. We scope to the
   // server-provided start-of-today cutoff and reuse the Analytics helpers (which
