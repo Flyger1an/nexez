@@ -6,7 +6,7 @@ vi.mock('./observability', () => ({
   captureError,
 }))
 
-import { sendEmail } from './email'
+import { NEXEZ_SUPPORT_REPLY_TO, NEXEZ_TRANSACTIONAL_FROM, sendEmail } from './email'
 
 describe('sendEmail delivery observability', () => {
   afterEach(() => {
@@ -67,9 +67,26 @@ describe('sendEmail delivery observability', () => {
 
     expect(headers['Idempotency-Key']).toBe('seller-update/order-1')
     expect(body).toMatchObject({
-      from: 'Nexez <notifications@nexez.app>',
-      reply_to: 'support@nexez.ai',
+      from: NEXEZ_TRANSACTIONAL_FROM,
+      reply_to: NEXEZ_SUPPORT_REPLY_TO,
       tags: [{ name: 'stream', value: 'transactional' }],
     })
+  })
+
+  it('does not allow a legacy sender override to replace the approved Nexez identity', async () => {
+    vi.stubEnv('RESEND_API_KEY', 're_test')
+    vi.stubEnv('EMAIL_FROM', 'notifications@updates.nexez.app')
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ id: 'email-2' })))
+
+    await sendEmail({
+      to: 'owner@example.com',
+      subject: 'Seller update',
+      html: '<p>Update</p>',
+    })
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    const body = JSON.parse(String(init?.body))
+
+    expect(body.from).toBe(NEXEZ_TRANSACTIONAL_FROM)
   })
 })
