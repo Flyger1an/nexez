@@ -9,6 +9,7 @@ loadEnvConfig(process.cwd())
 
 const MARKETING_BASE = trimBase(process.env.NEXEZ_MARKETING_BASE || 'https://nexez.ai')
 const APP_BASE = trimBase(process.env.NEXEZ_APP_BASE || 'https://app.nexez.ai')
+const ADMIN_BASE = trimBase(process.env.NEXEZ_ADMIN_BASE || 'https://admin.nexez.ai')
 const AGENT_BASE = trimBase(process.env.NEXEZ_AGENT_BASE || 'https://nexez.app')
 const SLUG = process.env.NEXEZ_RELEASE_CERT_SLUG || 'nexez-agent-negotiation-lab'
 const OFFER = process.env.NEXEZ_RELEASE_CERT_OFFER || 'services-0'
@@ -70,6 +71,21 @@ await check('app-host', 'Authenticated app host', true, async () => {
   assert(new URL(response.url).hostname === new URL(APP_BASE).hostname, 'Login resolved to the wrong canonical host')
   assert(/<html[\s>]/i.test(html), 'Login did not return HTML')
   return `${APP_BASE}/login returned ${response.status}.`
+})
+
+await check('admin-host', 'Platform admin host', true, async () => {
+  const [login, protectedDesk] = await Promise.all([
+    fetchRetry(`${ADMIN_BASE}/login`),
+    fetchRetry(`${ADMIN_BASE}/admin/support`),
+  ])
+  const html = await login.text()
+  assert(login.ok, `Admin login returned HTTP ${login.status}`)
+  assert(new URL(login.url).hostname === new URL(ADMIN_BASE).hostname, 'Admin login resolved to the wrong canonical host')
+  assert(/<html[\s>]/i.test(html), 'Admin login did not return HTML')
+  const protectedUrl = new URL(protectedDesk.url)
+  assert(protectedDesk.ok && protectedUrl.pathname === '/login', 'Signed-out support desk did not fail closed to admin login')
+  assert(protectedUrl.searchParams.get('next') === '/admin/support', 'Admin login lost the support-desk return destination')
+  return `${ADMIN_BASE} served an isolated login and protected support desk.`
 })
 
 await check('settings-agent-lab', 'Settings and Agent Lab boundaries', true, async () => {

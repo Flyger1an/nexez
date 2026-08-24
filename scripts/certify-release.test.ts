@@ -38,6 +38,7 @@ describe('release certification runner', () => {
     const result = await runRelease({
       NEXEZ_MARKETING_BASE: base,
       NEXEZ_APP_BASE: base,
+      NEXEZ_ADMIN_BASE: base,
       NEXEZ_AGENT_BASE: base,
       NEXEZ_RELEASE_CERT_ENDPOINT: `${base}/api/internal/release-certifications`,
       NEXEZ_RELEASE_CERT_SECRET: SECRET,
@@ -65,6 +66,7 @@ describe('release certification runner', () => {
     })
     expect((submitted.value?.checks as Array<{ id: string }>).map((check) => check.id)).toEqual(expect.arrayContaining([
       'settings-agent-lab',
+      'admin-host',
       'commerce-gauntlet',
     ]))
   }, 15_000)
@@ -100,6 +102,10 @@ function route(
   }
   if (path === '/dashboard/settings') {
     response.writeHead(302, { Location: '/login?next=%2Fdashboard%2Fsettings' })
+    return response.end()
+  }
+  if (path === '/admin/support') {
+    response.writeHead(302, { Location: '/login?next=%2Fadmin%2Fsupport' })
     return response.end()
   }
   if (path === '/api/agent-lab/research-runs') return json(response, 401, { error: 'Sign in to view saved research.' })

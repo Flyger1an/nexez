@@ -31,7 +31,7 @@ export function BrandedEmail({
   children,
 }: {
   preview: string
-  category?: 'Buyer order' | 'Merchant action' | 'Account update'
+  category?: 'Buyer order' | 'Merchant action' | 'Account update' | 'Support operations'
   children: React.ReactNode
 }) {
   const year = new Date().getFullYear()

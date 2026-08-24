@@ -13,6 +13,7 @@ import type { AdminAuditEvent, AdminAuditTone, AdminOperator } from '../../../li
 import { relativeAge } from '../../../lib/launch-control'
 import { requirePlatformAdmin } from '../../../lib/server/admin-access'
 import { getAdminGovernanceSnapshot } from '../../../lib/server/admin-governance'
+import { GrantAdminAccess } from '../../../components/admin/GrantAdminAccess'
 
 const TONE_STYLE: Record<AdminAuditTone, string> = {
   ready: 'border-[var(--ready)]/25 bg-[var(--ready)]/10 text-[var(--ready)]',
@@ -22,6 +23,7 @@ const TONE_STYLE: Record<AdminAuditTone, string> = {
 }
 
 const SOURCE_LABEL = {
+  access: 'Access',
   growth: 'Growth',
   marketplace: 'Marketplace',
   release: 'Release',
@@ -39,9 +41,9 @@ export default async function AdminAuditPage() {
           <div className="max-w-3xl">
             <div className="flex items-center gap-2 text-sm font-medium text-[var(--signal)]"><ShieldCheck className="size-4" /> Governance</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Access & audit</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">Platform-admin membership and append-only operational evidence from Growth Control, marketplace curation, and release certification.</p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">Manage platform-admin membership and review permanent operational evidence across Nexez.</p>
           </div>
-          <span className="inline-flex min-h-9 w-fit items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 text-xs text-[var(--fg-muted)]"><History className="size-3.5" /> Read-only governance view</span>
+          <span className="inline-flex min-h-9 w-fit items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 text-xs text-[var(--fg-muted)]"><History className="size-3.5" /> Audited access control</span>
         </header>
 
         {snapshot.warnings.length ? (
@@ -51,12 +53,13 @@ export default async function AdminAuditPage() {
         <section aria-label="Governance summary" className="grid gap-3 py-6 sm:grid-cols-3">
           <SummaryCard icon={UserRoundCheck} label="Platform admins" value={snapshot.available ? String(snapshot.operators.length) : 'Unavailable'} detail="Service-role membership ledger" />
           <SummaryCard icon={History} label="Audit events loaded" value={String(snapshot.events.length)} detail="Newest 100 across all sources" />
-          <SummaryCard icon={BadgeCheck} label="Latest evidence" value={latest ? relativeAge(latest, snapshot.generatedAt) : 'None'} detail="Growth, marketplace, or release" />
+          <SummaryCard icon={BadgeCheck} label="Latest evidence" value={latest ? relativeAge(latest, snapshot.generatedAt) : 'None'} detail="Access and operator activity" />
         </section>
 
         <section className="grid gap-5 xl:grid-cols-[minmax(300px,.72fr)_minmax(0,1.28fr)]">
           <div className="overflow-hidden rounded-lg border border-border bg-white/[0.025]">
-            <div className="border-b border-border px-4 py-4"><h2 className="text-base font-semibold tracking-tight">Platform-admin access</h2><p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">Membership is visible here but remains service-role managed; the console cannot self-promote an account.</p></div>
+            <div className="border-b border-border px-4 py-4"><h2 className="text-base font-semibold tracking-tight">Platform-admin access</h2><p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">Only a current admin can grant access to an existing Nexez account.</p></div>
+            <GrantAdminAccess />
             {snapshot.operators.length ? (
               <div className="divide-y divide-border">
                 {snapshot.operators.map((operator) => <OperatorRow key={operator.userId} operator={operator} generatedAt={snapshot.generatedAt} />)}
@@ -101,7 +104,7 @@ function OperatorRow({ operator, generatedAt }: { operator: AdminOperator; gener
 }
 
 function AuditRow({ event, generatedAt }: { event: AdminAuditEvent; generatedAt: string }) {
-  const Icon = event.source === 'growth' ? TrendingUp : event.source === 'marketplace' ? Store : GitCommitHorizontal
+  const Icon = event.source === 'access' ? UserRoundCheck : event.source === 'growth' ? TrendingUp : event.source === 'marketplace' ? Store : GitCommitHorizontal
   return (
     <Link href={event.href} className="grid gap-3 px-4 py-4 transition hover:bg-white/[0.04] sm:grid-cols-[32px_minmax(0,1fr)_auto] sm:items-start">
       <span className="flex size-8 items-center justify-center rounded-md border border-border bg-white/[0.04]"><Icon className="size-4 text-[var(--fg-muted)]" /></span>

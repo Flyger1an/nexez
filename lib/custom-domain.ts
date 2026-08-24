@@ -38,6 +38,7 @@ export function isPlatformHost(host: string | null | undefined, siteUrl?: string
   if (matchesConfigured(siteUrl)) return true
   if (matchesConfigured(process.env.NEXT_PUBLIC_MARKETING_URL || 'https://nexez.ai')) return true
   if (matchesConfigured(process.env.NEXT_PUBLIC_APP_URL || 'https://app.nexez.ai')) return true
+  if (matchesConfigured(process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.nexez.ai')) return true
   if (matchesConfigured(process.env.NEXT_PUBLIC_AGENT_RUNTIME_URL || 'https://nexez.app')) return true
 
   return false

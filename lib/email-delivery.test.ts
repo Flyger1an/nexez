@@ -106,4 +106,21 @@ describe('sendEmail delivery observability', () => {
 
     expect(body.reply_to).toBe(NEXEZ_SUPPORT_REPLY_TO)
   })
+
+  it('uses an explicit requester address when support needs to reply to a ticket', async () => {
+    vi.stubEnv('RESEND_API_KEY', 're_test')
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ id: 'email-4' })))
+
+    await sendEmail({
+      to: 'support@nexez.ai',
+      replyTo: 'requester@example.com',
+      subject: 'New support request',
+      html: '<p>Support request</p>',
+    })
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    const body = JSON.parse(String(init?.body))
+
+    expect(body.reply_to).toBe('requester@example.com')
+  })
 })

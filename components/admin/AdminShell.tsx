@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import {
   ArrowLeft,
   History,
+  Inbox,
   LayoutDashboard,
   LogOut,
   RefreshCw,
@@ -15,10 +16,12 @@ import {
 } from 'lucide-react'
 import { NexezLogo } from '../NexezLogo'
 import { ThemeToggle } from '../ThemeToggle'
+import { appUrl } from '../../lib/site'
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/launch', label: 'Launch Control', icon: Rocket },
+  { href: '/admin/support', label: 'Support', icon: Inbox },
   { href: '/admin/growth', label: 'Growth Control', icon: TrendingUp },
   { href: '/admin/audit', label: 'Access & audit', icon: History },
 ] as const
@@ -80,9 +83,9 @@ export function AdminShell({ children, email }: { children: ReactNode; email: st
               <p className="truncate text-xs text-[var(--fg-soft)]">{email}</p>
               <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[var(--fg-muted-2)]">Production · admin only</p>
             </div>
-            <Link href="/dashboard" className="flex h-9 items-center gap-2 rounded-md px-3 text-xs text-[var(--fg-muted)] transition hover:bg-white/[0.05] hover:text-foreground">
+            <a href={appUrl('/dashboard')} className="flex h-9 items-center gap-2 rounded-md px-3 text-xs text-[var(--fg-muted)] transition hover:bg-white/[0.05] hover:text-foreground">
               <ArrowLeft className="size-3.5" /> Back to seller dashboard
-            </Link>
+            </a>
           </div>
         </aside>
 
@@ -106,7 +109,7 @@ export function AdminShell({ children, email }: { children: ReactNode; email: st
                 <RefreshCw className="size-4" />
               </button>
               <ThemeToggle />
-              <form action="/auth/signout" method="post">
+              <form action="/auth/signout?surface=admin" method="post">
                 <button
                   type="submit"
                   aria-label="Sign out"

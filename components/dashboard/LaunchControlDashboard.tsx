@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import {
   Activity,
   AlertTriangle,
@@ -230,7 +231,8 @@ export function LaunchControlDashboard({
           ) : snapshot.supportQueue.length ? (
             <ol className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-white/[0.025] backdrop-blur-xl">
               {snapshot.supportQueue.map((ticket) => (
-                <li key={ticket.id} className="grid gap-2 px-4 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
+                <li key={ticket.id}>
+                  <Link href={`/admin/support/${ticket.id}`} className="grid gap-2 px-4 py-3 transition hover:bg-white/[0.04] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
                   <span className={`w-fit rounded-full border px-2 py-1 text-[11px] font-medium ${ticket.serviceTier === 'priority'
                     ? 'border-[var(--signal)]/30 bg-[var(--signal)]/10 text-[var(--signal)]'
                     : 'border-border bg-white/[0.03] text-[var(--fg-muted)]'
@@ -245,6 +247,7 @@ export function LaunchControlDashboard({
                     <span className={ticket.severity === 'urgent' ? 'font-medium text-red-300' : ''}>{severityName(ticket.severity)}</span>
                     <span>{relativeAge(ticket.createdAt, snapshot.generatedAt)}</span>
                   </span>
+                  </Link>
                 </li>
               ))}
             </ol>

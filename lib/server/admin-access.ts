@@ -1,13 +1,14 @@
 import 'server-only'
 
 import { cache } from 'react'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import { isPlatformAdmin } from './plan'
 import { createClient } from '../../utils/supabase/server'
 
 const getPlatformAdminViewer = cache(async () => {
-  const supabase = createClient(await cookies())
+  const host = (await headers()).get('host')
+  const supabase = createClient(await cookies(), host)
   const {
     data: { user },
   } = await supabase.auth.getUser()

@@ -690,7 +690,7 @@ function buildIncidents(sources: OperationalSources, nowIso: string): LaunchInci
       detail: `${paidPriority ? 'Priority service' : 'Standard service'} · ${cleanText(row.subject)}`,
       occurredAt: row.created_at,
       status: 'attention',
-      href: '/support',
+      href: `/admin/support/${row.id}`,
     })
   }
 

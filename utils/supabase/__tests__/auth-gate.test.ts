@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { isProtectedPath, resolveAuthGate } from '../auth-gate'
 
 describe('isProtectedPath', () => {
-  it('protects /dashboard and everything under it', () => {
+  it('protects seller and admin workspaces', () => {
     expect(isProtectedPath('/dashboard')).toBe(true)
     expect(isProtectedPath('/dashboard/abc-123')).toBe(true)
     expect(isProtectedPath('/dashboard/abc/settings')).toBe(true)
+    expect(isProtectedPath('/admin')).toBe(true)
+    expect(isProtectedPath('/admin/support/ticket-1')).toBe(true)
   })
 
   it('leaves public surfaces open', () => {
@@ -25,6 +27,7 @@ describe('resolveAuthGate', () => {
   it('redirects an unauthenticated user off a protected route, preserving the path as next', () => {
     expect(resolveAuthGate('/dashboard', '', false)).toEqual({ next: '/dashboard' })
     expect(resolveAuthGate('/dashboard/4b6f000e', '', false)).toEqual({ next: '/dashboard/4b6f000e' })
+    expect(resolveAuthGate('/admin/support', '', false)).toEqual({ next: '/admin/support' })
   })
 
   it('preserves the query string in next', () => {

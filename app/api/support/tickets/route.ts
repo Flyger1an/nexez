@@ -4,6 +4,7 @@ import { createClient } from '../../../../utils/supabase/server'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { getOwnerPlanId } from '../../../../lib/server/plan'
 import { supportServiceForPlan, type SupportService } from '../../../../lib/support-routing'
+import { deliverSupportTicketNotification } from '../../../../lib/server/support-email'
 
 type SupportTicketInput = {
   pageId?: string
@@ -141,12 +142,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  const notification = await deliverSupportTicketNotification({
+    id: data.id,
+    requesterEmail: user.email ?? 'unknown requester',
+    subject,
+    category,
+    priority,
+    targetName: pageName,
+    query,
+    reference,
+    supportTier: supportService.tier,
+  })
+
   return NextResponse.json({
     ok: true,
     persisted: true,
     id: data.id,
     status: data.status,
     createdAt: data.created_at,
+    notificationStatus: notification.status,
     supportService,
   })
 }

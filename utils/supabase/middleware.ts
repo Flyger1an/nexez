@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { type NextRequest, NextResponse } from 'next/server'
 import { resolveAuthGate } from './auth-gate'
-import { getSupabaseCookieOptions } from './cookie-options'
+import { getSupabaseCookieOptions, isSupabaseAuthCookieForHost } from './cookie-options'
 
 const STALE_SESSION_ERROR_CODES = new Set([
   'refresh_token_not_found',
@@ -22,12 +22,14 @@ function clearSupabaseAuthCookies(
   request: NextRequest,
   response: NextResponse,
   cookieOptions: ReturnType<typeof getSupabaseCookieOptions>,
+  host: string | null,
 ) {
+  const { name: _cookieName, ...clearOptions } = cookieOptions ?? {}
   for (const cookie of request.cookies.getAll()) {
-    if (!/^sb-.*-auth-token(?:\.\d+)?$/.test(cookie.name)) continue
+    if (!isSupabaseAuthCookieForHost(cookie.name, host)) continue
     request.cookies.set(cookie.name, '')
     response.cookies.set(cookie.name, '', {
-      ...(cookieOptions ?? {}),
+      ...clearOptions,
       path: '/',
       expires: new Date(0),
       maxAge: 0,
@@ -42,7 +44,8 @@ export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
-  const cookieOptions = getSupabaseCookieOptions(request.headers.get('host'))
+  const host = request.headers.get('host')
+  const cookieOptions = getSupabaseCookieOptions(host)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -89,10 +92,10 @@ export async function updateSession(request: NextRequest) {
     loginUrl.search = ''
     loginUrl.searchParams.set('next', gate.next)
     const response = NextResponse.redirect(loginUrl)
-    if (hasStaleSession) clearSupabaseAuthCookies(request, response, cookieOptions)
+    if (hasStaleSession) clearSupabaseAuthCookies(request, response, cookieOptions, host)
     return response
   }
 
-  if (hasStaleSession) clearSupabaseAuthCookies(request, supabaseResponse, cookieOptions)
+  if (hasStaleSession) clearSupabaseAuthCookies(request, supabaseResponse, cookieOptions, host)
   return supabaseResponse
 }

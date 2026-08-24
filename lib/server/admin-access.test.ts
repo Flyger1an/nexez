@@ -12,7 +12,10 @@ const notFound = vi.hoisted(() => vi.fn(() => {
 }))
 const isPlatformAdmin = vi.hoisted(() => vi.fn(async () => state.isAdmin))
 
-vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({})),
+  headers: vi.fn(async () => new Headers({ host: 'admin.nexez.ai' })),
+}))
 vi.mock('next/navigation', () => ({ redirect, notFound }))
 vi.mock('../../utils/supabase/server', () => ({
   createClient: () => ({

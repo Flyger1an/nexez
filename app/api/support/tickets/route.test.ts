@@ -12,6 +12,11 @@ const refs = vi.hoisted(() => ({
   } as any,
 }))
 
+const deliverSupportTicketNotification = vi.hoisted(() => vi.fn(async () => ({
+  status: 'sent' as const,
+  emailId: 'email-1',
+})))
+
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })),
 }))
@@ -23,6 +28,7 @@ vi.mock('../../../../lib/server/plan', () => ({
     return refs.plan
   }),
 }))
+vi.mock('../../../../lib/server/support-email', () => ({ deliverSupportTicketNotification }))
 
 import { GET, POST } from './route'
 import { createClient } from '../../../../utils/supabase/server'
@@ -66,6 +72,7 @@ describe('/api/support/tickets service entitlement', () => {
       data: { id: 'ticket-1', status: 'open', created_at: '2026-08-22T12:00:00.000Z' },
       error: null,
     }
+    deliverSupportTicketNotification.mockClear()
   })
 
   it('requires authentication for the support service read', async () => {
@@ -139,7 +146,14 @@ describe('/api/support/tickets service entitlement', () => {
     })
     expect(await response.json()).toMatchObject({
       supportService: { planId: 'pro', tier: 'standard', priorityRouting: false },
+      notificationStatus: 'sent',
     })
+    expect(deliverSupportTicketNotification).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'ticket-1',
+      requesterEmail: 'owner@nexez.test',
+      subject: 'Checkout incident',
+      supportTier: 'standard',
+    }))
   })
 
   it('keeps urgent incident severity available on Free without granting paid routing', async () => {

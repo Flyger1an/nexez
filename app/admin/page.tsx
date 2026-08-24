@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CircleDashed,
   Gift,
+  Inbox,
   ListChecks,
   Rocket,
   ShieldCheck,
@@ -97,6 +98,14 @@ export default async function AdminOverviewPage() {
               detail="Complimentary Launch grants, referral funnel quality, paid conversion, campaign lifecycle, capacity, and signup window."
               status={growth.campaign?.status ?? (growth.available ? 'No campaign' : 'Unavailable')}
               statusClass={growth.campaign?.status === 'active' ? STATUS_CLASS.ready : growth.available ? STATUS_CLASS.attention : STATUS_CLASS.unknown}
+            />
+            <ControlDomain
+              href="/admin/support"
+              icon={Inbox}
+              title="Support desk"
+              detail="Requester context, inbox-delivery evidence, workflow status, and append-only operator notes."
+              status={launch.sources.support ? `${launch.supportQueue.length} active` : 'Unavailable'}
+              statusClass={launch.sources.support ? (launch.supportQueue.length ? STATUS_CLASS.attention : STATUS_CLASS.ready) : STATUS_CLASS.unknown}
             />
             <ControlDomain
               href="/admin/audit"

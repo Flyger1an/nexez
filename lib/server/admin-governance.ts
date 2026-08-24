@@ -19,6 +19,15 @@ type PlatformAdminRow = {
   created_at: string
 }
 
+type PlatformAdminGrantRow = {
+  id: string
+  actor_id: string | null
+  target_user_id: string | null
+  target_email: string
+  note: string | null
+  created_at: string
+}
+
 type GrowthAdminRow = {
   id: number | string
   action: GrowthControlAction
@@ -67,12 +76,18 @@ export async function getAdminGovernanceSnapshot(
   }
 
   const admin = client ?? createAdminClient()
-  const [operatorsResult, growthResult, marketplaceResult, releasesResult] = await Promise.all([
+  const [operatorsResult, accessResult, growthResult, marketplaceResult, releasesResult] = await Promise.all([
     admin
       .from('platform_admins')
       .select('user_id, note, created_at')
       .order('created_at', { ascending: true })
       .returns<PlatformAdminRow[]>(),
+    admin
+      .from('platform_admin_grant_events')
+      .select('id, actor_id, target_user_id, target_email, note, created_at')
+      .order('created_at', { ascending: false })
+      .limit(MAX_EVENTS_PER_SOURCE)
+      .returns<PlatformAdminGrantRow[]>(),
     admin
       .from('seller_growth_campaign_admin_events')
       .select('id, action, reason, actor_id, created_at')
@@ -95,11 +110,13 @@ export async function getAdminGovernanceSnapshot(
 
   const warnings: string[] = []
   if (operatorsResult.error) warnings.push('Platform-admin membership is unavailable.')
+  if (accessResult.error) warnings.push('Platform-admin grant history is unavailable.')
   if (growthResult.error) warnings.push('Growth operator history is unavailable.')
   if (marketplaceResult.error) warnings.push('Marketplace operator history is unavailable.')
   if (releasesResult.error) warnings.push('Release certification history is unavailable.')
 
   const operatorRows = operatorsResult.data ?? []
+  const accessRows = accessResult.data ?? []
   const growthRows = growthResult.data ?? []
   const marketplaceRows = marketplaceResult.data ?? []
   const releaseRows = releasesResult.data ?? []
@@ -112,6 +129,7 @@ export async function getAdminGovernanceSnapshot(
 
   const actorIds = [...new Set([
     ...operatorRows.map((row) => row.user_id),
+    ...accessRows.flatMap((row) => [row.actor_id, row.target_user_id]),
     ...growthRows.map((row) => row.actor_id),
     ...marketplaceRows.map((row) => row.actor_id),
   ].filter((value): value is string => Boolean(value)))].slice(0, MAX_ACTOR_LOOKUPS)
@@ -123,6 +141,17 @@ export async function getAdminGovernanceSnapshot(
   const actorEmails = new Map(actorEntries)
 
   const events: AdminAuditEvent[] = [
+    ...accessRows.map((row): AdminAuditEvent => ({
+      id: `access:${row.id}`,
+      source: 'access',
+      title: 'Platform-admin access granted',
+      detail: `Access granted to ${row.target_email}${row.note ? ` · ${row.note}` : ''}`,
+      actorId: row.actor_id,
+      actorEmail: row.actor_id ? actorEmails.get(row.actor_id) ?? null : null,
+      createdAt: row.created_at,
+      tone: 'ready',
+      href: '/admin/audit',
+    })),
     ...growthRows.map((row): AdminAuditEvent => ({
       id: `growth:${row.id}`,
       source: 'growth',
@@ -174,4 +203,29 @@ export async function getAdminGovernanceSnapshot(
     events: sortAdminAuditEvents(events),
     warnings,
   }
+}
+
+export async function grantPlatformAdminAccess(input: {
+  actorId: string
+  email: string
+  note: string | null
+}, client?: ReturnType<typeof createAdminClient>): Promise<string> {
+  const admin = client ?? createAdminClient()
+  const { data, error } = await admin.rpc('grant_platform_admin_by_email', {
+    p_actor_id: input.actorId,
+    p_email: input.email,
+    p_note: input.note,
+  })
+
+  if (error) {
+    if (error.code === 'P0002') throw new Error('No Nexez account was found for that email.')
+    if (error.code === '22023' && /already has/i.test(error.message)) {
+      throw new Error('That account already has platform-admin access.')
+    }
+    throw new Error(`Could not grant platform-admin access: ${error.message}`)
+  }
+  if (typeof data !== 'string' || !data) {
+    throw new Error('The access grant completed without returning an account ID.')
+  }
+  return data
 }
