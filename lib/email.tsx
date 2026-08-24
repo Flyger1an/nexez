@@ -56,11 +56,18 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
     })
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      return { ok: false, error: `resend ${res.status}: ${body.slice(0, 200)}` }
+      const error = `resend ${res.status}: ${body.slice(0, 200)}`
+      captureError(new Error(`Email provider rejected a send with status ${res.status}.`), {
+        area: 'email-send',
+        provider: 'resend',
+        status: res.status,
+      })
+      return { ok: false, error }
     }
     const data = (await res.json().catch(() => ({}))) as { id?: string }
     return { ok: true, id: data?.id }
   } catch (e) {
+    captureError(e, { area: 'email-send', provider: 'resend' })
     return { ok: false, error: e instanceof Error ? e.message : 'send failed' }
   }
 }
