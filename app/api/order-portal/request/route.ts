@@ -7,6 +7,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
 import { getBaseUrl } from '../../../../lib/agent-page'
 import { appUrl } from '../../../../lib/site'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 
 /**
  * Buyer recourse from the order portal: file a refund request or a problem report.
@@ -92,9 +93,12 @@ export async function POST(request: Request) {
   // Notify the seller (drives them to Finance to refund/respond) + acknowledge to the
   // buyer. Both via after() so neither blocks/​fails the response.
   if (hasEmailEnv()) {
-    const sellerEmail = target.sellerEmail
     const buyerEmail = target.buyerEmail
     after(async () => {
+      const sellerEmail = await resolveOwnerNotifyEmail({
+        ownerId: target.ownerId,
+        contactEmail: target.sellerEmail,
+      })
       if (sellerEmail) {
         const mail = await buildBuyerRequestEmail({
           kind,

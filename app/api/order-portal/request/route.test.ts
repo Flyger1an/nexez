@@ -1,25 +1,42 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { resolveRef, adminRef } = vi.hoisted(() => ({
+const refs = vi.hoisted(() => ({
   resolveRef: { fn: (_t: string) => null as any },
   adminRef: { insert: (_p: any) => ({ error: null }) as { error: any } },
+  emailEnabled: false,
+  ownerEmail: 'owner@example.com' as string | null,
+  ownerEmailCalls: [] as Array<{ ownerId?: string | null; contactEmail?: string | null }>,
+  sent: [] as Array<{ to: string; subject: string; html: string; text?: string }>,
 }))
+const { resolveRef, adminRef } = refs
 
+vi.mock('next/server', async (importOriginal) => {
+  const actual = (await importOriginal()) as any
+  return { ...actual, after: (fn: () => Promise<void>) => { void fn() } }
+})
 // Rate limiting has its own dedicated test; keep it a pass-through here.
 vi.mock('../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => null) }))
 vi.mock('../../../../lib/server/load-order', () => ({ resolveOrderForRequest: (t: string) => resolveRef.fn(t) }))
+vi.mock('../../../../lib/server/owner-email', () => ({
+  resolveOwnerNotifyEmail: vi.fn(async (opts: { ownerId?: string | null; contactEmail?: string | null }) => {
+    refs.ownerEmailCalls.push(opts)
+    return refs.ownerEmail
+  }),
+}))
 vi.mock('../../../../utils/supabase/admin', () => ({
   hasSupabaseAdminEnv: vi.fn(() => true),
   createAdminClient: vi.fn(() => ({
     from: () => ({ insert: (p: any) => Promise.resolve(adminRef.insert(p)) }),
   })),
 }))
-// Email is a no-op (RESEND unset) - keep builders importable but inert.
 vi.mock('../../../../lib/email', () => ({
-  hasEmailEnv: vi.fn(() => false),
-  sendEmail: vi.fn(async () => ({ ok: true })),
-  buildBuyerRequestEmail: vi.fn(() => ({ subject: 's', html: 'h', text: 't' })),
-  buildBuyerStatusEmail: vi.fn(() => ({ subject: 's', html: 'h', text: 't' })),
+  hasEmailEnv: vi.fn(() => refs.emailEnabled),
+  sendEmail: vi.fn(async (mail: { to: string; subject: string; html: string; text?: string }) => {
+    refs.sent.push(mail)
+    return { ok: true }
+  }),
+  buildBuyerRequestEmail: vi.fn(() => ({ subject: 'seller request', html: 'h', text: 't' })),
+  buildBuyerStatusEmail: vi.fn(() => ({ subject: 'buyer receipt', html: 'h', text: 't' })),
 }))
 vi.mock('../../../../lib/agent-page', () => ({ getBaseUrl: () => 'https://nexez.app' }))
 
@@ -55,6 +72,10 @@ describe('POST /api/order-portal/request', () => {
     vi.clearAllMocks()
     resolveRef.fn = () => target()
     adminRef.insert = () => ({ error: null })
+    refs.emailEnabled = false
+    refs.ownerEmail = 'owner@example.com'
+    refs.ownerEmailCalls = []
+    refs.sent = []
   })
 
   it('400 on a missing token', async () => {
@@ -122,5 +143,23 @@ describe('POST /api/order-portal/request', () => {
     resolveRef.fn = () => target({ status: 'refunded' })
     const res = await POST(post({ token: 't', kind: 'problem_report', message: 'still broken' }))
     expect(res.status).toBe(200)
+  })
+
+  it('notifies the verified owner account and buyer instead of treating the public contact as the seller inbox', async () => {
+    refs.emailEnabled = true
+    resolveRef.fn = () => target({ sellerEmail: 'public-contact@example.com' })
+
+    const res = await POST(post({ token: 't', kind: 'problem_report', message: 'certification issue' }))
+    expect(res.status).toBe(200)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(refs.ownerEmailCalls).toEqual([{
+      ownerId: 'owner-1',
+      contactEmail: 'public-contact@example.com',
+    }])
+    expect(refs.sent.map((mail) => mail.to)).toEqual([
+      'owner@example.com',
+      'buyer@example.com',
+    ])
   })
 })
