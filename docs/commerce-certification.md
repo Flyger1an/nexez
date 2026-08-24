@@ -83,11 +83,26 @@ Sandbox protocol orders prove adapter conformance only. They may satisfy the opt
 
 ### 3. Partial and full refund
 
-1. Partially refund the captured certification order from Finance.
+Use the same direct order from the prior lifecycle so Launch Control can prove one exact authority chain.
+
+Before moving money again:
+
+1. Mark the order fulfilled from the merchant order detail surface.
+2. Confirm `checkout_order_fulfillments` reports `fulfilled` and the activity timeline contains the matching fulfillment event.
+3. Open the buyer order portal and submit one problem report.
+4. Resolve that report from the merchant order detail surface.
+5. Confirm the request and both buyer-request activity events remain linked to the same order.
+
+Then complete the refund proof:
+
+1. Partially refund the captured certification order from its merchant order detail surface.
 2. Confirm `refunded_cents` matches Stripe and the remaining amount is still refundable.
 3. Confirm the application fee reverses proportionally and the buyer receives an update.
 4. Refund the remaining amount.
-5. Confirm the final status, total refunded amount, order portal, seller ledger, and webhook replay behavior.
+5. Confirm the final status, total refunded amount, order portal, seller ledger, buyer and seller notices, and webhook replay behavior.
+6. Confirm Launch Control reports one complete direct-order operations lineage and one partial-to-full direct refund lifecycle.
+
+Launch Control promotes only durable database evidence. Retain separate inbox evidence for the buyer and seller notices because delivery is not inferred from an attempted send.
 
 ### 4. Negotiation and escrow
 

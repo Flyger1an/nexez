@@ -5,6 +5,7 @@ import { LIVE_SUBSCRIPTION_STATUSES } from '../stripe-billing'
 import {
   buildCertificationChecks,
   buildConfigurationChecks,
+  deriveDirectOrderLifecycleEvidence,
   deriveAdvancedCommerceEvidence,
   buildMarketplaceCurationCheck,
   buildOperationalChecks,
@@ -46,6 +47,7 @@ type OrderRow = {
   id: string
   status: string
   channel: string | null
+  amount_cents: number
   refunded_cents: number | null
   offer_name: string | null
   slug: string | null
@@ -56,6 +58,13 @@ type OrderRow = {
   staged_settlement_agreement_id: string | null
   staged_settlement_obligation_id: string | null
 }
+type OrderEventRow = {
+  order_id: string
+  event_type: string
+  metadata: Record<string, unknown>
+}
+type OrderFulfillmentRow = { order_id: string; status: string }
+type OrderRequestRow = { id: string; order_id: string; kind: string; status: string }
 type NegotiationRow = {
   id: string
   status: string
@@ -312,6 +321,9 @@ async function loadOperationalSources(nowIso: string) {
     stripeWebhooks,
     checkoutEvents,
     orders,
+    orderEvents,
+    orderFulfillments,
+    orderRequests,
     negotiations,
     billing,
     shopify,
@@ -339,10 +351,29 @@ async function loadOperationalSources(nowIso: string) {
       .returns<CheckoutEventRow[]>()),
     safeSource<OrderRow>('order ledger', async () => admin
       .from('checkout_orders')
-      .select('id,status,channel,refunded_cents,offer_name,slug,created_at,updated_at,stripe_livemode,resource_hold_id,staged_settlement_agreement_id,staged_settlement_obligation_id')
+      .select('id,status,channel,amount_cents,refunded_cents,offer_name,slug,created_at,updated_at,stripe_livemode,resource_hold_id,staged_settlement_agreement_id,staged_settlement_obligation_id')
       .order('created_at', { ascending: false })
       .limit(1_000)
       .returns<OrderRow[]>()),
+    safeSource<OrderEventRow>('order activity ledger', async () => admin
+      .from('checkout_order_events')
+      .select('order_id,event_type,metadata')
+      .order('created_at', { ascending: false })
+      .limit(5_000)
+      .returns<OrderEventRow[]>()),
+    safeSource<OrderFulfillmentRow>('order fulfillment ledger', async () => admin
+      .from('checkout_order_fulfillments')
+      .select('order_id,status')
+      .order('updated_at', { ascending: false })
+      .limit(2_000)
+      .returns<OrderFulfillmentRow[]>()),
+    safeSource<OrderRequestRow>('order request ledger', async () => admin
+      .from('order_requests')
+      .select('id,order_id,kind,status')
+      .eq('order_kind', 'checkout')
+      .order('created_at', { ascending: false })
+      .limit(2_000)
+      .returns<OrderRequestRow[]>()),
     safeSource<NegotiationRow>('negotiation ledger', async () => admin
       .from('agent_negotiations')
       .select('id,status,decision_pending,decision_requested_at,stripe_payment_intent_id,refunded_cents,offer_name,slug,created_at,updated_at,stripe_livemode')
@@ -422,6 +453,9 @@ async function loadOperationalSources(nowIso: string) {
     stripeWebhooks,
     checkoutEvents,
     orders,
+    orderEvents,
+    orderFulfillments,
+    orderRequests,
     negotiations,
     billing,
     shopify,
@@ -475,6 +509,9 @@ function emptySources() {
     stripeWebhooks: unavailable<StripeWebhookRow>(),
     checkoutEvents: unavailable<CheckoutEventRow>(),
     orders: unavailable<OrderRow>(),
+    orderEvents: unavailable<OrderEventRow>(),
+    orderFulfillments: unavailable<OrderFulfillmentRow>(),
+    orderRequests: unavailable<OrderRequestRow>(),
     negotiations: unavailable<NegotiationRow>(),
     billing: unavailable<BillingRow>(),
     shopify: unavailable<ShopifyRow>(),
@@ -496,6 +533,9 @@ function sourceAvailability(sources: OperationalSources): LaunchSourceAvailabili
     stripeWebhooks: sources.stripeWebhooks.available,
     checkoutEvents: sources.checkoutEvents.available,
     orders: sources.orders.available,
+    orderEvents: sources.orderEvents.available,
+    orderFulfillments: sources.orderFulfillments.available,
+    orderRequests: sources.orderRequests.available,
     negotiations: sources.negotiations.available,
     billing: sources.billing.available,
     shopify: sources.shopify.available,
@@ -536,6 +576,12 @@ function buildMetrics(
     stagedSettlementAgreements: sources.stagedSettlementAgreements.rows,
     stagedSettlementObligations: sources.stagedSettlementObligations.rows,
   })
+  const directOrderLifecycles = deriveDirectOrderLifecycleEvidence({
+    orders,
+    events: sources.orderEvents.rows,
+    fulfillments: sources.orderFulfillments.rows,
+    requests: sources.orderRequests.rows,
+  })
 
   return {
     stripeWebhookEvents: stripeWebhooks.length,
@@ -549,6 +595,7 @@ function buildMetrics(
     paidOrders: liveOrders.filter((row) => row.status === 'paid').length,
     refundedOrders: liveOrders.filter((row) => row.status === 'refunded' || Number(row.refunded_cents) > 0).length,
     disputedOrders: liveOrders.filter((row) => row.status === 'disputed').length,
+    ...directOrderLifecycles,
     protocolOrders: provenProtocolOrders.filter((row) => row.stripe_livemode === true).length,
     sandboxProtocolOrders: provenProtocolOrders.filter((row) => row.stripe_livemode === false).length,
     acpProtocolOrders: provenProtocolOrders.filter((row) => row.channel === 'acp').length,
