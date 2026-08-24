@@ -10,7 +10,8 @@ describe('transactional email preview fixtures', () => {
     const normalizedLogoUrl = NEXEZ_EMAIL_LOGO_URL.replaceAll('&', '&amp;')
 
     expect(html).toContain(normalizedLogoUrl)
-    expect(html).toContain('alt="Nexez AI"')
+    expect(html).toContain('alt="Nexez"')
+    expect(html).not.toContain('Nexez AI')
     expect(html).toContain(fixture.expectedCta.replaceAll('&', '&amp;'))
     expect(visibleHtml).toContain(fixture.expectedState)
     expect(html).toContain('Reply to this email for support.')

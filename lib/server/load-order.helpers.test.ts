@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import { emailish, negotiationDisplayCents, deriveOrderStatus } from './load-order'
+import { emailish, negotiationDisplayCents, deriveOrderStatus, resolveSellerDisplayName } from './load-order'
+
+describe('resolveSellerDisplayName', () => {
+  it('uses the storefront name as the seller identity instead of the listing title', () => {
+    expect(resolveSellerDisplayName('Acme Merchant', 'Weekend Plumbing Special')).toBe('Acme Merchant')
+  })
+
+  it('falls back to the listing title only when the storefront has no display name', () => {
+    expect(resolveSellerDisplayName(null, 'Weekend Plumbing Special')).toBe('Weekend Plumbing Special')
+    expect(resolveSellerDisplayName('  ', ' Weekend Plumbing Special ')).toBe('Weekend Plumbing Special')
+  })
+
+  it('does not fabricate a seller name when neither source is available', () => {
+    expect(resolveSellerDisplayName(null, null)).toBeNull()
+  })
+})
 
 describe('emailish', () => {
   it('passes through email-shaped contacts', () => {
