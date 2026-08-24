@@ -33,15 +33,16 @@ test.describe('commerce reference examples', () => {
   test('selected template is posted as context and survives an unauthenticated sign-in handoff', async ({ page }) => {
     await page.goto(`/create?commerceTemplate=${DETAILING_ID}`, { waitUntil: 'domcontentloaded' })
     // Template selection intentionally suppresses the normal resume-check GET so
-    // an unrelated interview is never offered. Without that request as a mount
-    // signal, wait for client network activity to settle before clicking the SSR
-    // button; otherwise the click can race React hydration and do nothing.
-    await page.waitForLoadState('networkidle')
+    // an unrelated interview is never offered. The setup control stays disabled
+    // until hydration attaches its click handler, which is the readiness signal
+    // this interaction actually needs. Background shell requests may stay active.
+    const startButton = page.getByRole('button', { name: 'Start from scratch' })
+    await expect(startButton).toBeEnabled()
 
     const startRequest = page.waitForRequest((request) =>
       request.method() === 'POST' && request.url().endsWith('/api/agents/intake/threads'),
     )
-    await page.getByRole('button', { name: 'Start from scratch' }).click()
+    await startButton.click()
 
     const request = await startRequest
     expect(request.postDataJSON()).toMatchObject({ template_id: DETAILING_ID })

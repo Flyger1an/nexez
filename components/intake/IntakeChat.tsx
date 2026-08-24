@@ -54,6 +54,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
   const currentPlan = usePlan()
   const negotiationAllowed = planAllows(currentPlan, 'negotiation')
   const integrationsAllowed = planAllows(currentPlan, 'integrations')
+  const [isHydrated, setIsHydrated] = useState(false)
   const [phase, setPhase] = useState<SetupPhase>('setup')
   const [sourceUrl, setSourceUrl] = useState(initialSourceUrl)
   const [setupError, setSetupError] = useState('')
@@ -64,6 +65,10 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
   // the connector can offer "use your saved connection" instead of re-pasting.
   const [calendlyConnected, setCalendlyConnected] = useState(false)
   const sessionIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   useEffect(() => {
     if (!reinterviewPageId) return
@@ -267,7 +272,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
             {resumable ? (
               <button
                 type="button"
-                disabled={phase === 'starting'}
+                disabled={!isHydrated || phase === 'starting'}
                 onClick={() => resume(resumable.id)}
                 className="flex w-full items-center justify-between rounded-2xl border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-4 py-3 text-left text-sm text-[var(--fg)] transition hover:bg-[var(--ready)]/15 disabled:opacity-50"
               >
@@ -278,7 +283,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
             {reinterviewPageId ? (
               <button
                 type="button"
-                disabled={phase === 'starting'}
+                disabled={!isHydrated || phase === 'starting'}
                 onClick={() => start({ page_id: reinterviewPageId })}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--inverse-bg)] px-4 py-3 text-sm font-medium text-[var(--inverse-fg)] transition hover:brightness-95 disabled:opacity-40"
               >
@@ -297,7 +302,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
                   />
                   <button
                     type="button"
-                    disabled={phase === 'starting' || !sourceUrl.trim()}
+                    disabled={!isHydrated || phase === 'starting' || !sourceUrl.trim()}
                     onClick={() => start({ source_url: sourceUrl.trim() })}
                     className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--inverse-bg)] px-4 py-3 text-sm font-medium text-[var(--inverse-fg)] transition hover:brightness-95 disabled:opacity-40"
                   >
@@ -307,7 +312,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
                 </div>
                 <button
                   type="button"
-                  disabled={phase === 'starting'}
+                  disabled={!isHydrated || phase === 'starting'}
                   onClick={() => start({})}
                   className="w-full rounded-2xl border border-[var(--bd-15)] px-4 py-3 text-sm text-[var(--fg-soft)] transition hover:bg-[var(--ov-05)] disabled:opacity-50 dark:border-white/12 dark:text-white/75 dark:hover:bg-white/5"
                 >
