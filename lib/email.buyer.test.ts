@@ -78,7 +78,7 @@ describe('buildBuyerStatusEmail', () => {
 })
 
 describe('buildBuyerRequestEmail', () => {
-  it('refund_request drives the seller to Finance + surfaces the buyer', async () => {
+  it('refund_request drives the seller to order operations and surfaces the buyer', async () => {
     const m = await buildBuyerRequestEmail({
       kind: 'refund_request',
       businessName: 'Acme',
@@ -86,12 +86,13 @@ describe('buildBuyerRequestEmail', () => {
       amount: '$50.00',
       message: 'wrong item',
       buyerEmail: 'buyer@example.com',
-      inboxUrl: 'https://app.nexez.ai/dashboard/finance',
+      inboxUrl: 'https://app.nexez.ai/dashboard/orders/order_123',
     })
     expect(m.subject.toLowerCase()).toContain('refund')
     expect(m.html).toContain('buyer@example.com')
     expect(m.html).toContain('wrong item')
-    expect(m.text).toContain('https://app.nexez.ai/dashboard/finance')
+    expect(m.text).toContain('https://app.nexez.ai/dashboard/orders/order_123')
+    expect(m.text).toContain('order operations')
   })
 
   it('problem_report uses problem copy', async () => {

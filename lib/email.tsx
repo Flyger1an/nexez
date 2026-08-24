@@ -32,7 +32,16 @@ export function hasEmailEnv(): boolean {
   return Boolean(process.env.RESEND_API_KEY)
 }
 
-type SendEmailInput = { to: string; subject: string; html: string; text?: string }
+type SendEmailTag = { name: string; value: string }
+type SendEmailInput = {
+  to: string
+  subject: string
+  html: string
+  text?: string
+  replyTo?: string
+  idempotencyKey?: string
+  tags?: SendEmailTag[]
+}
 type SendResult = { ok: boolean; skipped?: boolean; id?: string; error?: string }
 
 export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
@@ -40,18 +49,23 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
   if (!input.to) return { ok: false, error: 'missing recipient' }
 
   try {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    }
+    if (input.idempotencyKey) headers['Idempotency-Key'] = input.idempotencyKey
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         from: process.env.EMAIL_FROM || 'Nexez <notifications@nexez.app>',
         to: [input.to],
+        reply_to: input.replyTo || process.env.EMAIL_REPLY_TO || 'support@nexez.ai',
         subject: input.subject,
         html: input.html,
         ...(input.text ? { text: input.text } : {}),
+        tags: input.tags || [{ name: 'stream', value: 'transactional' }],
       }),
     })
     if (!res.ok) {
@@ -167,18 +181,24 @@ export async function buildMoneyEventEmail(opts: {
       heading: 'Refund processed',
       lead: `A payment on your Nexez listing "${businessName}" was refunded to the buyer.`,
       tone: 'neutral' as const,
+      statusLabel: 'Refund recorded',
+      cta: 'Review payment',
     },
     dispute_opened: {
-      subject: `⚠️ Payment disputed: ${offerName}`,
+      subject: `Payment disputed: ${offerName}`,
       heading: 'A payment is disputed',
       lead: `A buyer disputed a payment on your Nexez listing "${businessName}". Disputes are time-sensitive - respond with evidence in your Stripe dashboard before the deadline, or the dispute is auto-lost.`,
       tone: 'danger' as const,
+      statusLabel: 'Action required',
+      cta: 'Review dispute',
     },
     dispute_closed: {
       subject: `Dispute resolved: ${offerName}`,
       heading: 'Dispute resolved',
       lead: `A dispute on your Nexez listing "${businessName}" has closed.`,
-      tone: 'neutral' as const,
+      tone: 'positive' as const,
+      statusLabel: 'Dispute closed',
+      cta: 'Review outcome',
     },
   }[opts.kind]
   const rows: Row[] = [
@@ -186,9 +206,17 @@ export async function buildMoneyEventEmail(opts: {
     ['Amount', amount],
     ['Details', detail],
   ]
-  const text = textBody(copy.lead, rows, 'Manage it', inboxUrl)
+  const text = textBody(copy.lead, rows, copy.cta, inboxUrl)
   const html = await renderHtml(
-    <MoneyEventEmail heading={copy.heading} tone={copy.tone} lead={copy.lead} rows={rows} inboxUrl={inboxUrl} />,
+    <MoneyEventEmail
+      heading={copy.heading}
+      statusLabel={copy.statusLabel}
+      tone={copy.tone}
+      lead={copy.lead}
+      rows={rows}
+      inboxUrl={inboxUrl}
+      cta={copy.cta}
+    />,
     text,
   )
   return { subject: copy.subject, html, text }
@@ -232,7 +260,7 @@ export async function buildBuyerReceiptEmail(opts: {
 }): Promise<Built> {
   const { businessName, offerName, amount, manageUrl } = opts
   const subject = `Your receipt from ${businessName}`
-  const lead = `Thanks for your purchase from ${businessName}. Here's your receipt - keep this link to track your order or get help.`
+  const lead = `Payment is confirmed for your order from ${businessName}. Keep this private link to track verified status or get help.`
   const rows: Row[] = [
     ['Seller', businessName],
     ['Item', offerName],
@@ -259,24 +287,32 @@ export async function buildBuyerStatusEmail(opts: {
       heading: 'Refund processed',
       lead: `Your payment to ${businessName} was refunded in full. Depending on your bank, it can take a few business days to appear.`,
       cta: 'View your order',
+      statusLabel: 'Refund processed',
+      tone: 'positive' as const,
     },
     partial_refund: {
       subject: `A partial refund from ${businessName}`,
       heading: 'Partial refund processed',
       lead: `Part of your payment to ${businessName} was refunded. Depending on your bank, it can take a few business days to appear.`,
       cta: 'View your order',
+      statusLabel: 'Partial refund',
+      tone: 'positive' as const,
     },
     dispute_update: {
       subject: `Update on your order from ${businessName}`,
       heading: 'Dispute update',
       lead: `There's an update on the dispute for your order from ${businessName}.`,
       cta: 'View your order',
+      statusLabel: 'Dispute update',
+      tone: 'caution' as const,
     },
     request_received: {
       subject: `We received your request - ${businessName}`,
       heading: 'Request received',
       lead: `Thanks - we've passed your request to ${businessName}. You'll get an update here as soon as the seller responds.`,
       cta: 'Track your request',
+      statusLabel: 'Sent to seller',
+      tone: 'neutral' as const,
     },
   }[opts.kind]
   const rows: Row[] = [
@@ -285,9 +321,17 @@ export async function buildBuyerStatusEmail(opts: {
     ['Amount', amount],
     ['Details', detail],
   ]
-  const text = textBody(copy.lead, rows, 'View your order', manageUrl)
+  const text = textBody(copy.lead, rows, copy.cta, manageUrl)
   const html = await renderHtml(
-    <BuyerStatusEmail heading={copy.heading} lead={copy.lead} cta={copy.cta} rows={rows} manageUrl={manageUrl} />,
+    <BuyerStatusEmail
+      heading={copy.heading}
+      statusLabel={copy.statusLabel}
+      tone={copy.tone}
+      lead={copy.lead}
+      cta={copy.cta}
+      rows={rows}
+      manageUrl={manageUrl}
+    />,
     text,
   )
   return { subject: copy.subject, html, text }
@@ -308,17 +352,24 @@ export async function buildBuyerRequestEmail(opts: {
   const subject = isRefund ? `Refund requested: ${offerName}` : `Buyer reported a problem: ${offerName}`
   const heading = isRefund ? 'A buyer requested a refund' : 'A buyer reported a problem'
   const lead = isRefund
-    ? `A buyer on your Nexez listing "${businessName}" requested a refund. Review it and refund from your Finance dashboard if appropriate.`
-    : `A buyer on your Nexez listing "${businessName}" reported a problem with their order. Reach out and resolve it from your Finance dashboard.`
+    ? `A buyer on your Nexez listing "${businessName}" requested a refund. Review the request and decide the next step in order operations.`
+    : `A buyer on your Nexez listing "${businessName}" reported a problem with their order. Review the report and resolve it in order operations.`
   const rows: Row[] = [
     ['Offer', offerName],
     ['Amount', amount],
     ['Buyer', buyerEmail],
     ['Message', message],
   ]
-  const text = textBody(lead, rows, 'Review it', inboxUrl)
+  const text = textBody(lead, rows, 'Open order operations', inboxUrl)
   const html = await renderHtml(
-    <BuyerRequestEmail heading={heading} tone={isRefund ? 'caution' : 'neutral'} lead={lead} rows={rows} inboxUrl={inboxUrl} />,
+    <BuyerRequestEmail
+      heading={heading}
+      statusLabel="Review required"
+      tone="caution"
+      lead={lead}
+      rows={rows}
+      inboxUrl={inboxUrl}
+    />,
     text,
   )
   return { subject, html, text }

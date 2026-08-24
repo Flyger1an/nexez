@@ -20,6 +20,7 @@ import { parseNegotiationTracking } from '../../../../lib/calendly-tracking'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { createClient as createServerClient } from '../../../../utils/supabase/server'
 import { insertVerifiedCheckoutEvent } from '../../../../lib/server/analytics-ingestion'
+import { appUrl } from '../../../../lib/site'
 
 type CalendlyPayload = {
   event?: string
@@ -282,7 +283,7 @@ export async function POST(request: NextRequest) {
         inviteeEmail: payload.invitee?.email,
         startTime: startedAt,
         source: 'Calendly',
-        inboxUrl: `${getBaseUrl()}/dashboard`,
+        inboxUrl: appUrl('/dashboard'),
       })
       await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text })
     })
