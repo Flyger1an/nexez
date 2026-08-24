@@ -38,7 +38,6 @@ type SendEmailInput = {
   subject: string
   html: string
   text?: string
-  replyTo?: string
   idempotencyKey?: string
   tags?: SendEmailTag[]
 }
@@ -72,7 +71,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
       body: JSON.stringify({
         from: resolveTransactionalFrom(),
         to: [input.to],
-        reply_to: input.replyTo || process.env.EMAIL_REPLY_TO || NEXEZ_SUPPORT_REPLY_TO,
+        reply_to: NEXEZ_SUPPORT_REPLY_TO,
         subject: input.subject,
         html: input.html,
         ...(input.text ? { text: input.text } : {}),
