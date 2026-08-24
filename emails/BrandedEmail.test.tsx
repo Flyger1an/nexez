@@ -1,7 +1,7 @@
 import { render } from '@react-email/render'
 import { describe, expect, it } from 'vitest'
 import { BrandedEmail, EmailEyebrow, EmailHeading, InfoRows, Lead, PrimaryButton, StatusBadge } from './BrandedEmail'
-import { NEXEZ_EMAIL_LOGO_URL } from './theme'
+import { NEXEZ_EMAIL_ICON_URL } from './theme'
 
 describe('BrandedEmail', () => {
   it('renders the official Nexez logo, semantic state, secure CTA, and support footer', async () => {
@@ -16,8 +16,10 @@ describe('BrandedEmail', () => {
       </BrandedEmail>,
     )
 
-    expect(html).toContain(NEXEZ_EMAIL_LOGO_URL.replaceAll('&', '&amp;'))
+    expect(html).toContain(NEXEZ_EMAIL_ICON_URL.replaceAll('&', '&amp;'))
     expect(html).toContain('alt="Nexez"')
+    expect(html).toContain('height="40"')
+    expect(html).toContain('width="40"')
     expect(html).not.toContain('Nexez AI')
     expect(html).toContain('background-image:linear-gradient(#0a0a0a, #0a0a0a)')
     expect(html).toContain('Payment confirmed')
