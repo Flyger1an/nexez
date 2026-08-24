@@ -53,3 +53,5 @@ jobs:
         run: npm run lint
       - name: Expo dependency compatibility
         run: npm run check:expo-deps
+      - name: Web bundle smoke
+        run: npm run bundle:web
