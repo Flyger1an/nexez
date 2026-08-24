@@ -29,6 +29,11 @@ import { createClient } from '../utils/supabase/client'
 import { ThemeToggle } from './ThemeToggle'
 import { NexezLogo } from './NexezLogo'
 import { agentRuntimeUrl } from '../lib/site'
+import {
+  commerceAttentionBadgeLabel,
+  commerceAttentionIsIncomplete,
+  type CommerceAttentionSummary,
+} from '../lib/commerce-attention'
 
 type PageHit = {
   id: string
@@ -68,7 +73,13 @@ const navItems = [
 
 // The heavy platform chrome (nav + search + supabase). Loaded only on platform
 // routes via a dynamic import in PlatformFrame, so public/agent pages stay lean.
-export default function PlatformShell({ children }: { children: ReactNode }) {
+export default function PlatformShell({
+  children,
+  commerceAttention = null,
+}: {
+  children: ReactNode
+  commerceAttention?: CommerceAttentionSummary | null
+}) {
   const pathname = usePathname()
   // `pinned` keeps the rail statically open (pushes the canvas). When unpinned
   // (the default) the rail is a thin icon strip that pops out to full width on
@@ -81,35 +92,10 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [platformAdmin, setPlatformAdmin] = useState(false)
-  const [openNegotiations, setOpenNegotiations] = useState(0)
 
   useEffect(() => {
     const stored = window.localStorage.getItem('nexez-sidebar-pinned')
     if (stored) setPinned(stored === 'true')
-  }, [])
-
-  // Open-negotiations count for the nav badge. Owner-scoped (RLS) read via the
-  // browser client - mirrors the dashboard Overview's "open" definition
-  // (negotiation + agreement_proposed + held). Fails soft to 0.
-  useEffect(() => {
-    let cancelled = false
-    async function loadCount() {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user || cancelled) return
-      const { count } = await supabase
-        .from('agent_negotiations')
-        .select('id', { count: 'exact', head: true })
-        .eq('owner_id', user.id)
-        .in('status', ['negotiation', 'agreement_proposed', 'held'])
-      if (!cancelled) setOpenNegotiations(count ?? 0)
-    }
-    loadCount().catch(() => {})
-    return () => {
-      cancelled = true
-    }
   }, [])
 
   useEffect(() => () => {
@@ -212,7 +198,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                   pinned={pinned}
                   pathname={pathname}
                   match={'match' in item ? (item.match as string[]) : undefined}
-                  badge={item.href === '/dashboard/negotiations' ? openNegotiations : 0}
+                  attention={item.href === '/dashboard/commerce' ? commerceAttention : null}
                   mobileFirst={'mobile' in item && item.mobile === true}
                 />
                 {'subItems' in item && item.subItems && pathname.startsWith('/dashboard/listings') && pinned ? (
@@ -341,7 +327,7 @@ function ShellNavItem({
   pinned,
   pathname,
   match,
-  badge = 0,
+  attention = null,
   mobileFirst = false,
 }: {
   href: string
@@ -350,7 +336,7 @@ function ShellNavItem({
   pinned: boolean
   pathname: string
   match?: string[]
-  badge?: number
+  attention?: CommerceAttentionSummary | null
   mobileFirst?: boolean
 }) {
   const paths = match ?? [href]
@@ -358,11 +344,16 @@ function ShellNavItem({
     href === '/dashboard'
       ? pathname === '/dashboard'
       : paths.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  const attentionLabel = attention ? commerceAttentionBadgeLabel(attention) : null
+  const showAttention = Boolean(attention && (
+    attention.visibleCount > 0 || attention.status !== 'complete'
+  ))
 
   return (
     <a
       href={href}
-      title={badge > 0 ? `${label} (${badge} open)` : label}
+      title={attentionLabel ? `${label} (${attentionLabel})` : label}
+      aria-label={attentionLabel ? `${label}, ${attentionLabel}` : label}
       // On the mobile horizontal strip (flex), float the priority items first so
       // the common destinations are reachable without scrolling. Order is ignored
       // on the desktop rail (md:block). Nothing is ever hidden.
@@ -371,15 +362,7 @@ function ShellNavItem({
     >
       <span className="relative shrink-0">
         <Icon className="size-4 shrink-0" />
-        {badge > 0 ? (
-          <span
-            className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--signal-solid)] px-1 text-[10px] font-semibold leading-none"
-            style={{ color: '#fff' }}
-            aria-label={`${badge} open`}
-          >
-            {badge > 99 ? '99+' : badge}
-          </span>
-        ) : null}
+        {showAttention && attention ? <CommerceAttentionBadge summary={attention} /> : null}
       </span>
       <span
         className={`hidden whitespace-nowrap transition-opacity duration-150 md:block ${
@@ -389,6 +372,27 @@ function ShellNavItem({
         {label}
       </span>
     </a>
+  )
+}
+
+function CommerceAttentionBadge({ summary }: { summary: CommerceAttentionSummary }) {
+  const incomplete = commerceAttentionIsIncomplete(summary)
+  const content = summary.status === 'unavailable' || (!summary.visibleCount && incomplete)
+    ? '!'
+    : summary.visibleCount > 99
+      ? '99+'
+      : `${summary.visibleCount}${incomplete ? '+' : ''}`
+
+  return (
+    <span
+      aria-hidden="true"
+      className={`absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none ${
+        summary.urgentCount ? 'bg-red-500' : 'bg-[var(--signal-solid)]'
+      }`}
+      style={{ color: '#fff' }}
+    >
+      {content}
+    </span>
   )
 }
 

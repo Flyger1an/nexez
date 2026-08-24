@@ -13,6 +13,7 @@ import { loadNegotiationRollup } from '../../lib/negotiation-report'
 import { loadFinanceRollup } from '../../lib/finance-report'
 import { getCommercialPlanDefaultCommission, getOwnerBillingState, getOwnerCommission } from '../../lib/server/plan'
 import { loadDashboardCommerceActions } from '../../lib/server/dashboard-commerce-actions'
+import { buildCommerceAttentionSummary } from '../../lib/commerce-attention'
 
 // Server component: authenticates + fetches the dashboard's data in one parallel
 // wave server-side, then hands it to the client island as initial state - so the
@@ -52,12 +53,11 @@ export default async function DashboardPage() {
     fallbackCommissionBps: commission.basisPoints,
   }))
 
-  const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes, growthState, analyticsResult, negotiationReport, financeReport, commerceActionResult] = await Promise.all([
+  const [pageRes, eventRes, visitRes, invitesRes, intakeRes, growthState, analyticsResult, negotiationReport, financeReport, commerceActionResult] = await Promise.all([
     supabase.from('pages').select(OWNER_PAGE_SELECT).eq('owner_id', user.id).order('created_at', { ascending: false }).returns<AgentPage[]>(),
     supabase.from('checkout_events').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100).returns<CheckoutEvent[]>(),
     supabase.from('agent_visits').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1000).returns<AgentVisit[]>(),
     supabase.from('team_invites').select('owner_id').eq('email', (user.email ?? '').toLowerCase()).eq('status', 'accepted'),
-    supabase.from('agent_negotiations').select('id', { count: 'exact', head: true }).eq('owner_id', user.id).in('status', ['negotiation', 'agreement_proposed', 'held']),
     supabase.from('intake_sessions').select('id', { count: 'exact', head: true }).eq('owner_id', user.id).eq('status', 'handed_off'),
     growthPromise,
     loadOwnerAnalyticsRollup(supabase, { from: new Date(todayCutoff) }),
@@ -96,9 +96,6 @@ export default async function DashboardPage() {
     pages,
     events: eventRes.error ? [] : eventRes.data ?? [],
     agentVisits: visitRes.error ? [] : visitRes.data ?? [],
-    // This legacy field now carries the exact seller-actionable queue count.
-    // The direct count is retained as an additive-migration fallback.
-    openNegotiations: negotiationReport.data?.counts.needsAction ?? (negRes.error ? 0 : negRes.count ?? 0),
     sharedPages,
     displayName,
     todayCutoff,
@@ -122,6 +119,7 @@ export default async function DashboardPage() {
       isTruncated: commerceActionResult.isTruncated,
       complete: commerceActionResult.issues.length === 0,
     },
+    commerceAttention: buildCommerceAttentionSummary(commerceActionResult),
     commercialDataIssues: [
       analyticsResult.error ? 'today analytics' : null,
       negotiationReport.error ? 'negotiation operations' : null,
