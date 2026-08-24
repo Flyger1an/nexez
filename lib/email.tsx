@@ -44,7 +44,7 @@ type SendEmailInput = {
 }
 type SendResult = { ok: boolean; skipped?: boolean; id?: string; error?: string }
 
-export const NEXEZ_TRANSACTIONAL_FROM = 'Nexez <notifications@nexez.app>'
+export const NEXEZ_TRANSACTIONAL_FROM = 'Nexez <notifications@nexez.ai>'
 export const NEXEZ_SUPPORT_REPLY_TO = 'support@nexez.ai'
 const APPROVED_TRANSACTIONAL_SENDERS = new Set([NEXEZ_TRANSACTIONAL_FROM])
 
