@@ -1,10 +1,10 @@
 import { render } from '@react-email/render'
 import { describe, expect, it } from 'vitest'
 import { BrandedEmail, EmailEyebrow, EmailHeading, InfoRows, Lead, PrimaryButton, StatusBadge } from './BrandedEmail'
-import { NEXEZ_EMAIL_ICON_URL } from './theme'
+import { NEXEZ_EMAIL_LOGO_URL } from './theme'
 
 describe('BrandedEmail', () => {
-  it('renders the official Nexez icon, semantic state, secure CTA, and support footer', async () => {
+  it('renders the official Nexez AI logo, semantic state, secure CTA, and support footer', async () => {
     const html = await render(
       <BrandedEmail preview="Your payment is confirmed" category="Buyer order">
         <EmailEyebrow>Order update</EmailEyebrow>
@@ -16,13 +16,14 @@ describe('BrandedEmail', () => {
       </BrandedEmail>,
     )
 
-    expect(html).toContain(NEXEZ_EMAIL_ICON_URL.replaceAll('&', '&amp;'))
-    expect(html).toContain('alt="Nexez"')
+    expect(html).toContain(NEXEZ_EMAIL_LOGO_URL.replaceAll('&', '&amp;'))
+    expect(html).toContain('alt="Nexez AI"')
     expect(html).toContain('Payment confirmed')
     expect(html).toContain('$50.00')
     expect(html).not.toContain('Missing')
     expect(html).toContain('https://nexez.app/orders/token')
-    expect(html).toContain('support@nexez.ai')
-    expect(html).not.toContain('>N</span>nexez')
+    expect(html).toContain('Reply to this email for support.')
+    expect(html).not.toContain('mailto:')
+    expect(html).not.toContain('>Nexez</p>')
   })
 })

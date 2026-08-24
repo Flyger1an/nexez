@@ -14,7 +14,7 @@ import {
   Link,
   Img,
 } from '@react-email/components'
-import { BRAND, NEXEZ_EMAIL_ICON_URL, styles, TONE, type EmailTone } from './theme'
+import { BRAND, NEXEZ_EMAIL_LOGO_URL, styles, TONE, type EmailTone } from './theme'
 
 const MSO_OPEN = '<!--[if mso]><table role="presentation" align="center" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td width="600"><![endif]-->'
 const MSO_CLOSE = '<!--[if mso]></td></tr></table><![endif]-->'
@@ -48,17 +48,14 @@ export function BrandedEmail({
           <Section style={styles.frame}>
             <Section style={styles.masthead}>
               <Row>
-                <Column style={{ width: '46px' }}>
+                <Column style={{ width: '205px' }}>
                   <Img
-                    alt="Nexez"
-                    height="34"
-                    src={NEXEZ_EMAIL_ICON_URL}
-                    style={styles.iconTile}
-                    width="34"
+                    alt="Nexez AI"
+                    height="25"
+                    src={NEXEZ_EMAIL_LOGO_URL}
+                    style={styles.logo}
+                    width="193"
                   />
-                </Column>
-                <Column>
-                  <Text style={styles.wordmark}>Nexez</Text>
                 </Column>
                 <Column>
                   <Text style={styles.productLabel}>{category || 'Account update'}</Text>
@@ -72,10 +69,7 @@ export function BrandedEmail({
               Nexez keeps buyers, merchants, and AI agents aligned on verified commerce state.
             </Text>
             <Text style={styles.footerText}>
-              © {year} Nexez ·{' '}
-              <Link href="mailto:support@nexez.ai" style={styles.footerLink}>
-                support@nexez.ai
-              </Link>
+              © {year} Nexez · Reply to this email for support.
             </Text>
           </Section>
         </Container>

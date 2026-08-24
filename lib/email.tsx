@@ -44,6 +44,17 @@ type SendEmailInput = {
 }
 type SendResult = { ok: boolean; skipped?: boolean; id?: string; error?: string }
 
+export const NEXEZ_TRANSACTIONAL_FROM = 'Nexez <notifications@nexez.app>'
+export const NEXEZ_SUPPORT_REPLY_TO = 'support@nexez.ai'
+const APPROVED_TRANSACTIONAL_SENDERS = new Set([NEXEZ_TRANSACTIONAL_FROM])
+
+function resolveTransactionalFrom(): string {
+  const configured = process.env.EMAIL_FROM?.trim()
+  return configured && APPROVED_TRANSACTIONAL_SENDERS.has(configured)
+    ? configured
+    : NEXEZ_TRANSACTIONAL_FROM
+}
+
 export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
   if (!hasEmailEnv()) return { ok: false, skipped: true }
   if (!input.to) return { ok: false, error: 'missing recipient' }
@@ -59,9 +70,9 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || 'Nexez <notifications@nexez.app>',
+        from: resolveTransactionalFrom(),
         to: [input.to],
-        reply_to: input.replyTo || process.env.EMAIL_REPLY_TO || 'support@nexez.ai',
+        reply_to: input.replyTo || process.env.EMAIL_REPLY_TO || NEXEZ_SUPPORT_REPLY_TO,
         subject: input.subject,
         html: input.html,
         ...(input.text ? { text: input.text } : {}),
