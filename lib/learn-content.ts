@@ -70,8 +70,10 @@ import { measureAiAgentTraffic } from './learn-articles/measure-ai-agent-traffic
 import { aiSearchLocalBusinesses } from './learn-articles/ai-search-local-businesses'
 import { chatgptInstantCheckoutRetired } from './learn-articles/chatgpt-instant-checkout-retired'
 import { whichAiCrawlersToAllow } from './learn-articles/which-ai-crawlers-to-allow'
+import { howAiAgentsPay } from './learn-articles/how-ai-agents-pay'
 
 export const learnArticles: LearnArticle[] = [
+  howAiAgentsPay,
   whichAiCrawlersToAllow,
   chatgptInstantCheckoutRetired,
   aiSearchLocalBusinesses,
