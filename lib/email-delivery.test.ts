@@ -67,7 +67,7 @@ describe('sendEmail delivery observability', () => {
 
     expect(headers['Idempotency-Key']).toBe('seller-update/order-1')
     expect(body).toMatchObject({
-      from: NEXEZ_TRANSACTIONAL_FROM,
+      from: 'Nexez <notifications@nexez.ai>',
       reply_to: NEXEZ_SUPPORT_REPLY_TO,
       tags: [{ name: 'stream', value: 'transactional' }],
     })
