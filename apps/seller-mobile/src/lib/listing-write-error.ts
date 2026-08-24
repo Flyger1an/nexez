@@ -1,4 +1,4 @@
-import { isEntitlementAllocationRetry } from '../../../../lib/entitlement-allocation-error'
+import { isEntitlementAllocationRetry } from './entitlement-allocation-error'
 
 type DatabaseWriteError = {
   code?: string | null
