@@ -14,7 +14,7 @@ import {
   Link,
   Img,
 } from '@react-email/components'
-import { BRAND, NEXEZ_EMAIL_LOGO_URL, styles, TONE, type EmailTone } from './theme'
+import { BRAND, NEXEZ_EMAIL_ICON_URL, styles, TONE, type EmailTone } from './theme'
 
 const MSO_OPEN = '<!--[if mso]><table role="presentation" align="center" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td width="600"><![endif]-->'
 const MSO_CLOSE = '<!--[if mso]></td></tr></table><![endif]-->'
@@ -48,13 +48,13 @@ export function BrandedEmail({
           <Section style={styles.frame}>
             <Section style={styles.masthead}>
               <Row>
-                <Column style={{ width: '170px' }}>
+                <Column style={{ width: '56px' }}>
                   <Img
                     alt="Nexez"
-                    height="24"
-                    src={NEXEZ_EMAIL_LOGO_URL}
+                    height="40"
+                    src={NEXEZ_EMAIL_ICON_URL}
                     style={styles.logo}
-                    width="144"
+                    width="40"
                   />
                 </Column>
                 <Column>

@@ -1,13 +1,13 @@
 import { render } from '@react-email/render'
 import { describe, expect, it } from 'vitest'
 import { emailPreviewFixtures } from './fixtures'
-import { NEXEZ_EMAIL_LOGO_URL } from './theme'
+import { NEXEZ_EMAIL_ICON_URL } from './theme'
 
 describe('transactional email preview fixtures', () => {
   it.each(emailPreviewFixtures)('$id renders a complete, email-safe document', async (fixture) => {
     const html = await render(fixture.element)
     const visibleHtml = html.replaceAll('<!-- -->', '')
-    const normalizedLogoUrl = NEXEZ_EMAIL_LOGO_URL.replaceAll('&', '&amp;')
+    const normalizedLogoUrl = NEXEZ_EMAIL_ICON_URL.replaceAll('&', '&amp;')
 
     expect(html).toContain(normalizedLogoUrl)
     expect(html).toContain('alt="Nexez"')
