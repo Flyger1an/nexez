@@ -89,4 +89,21 @@ describe('sendEmail delivery observability', () => {
 
     expect(body.from).toBe(NEXEZ_TRANSACTIONAL_FROM)
   })
+
+  it('does not allow an environment override to reroute support replies', async () => {
+    vi.stubEnv('RESEND_API_KEY', 're_test')
+    vi.stubEnv('EMAIL_REPLY_TO', 'legacy-support@nexez.app')
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ id: 'email-3' })))
+
+    await sendEmail({
+      to: 'owner@example.com',
+      subject: 'Seller update',
+      html: '<p>Update</p>',
+    })
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    const body = JSON.parse(String(init?.body))
+
+    expect(body.reply_to).toBe(NEXEZ_SUPPORT_REPLY_TO)
+  })
 })
