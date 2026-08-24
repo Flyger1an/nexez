@@ -124,7 +124,7 @@ export default async function DashboardPage() {
       analyticsResult.error ? 'today analytics' : null,
       negotiationReport.error ? 'negotiation operations' : null,
       financeReport.error ? '30-day finance' : null,
-      commerceActionResult.issues.length ? 'commerce action queue' : null,
+      commerceActionResult.issues.length ? 'tasks that need attention' : null,
     ].filter((issue): issue is string => Boolean(issue)),
     // interview_completed (intake spec §8): any interview that reached handoff.
     interviewCompleted: intakeRes.error ? false : (intakeRes.count ?? 0) > 0,

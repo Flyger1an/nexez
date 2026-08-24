@@ -330,7 +330,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
           <p className="text-sm text-muted-foreground">Nexez dashboard</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Overview</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Loading your listings and agent signals. If this does not finish, sign in again to refresh your session.
+            Loading your listings and activity. If this takes too long, sign in again to refresh your session.
           </p>
           <a href="/login?next=/dashboard" className="btn-secondary mt-5 h-10 px-4">Sign in</a>
         </div>
@@ -348,7 +348,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
               <p className="text-sm text-muted-foreground">{displayName ? `Welcome back, ${displayName}` : 'Nexez dashboard'}</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Overview</h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Monitor your listings, traffic signals, readiness, and conversion actions from one place.
+                Monitor your listings, visits, readiness, and sales from one place.
               </p>
             </div>
             <a href="/create" className="btn-primary h-10 px-4 text-sm">
@@ -399,16 +399,16 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                     <>
                       <p className="text-sm text-[var(--signal)]">Today, your Nexez listings received</p>
                       <h2 className="mt-2 text-3xl font-semibold tracking-tight">
-                        {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {checkoutHandoffs} checkout handoffs
+                        {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} listing clicks, and {checkoutHandoffs} checkout sessions
                       </h2>
                       <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
-                        {totalTrackedSignals} tracked signals today across {publishedCount} published listings and {totalOffers} listed offers -
-                        a live view of how AI agents are discovering and acting on your business. See full history in{' '}
+                        {totalTrackedSignals} interactions today across {publishedCount} published listings and {totalOffers} offers.
+                        See how AI agents find and act on your business in{' '}
                         <a href="/dashboard/analytics" className="text-[var(--signal)] hover:underline">Analytics</a>.
                       </p>
                       {topOffer ? (
                         <p className="mt-4 inline-flex rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 px-3 py-2 text-sm text-[var(--signal)]">
-                          Top signal: {topOffer}
+                          Most active offer: {topOffer}
                         </p>
                       ) : null}
                     </>
@@ -454,7 +454,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
             </div>
             <section className="nx-rise-stagger mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
               <div className="kpi-card">
-                <p className="text-sm text-[var(--fg-muted)]">Tracked signals</p>
+                <p className="text-sm text-[var(--fg-muted)]">Interactions</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{totalTrackedSignals}</p>
               </div>
               <div className="kpi-card">
@@ -462,7 +462,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                 <p className="mt-2 text-4xl font-semibold tracking-tighter text-[var(--ready)]">{agentPageVisits}</p>
               </div>
               <div className="kpi-card">
-                <p className="text-sm text-[var(--fg-muted)]">Discovery clicks</p>
+                <p className="text-sm text-[var(--fg-muted)]">Listing clicks</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tighter text-[var(--amber)]">{discoveryClicks}</p>
               </div>
               <div className="kpi-card">
@@ -470,11 +470,11 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{checkoutAttempts}</p>
               </div>
               <div className="kpi-card">
-                <p className="text-sm text-[var(--fg-muted)]">Checkout handoffs</p>
+                <p className="text-sm text-[var(--fg-muted)]">Checkout sessions</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tighter text-[var(--ready)]">{checkoutHandoffs}</p>
               </div>
               <div className="kpi-card">
-                <p className="text-sm text-[var(--fg-muted)]">Avg readiness</p>
+                <p className="text-sm text-[var(--fg-muted)]">Average readiness</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{averageReadiness}%</p>
                 <p className="mt-1 text-[11px] text-[var(--fg-muted-2)]">all listings</p>
               </div>
@@ -666,8 +666,8 @@ function AgentDetectionSummary({
   return (
     <section className="mt-6 grid gap-4 xl:grid-cols-[0.8fr_1fr_1fr]">
       <div className="rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-5">
-        <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">AI detection</p>
-        <h2 className="mt-2 text-xl font-semibold">Traffic split</h2>
+        <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Visitor source</p>
+        <h2 className="mt-2 text-xl font-semibold">AI and human visits</h2>
         <div className="mt-5 overflow-hidden rounded-full border border-[var(--bd-10)] bg-black/30">
           <div className="h-3 bg-gradient-to-r from-[var(--ready)] to-[var(--signal)]" style={{ width: `${aiShare}%` }} />
         </div>
@@ -678,7 +678,7 @@ function AgentDetectionSummary({
             <p className="mt-1 text-xs text-[var(--fg-muted-2)]">{aiShare}% of visits</p>
           </div>
           <div>
-            <p className="text-[var(--fg-muted-2)]">Human/unknown</p>
+            <p className="text-[var(--fg-muted-2)]">People or unclassified</p>
             <p className="mt-1 text-2xl font-semibold text-white">{trafficSplit.human}</p>
             <p className="mt-1 text-xs text-[var(--fg-muted-2)]">{humanShare}% of visits</p>
           </div>
@@ -686,8 +686,8 @@ function AgentDetectionSummary({
       </div>
 
       <div className="rounded-lg border border-[var(--bd-10)] bg-[var(--ov-04)] p-5">
-        <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Agent types</p>
-        <h2 className="mt-2 text-xl font-semibold">Who is parsing you</h2>
+        <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">AI agent types</p>
+        <h2 className="mt-2 text-xl font-semibold">Which AI agents visit</h2>
         <div className="mt-4 space-y-3">
           {breakdown.length ? (
             breakdown.map((row) => (
@@ -696,7 +696,7 @@ function AgentDetectionSummary({
                   <span className="truncate text-[var(--fg)]">{row.agentType}</span>
                   <span className="font-mono text-[var(--signal)]">{row.total}</span>
                 </div>
-                <p className="mt-1 text-xs text-[var(--fg-muted-2)]">{Math.round(row.avgConfidence)}% avg confidence</p>
+                <p className="mt-1 text-xs text-[var(--fg-muted-2)]">{Math.round(row.avgConfidence)}% average match confidence</p>
               </div>
             ))
           ) : (
@@ -709,7 +709,7 @@ function AgentDetectionSummary({
 
       <div className="rounded-lg border border-[var(--bd-10)] bg-[var(--ov-04)] p-5">
         <p className="text-xs uppercase tracking-[0.18em] text-[var(--ready)]">Top listings</p>
-        <h2 className="mt-2 text-xl font-semibold">Most agent-readable</h2>
+        <h2 className="mt-2 text-xl font-semibold">Most visited by AI agents</h2>
         <div className="mt-4 space-y-3">
           {topPages.length ? (
             topPages.map((page) => (
@@ -727,7 +727,7 @@ function AgentDetectionSummary({
             ))
           ) : (
             <p className="rounded-lg border border-dashed border-[var(--bd-10)] p-4 text-sm text-[var(--fg-muted-2)]">
-              Publish a listing; crawlers populate this.
+              Publish a listing. AI agent visits will appear here.
             </p>
           )}
         </div>
@@ -744,8 +744,8 @@ function RecentActivity({ events, pages }: { events: CheckoutEvent[]; pages: Age
     <section className="mt-5 rounded-lg border border-[var(--bd-10)] bg-[var(--ov-04)]">
       <div className="flex flex-col justify-between gap-3 border-b border-[var(--bd-10)] p-5 md:flex-row md:items-center">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Agent activity</p>
-          <h2 className="mt-1 text-xl font-semibold">Recent discovery + checkout signals</h2>
+          <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Recent activity</p>
+          <h2 className="mt-1 text-xl font-semibold">Listing and checkout activity</h2>
         </div>
         <a href="/dashboard/analytics" className="text-sm text-[var(--fg-muted)] hover:text-[var(--signal)]">
           View analytics
@@ -775,7 +775,7 @@ function RecentActivity({ events, pages }: { events: CheckoutEvent[]; pages: Age
         <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
           <p className="max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
             No discovery or checkout activity yet. Share the marketplace, run the agent tester, or open a public
-            checkout path to start collecting useful intent signals.
+            checkout page to start collecting activity.
           </p>
           <a
             href={firstPage ? `/dashboard/${firstPage.id}/test` : '/create'}

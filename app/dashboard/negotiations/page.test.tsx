@@ -105,7 +105,7 @@ describe('negotiation inbox downgrade controls', () => {
     expect(controls.getByRole('button', { name: /Reopen · Pro/i })).toBeDisabled()
     expect(controls.getByRole('button', { name: 'Decline' })).toBeEnabled()
 
-    const select = card.querySelector<HTMLSelectElement>('select[aria-label="Owner decision"]')
+    const select = card.querySelector<HTMLSelectElement>('select[aria-label="Seller decision"]')
     expect(select).not.toBeNull()
     expect(select?.value).toBe('reject')
     const resume = Array.from(select?.options ?? []).find((option) => option.value === 'resume')
@@ -127,7 +127,7 @@ describe('negotiation inbox downgrade controls', () => {
     render(<NegotiationsInbox />)
 
     const active = await cardFor('negotiation offer')
-    const decision = active.querySelector<HTMLSelectElement>('select[aria-label="Owner decision"]')
+    const decision = active.querySelector<HTMLSelectElement>('select[aria-label="Seller decision"]')
     expect(decision?.value).toBe('accept')
     expect(Array.from(decision?.options ?? []).find((option) => option.value === 'accept')).toBeEnabled()
     expect(Array.from(decision?.options ?? []).find((option) => option.value === 'reject')).toBeEnabled()
@@ -135,7 +135,7 @@ describe('negotiation inbox downgrade controls', () => {
     expect(Array.from(decision?.options ?? []).find((option) => option.value === 'counter')).toBeDisabled()
     expect(Array.from(decision?.options ?? []).find((option) => option.value === 'clarify')).toBeDisabled()
     expect(within(active).getByLabelText('Amount in USD')).toHaveAttribute('readonly')
-    expect(within(active).getByText(/Counter, clarification, resume, and amount changes require Pro/i)).toBeInTheDocument()
+    expect(within(active).getByText(/Counteroffers, questions, reopening, and amount changes require Pro/i)).toBeInTheDocument()
 
     const agreement = await cardFor('agreement_proposed offer')
     expect(within(agreement).getByLabelText('Agreed amount in USD')).toBeDisabled()
@@ -155,7 +155,7 @@ describe('negotiation inbox downgrade controls', () => {
     const card = await cardFor('negotiation offer')
 
     expect(within(card).getByLabelText('Amount in USD')).toBeEnabled()
-    expect(card.querySelector<HTMLSelectElement>('select[aria-label="Owner decision"]')?.value).toBe('accept')
+    expect(card.querySelector<HTMLSelectElement>('select[aria-label="Seller decision"]')?.value).toBe('accept')
     expect(card.querySelector<HTMLButtonElement>('button[type="submit"]')).toBeEnabled()
   })
 
@@ -170,12 +170,12 @@ describe('negotiation inbox downgrade controls', () => {
 
     const paused = await cardFor('paused offer')
     expect(within(paused).getByRole('button', { name: 'Reopen' })).toBeEnabled()
-    const resume = Array.from(paused.querySelector<HTMLSelectElement>('select[aria-label="Owner decision"]')?.options ?? [])
+    const resume = Array.from(paused.querySelector<HTMLSelectElement>('select[aria-label="Seller decision"]')?.options ?? [])
       .find((option) => option.value === 'resume')
     expect(resume).toBeEnabled()
 
     const active = await cardFor('negotiation offer')
-    const actions = active.querySelector<HTMLSelectElement>('select[aria-label="Owner decision"]')
+    const actions = active.querySelector<HTMLSelectElement>('select[aria-label="Seller decision"]')
     expect(actions?.value).toBe('counter')
     expect(Array.from(actions?.options ?? []).find((option) => option.value === 'counter')).toBeEnabled()
     expect(Array.from(actions?.options ?? []).find((option) => option.value === 'clarify')).toBeEnabled()

@@ -63,7 +63,7 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
             <Row label="Offer" value={n.offer_name} />
             <Row label="Amount" value={formatNegotiationAmount(n.amount_cents, n.currency)} />
             <Row label="Listing" value={`${getBaseUrl()}/${n.slug}`} />
-            <Row label="Buyer agent" value={n.buyer_agent || '-'} />
+            <Row label="Customer agent" value={n.buyer_agent || '-'} />
             <Row label="Contact" value={n.contact || '-'} />
             <Row label="Budget" value={n.budget_text || '-'} />
             <Row label="Timeline" value={n.timeline_text || '-'} />
@@ -85,8 +85,8 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
           </dl>
 
           <p className="mt-6 border-t border-white/10 pt-4 text-[11px] text-zinc-500">
-            This receipt records the agreed terms of an agent-to-agent negotiation facilitated by Nexez. Escrow/payment
-            status reflects the negotiation’s current state.
+            This receipt records the agreed terms of a negotiation managed through Nexez. The payment status reflects
+            the deal's current state.
           </p>
         </div>
 

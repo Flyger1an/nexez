@@ -37,12 +37,12 @@ const STATUS_OPTIONS = [
 
 const CHANNEL_OPTIONS = [
   ['agent_checkout', 'Agent checkout'],
-  ['acp', 'ACP'],
-  ['ucp', 'UCP'],
+  ['acp', 'Agent checkout'],
+  ['ucp', 'Agent checkout'],
   ['nexie', 'Nexie'],
   ['recurring_service', 'Recurring service'],
-  ['staged_settlement', 'Staged settlement'],
-  ['reservable_resource', 'Reserved resource'],
+  ['staged_settlement', 'Staged payments'],
+  ['reservable_resource', 'Reservation'],
 ] as const
 
 type OrdersPageProps = {
@@ -76,10 +76,10 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     <main data-testid="orders-dashboard" className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto max-w-[1680px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <SurfaceHeader
-          eyebrow="Commerce operations"
+          eyebrow="Order management"
           icon={PackageCheck}
           title="Orders"
-          description="Track every durable checkout order, its payment state, customer context, and the operational work that follows. Finance remains the aggregate view of earnings and payouts."
+          description="Track payments, customers, and fulfillment for every order. Visit Finance for sales totals and payouts."
           actions={(
             <Link href="/dashboard/finance" className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius)] border border-[var(--line-soft)] px-4 py-2 text-sm font-medium text-[var(--fg)] hover:bg-[var(--fill-1)]">
               <CircleDollarSign className="size-4" aria-hidden="true" /> View finance
@@ -89,7 +89,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
             <>
               <Metric label="Matching orders" value={String(result.total)} />
               <Metric label="Page" value={`${Math.min(result.filters.page, result.pages)} of ${result.pages}`} />
-              <Metric label="Source of truth" value="Checkout ledger" />
+              <Metric label="Includes" value="Paid orders" />
             </>
           )}
         />
@@ -105,8 +105,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                 <thead className="border-b border-[var(--line-soft)] text-xs uppercase tracking-[0.14em] text-[var(--fg-muted-2)]">
                   <tr>
                     <th className="px-5 py-3 font-medium">Order</th>
-                    <th className="px-5 py-3 font-medium">Buyer</th>
-                    <th className="px-5 py-3 font-medium">Channel</th>
+                    <th className="px-5 py-3 font-medium">Customer</th>
+                    <th className="px-5 py-3 font-medium">Order source</th>
                     <th className="px-5 py-3 font-medium">Status</th>
                     <th className="px-5 py-3 text-right font-medium">Gross</th>
                     <th className="px-5 py-3 text-right font-medium">Net</th>
@@ -133,8 +133,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
             className="mt-6"
           >
             {hasFilters
-              ? 'Try a broader search or remove one of the status, channel, or currency filters.'
-              : 'Nexez adds an order only after a payment is durably recorded. Simulator activity and abandoned checkout attempts never become orders.'}
+              ? 'Try a broader search or remove a status, order source, or currency filter.'
+              : 'An order appears here only after Nexez records a payment. Simulator activity and abandoned checkouts are not included.'}
           </EmptyState>
         )}
 
@@ -160,12 +160,12 @@ function OrderFilters({ filters }: { filters: DashboardOrderFilters }) {
             type="search"
             name="q"
             defaultValue={filters.q}
-            placeholder="Offer, buyer, email, or reference"
+            placeholder="Offer, customer, email, or reference"
             className="min-h-11 w-full rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--fill-1)] pl-10 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted-2)] focus:border-[var(--settings-focus)]"
           />
         </label>
         <FilterSelect name="status" label="Status" value={filters.status} options={STATUS_OPTIONS} />
-        <FilterSelect name="channel" label="Channel" value={filters.channel} options={CHANNEL_OPTIONS} />
+        <FilterSelect name="channel" label="Order source" value={filters.channel} options={CHANNEL_OPTIONS} />
         <label>
           <span className="sr-only">Currency</span>
           <input
@@ -221,7 +221,7 @@ function OrderTableRow({ order }: { order: DashboardOrder }) {
         <p className="mt-1 font-mono text-[11px] text-[var(--fg-muted-2)]">#{shortOrderReference(order.id)} · {formatDate(order.created_at)}</p>
       </td>
       <td className="px-5 py-4">
-        <p className="max-w-[220px] truncate text-[var(--fg)]">{order.buyer_name || order.buyer_email || 'Buyer identity unavailable'}</p>
+        <p className="max-w-[220px] truncate text-[var(--fg)]">{order.buyer_name || order.buyer_email || 'Customer details unavailable'}</p>
         {order.buyer_name && order.buyer_email ? <p className="mt-1 max-w-[220px] truncate text-xs text-[var(--fg-muted-2)]">{order.buyer_email}</p> : null}
       </td>
       <td className="px-5 py-4 text-[var(--fg-muted)]">
@@ -251,7 +251,7 @@ function OrderMobileCard({ order }: { order: DashboardOrder }) {
         </div>
         <OrderStatus order={order} />
       </div>
-      <p className="mt-4 truncate text-sm text-[var(--fg-muted)]">{order.buyer_name || order.buyer_email || 'Buyer identity unavailable'}</p>
+      <p className="mt-4 truncate text-sm text-[var(--fg-muted)]">{order.buyer_name || order.buyer_email || 'Customer details unavailable'}</p>
       <div className="mt-3 flex items-end justify-between gap-4">
         <span className="text-xs text-[var(--fg-muted-2)]">
           {getOrderChannelLabel(order.channel)}

@@ -73,8 +73,8 @@ function buyerRequestAction(request: CommerceBuyerRequestSource): CommerceAction
       key: 'refund_request',
       label: acknowledged ? 'Resolve refund request' : 'Review refund request',
       detail: acknowledged
-        ? 'The buyer request is acknowledged but not resolved.'
-        : 'A buyer submitted a refund request.',
+        ? 'The customer request is being reviewed but is not resolved.'
+        : 'A customer submitted a refund request.',
       priority: acknowledged ? 94 : 96,
       urgent: false,
       updatedAt: request.updated_at,
@@ -82,10 +82,10 @@ function buyerRequestAction(request: CommerceBuyerRequestSource): CommerceAction
   }
   return {
     key: 'problem_report',
-    label: acknowledged ? 'Resolve buyer issue' : 'Review buyer issue',
+    label: acknowledged ? 'Resolve customer issue' : 'Review customer issue',
     detail: acknowledged
-      ? 'The buyer issue is acknowledged but not resolved.'
-      : 'A buyer reported a problem with this commerce record.',
+      ? 'The customer issue is being reviewed but is not resolved.'
+      : 'A customer reported a problem with this order or deal.',
     priority: acknowledged ? 90 : 92,
     urgent: false,
     updatedAt: request.updated_at,

@@ -12,32 +12,32 @@ import { SettingsSwitch } from './settings/SettingsPrimitives'
 const PREFERENCE_ROWS = [
   {
     category: 'transactions',
-    title: 'Transactions and money state',
-    description: 'Payments, escrow, captures, refunds, disputes, and confirmed orders.',
+    title: 'Orders and payments',
+    description: 'Confirmed orders, payments, held funds, refunds, and disputes.',
     required: true,
   },
   {
     category: 'negotiations',
     title: 'Negotiations',
-    description: 'New proposals, buyer responses, and agreement activity.',
+    description: 'New proposals, customer responses, and agreement updates.',
     required: false,
   },
   {
     category: 'integrations',
-    title: 'Integration health',
-    description: 'Connection failures, recovery, and catalog synchronization issues.',
+    title: 'Connections',
+    description: 'Connection problems, recovery, and listing sync issues.',
     required: false,
   },
   {
     category: 'reviews',
     title: 'Reviews',
-    description: 'New verified reviews and moderation updates.',
+    description: 'New verified reviews and review status updates.',
     required: false,
   },
   {
     category: 'marketing',
     title: 'Growth and product updates',
-    description: 'Readiness changes, traffic signals, and useful Nexez product updates.',
+    description: 'Listing readiness, customer activity, and useful Nexez updates.',
     required: false,
   },
 ] as const
@@ -92,7 +92,7 @@ export function NotificationPreferencesPanel({
         <div>
           <h2 id="seller-notification-settings-title" className="text-xl font-semibold">Seller notifications</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
-            These account settings follow you across web and mobile. Device permissions still control whether your phone can display a push.
+            These settings apply on web and mobile. Your device permissions still control push notifications.
           </p>
         </div>
       </div>
@@ -132,7 +132,7 @@ export function NotificationPreferencesPanel({
       </div>
 
       <p className="mt-4 text-xs leading-5 text-[var(--fg-muted)]">
-        Money-state notices are required because they can change fulfillment, refund, dispute, and payout obligations. They cannot be muted in Nexez.
+        Order and payment notices are required because they can affect fulfillment, refunds, disputes, and payouts. They cannot be turned off in Nexez.
       </p>
       {message ? (
         <p role={messageTone === 'error' ? 'alert' : 'status'} className={`mt-3 text-xs ${messageTone === 'error' ? 'text-red-300' : 'text-[var(--ready)]'}`}>

@@ -23,10 +23,10 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
   const statusCopy = snapshot.status === 'critical'
     ? 'Urgent items need review'
     : snapshot.status === 'incomplete'
-      ? 'Some live totals are unavailable'
+      ? 'Some totals are unavailable'
     : snapshot.status === 'attention'
-      ? 'Your action queue is ready'
-      : 'Commercial operations are clear'
+      ? 'You have tasks to review'
+      : 'Everything is up to date'
   const statusClass = snapshot.status === 'critical'
     ? 'border-red-300/30 bg-red-300/10 text-red-200'
     : snapshot.status === 'incomplete'
@@ -38,12 +38,12 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
     ? [
         `${snapshot.commerce.urgentActions.toLocaleString()} urgent`,
         snapshot.availability.negotiations
-          ? `${snapshot.deals.needsAction.toLocaleString()} negotiated`
-          : 'negotiation total unavailable',
-        snapshot.commerce.complete ? null : 'partial source coverage',
-        snapshot.commerce.isTruncated ? 'bounded view, more may exist' : null,
+          ? `${snapshot.deals.needsAction.toLocaleString()} deals`
+          : 'deal total unavailable',
+        snapshot.commerce.complete ? null : 'some tasks may be missing',
+        snapshot.commerce.isTruncated ? 'more tasks may be available' : null,
       ].filter(Boolean).join(' · ')
-    : 'The cross-rail action queue is temporarily unavailable.'
+    : 'Your commerce tasks are temporarily unavailable.'
 
   function exportSnapshot() {
     const blob = new Blob([commercialSnapshotCsv(snapshot)], { type: 'text/csv;charset=utf-8' })
@@ -63,12 +63,12 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
       <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-[var(--signal)]/10 blur-3xl" />
       <header className="relative flex flex-col gap-5 border-b border-white/10 p-5 md:flex-row md:items-end md:justify-between md:p-6">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--signal)]">Commercial command center</p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--signal)]">Business overview</p>
           <h2 id="commercial-command-center-title" className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white md:text-3xl">
-            Demand, operations, and money in one view
+            Customers, orders, and money in one view
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
-            Today&apos;s verified demand, the cross-rail action queue, and 30-day settled sales stay distinct and link back to their native records.
+            See today&apos;s customer activity, tasks that need attention, and sales from the last 30 days. Open any card for details.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -92,7 +92,7 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
       >
         <CommandCard
           href="/dashboard/analytics?range=today"
-          eyebrow="Demand · today"
+          eyebrow="Customer activity · today"
           icon={<Bot className="size-4" />}
           value={snapshot.availability.analytics ? snapshot.demand.aiVisits.toLocaleString() : '—'}
           label="AI agent visits"
@@ -103,21 +103,21 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
         />
         <CommandCard
           href="/dashboard/commerce"
-          eyebrow="Commerce · current"
+          eyebrow="Orders and deals · now"
           icon={<ClipboardList className="size-4" />}
           value={snapshot.availability.commerce ? snapshot.commerce.visibleActions.toLocaleString() : '—'}
-          label="visible records need action"
+          label="tasks need attention"
           detail={commerceDetail}
           accent={snapshot.commerce.urgentActions ? 'critical' : snapshot.commerce.visibleActions ? 'amber' : 'ready'}
         />
         <CommandCard
           href="/dashboard/finance?range=30d"
-          eyebrow="Money · 30 days"
+          eyebrow="Sales · 30 days"
           icon={<Wallet className="size-4" />}
           value={snapshot.availability.finance
             ? formatCurrencyAmount(snapshot.primaryMoney.netCents, snapshot.primaryMoney.currency)
             : '—'}
-          label="net settled sales"
+          label="net sales"
           detail={snapshot.availability.finance
             ? `${formatCurrencyAmount(snapshot.primaryMoney.grossCents, snapshot.primaryMoney.currency)} gross · ${snapshot.primaryMoney.directTransactions + snapshot.primaryMoney.negotiatedDeals} settled ${snapshot.primaryMoney.directTransactions + snapshot.primaryMoney.negotiatedDeals === 1 ? 'sale' : 'sales'}`
             : 'Finance totals are temporarily unavailable.'}
@@ -128,12 +128,12 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
       <div className="relative p-5 md:p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Needs you</p>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Needs your attention</p>
             <h3 className="mt-1 text-lg font-semibold text-white">
-              {snapshot.actions.length ? `${snapshot.actions.length} active ${snapshot.actions.length === 1 ? 'signal' : 'signals'}` : 'Nothing is blocking the next sale'}
+              {snapshot.actions.length ? `${snapshot.actions.length} ${snapshot.actions.length === 1 ? 'task' : 'tasks'} to review` : 'You are all caught up'}
             </h3>
           </div>
-          <p className="text-xs text-zinc-500">Categories can overlap; counts are never added into a misleading total.</p>
+          <p className="text-xs text-zinc-500">A single order can appear in more than one task category.</p>
         </div>
 
         {snapshot.actions.length ? (
@@ -147,7 +147,7 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
             </span>
             <div>
               <p className="font-medium text-white">You&apos;re caught up</p>
-              <p className="mt-1 text-sm text-zinc-400">No commerce, money, or listing-readiness exception needs attention right now.</p>
+              <p className="mt-1 text-sm text-zinc-400">No order, payment, or listing issue needs your attention right now.</p>
             </div>
           </div>
         ) : (
@@ -156,15 +156,15 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
               <ShieldAlert className="size-5" aria-hidden="true" />
             </span>
             <div>
-              <p className="font-medium text-white">No actions surfaced from the available sources</p>
-              <p className="mt-1 text-sm text-zinc-400">One or more live sources could not be checked, so this is not an all-clear state.</p>
+              <p className="font-medium text-white">Tasks could not be fully checked</p>
+              <p className="mt-1 text-sm text-zinc-400">Some information is unavailable, so Nexez cannot confirm that you are all caught up.</p>
             </div>
           </div>
         )}
 
         {snapshot.money.length > 1 ? (
           <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-5 text-xs text-zinc-500">
-            <span>Currency-safe reporting:</span>
+            <span>Totals by currency:</span>
             {snapshot.money.map((row) => (
               <span key={row.currency} className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 font-mono text-zinc-300">
                 {row.currency.toUpperCase()} {formatCurrencyAmount(row.netCents, row.currency)} net

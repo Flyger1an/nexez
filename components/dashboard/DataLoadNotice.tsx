@@ -12,9 +12,9 @@ export function DataLoadNotice({ issues }: { issues: string[] }) {
       <div className="flex items-start gap-3">
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--amber)]" aria-hidden />
         <div>
-          <p className="font-medium text-white">Some live data is temporarily unavailable</p>
+          <p className="font-medium text-white">Some information is temporarily unavailable</p>
           <p className="mt-1 text-xs leading-5 text-zinc-400">
-            Displayed totals may be incomplete. Unavailable sources: {unique.join(', ')}. Refresh before making a financial or operational decision.
+            Some totals may be incomplete. Nexez could not load: {unique.join(', ')}. Refresh before making a financial decision or updating an order.
           </p>
         </div>
       </div>

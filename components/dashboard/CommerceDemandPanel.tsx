@@ -15,30 +15,30 @@ export function CommerceDemandPanel({
       <div className="flex items-start gap-3">
         <Radar className="mt-0.5 size-5 shrink-0 text-[var(--signal)]" />
         <div>
-          <h2 id="commerce-demand-heading" className="text-lg font-semibold">Commerce demand signals</h2>
+          <h2 id="commerce-demand-heading" className="text-lg font-semibold">What customers are looking for</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
-            Directional simulator interactions from the last 30 days. These signals help prioritize marketplace recruitment and Commerce Library coverage; they are not conversion evidence.
+            See which services people searched for in the simulator over the last 30 days. Use these trends to decide which sellers and services to add next. They do not represent completed sales.
           </p>
         </div>
       </div>
 
       {!snapshot.available ? (
         <div className="mt-5 rounded-lg border border-border bg-white/[0.025] px-5 py-6 text-sm text-[var(--fg-muted)]">
-          Commerce demand telemetry is unavailable. The public simulator continues to operate without it.
+          Search activity is temporarily unavailable. The public simulator is still working.
         </div>
       ) : (
         <>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <DemandMetric label="Observed" value={snapshot.totalSignals} />
-            <DemandMetric label="Live" value={snapshot.liveMatches} />
-            <DemandMetric label="Related" value={snapshot.relatedMatches} />
-            <DemandMetric label="Reference only" value={snapshot.referenceMatches} />
-            <DemandMetric label="Unmapped gaps" value={snapshot.coverageGaps} />
+            <DemandMetric label="Total searches" value={snapshot.totalSignals} />
+            <DemandMetric label="Seller match" value={snapshot.liveMatches} />
+            <DemandMetric label="Related seller" value={snapshot.relatedMatches} />
+            <DemandMetric label="Guide only" value={snapshot.referenceMatches} />
+            <DemandMetric label="Not covered" value={snapshot.coverageGaps} />
           </div>
 
           {snapshot.truncated ? (
             <p className="mt-3 text-xs leading-5 text-[var(--amber)]">
-              Showing the newest 5,000 signals in this window; totals are a lower bound.
+              Showing the newest 5,000 searches. Actual totals may be higher.
             </p>
           ) : null}
 
@@ -52,12 +52,12 @@ export function CommerceDemandPanel({
               <table className="w-full min-w-[680px] text-left text-sm">
                 <thead className="border-b border-border text-xs uppercase tracking-[0.08em] text-[var(--fg-muted-2)]">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Canonical category</th>
-                    <th className="px-4 py-3 font-medium">Observed</th>
-                    <th className="px-4 py-3 font-medium">Live</th>
-                    <th className="px-4 py-3 font-medium">Related</th>
-                    <th className="px-4 py-3 font-medium">Reference only</th>
-                    <th className="px-4 py-3 font-medium">Unresolved</th>
+                    <th className="px-4 py-3 font-medium">Service category</th>
+                    <th className="px-4 py-3 font-medium">Searches</th>
+                    <th className="px-4 py-3 font-medium">Seller match</th>
+                    <th className="px-4 py-3 font-medium">Related seller</th>
+                    <th className="px-4 py-3 font-medium">Guide only</th>
+                    <th className="px-4 py-3 font-medium">Not covered</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -81,14 +81,14 @@ export function CommerceDemandPanel({
             </div>
           ) : (
             <div className="mt-4 rounded-lg border border-border bg-white/[0.025] px-5 py-6 text-sm text-[var(--fg-muted)]">
-              No canonical Commerce category has received a simulator signal in this window yet.
+              No service category has received a simulator search in this period yet.
             </div>
           )}
         </>
       )}
 
       <p className="mt-3 text-xs leading-5 text-[var(--fg-muted-2)]">
-        No raw buyer queries, request labels, merchants, locations, users, sessions, IP addresses, or user-agent strings are stored. Unmapped requests contribute only to the aggregate gap count.
+        This report stores totals only. Nexez does not store the words people searched, their identity, location, session, IP address, or device details.
       </p>
     </section>
   )

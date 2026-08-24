@@ -64,7 +64,7 @@ const TRANSITION_LABEL: Record<NegotiationStatus, string> = {
   negotiation: 'Reopen',
   agreement_proposed: 'Propose agreement',
   paused: 'Pause',
-  held: 'Hold funds (escrow)',
+  held: 'Hold funds',
   complete: 'Mark complete',
   declined: 'Decline',
   expired: 'Mark expired',
@@ -119,9 +119,9 @@ export default function NegotiationsInbox() {
   useEffect(() => {
     const escrow = new URLSearchParams(window.location.search).get('escrow')
     if (escrow === 'held') {
-      setMessage('Escrow hold authorized - the status updates to “Funds held” once Stripe confirms.')
+      setMessage('Payment hold authorized. The status updates to “Funds held” once Stripe confirms.')
     } else if (escrow === 'cancelled') {
-      setMessage('Escrow checkout was cancelled. No hold was placed.')
+      setMessage('Payment was canceled. No hold was placed.')
     }
   }, [])
 
@@ -292,23 +292,23 @@ export default function NegotiationsInbox() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setMessage(data.error || `Escrow ${action} failed.`)
+        setMessage(data.error || 'Could not update the payment.')
         return
       }
       const msg =
         action === 'approve'
-          ? 'Approved - the buyer can now pay to secure the agreement.'
+          ? 'Approved - the customer can now pay to secure the agreement.'
           : action === 'capture'
-            ? 'Funds captured - negotiation complete.'
+            ? 'Payment collected. Negotiation complete.'
             : action === 'refund'
               ? (data as { fully?: boolean }).fully === false
-                ? 'Partial refund sent to the buyer - the remainder is still refundable.'
-                : 'Payment refunded to the buyer.'
-              : 'Escrow hold released.'
+                ? 'Partial refund sent to the customer. The rest can still be refunded.'
+                : 'Payment refunded to the customer.'
+              : 'Payment hold released.'
       setMessage(msg)
       await load()
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : `Escrow ${action} failed.`)
+      setMessage(err instanceof Error ? err.message : 'Could not update the payment.')
     } finally {
       setUpdatingId(null)
     }
@@ -337,15 +337,15 @@ export default function NegotiationsInbox() {
             feature="negotiation"
             currentPlan={plan}
             title="Negotiation & smart pricing"
-            description="New offers, counters, clarification, resumed threads, and term changes require Pro. You can still close or settle existing deals after a downgrade."
+            description="Starting or changing a negotiation requires Pro. You can still finish existing deals after a downgrade."
             className="mb-6"
           />
           <header className="surface-masthead flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-semibold">
-                <Handshake className="size-6 text-[var(--signal)]" /> Negotiation Inbox
+                <Handshake className="size-6 text-[var(--signal)]" /> Negotiations
               </h1>
-              <p className="mt-1 max-w-2xl text-sm text-zinc-400">Prioritized proposals, agreements, payment holds, and exceptions.</p>
+              <p className="mt-1 max-w-2xl text-sm text-zinc-400">Review proposals, respond to customers, and manage held payments.</p>
             </div>
             <div className="flex items-center gap-2">
               <a
@@ -389,10 +389,10 @@ export default function NegotiationsInbox() {
               <label className="relative block md:w-72">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
                 <span className="sr-only">Search negotiations</span>
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search offer, buyer, or request" className="min-h-[42px] w-full rounded-lg border border-white/10 bg-black/25 py-2 pl-9 pr-3 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-[var(--signal)]/40" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search offer, customer, or request" className="min-h-[42px] w-full rounded-lg border border-white/10 bg-black/25 py-2 pl-9 pr-3 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-[var(--signal)]/40" />
               </label>
             </div>
-            <p className="mt-2 px-1 text-[11px] text-zinc-500">Showing {filteredNegotiations.length} from the latest {negotiations.length}{report ? ` of ${report.counts.total} total` : ''}. Exact totals remain visible above.</p>
+            <p className="mt-2 px-1 text-[11px] text-zinc-500">Showing {filteredNegotiations.length} of {report?.counts.total ?? negotiations.length} deals.</p>
           </div>
 
           {message && (
@@ -423,7 +423,7 @@ export default function NegotiationsInbox() {
                 <Handshake className="mx-auto size-8 text-zinc-500" />
                 <p className="mt-3 text-sm font-medium text-zinc-200">Negotiations are being set up</p>
                 <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
-                  This workspace is finishing setup for agent negotiations - check back shortly.
+                  Negotiations are still being set up. Check back shortly.
                 </p>
               </div>
             ) : (
@@ -431,22 +431,20 @@ export default function NegotiationsInbox() {
                 <Handshake className="mx-auto size-8 text-[var(--signal)]" />
                 <p className="mt-3 text-base font-medium text-white">No proposals yet</p>
                 <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-400">
-                  When an AI agent or buyer proposes terms on one of your negotiable offers - scope, budget, timeline -
-                  it lands here for you to <span className="text-zinc-200">accept, counter, or decline</span>, with escrow
-                  on agreed deals. Mark an offer “negotiable” in the listing editor to invite proposals.
+                  Customer proposals will appear here for you to <span className="text-zinc-200">accept, counter, or decline</span>. Turn on negotiations for an offer in the listing editor to invite proposals.
                 </p>
                 <div className="mt-5 flex flex-wrap justify-center gap-3">
                   <a href="/dashboard/listings" className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">
                     Set an offer to negotiable
                   </a>
                   <a href="/dashboard/finance" className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-zinc-200 hover:bg-white/5">
-                    View finances <ExternalLink className="size-3.5" />
+                    View finance <ExternalLink className="size-3.5" />
                   </a>
                 </div>
               </div>
             )
           ) : filteredNegotiations.length === 0 ? (
-            <div className="card mt-6 !p-8 text-center"><Search className="mx-auto size-7 text-zinc-500" /><p className="mt-3 text-sm font-medium text-zinc-200">No deals match this view</p><p className="mt-1 text-sm text-zinc-500">Try another queue or clear the search.</p></div>
+            <div className="card mt-6 !p-8 text-center"><Search className="mx-auto size-7 text-zinc-500" /><p className="mt-3 text-sm font-medium text-zinc-200">No deals match this view</p><p className="mt-1 text-sm text-zinc-500">Try another filter or clear the search.</p></div>
           ) : (
             <div className="mt-6 space-y-4">
               {filteredNegotiations.map((item) => (
@@ -625,7 +623,7 @@ function NegotiationCard({
       </p>
 
       <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-        <Field label="Buyer agent" value={item.buyer_agent} />
+        <Field label="Customer agent" value={item.buyer_agent} />
         <Field label="Contact" value={item.contact} />
         <Field label="Budget" value={item.budget_text} />
         <Field label="Timeline" value={item.timeline_text} />
@@ -660,7 +658,7 @@ function NegotiationCard({
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
         {!escrowAvailable && (
           <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
-            <Lock className="size-3" /> Escrow needs Stripe
+            <Lock className="size-3" /> Connect Stripe to hold payments
           </span>
         )}
 
@@ -669,7 +667,7 @@ function NegotiationCard({
           <button
             disabled={updating || !amountReady}
             onClick={() => onEscrow('approve')}
-            title={!amountReady ? 'Set an agreed amount first.' : 'Approve so the buyer can pay to secure this agreement.'}
+            title={!amountReady ? 'Set an agreed amount first.' : 'Approve so the customer can pay to secure this agreement.'}
             className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-3 text-xs font-medium text-[var(--ready)] transition hover:bg-[var(--ready)]/20 disabled:opacity-50"
           >
             {updating ? <Loader2 className="size-3.5 animate-spin" /> : <Lock className="size-3.5" />}
@@ -680,7 +678,7 @@ function NegotiationCard({
         {/* Low-value / approved: nothing for the owner to do but wait on the buyer. */}
         {buyerCanPay && (
           <span className="inline-flex items-center gap-1 text-[11px] text-[var(--signal)]/80">
-            <Clock className="size-3" /> Awaiting buyer payment{item.settlement_state === 'auto' ? ' · auto-settle' : ''}
+            <Clock className="size-3" /> Awaiting customer payment{item.settlement_state === 'auto' ? ' (collected immediately)' : ''}
           </span>
         )}
 
@@ -743,7 +741,7 @@ function NegotiationCard({
               className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 text-xs font-medium text-[var(--amber)] transition hover:bg-[var(--amber)]/20 disabled:opacity-50"
             >
               {updating ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
-              {(item.refunded_cents || 0) > 0 ? 'Refund more' : 'Refund buyer'}
+              {(item.refunded_cents || 0) > 0 ? 'Refund more' : 'Refund customer'}
             </button>
           ))}
         {(item.status === 'agreement_proposed' || item.status === 'held' || item.status === 'complete') && (
@@ -773,10 +771,10 @@ function NegotiationCard({
             <div key={`${turn.action}:${index}`}>{turn.action}: {turn.reasoning}</div>
           ))}
           {reasoningSummary.scheduling && (
-            <div className="text-[var(--ready)]/70">Scheduling link available for agent</div>
+            <div className="text-[var(--ready)]/70">Scheduling link available</div>
           )}
           {reasoningSummary.scope && (
-            <div>Scope terms negotiated in thread</div>
+            <div>Service details agreed in the conversation</div>
           )}
         </div>
       )}
@@ -787,8 +785,8 @@ function NegotiationCard({
         <div className="mt-4 border-t border-white/10 pt-4">
           <details className="group">
             <summary className="cursor-pointer text-xs text-[var(--signal)] hover:underline flex items-center gap-1">
-              + Add manual response (as owner)
-              <span className="text-[10px] text-zinc-500 group-open:hidden">(buyer-visible)</span>
+              + Add a response
+              <span className="text-[10px] text-zinc-500 group-open:hidden">(customer can see this)</span>
             </summary>
             <form
               className="mt-3 grid gap-3 text-xs"
@@ -798,7 +796,7 @@ function NegotiationCard({
                 const form = e.currentTarget as HTMLFormElement
                 const formData = new FormData(form)
                 const action = (formData.get('action') as string) || defaultManualAction
-                const reasoning = (formData.get('reasoning') as string) || 'Manual owner response.'
+                const reasoning = (formData.get('reasoning') as string) || 'Response from seller.'
                 const internalNotes = (formData.get('internal_notes') as string) || undefined
 
                 const majorAmount = parseFloat(formData.get('proposed_price') as string)
@@ -852,7 +850,7 @@ function NegotiationCard({
                   })
                   const data = await res.json().catch(() => ({}))
                   if (!res.ok) {
-                    setManualError(typeof data.error === 'string' ? data.error : 'Could not send the owner response.')
+                    setManualError(typeof data.error === 'string' ? data.error : 'Could not send the response.')
                     return
                   }
                   form.reset()
@@ -860,7 +858,7 @@ function NegotiationCard({
                   if (onRefresh) onRefresh()
                   else window.location.reload()
                 } catch (error) {
-                  setManualError(error instanceof Error ? error.message : 'Could not send the owner response.')
+                  setManualError(error instanceof Error ? error.message : 'Could not send the response.')
                 } finally {
                   setManualSaving(false)
                 }
@@ -869,7 +867,7 @@ function NegotiationCard({
               <div className="flex gap-2">
                 <select
                   name="action"
-                  aria-label="Owner decision"
+                  aria-label="Seller decision"
                   className="input text-xs py-1"
                   value={manualAction}
                   onChange={(event) => setManualAction(event.target.value)}
@@ -882,9 +880,9 @@ function NegotiationCard({
                   ) : (
                     <>
                       <option value="accept">Accept</option>
-                      <option value="counter" disabled={!expansionEnabled}>Counter{!expansionEnabled ? ' (Pro)' : ''}</option>
+                      <option value="counter" disabled={!expansionEnabled}>Counteroffer{!expansionEnabled ? ' (Pro)' : ''}</option>
                       <option value="reject">Reject</option>
-                      <option value="clarify" disabled={!expansionEnabled}>Request Clarification{!expansionEnabled ? ' (Pro)' : ''}</option>
+                      <option value="clarify" disabled={!expansionEnabled}>Ask a question{!expansionEnabled ? ' (Pro)' : ''}</option>
                       <option value="pause">Pause</option>
                     </>
                   )}
@@ -902,25 +900,25 @@ function NegotiationCard({
                   className="input text-xs py-1 flex-1 disabled:opacity-50 read-only:opacity-70"
                 />
               </div>
-              <textarea name="reasoning" aria-label="Reasoning shown to the buyer" rows={2} placeholder="Reasoning (shown to agent)" className="input text-xs" required defaultValue="Manual response from owner." />
+              <textarea name="reasoning" aria-label="Message shown to the customer" rows={2} placeholder="Message to customer" className="input text-xs" required defaultValue="Response from seller." />
               <input name="proposed_date" aria-label="Proposed date or timeline" disabled={manualAction !== 'counter' || !expansionEnabled} placeholder="Proposed date/timeline (if counter)" className="input text-xs py-1 disabled:opacity-50" />
               <input name="scope_notes" aria-label="Scope adjustments" disabled={manualAction !== 'counter' || !expansionEnabled} placeholder="Scope adjustments (if counter)" className="input text-xs py-1 disabled:opacity-50" />
               <input name="clarification_questions" aria-label="Clarification questions" disabled={manualAction !== 'clarify' || !expansionEnabled} placeholder="Questions comma-separated (if clarify)" className="input text-xs py-1 disabled:opacity-50" />
-              <textarea name="internal_notes" aria-label="Private internal notes" rows={1} placeholder="Internal notes (owner only, not sent to agent)" className="input text-xs" />
+              <textarea name="internal_notes" aria-label="Private internal notes" rows={1} placeholder="Private note (only you can see this)" className="input text-xs" />
               {manualError ? <p role="alert" className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-red-200">{manualError}</p> : null}
               <button
                 type="submit"
                 disabled={updating || manualSaving || (!expansionEnabled && isNegotiationExpansionAction(manualAction))}
                 className="btn-secondary text-xs py-1"
               >
-                {updating || manualSaving ? 'Saving...' : 'Send owner response'}
+                {updating || manualSaving ? 'Saving...' : 'Send response'}
               </button>
               {!expansionEnabled ? (
                 <p className="text-[10px] text-[var(--amber)]/80">
-                  Counter, clarification, resume, and amount changes require Pro. Accept, reject, pause, settlement, cancellation, and refunds remain available.
+                  Counteroffers, questions, reopening, and amount changes require Pro. Accepting, declining, pausing, payments, cancellation, and refunds remain available.
                 </p>
               ) : null}
-              <p className="text-[10px] text-zinc-500">This appears in the persistent /negotiate thread for the agent with full history.</p>
+              <p className="text-[10px] text-zinc-500">This message appears in the negotiation history.</p>
             </form>
           </details>
         </div>
@@ -984,7 +982,7 @@ function AmountEditor({
         {expansionEnabled ? 'Save amount' : 'Save amount · Pro'}
       </button>
       {item.amount_cents == null && (
-        <span className="text-[11px] text-[var(--amber)]/80">Set this to enable the escrow hold.</span>
+        <span className="text-[11px] text-[var(--amber)]/80">Set this to enable the payment hold.</span>
       )}
     </div>
   )

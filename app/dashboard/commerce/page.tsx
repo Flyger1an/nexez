@@ -61,10 +61,10 @@ export default async function CommercePage({ searchParams }: CommercePageProps) 
     <main data-testid="commerce-dashboard" className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto max-w-[1680px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <SurfaceHeader
-          eyebrow="Cross-rail command view"
+          eyebrow="Orders and deals"
           icon={Layers3}
           title="Commerce"
-          description="See checkout orders and negotiated commerce in one evidence-aware view. Each record stays linked to the ledger and workspace that controls its money and operations."
+          description="Review orders, negotiated deals, payments, and tasks in one place. Open any item to manage it in the right workflow."
           actions={(
             <div className="flex flex-wrap gap-2">
               <Link href="/dashboard/orders" className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius)] border border-[var(--line-soft)] px-4 py-2 text-sm font-medium text-[var(--fg)] hover:bg-[var(--fill-1)]">
@@ -77,11 +77,11 @@ export default async function CommercePage({ searchParams }: CommercePageProps) 
           )}
           footer={(
             <>
-              <Metric label="Checkout orders" value={formatRailCount(result.checkoutCount, result.filters.rail === 'negotiated')} />
-              <Metric label="Negotiated records" value={formatRailCount(result.negotiatedCount, result.filters.rail === 'checkout')} />
-              <Metric label="Visible actions" value={String(actionResult.actions.length)} />
-              <Metric label="Visible urgent" value={String(actionResult.urgentCount)} />
-              <Metric label="Source of truth" value="Native ledgers" />
+              <Metric label="Orders" value={formatRailCount(result.checkoutCount, result.filters.rail === 'negotiated')} />
+              <Metric label="Negotiated deals" value={formatRailCount(result.negotiatedCount, result.filters.rail === 'checkout')} />
+              <Metric label="Tasks" value={String(actionResult.actions.length)} />
+              <Metric label="Urgent" value={String(actionResult.urgentCount)} />
+              <Metric label="Updated from" value="Orders and deals" />
             </>
           )}
         />
@@ -94,9 +94,9 @@ export default async function CommercePage({ searchParams }: CommercePageProps) 
           <div className="flex items-start gap-3">
             <CircleDollarSign className="mt-0.5 size-5 shrink-0 text-[var(--settings-emphasis)]" aria-hidden="true" />
             <div>
-              <h2 className="font-medium text-[var(--fg)]">One view, separate authority</h2>
+              <h2 className="font-medium text-[var(--fg)]">Orders and deals stay separate</h2>
               <p className="mt-1 max-w-4xl text-sm leading-6 text-[var(--fg-muted)]">
-                Checkout values are recorded payments. Negotiation values are proposed or agreed commercial terms until Nexez has payment evidence. Fulfillment appears only for checkout orders with an operational record.
+                Order totals are recorded payments. Deal totals remain proposed or agreed values until Nexez records a payment. Fulfillment is shown only for orders that can be fulfilled in Nexez.
               </p>
             </div>
           </div>
@@ -111,11 +111,11 @@ export default async function CommercePage({ searchParams }: CommercePageProps) 
                 <table className="w-full min-w-[1120px] text-left text-sm">
                   <thead className="border-b border-[var(--line-soft)] text-xs uppercase tracking-[0.14em] text-[var(--fg-muted-2)]">
                     <tr>
-                      <th className="px-5 py-3 font-medium">Commerce record</th>
-                      <th className="px-5 py-3 font-medium">Buyer</th>
-                      <th className="px-5 py-3 font-medium">Rail</th>
-                      <th className="px-5 py-3 font-medium">Lifecycle</th>
-                      <th className="px-5 py-3 font-medium">Payment evidence</th>
+                      <th className="px-5 py-3 font-medium">Order or deal</th>
+                      <th className="px-5 py-3 font-medium">Customer</th>
+                      <th className="px-5 py-3 font-medium">Sale type</th>
+                      <th className="px-5 py-3 font-medium">Status</th>
+                      <th className="px-5 py-3 font-medium">Payment status</th>
                       <th className="px-5 py-3 text-right font-medium">Value</th>
                       <th className="px-5 py-3 text-right font-medium"><span className="sr-only">Open</span></th>
                     </tr>
@@ -132,22 +132,22 @@ export default async function CommercePage({ searchParams }: CommercePageProps) 
             </section>
             {result.total > result.records.length ? (
               <p className="mt-4 text-sm text-[var(--fg-muted-2)]">
-                Showing the {DASHBOARD_COMMERCE_LIMIT} most recently updated matching records. Use a rail, currency, or search filter to narrow the view.
+                Showing the {DASHBOARD_COMMERCE_LIMIT} most recently updated results. Filter by sale type, currency, or search to narrow the list.
               </p>
             ) : null}
           </>
         ) : (
           <EmptyState
             icon={hasFilters ? Search : Layers3}
-            title={hasFilters ? 'No commerce records match these filters' : 'Commerce activity will appear here'}
+            title={hasFilters ? 'No orders or deals match these filters' : 'Orders and deals will appear here'}
             ctas={hasFilters
               ? [{ label: 'Clear filters', href: '/dashboard/commerce', variant: 'secondary' }]
               : [{ label: 'Review your listings', href: '/dashboard/listings' }]}
             className="mt-6"
           >
             {hasFilters
-              ? 'Try a broader search or remove the rail or currency filter.'
-              : 'Nexez adds records from durable checkout payments and real buyer negotiations. Simulator activity and abandoned checkout attempts are never included.'}
+              ? 'Try a broader search or remove the sale type or currency filter.'
+              : 'Nexez adds paid orders and real customer negotiations here. Simulator activity and abandoned checkouts are not included.'}
           </EmptyState>
         )}
       </div>
@@ -162,9 +162,9 @@ function CommerceActionQueue({ result }: { result: DashboardCommerceActionResult
         <div className="flex items-start gap-3">
           <ClipboardList className="mt-0.5 size-5 shrink-0 text-[var(--settings-emphasis)]" aria-hidden="true" />
           <div>
-            <h2 id="commerce-action-queue" className="font-medium text-[var(--fg)]">Merchant action queue</h2>
+            <h2 id="commerce-action-queue" className="font-medium text-[var(--fg)]">Tasks that need attention</h2>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
-              Prioritized from disputes, unresolved buyer requests, recorded fulfillment work, and canonical negotiation states. Every action opens the workspace that owns the underlying record.
+              Review disputes, customer requests, fulfillment tasks, and deals waiting for a response. Each task opens the order or deal where you can act.
             </p>
           </div>
         </div>
@@ -187,19 +187,19 @@ function CommerceActionQueue({ result }: { result: DashboardCommerceActionResult
       ) : (
         <div className="p-6">
           <p className="font-medium text-[var(--fg)]">
-            {result.issues.length ? 'No actions surfaced from the available sources' : 'No merchant actions need attention'}
+            {result.issues.length ? 'No tasks are available right now' : 'You are all caught up'}
           </p>
           <p className="mt-1 text-sm leading-6 text-[var(--fg-muted)]">
             {result.issues.length
-              ? 'One or more action sources could not be checked. The notice above identifies the unavailable evidence.'
-              : 'New actions appear only when a native commerce record provides an actionable state.'}
+              ? 'Nexez could not check every task source. See the notice above for details.'
+              : 'New tasks will appear when an order or deal needs your attention.'}
           </p>
         </div>
       )}
 
       {result.isTruncated ? (
         <p className="border-t border-[var(--line-soft)] px-5 py-3 text-xs leading-5 text-[var(--fg-muted-2)]">
-          Showing the {DASHBOARD_COMMERCE_ACTION_LIMIT} highest-priority actions from bounded source reads. Open the native order or negotiation workspace for its complete queue.
+          Showing the {DASHBOARD_COMMERCE_ACTION_LIMIT} highest-priority tasks. Open Orders or Negotiations to see everything.
         </p>
       ) : null}
     </section>
@@ -242,26 +242,26 @@ function CommerceFilters({ filters }: { filters: DashboardCommerceFilters }) {
   return (
     <form method="get" className="mt-6 rounded-[var(--r-card)] border border-[var(--line-soft)] bg-[var(--glass)] p-4 sm:p-5">
       <div className="flex items-center gap-2 text-sm font-medium text-[var(--fg)]">
-        <Filter className="size-4 text-[var(--settings-emphasis)]" aria-hidden="true" /> Find commerce activity
+        <Filter className="size-4 text-[var(--settings-emphasis)]" aria-hidden="true" /> Find an order or deal
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(280px,2fr)_1fr_0.8fr_auto]">
         <label className="relative block">
-          <span className="sr-only">Search commerce</span>
+          <span className="sr-only">Search orders and deals</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted-2)]" aria-hidden="true" />
           <input
             type="search"
             name="q"
             defaultValue={filters.q}
-            placeholder="Offer, buyer, email, or reference"
+            placeholder="Offer, customer, email, or reference"
             className="min-h-11 w-full rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--fill-1)] pl-10 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted-2)] focus:border-[var(--settings-focus)]"
           />
         </label>
         <label>
-          <span className="sr-only">Commerce rail</span>
+          <span className="sr-only">Sale type</span>
           <select name="rail" defaultValue={filters.rail} className="min-h-11 w-full rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--fill-1)] px-3 text-sm text-[var(--fg)] outline-none focus:border-[var(--settings-focus)]">
-            <option value="">All commerce rails</option>
-            <option value="checkout">Checkout orders</option>
-            <option value="negotiated">Negotiated commerce</option>
+            <option value="">All sale types</option>
+            <option value="checkout">Orders</option>
+            <option value="negotiated">Negotiated deals</option>
           </select>
         </label>
         <label>
@@ -305,7 +305,7 @@ function CommerceTableRow({ record }: { record: CommerceRecord }) {
       </td>
       <td className="px-5 py-4">
         <StatusBadge status={record.sourceStatus} />
-        {record.fulfillmentState ? <p className="mt-2 text-xs text-[var(--fg-muted-2)]">Work: {record.fulfillmentState.label}</p> : null}
+        {record.fulfillmentState ? <p className="mt-2 text-xs text-[var(--fg-muted-2)]">Fulfillment: {record.fulfillmentState.label}</p> : null}
       </td>
       <td className="px-5 py-4"><StatusBadge status={record.paymentState} /></td>
       <td className="px-5 py-4 text-right">
@@ -334,11 +334,11 @@ function CommerceCard({ record }: { record: CommerceRecord }) {
       <p className="mt-4 truncate text-sm text-[var(--fg-muted)]">{record.buyerLabel}</p>
       <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
         <div>
-          <p className="text-[var(--fg-muted-2)]">Rail</p>
+          <p className="text-[var(--fg-muted-2)]">Sale type</p>
           <p className="mt-1 text-[var(--fg)]">{record.railLabel}</p>
         </div>
         <div>
-          <p className="text-[var(--fg-muted-2)]">Payment evidence</p>
+          <p className="text-[var(--fg-muted-2)]">Payment status</p>
           <p className="mt-1 text-[var(--fg)]">{record.paymentState.label}</p>
         </div>
       </div>

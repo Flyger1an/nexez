@@ -130,7 +130,7 @@ describe('OrderOperationsPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Refund full remainder and resolve' }))
     await user.click(screen.getByRole('button', { name: 'Confirm refund' }))
 
-    expect(await screen.findByText(/the refund succeeded, but the buyer request still needs to be marked resolved/i)).toBeInTheDocument()
+    expect(await screen.findByText(/the refund succeeded, but the customer request still needs to be marked resolved/i)).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 

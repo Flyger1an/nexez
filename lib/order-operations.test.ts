@@ -9,7 +9,7 @@ import {
 
 describe('order operations', () => {
   it('keeps unknown historical fulfillment explicit', () => {
-    expect(fulfillmentDescription(null)).toMatch(/predates fulfillment tracking/i)
+    expect(fulfillmentDescription(null)).toMatch(/older order has no fulfillment status/i)
   })
 
   it('blocks fulfillment for reversed payments and commitment stages', () => {

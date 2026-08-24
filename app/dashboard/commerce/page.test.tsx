@@ -30,7 +30,7 @@ const checkoutRecord = {
   key: 'checkout:order-1',
   id: 'order-1',
   rail: 'checkout',
-  railLabel: 'Checkout order',
+  railLabel: 'Order',
   offerName: 'Portrait session',
   buyerLabel: 'Buyer',
   buyerEmail: 'buyer@example.com',
@@ -53,11 +53,11 @@ const negotiatedRecord = {
   key: 'negotiated:deal-1',
   id: 'deal-1',
   rail: 'negotiated',
-  railLabel: 'Negotiated commerce',
+  railLabel: 'Negotiated deal',
   offerName: 'Strategy engagement',
   buyerLabel: 'Agent buyer',
   buyerEmail: null,
-  channelLabel: 'Negotiated escrow',
+  channelLabel: 'Payment-protected deal',
   sourceStatus: { key: 'agreement_proposed', label: 'Agreement proposed', tone: 'signal' },
   paymentState: { key: 'not_recorded', label: 'No Nexez payment', tone: 'muted' },
   fulfillmentState: null,
@@ -91,7 +91,7 @@ describe('commerce dashboard', () => {
           {
             key: 'refund_request',
             label: 'Review refund request',
-            detail: 'A buyer submitted a refund request.',
+            detail: 'A customer submitted a refund request.',
             priority: 96,
             urgent: false,
             updatedAt: '2026-08-23T13:00:00.000Z',
@@ -108,7 +108,7 @@ describe('commerce dashboard', () => {
         primaryAction: {
           key: 'refund_request',
           label: 'Review refund request',
-          detail: 'A buyer submitted a refund request.',
+          detail: 'A customer submitted a refund request.',
           priority: 96,
           urgent: false,
           updatedAt: '2026-08-23T13:00:00.000Z',
@@ -134,21 +134,26 @@ describe('commerce dashboard', () => {
     expect(screen.getAllByText('Strategy engagement').length).toBeGreaterThan(0)
     expect(screen.getAllByText('No Nexez payment').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Agreed value').length).toBeGreaterThan(0)
+    expect(screen.getByRole('columnheader', { name: 'Customer' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Sale type' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Payment status' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Rail' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Payment evidence' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Manage order ORDER-1' })).toHaveAttribute('href', '/dashboard/orders/order-1')
     expect(screen.getByRole('link', { name: 'Open negotiation DEAL-1' })).toHaveAttribute('href', '/dashboard/negotiations#negotiation-deal-1')
   })
 
-  it('renders prioritized actions with a native-workspace destination', async () => {
+  it('renders prioritized tasks with their order destination', async () => {
     render(await CommercePage({ searchParams: Promise.resolve({}) }))
-    expect(screen.getByRole('heading', { name: 'Merchant action queue' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tasks that need attention' })).toBeInTheDocument()
     expect(screen.getByText('Review refund request')).toBeInTheDocument()
-    expect(screen.getAllByText(/Checkout order · Live/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Order · Live/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/additional action complete fulfillment/i)).toBeInTheDocument()
     const actionLink = screen.getByText('Review refund request').closest('a')
     expect(actionLink).toHaveAttribute('href', '/dashboard/orders/order-1')
   })
 
-  it('explains the ledger boundary when no commerce exists', async () => {
+  it('explains what is excluded when no commerce exists', async () => {
     refs.result = {
       records: [],
       checkoutCount: 0,
@@ -158,7 +163,7 @@ describe('commerce dashboard', () => {
       issues: [],
     }
     render(await CommercePage({ searchParams: Promise.resolve({}) }))
-    expect(screen.getByText(/Simulator activity and abandoned checkout attempts are never included/i)).toBeInTheDocument()
+    expect(screen.getByText(/Simulator activity and abandoned checkouts are not included/i)).toBeInTheDocument()
   })
 
   it('does not present an unqueried rail as an evidence-backed zero', async () => {
@@ -179,10 +184,10 @@ describe('commerce dashboard', () => {
       actions: [],
       urgentCount: 0,
       isTruncated: false,
-      issues: ['Buyer requests could not be checked for the action queue.'],
+      issues: ['Customer requests could not be checked for tasks.'],
     }
     render(await CommercePage({ searchParams: Promise.resolve({}) }))
-    expect(screen.getByText('No actions surfaced from the available sources')).toBeInTheDocument()
-    expect(screen.queryByText('No merchant actions need attention')).not.toBeInTheDocument()
+    expect(screen.getByText('No tasks are available right now')).toBeInTheDocument()
+    expect(screen.queryByText('You are all caught up')).not.toBeInTheDocument()
   })
 })

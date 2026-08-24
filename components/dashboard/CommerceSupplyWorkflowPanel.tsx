@@ -126,30 +126,30 @@ export function CommerceSupplyWorkflowPanel({
         <ClipboardList className="mt-0.5 size-4 shrink-0 text-[var(--signal)]" />
         <div>
           <h3 id="supply-priorities-heading" className="text-sm font-semibold text-foreground">
-            Supply acquisition workflow
+            Seller recruitment priorities
           </h3>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--fg-muted)]">
-            Observed demand ranks first when available. Active-template coverage then fills launch inventory gaps; progress is operator-authored and audited, never an inferred conversion score.
+            Customer searches set the priority when available. Nexez then uses planned service categories to fill remaining marketplace gaps. Progress changes only when someone updates it.
           </p>
         </div>
       </div>
 
       {!initialSnapshot.available ? (
         <p className="mt-3 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.05] px-4 py-3 text-xs leading-5 text-[var(--fg-muted)]">
-          Campaign persistence is unavailable. Recruitment briefs remain readable, but status controls are disabled until the migration and server credentials are present.
+          Recruitment status cannot be saved right now. You can still read each brief, but the controls will remain off until setup is complete.
         </p>
       ) : null}
 
 
       {!initialSnapshot.verificationAvailable ? (
         <p className="mt-3 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.05] px-4 py-3 text-xs leading-5 text-[var(--fg-muted)]">
-          Marketplace certification status is unavailable. Coverage remains readable, but campaign controls are disabled until existing exact supply can be verified.
+          Seller verification status is unavailable. You can still review coverage, but recruitment controls are off until Nexez can check existing sellers.
         </p>
       ) : null}
 
       {!initialSnapshot.demandAvailable ? (
         <p className="mt-3 rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.05] px-4 py-3 text-xs leading-5 text-[var(--fg-muted)]">
-          Demand telemetry is unavailable. Showing code-owned launch coverage only; these rows are inventory planning, not evidence of buyer demand.
+          Customer search activity is unavailable. These priorities come from the launch plan, not from customer searches.
         </p>
       ) : null}
 
@@ -195,18 +195,18 @@ export function CommerceSupplyWorkflowPanel({
                 <p className="mt-3 text-xs leading-5 text-[var(--fg-muted)]">{item.rationale}</p>
                 {item.basis === 'observed-demand' ? (
                   <p className="mt-3 text-xs tabular-nums text-[var(--fg-muted-2)]">
-                    {item.unresolved} unresolved · {item.reference} reference only · {item.related} related · {item.live} live
+                    {item.unresolved} not covered · {item.reference} guide only · {item.related} related seller · {item.live} seller match
                   </p>
                 ) : (
                   <p className="mt-3 text-xs text-[var(--fg-muted-2)]">
-                    Active template coverage · no buyer demand inferred
+                    Planned launch category · not based on customer searches
                   </p>
                 )}
 
                 {isLive ? (
                   <div className="mt-3 rounded-md border border-[var(--ready)]/25 bg-[var(--ready)]/[0.05] px-3 py-3">
                     <p className="flex items-center gap-2 text-xs font-medium text-[var(--ready)]">
-                      <CheckCircle2 className="size-3.5" /> Certified category supply found
+                      <CheckCircle2 className="size-3.5" /> Verified seller found for this category
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {item.certifiedSupply.map((supply) => (
@@ -222,7 +222,7 @@ export function CommerceSupplyWorkflowPanel({
                       ))}
                     </div>
                     <p className="mt-2 text-[11px] leading-5 text-[var(--fg-muted)]">
-                      Category identity is covered. This does not prove location, availability, price, or request-level fit; those still require merchant evidence.
+                      The service category matches. Confirm the seller&apos;s location, availability, price, and fit before presenting it to a customer.
                     </p>
                   </div>
                 ) : null}
@@ -270,7 +270,7 @@ export function CommerceSupplyWorkflowPanel({
                     {!isLive ? (
                       <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-end">
                         <label className="block">
-                          <span className="mb-1.5 block text-[11px] font-medium text-[var(--fg-soft)]">Next state</span>
+                          <span className="mb-1.5 block text-[11px] font-medium text-[var(--fg-soft)]">Next status</span>
                           <select
                             value={draft?.referenceId === item.referenceId ? draft.status : transitions[0]}
                             disabled={!controlsAvailable || savingId === item.referenceId}
@@ -288,7 +288,7 @@ export function CommerceSupplyWorkflowPanel({
                           </select>
                         </label>
                         <label className="block">
-                          <span className="mb-1.5 block text-[11px] font-medium text-[var(--fg-soft)]">Operator reason</span>
+                          <span className="mb-1.5 block text-[11px] font-medium text-[var(--fg-soft)]">Reason for change</span>
                           <input
                             value={draft?.referenceId === item.referenceId ? draft.reason : ''}
                             maxLength={500}
@@ -299,7 +299,7 @@ export function CommerceSupplyWorkflowPanel({
                               reason: event.target.value,
                               idempotencyKey: null,
                             })}
-                            placeholder="Evidence or next action"
+                            placeholder="What changed or what happens next"
                             className="min-h-10 w-full rounded-md border border-border bg-black/25 px-3 text-xs outline-none placeholder:text-[var(--fg-muted-2)] focus:border-[var(--signal)]/60 disabled:opacity-50"
                           />
                         </label>
@@ -327,17 +327,17 @@ export function CommerceSupplyWorkflowPanel({
         </div>
       ) : (
         <div className="mt-3 rounded-lg border border-border bg-white/[0.025] px-5 py-4 text-sm text-[var(--fg-muted)]">
-          No observed demand or active-template launch coverage is available.
+          No customer searches or planned launch categories are available.
         </div>
       )}
 
       {items.length > MAX_VISIBLE_SUPPLY_PRIORITIES ? (
-        <p className="mt-2 text-xs text-[var(--fg-muted-2)]">Showing the top {MAX_VISIBLE_SUPPLY_PRIORITIES} of {items.length} mapped priorities.</p>
+        <p className="mt-2 text-xs text-[var(--fg-muted-2)]">Showing the top {MAX_VISIBLE_SUPPLY_PRIORITIES} of {items.length} recruitment priorities.</p>
       ) : null}
 
       {coverageGaps > 0 ? (
         <p className="mt-3 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.05] px-4 py-3 text-xs leading-5 text-[var(--fg-muted)]">
-          {coverageGaps} unmapped {coverageGaps === 1 ? 'request remains' : 'requests remain'} aggregate-only. Nexez does not assign those requests to an acquisition category without a privacy-safe canonical classification.
+          {coverageGaps} {coverageGaps === 1 ? 'search does' : 'searches do'} not match a service category yet. Nexez keeps only the total until it can classify the request without storing personal details.
         </p>
       ) : null}
     </section>

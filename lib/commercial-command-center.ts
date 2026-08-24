@@ -146,7 +146,7 @@ export function buildCommercialCommandCenter({
     actions.push({
       id: 'disputes',
       label: `${disputed} open ${disputed === 1 ? 'dispute' : 'disputes'}`,
-      detail: 'Review payment evidence and decide the next resolution step.',
+      detail: 'Review the payment details and choose how to respond.',
       count: disputed,
       href: '/dashboard/finance#operations',
       cta: 'Review disputes',
@@ -157,8 +157,8 @@ export function buildCommercialCommandCenter({
     const count = operations?.openRequests ?? 0
     actions.push({
       id: 'buyer_requests',
-      label: `${count} buyer ${count === 1 ? 'request' : 'requests'}`,
-      detail: 'Refund requests and problem reports are waiting for a response.',
+      label: `${count} customer ${count === 1 ? 'request' : 'requests'}`,
+      detail: 'Refund requests and reported problems are waiting for a response.',
       count,
       href: '/dashboard/finance#buyer-requests',
       cta: 'Open requests',
@@ -169,11 +169,11 @@ export function buildCommercialCommandCenter({
     const count = operations?.staleHeldNegotiations ?? 0
     actions.push({
       id: 'stale_holds',
-      label: `${count} stale ${count === 1 ? 'hold' : 'holds'}`,
-      detail: 'Captured or released decisions are overdue on funded agreements.',
+      label: `${count} overdue ${count === 1 ? 'payment hold' : 'payment holds'}`,
+      detail: 'Choose whether to capture or release the held funds.',
       count,
       href: '/dashboard/negotiations?queue=needs_action',
-      cta: 'Resolve holds',
+      cta: 'Review held funds',
       tone: 'critical',
     })
   }
@@ -184,10 +184,10 @@ export function buildCommercialCommandCenter({
       label: `${count} ${count === 1 ? 'deal needs' : 'deals need'} action`,
       detail: negotiations?.counts.staleOpen
         ? `${negotiations.counts.staleOpen} open ${negotiations.counts.staleOpen === 1 ? 'deal is' : 'deals are'} stale.`
-        : 'Review proposals, approvals, held funds, and paused conversations.',
+        : 'Review proposals, approvals, held funds, and paused deals.',
       count,
       href: '/dashboard/negotiations?queue=needs_action',
-      cta: 'Work the queue',
+      cta: 'Review deals',
       tone: 'attention',
     })
   }
@@ -195,11 +195,11 @@ export function buildCommercialCommandCenter({
     const count = operations?.estimatedEconomics ?? 0
     actions.push({
       id: 'estimated_economics',
-      label: `${count} estimated ${count === 1 ? 'fee record' : 'fee records'}`,
-      detail: 'Legacy transactions use the current plan rate instead of sale-time terms.',
+      label: `${count} ${count === 1 ? 'sale has' : 'sales have'} an estimated fee`,
+      detail: 'These older sales use your current plan rate because the original fee was not saved.',
       count,
       href: '/dashboard/finance#operations',
-      cta: 'Review coverage',
+      cta: 'Review sales',
       tone: 'accuracy',
     })
   }
@@ -207,7 +207,7 @@ export function buildCommercialCommandCenter({
     actions.push({
       id: 'readiness',
       label: `${readinessAlerts} ${readinessAlerts === 1 ? 'listing is' : 'listings are'} below 80%`,
-      detail: 'Improve offer clarity and machine-readable trust signals.',
+      detail: 'Add clearer offer details and the information customers need to trust your listing.',
       count: readinessAlerts,
       href: '/dashboard/listings',
       cta: 'Improve listings',
@@ -323,20 +323,20 @@ const COMMERCE_ACTION_COPY: Record<
     tone: 'attention',
   },
   problem_report: {
-    singular: 'buyer issue',
-    plural: 'buyer issues',
+    singular: 'customer issue',
+    plural: 'customer issues',
     id: 'commerce_problem_report',
     tone: 'attention',
   },
   fulfillment: {
-    singular: 'fulfillment action',
-    plural: 'fulfillment actions',
+    singular: 'fulfillment task',
+    plural: 'fulfillment tasks',
     id: 'commerce_fulfillment',
     tone: 'attention',
   },
   negotiation: {
-    singular: 'negotiation action',
-    plural: 'negotiation actions',
+    singular: 'negotiation task',
+    plural: 'negotiation tasks',
     id: 'commerce_negotiation',
     tone: 'attention',
   },
@@ -383,7 +383,7 @@ function commerceActionCategories(commerce: CommercialCommerceInput): Commercial
         label: `${count} ${count === 1 ? copy.singular : copy.plural}`,
         detail: onlyRecord
           ? `${onlyRecord.offerName} on ${onlyRecord.railLabel.toLowerCase()}.`
-          : `${count} distinct commerce records currently surface this action.`,
+          : `${count} orders or deals currently need this action.`,
         count,
         href: onlyRecord?.href ?? '/dashboard/commerce',
         cta: onlyRecord?.actionLabel ?? 'Open Commerce',

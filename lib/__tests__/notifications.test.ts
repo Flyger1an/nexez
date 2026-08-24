@@ -20,8 +20,8 @@ describe('buildNotifications', () => {
       },
     })
     expect(n.find((x) => x.id === 'commerce-attention')).toMatchObject({
-      message: '1 commerce record needs your attention',
-      cta: 'Review action',
+      message: '1 order or deal needs your attention',
+      cta: 'Review task',
       href: '/dashboard/orders/order-1',
     })
   })
@@ -57,9 +57,9 @@ describe('buildNotifications', () => {
       },
     })
 
-    expect(partial[0]?.message).toBe('2+ commerce records need your attention, 1 urgent')
-    expect(unavailable[0]?.message).toContain('could not be checked')
-    expect(boundedUnknown[0]?.message).toContain('coverage is incomplete')
+    expect(partial[0]?.message).toBe('2+ orders or deals need your attention, 1 urgent')
+    expect(unavailable[0]?.message).toContain('could not be loaded')
+    expect(boundedUnknown[0]?.message).toContain('could not be loaded')
   })
   it('flags stale published pages with a website', () => {
     const n = buildNotifications({
