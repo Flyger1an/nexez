@@ -6,6 +6,7 @@ import {
 import type { FinanceRollup } from '../finance-report'
 import type { NegotiationRollup } from '../negotiation-report'
 import type { OwnerAnalyticsRollup } from '../server/analytics-rollup'
+import type { CommercialCommerceInput } from '../commercial-command-center'
 
 function analytics(overrides: Partial<OwnerAnalyticsRollup['counts']> = {}): OwnerAnalyticsRollup {
   return {
@@ -92,6 +93,39 @@ function finance(): FinanceRollup {
   }
 }
 
+function commerce(overrides: Partial<CommercialCommerceInput> = {}): CommercialCommerceInput {
+  return {
+    records: [
+      {
+        id: 'checkout:order-1',
+        href: '/dashboard/orders/order-1',
+        railLabel: 'Checkout order',
+        offerName: 'Launch package',
+        actionLabel: 'Manage order',
+        actions: [
+          { key: 'payment_dispute', priority: 100, urgent: true },
+          { key: 'problem_report', priority: 92, urgent: false },
+        ],
+      },
+      {
+        id: 'negotiated:deal-1',
+        href: '/dashboard/negotiations#negotiation-deal-1',
+        railLabel: 'Negotiated commerce',
+        offerName: 'Custom engagement',
+        actionLabel: 'Open negotiation',
+        actions: [
+          { key: 'negotiation', priority: 80, urgent: false },
+          { key: 'problem_report', priority: 90, urgent: false },
+        ],
+      },
+    ],
+    urgentCount: 1,
+    isTruncated: false,
+    complete: true,
+    ...overrides,
+  }
+}
+
 describe('commercial command center', () => {
   it('combines direct and negotiated settlement only within each currency', () => {
     const result = buildCommercialCommandCenter({ analytics: analytics(), negotiations: negotiations(), finance: finance() })
@@ -128,13 +162,66 @@ describe('commercial command center', () => {
     expect(result.actions.find((action) => action.id === 'disputes')?.count).toBe(2)
   })
 
+  it('uses the canonical commerce queue instead of duplicating legacy operational counts', () => {
+    const result = buildCommercialCommandCenter({
+      analytics: analytics(),
+      negotiations: negotiations(),
+      finance: finance(),
+      commerce: commerce(),
+    })
+
+    expect(result.status).toBe('critical')
+    expect(result.commerce).toEqual({
+      visibleActions: 2,
+      urgentActions: 1,
+      isTruncated: false,
+      complete: true,
+    })
+    expect(result.actions.map((action) => action.id)).toEqual([
+      'commerce_payment_dispute',
+      'commerce_problem_report',
+      'commerce_negotiation',
+      'estimated_economics',
+    ])
+    expect(result.actions.find((action) => action.id === 'commerce_problem_report')?.count).toBe(2)
+    expect(result.actions.find((action) => action.id === 'commerce_payment_dispute')?.href).toBe('/dashboard/orders/order-1')
+    expect(result.actions.some((action) => action.id === 'disputes')).toBe(false)
+    expect(result.actions.some((action) => action.id === 'buyer_requests')).toBe(false)
+  })
+
+  it('marks a partial commerce source incomplete while preserving surfaced evidence', () => {
+    const result = buildCommercialCommandCenter({
+      analytics: analytics(),
+      negotiations: negotiations({ needsAction: 0, disputed: 0 }),
+      finance: { ...finance(), operations: { openRequests: 0, disputedOrders: 0, disputedNegotiations: 0, heldNegotiations: 0, staleHeldNegotiations: 0, estimatedEconomics: 0 } },
+      commerce: commerce({ records: [], urgentCount: 0, isTruncated: true, complete: false }),
+    })
+
+    expect(result.availability.commerce).toBe(true)
+    expect(result.commerce.visibleActions).toBe(0)
+    expect(result.commerce.isTruncated).toBe(true)
+    expect(result.status).toBe('incomplete')
+  })
+
+  it('does not claim an all-clear when a bounded queue may hide more records', () => {
+    const result = buildCommercialCommandCenter({
+      analytics: analytics(),
+      negotiations: negotiations({ needsAction: 0, disputed: 0 }),
+      finance: { ...finance(), operations: { openRequests: 0, disputedOrders: 0, disputedNegotiations: 0, heldNegotiations: 0, staleHeldNegotiations: 0, estimatedEconomics: 0 } },
+      commerce: commerce({ records: [], urgentCount: 0, isTruncated: true, complete: true }),
+    })
+
+    expect(result.status).toBe('incomplete')
+    expect(result.commerce.isTruncated).toBe(true)
+  })
+
   it('does not claim a checkout conversion rate when attribution is inconsistent', () => {
     const result = buildCommercialCommandCenter({
       analytics: analytics({ checkoutStarts: 2, paidDirectOrders: 3 }),
     })
 
     expect(result.demand.checkoutToPaidRate).toBeNull()
-    expect(result.availability).toEqual({ analytics: true, negotiations: false, finance: false })
+    expect(result.availability).toEqual({ analytics: true, negotiations: false, finance: false, commerce: false })
     expect(result.status).toBe('incomplete')
   })
 
@@ -144,6 +231,8 @@ describe('commercial command center', () => {
 
     expect(csv).toContain('money_30d,gross,14000,eur_minor_units')
     expect(csv).toContain('availability,finance,1,boolean')
+    expect(csv).toContain('availability,commerce,0,boolean')
+    expect(csv).toContain('commerce_current,visible_actions,0,records')
     expect(csv).toContain('money_30d,gross,10000,usd_minor_units')
     expect(csv).toContain('action_queue,disputes,2,critical')
     expect(csv).not.toContain('24000')

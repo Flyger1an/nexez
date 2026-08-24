@@ -4,8 +4,8 @@ import {
   ArrowRight,
   Bot,
   CircleCheck,
+  ClipboardList,
   Download,
-  Handshake,
   ShieldAlert,
   Wallet,
 } from 'lucide-react'
@@ -18,6 +18,8 @@ import {
 
 export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnapshot }) {
   const completeSnapshot = Object.values(snapshot.availability).every(Boolean)
+    && snapshot.commerce.complete
+    && !snapshot.commerce.isTruncated
   const statusCopy = snapshot.status === 'critical'
     ? 'Urgent items need review'
     : snapshot.status === 'incomplete'
@@ -32,6 +34,16 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
     : snapshot.status === 'attention'
       ? 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]'
       : 'border-[var(--ready)]/30 bg-[var(--ready)]/10 text-[var(--ready)]'
+  const commerceDetail = snapshot.availability.commerce
+    ? [
+        `${snapshot.commerce.urgentActions.toLocaleString()} urgent`,
+        snapshot.availability.negotiations
+          ? `${snapshot.deals.needsAction.toLocaleString()} negotiated`
+          : 'negotiation total unavailable',
+        snapshot.commerce.complete ? null : 'partial source coverage',
+        snapshot.commerce.isTruncated ? 'bounded view, more may exist' : null,
+      ].filter(Boolean).join(' · ')
+    : 'The cross-rail action queue is temporarily unavailable.'
 
   function exportSnapshot() {
     const blob = new Blob([commercialSnapshotCsv(snapshot)], { type: 'text/csv;charset=utf-8' })
@@ -53,10 +65,10 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--signal)]">Commercial command center</p>
           <h2 id="commercial-command-center-title" className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white md:text-3xl">
-            Demand, deals, and money in one view
+            Demand, operations, and money in one view
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
-            Today&apos;s verified demand, the live negotiation queue, and 30-day settled sales stay distinct and link back to their full reports.
+            Today&apos;s verified demand, the cross-rail action queue, and 30-day settled sales stay distinct and link back to their native records.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -90,15 +102,13 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
           accent="signal"
         />
         <CommandCard
-          href="/dashboard/negotiations?queue=needs_action"
-          eyebrow="Deals · current"
-          icon={<Handshake className="size-4" />}
-          value={snapshot.availability.negotiations ? snapshot.deals.needsAction.toLocaleString() : '—'}
-          label="need seller action"
-          detail={snapshot.availability.negotiations
-            ? `${snapshot.deals.waiting.toLocaleString()} waiting · ${snapshot.deals.staleOpen.toLocaleString()} stale`
-            : 'Negotiation totals are temporarily unavailable.'}
-          accent={snapshot.deals.needsAction ? 'amber' : 'ready'}
+          href="/dashboard/commerce"
+          eyebrow="Commerce · current"
+          icon={<ClipboardList className="size-4" />}
+          value={snapshot.availability.commerce ? snapshot.commerce.visibleActions.toLocaleString() : '—'}
+          label="visible records need action"
+          detail={commerceDetail}
+          accent={snapshot.commerce.urgentActions ? 'critical' : snapshot.commerce.visibleActions ? 'amber' : 'ready'}
         />
         <CommandCard
           href="/dashboard/finance?range=30d"
@@ -130,14 +140,24 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {snapshot.actions.map((action) => <ActionCard key={action.id} action={action} />)}
           </div>
-        ) : (
+        ) : completeSnapshot ? (
           <div className="mt-4 flex min-h-24 items-center gap-3 rounded-xl border border-[var(--ready)]/20 bg-[var(--ready)]/[0.06] p-4">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--ready)]/10 text-[var(--ready)]">
-              <CircleCheck className="size-5" />
+              <CircleCheck className="size-5" aria-hidden="true" />
             </span>
             <div>
               <p className="font-medium text-white">You&apos;re caught up</p>
-              <p className="mt-1 text-sm text-zinc-400">No deal, money, or listing-readiness exception needs attention right now.</p>
+              <p className="mt-1 text-sm text-zinc-400">No commerce, money, or listing-readiness exception needs attention right now.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 flex min-h-24 items-center gap-3 rounded-xl border border-[var(--amber)]/20 bg-[var(--amber)]/[0.06] p-4">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--amber)]/10 text-[var(--amber)]">
+              <ShieldAlert className="size-5" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="font-medium text-white">No actions surfaced from the available sources</p>
+              <p className="mt-1 text-sm text-zinc-400">One or more live sources could not be checked, so this is not an all-clear state.</p>
             </div>
           </div>
         )}
@@ -172,9 +192,15 @@ function CommandCard({
   value: string
   label: string
   detail: string
-  accent: 'signal' | 'amber' | 'ready'
+  accent: 'signal' | 'amber' | 'ready' | 'critical'
 }) {
-  const color = accent === 'signal' ? 'text-[var(--signal)]' : accent === 'amber' ? 'text-[var(--amber)]' : 'text-[var(--ready)]'
+  const color = accent === 'signal'
+    ? 'text-[var(--signal)]'
+    : accent === 'amber'
+      ? 'text-[var(--amber)]'
+      : accent === 'critical'
+        ? 'text-red-300'
+        : 'text-[var(--ready)]'
   return (
     <a href={href} className="group min-h-48 bg-[var(--bg-2)] p-5 transition-shadow hover:shadow-[inset_0_0_0_1px_var(--line-hi)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--signal)] md:p-6">
       <div className={`flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] ${color}`}>{icon}{eyebrow}</div>

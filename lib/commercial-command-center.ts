@@ -5,7 +5,18 @@ import type { OwnerAnalyticsRollup } from './server/analytics-rollup'
 export type CommercialActionTone = 'critical' | 'attention' | 'accuracy' | 'growth'
 
 export type CommercialAction = {
-  id: 'disputes' | 'buyer_requests' | 'stale_holds' | 'negotiations' | 'estimated_economics' | 'readiness'
+  id:
+    | 'disputes'
+    | 'buyer_requests'
+    | 'stale_holds'
+    | 'negotiations'
+    | 'commerce_payment_dispute'
+    | 'commerce_refund_request'
+    | 'commerce_problem_report'
+    | 'commerce_fulfillment'
+    | 'commerce_negotiation'
+    | 'estimated_economics'
+    | 'readiness'
   label: string
   detail: string
   count: number
@@ -27,6 +38,7 @@ export type CommercialCommandCenter = {
     analytics: boolean
     negotiations: boolean
     finance: boolean
+    commerce: boolean
   }
   demand: {
     aiVisits: number
@@ -41,16 +53,41 @@ export type CommercialCommandCenter = {
     staleOpen: number
     disputed: number
   }
+  commerce: {
+    visibleActions: number
+    urgentActions: number
+    isTruncated: boolean
+    complete: boolean
+  }
   money: CommercialMoneyRow[]
   primaryMoney: CommercialMoneyRow
   actions: CommercialAction[]
   status: 'ready' | 'attention' | 'critical' | 'incomplete'
 }
 
+export type CommercialCommerceInput = {
+  records: Array<{
+    id: string
+    href: string
+    railLabel: string
+    offerName: string
+    actionLabel: string
+    actions: Array<{
+      key: 'payment_dispute' | 'refund_request' | 'problem_report' | 'fulfillment' | 'negotiation'
+      priority: number
+      urgent: boolean
+    }>
+  }>
+  urgentCount: number
+  isTruncated: boolean
+  complete: boolean
+}
+
 type CommercialCommandCenterInput = {
   analytics?: OwnerAnalyticsRollup | null
   negotiations?: NegotiationRollup | null
   finance?: FinanceRollup | null
+  commerce?: CommercialCommerceInput | null
   readinessAlerts?: number
 }
 
@@ -66,6 +103,7 @@ export function buildCommercialCommandCenter({
   analytics,
   negotiations,
   finance,
+  commerce,
   readinessAlerts = 0,
 }: CommercialCommandCenterInput): CommercialCommandCenter {
   const moneyByCurrency = new Map<string, CommercialMoneyRow>()
@@ -102,7 +140,9 @@ export function buildCommercialCommandCenter({
     : negotiations?.counts.disputed ?? 0
   const actions: CommercialAction[] = []
 
-  if (disputed > 0) {
+  if (commerce) {
+    actions.push(...commerceActionCategories(commerce))
+  } else if (disputed > 0) {
     actions.push({
       id: 'disputes',
       label: `${disputed} open ${disputed === 1 ? 'dispute' : 'disputes'}`,
@@ -113,7 +153,7 @@ export function buildCommercialCommandCenter({
       tone: 'critical',
     })
   }
-  if ((operations?.openRequests ?? 0) > 0) {
+  if (!commerce && (operations?.openRequests ?? 0) > 0) {
     const count = operations?.openRequests ?? 0
     actions.push({
       id: 'buyer_requests',
@@ -125,7 +165,7 @@ export function buildCommercialCommandCenter({
       tone: 'attention',
     })
   }
-  if ((operations?.staleHeldNegotiations ?? 0) > 0) {
+  if (!commerce && (operations?.staleHeldNegotiations ?? 0) > 0) {
     const count = operations?.staleHeldNegotiations ?? 0
     actions.push({
       id: 'stale_holds',
@@ -137,7 +177,7 @@ export function buildCommercialCommandCenter({
       tone: 'critical',
     })
   }
-  if ((negotiations?.counts.needsAction ?? 0) > 0) {
+  if (!commerce && (negotiations?.counts.needsAction ?? 0) > 0) {
     const count = negotiations?.counts.needsAction ?? 0
     actions.push({
       id: 'negotiations',
@@ -175,11 +215,32 @@ export function buildCommercialCommandCenter({
     })
   }
 
+  const status: CommercialCommandCenter['status'] = commerce
+    ? commerce.urgentCount > 0
+      ? 'critical'
+      : !analytics
+        || !negotiations
+        || !finance
+        || !commerce.complete
+        || (commerce.isTruncated && commerce.records.length === 0)
+        ? 'incomplete'
+        : actions.length > 0
+          ? 'attention'
+          : 'ready'
+    : disputed > 0 || (operations?.staleHeldNegotiations ?? 0) > 0
+      ? 'critical'
+      : !analytics || !negotiations || !finance
+        ? 'incomplete'
+        : actions.length > 0
+          ? 'attention'
+          : 'ready'
+
   return {
     availability: {
       analytics: Boolean(analytics),
       negotiations: Boolean(negotiations),
       finance: Boolean(finance),
+      commerce: Boolean(commerce),
     },
     demand: {
       aiVisits: counts?.aiVisits ?? 0,
@@ -194,16 +255,16 @@ export function buildCommercialCommandCenter({
       staleOpen: negotiations?.counts.staleOpen ?? 0,
       disputed,
     },
+    commerce: {
+      visibleActions: commerce?.records.length ?? 0,
+      urgentActions: commerce?.urgentCount ?? 0,
+      isTruncated: commerce?.isTruncated ?? false,
+      complete: commerce?.complete ?? false,
+    },
     money,
     primaryMoney,
     actions,
-    status: disputed > 0 || (operations?.staleHeldNegotiations ?? 0) > 0
-      ? 'critical'
-      : !analytics || !negotiations || !finance
-        ? 'incomplete'
-      : actions.length > 0
-        ? 'attention'
-        : 'ready',
+    status,
   }
 }
 
@@ -213,6 +274,7 @@ export function commercialSnapshotCsv(snapshot: CommercialCommandCenter) {
     ['availability', 'analytics', snapshot.availability.analytics ? 1 : 0, 'boolean'],
     ['availability', 'negotiations', snapshot.availability.negotiations ? 1 : 0, 'boolean'],
     ['availability', 'finance', snapshot.availability.finance ? 1 : 0, 'boolean'],
+    ['availability', 'commerce', snapshot.availability.commerce ? 1 : 0, 'boolean'],
     ['demand_today', 'ai_visits', snapshot.demand.aiVisits, 'visits'],
     ['demand_today', 'discovery_clicks', snapshot.demand.discoveryClicks, 'clicks'],
     ['demand_today', 'checkout_starts', snapshot.demand.checkoutStarts, 'starts'],
@@ -220,6 +282,10 @@ export function commercialSnapshotCsv(snapshot: CommercialCommandCenter) {
     ['deals_current', 'needs_action', snapshot.deals.needsAction, 'deals'],
     ['deals_current', 'waiting', snapshot.deals.waiting, 'deals'],
     ['deals_current', 'stale_open', snapshot.deals.staleOpen, 'deals'],
+    ['commerce_current', 'visible_actions', snapshot.commerce.visibleActions, 'records'],
+    ['commerce_current', 'urgent_actions', snapshot.commerce.urgentActions, 'records'],
+    ['commerce_current', 'bounded', snapshot.commerce.isTruncated ? 1 : 0, 'boolean'],
+    ['commerce_current', 'source_complete', snapshot.commerce.complete ? 1 : 0, 'boolean'],
   ]
 
   for (const row of snapshot.money) {
@@ -233,6 +299,97 @@ export function commercialSnapshotCsv(snapshot: CommercialCommandCenter) {
   }
 
   return rows.map((row) => row.map(csvCell).join(',')).join('\n')
+}
+
+const COMMERCE_ACTION_COPY: Record<
+  CommercialCommerceInput['records'][number]['actions'][number]['key'],
+  {
+    singular: string
+    plural: string
+    id: CommercialAction['id']
+    tone: CommercialActionTone
+  }
+> = {
+  payment_dispute: {
+    singular: 'payment dispute',
+    plural: 'payment disputes',
+    id: 'commerce_payment_dispute',
+    tone: 'critical',
+  },
+  refund_request: {
+    singular: 'refund request',
+    plural: 'refund requests',
+    id: 'commerce_refund_request',
+    tone: 'attention',
+  },
+  problem_report: {
+    singular: 'buyer issue',
+    plural: 'buyer issues',
+    id: 'commerce_problem_report',
+    tone: 'attention',
+  },
+  fulfillment: {
+    singular: 'fulfillment action',
+    plural: 'fulfillment actions',
+    id: 'commerce_fulfillment',
+    tone: 'attention',
+  },
+  negotiation: {
+    singular: 'negotiation action',
+    plural: 'negotiation actions',
+    id: 'commerce_negotiation',
+    tone: 'attention',
+  },
+}
+
+function commerceActionCategories(commerce: CommercialCommerceInput): CommercialAction[] {
+  const categories = new Map<
+    CommercialCommerceInput['records'][number]['actions'][number]['key'],
+    {
+      priority: number
+      urgent: boolean
+      records: Map<string, CommercialCommerceInput['records'][number]>
+    }
+  >()
+
+  for (const record of commerce.records) {
+    for (const action of record.actions) {
+      const category = categories.get(action.key) ?? {
+        priority: action.priority,
+        urgent: action.urgent,
+        records: new Map(),
+      }
+      category.priority = Math.max(category.priority, action.priority)
+      category.urgent ||= action.urgent
+      category.records.set(record.id, record)
+      categories.set(action.key, category)
+    }
+  }
+
+  return [...categories.entries()]
+    .sort((left, right) => {
+      if (left[1].urgent !== right[1].urgent) return left[1].urgent ? -1 : 1
+      if (right[1].priority !== left[1].priority) return right[1].priority - left[1].priority
+      return left[0].localeCompare(right[0])
+    })
+    .slice(0, 3)
+    .map(([key, category]) => {
+      const copy = COMMERCE_ACTION_COPY[key]
+      const records = [...category.records.values()]
+      const count = records.length
+      const onlyRecord = count === 1 ? records[0] : null
+      return {
+        id: copy.id,
+        label: `${count} ${count === 1 ? copy.singular : copy.plural}`,
+        detail: onlyRecord
+          ? `${onlyRecord.offerName} on ${onlyRecord.railLabel.toLowerCase()}.`
+          : `${count} distinct commerce records currently surface this action.`,
+        count,
+        href: onlyRecord?.href ?? '/dashboard/commerce',
+        cta: onlyRecord?.actionLabel ?? 'Open Commerce',
+        tone: category.urgent ? 'critical' : copy.tone,
+      }
+    })
 }
 
 function normalizeCurrency(value: string) {

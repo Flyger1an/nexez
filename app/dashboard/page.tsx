@@ -12,6 +12,7 @@ import { loadOwnerAnalyticsRollup } from '../../lib/server/analytics-rollup'
 import { loadNegotiationRollup } from '../../lib/negotiation-report'
 import { loadFinanceRollup } from '../../lib/finance-report'
 import { getCommercialPlanDefaultCommission, getOwnerBillingState, getOwnerCommission } from '../../lib/server/plan'
+import { loadDashboardCommerceActions } from '../../lib/server/dashboard-commerce-actions'
 
 // Server component: authenticates + fetches the dashboard's data in one parallel
 // wave server-side, then hands it to the client island as initial state - so the
@@ -51,7 +52,7 @@ export default async function DashboardPage() {
     fallbackCommissionBps: commission.basisPoints,
   }))
 
-  const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes, growthState, analyticsResult, negotiationReport, financeReport] = await Promise.all([
+  const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes, growthState, analyticsResult, negotiationReport, financeReport, commerceActionResult] = await Promise.all([
     supabase.from('pages').select(OWNER_PAGE_SELECT).eq('owner_id', user.id).order('created_at', { ascending: false }).returns<AgentPage[]>(),
     supabase.from('checkout_events').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100).returns<CheckoutEvent[]>(),
     supabase.from('agent_visits').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1000).returns<AgentVisit[]>(),
@@ -62,6 +63,7 @@ export default async function DashboardPage() {
     loadOwnerAnalyticsRollup(supabase, { from: new Date(todayCutoff) }),
     loadNegotiationRollup(supabase),
     financePromise,
+    loadDashboardCommerceActions(supabase, user.id),
   ])
 
   // Fall back to the basic select if newer optional columns aren't migrated yet.
@@ -103,10 +105,28 @@ export default async function DashboardPage() {
     analyticsRollup: analyticsResult.data,
     negotiationRollup: negotiationReport.data,
     financeRollup: financeReport.data,
+    commerceActions: {
+      records: commerceActionResult.actions.map((action) => ({
+        id: action.key,
+        href: action.record.href,
+        railLabel: action.record.railLabel,
+        offerName: action.record.offerName,
+        actionLabel: action.record.actionLabel,
+        actions: action.actions.map((item) => ({
+          key: item.key,
+          priority: item.priority,
+          urgent: item.urgent,
+        })),
+      })),
+      urgentCount: commerceActionResult.urgentCount,
+      isTruncated: commerceActionResult.isTruncated,
+      complete: commerceActionResult.issues.length === 0,
+    },
     commercialDataIssues: [
       analyticsResult.error ? 'today analytics' : null,
       negotiationReport.error ? 'negotiation operations' : null,
       financeReport.error ? '30-day finance' : null,
+      commerceActionResult.issues.length ? 'commerce action queue' : null,
     ].filter((issue): issue is string => Boolean(issue)),
     // interview_completed (intake spec §8): any interview that reached handoff.
     interviewCompleted: intakeRes.error ? false : (intakeRes.count ?? 0) > 0,
