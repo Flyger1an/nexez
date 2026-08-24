@@ -38,6 +38,9 @@ export type LaunchSourceAvailability = {
   stripeWebhooks: boolean
   checkoutEvents: boolean
   orders: boolean
+  orderEvents: boolean
+  orderFulfillments: boolean
+  orderRequests: boolean
   negotiations: boolean
   billing: boolean
   shopify: boolean
@@ -68,6 +71,11 @@ export type LaunchMetrics = {
   paidOrders: number
   refundedOrders: number
   disputedOrders: number
+  directPaymentLifecycles: number
+  directFulfillmentLifecycles: number
+  directIssueResolutionLifecycles: number
+  directRefundLifecycles: number
+  directOperationalLifecycles: number
   protocolOrders: number
   sandboxProtocolOrders: number
   acpProtocolOrders: number
@@ -113,6 +121,41 @@ export type AdvancedCommerceOrderEvidence = {
   staged_settlement_agreement_id: string | null
   staged_settlement_obligation_id: string | null
 }
+
+export type DirectOrderEvidence = {
+  id: string
+  status: string
+  channel: string | null
+  stripe_livemode: boolean | null
+  amount_cents: number
+  refunded_cents: number | null
+}
+
+export type DirectOrderEventEvidence = {
+  order_id: string
+  event_type: string
+  metadata: Record<string, unknown>
+}
+
+export type DirectOrderFulfillmentEvidence = {
+  order_id: string
+  status: string
+}
+
+export type DirectOrderRequestEvidence = {
+  id: string
+  order_id: string
+  kind: string
+  status: string
+}
+
+export type DirectOrderLifecycleEvidence = Pick<LaunchMetrics,
+  | 'directPaymentLifecycles'
+  | 'directFulfillmentLifecycles'
+  | 'directIssueResolutionLifecycles'
+  | 'directRefundLifecycles'
+  | 'directOperationalLifecycles'
+>
 
 export type ResourcePoolEvidence = {
   id: string
@@ -231,6 +274,100 @@ export function isSettledProtocolOrder(order: {
   return order.stripe_livemode != null
     && (order.channel === 'acp' || order.channel === 'ucp')
     && SETTLED_ORDER_STATUSES.has(order.status)
+}
+
+export function deriveDirectOrderLifecycleEvidence(input: {
+  orders: DirectOrderEvidence[]
+  events: DirectOrderEventEvidence[]
+  fulfillments: DirectOrderFulfillmentEvidence[]
+  requests: DirectOrderRequestEvidence[]
+}): DirectOrderLifecycleEvidence {
+  const eventsByOrder = groupBy(input.events, (event) => event.order_id)
+  const fulfillmentsByOrder = new Map(input.fulfillments.map((row) => [row.order_id, row]))
+  const requestsByOrder = groupBy(input.requests, (request) => request.order_id)
+  let directPaymentLifecycles = 0
+  let directFulfillmentLifecycles = 0
+  let directIssueResolutionLifecycles = 0
+  let directRefundLifecycles = 0
+  let directOperationalLifecycles = 0
+
+  for (const order of input.orders) {
+    if (
+      order.stripe_livemode !== true
+      || (order.channel != null && order.channel !== 'agent_checkout')
+      || !Number.isInteger(order.amount_cents)
+      || order.amount_cents <= 0
+    ) continue
+
+    const events = eventsByOrder.get(order.id) ?? []
+    const paymentProven = events.some((event) => event.event_type === 'order_recorded')
+      && events.some((event) => (
+        event.event_type === 'payment_confirmed'
+        && event.metadata.livemode === true
+        && event.metadata.amountCents === order.amount_cents
+      ))
+    if (paymentProven) directPaymentLifecycles += 1
+
+    const fulfillmentProven = fulfillmentsByOrder.get(order.id)?.status === 'fulfilled'
+      && events.some((event) => event.event_type === 'fulfillment_updated' && event.metadata.toStatus === 'fulfilled')
+    if (paymentProven && fulfillmentProven) directFulfillmentLifecycles += 1
+
+    const requests = requestsByOrder.get(order.id) ?? []
+    const issueResolutionProven = requests.some((request) => (
+      request.kind === 'problem_report'
+      && request.status === 'resolved'
+      && events.some((event) => (
+        event.event_type === 'buyer_request_received'
+        && event.metadata.requestId === request.id
+        && event.metadata.kind === request.kind
+      ))
+      && events.some((event) => (
+        event.event_type === 'buyer_request_updated'
+        && event.metadata.requestId === request.id
+        && event.metadata.status === 'resolved'
+      ))
+    ))
+    if (paymentProven && issueResolutionProven) directIssueResolutionLifecycles += 1
+
+    const refundTotals = events
+      .filter((event) => event.event_type === 'refund_recorded')
+      .map((event) => ({
+        total: evidenceNumber(event.metadata.refundedCents),
+        fully: event.metadata.fullyRefunded === true,
+      }))
+      .filter((event): event is { total: number; fully: boolean } => event.total != null)
+    const refundProven = order.status === 'refunded'
+      && Number(order.refunded_cents) >= order.amount_cents
+      && refundTotals.some((event) => event.total > 0 && event.total < order.amount_cents)
+      && refundTotals.some((event) => event.fully && event.total >= order.amount_cents)
+      && new Set(refundTotals.map((event) => event.total)).size >= 2
+    if (paymentProven && refundProven) directRefundLifecycles += 1
+
+    if (paymentProven && fulfillmentProven && issueResolutionProven && refundProven) {
+      directOperationalLifecycles += 1
+    }
+  }
+
+  return {
+    directPaymentLifecycles,
+    directFulfillmentLifecycles,
+    directIssueResolutionLifecycles,
+    directRefundLifecycles,
+    directOperationalLifecycles,
+  }
+}
+
+function groupBy<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
+  const grouped = new Map<string, T[]>()
+  for (const row of rows) {
+    const id = key(row)
+    grouped.set(id, [...(grouped.get(id) ?? []), row])
+  }
+  return grouped
+}
+
+function evidenceNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 export function deriveAdvancedCommerceEvidence(input: {
@@ -609,8 +746,10 @@ export function buildCertificationChecks(
   configuration: LaunchCheck[],
 ): LaunchCheck[] {
   const configStatus = (id: string) => configuration.find((check) => check.id === id)?.status ?? 'unknown'
-  const paymentEvidence = sources.orders && metrics.directOrders > 0
-  const refundEvidence = sources.orders && sources.negotiations && (metrics.refundedOrders + metrics.refundedNegotiations > 0)
+  const directEvidenceAvailable = sources.orders && sources.orderEvents
+  const operationsEvidenceAvailable = directEvidenceAvailable && sources.orderFulfillments && sources.orderRequests
+  const paymentEvidence = directEvidenceAvailable && metrics.directPaymentLifecycles > 0
+  const refundEvidence = directEvidenceAvailable && metrics.directRefundLifecycles > 0
   const escrowEvidence = sources.negotiations && metrics.paymentBackedNegotiations > 0
 
   return [
@@ -644,12 +783,27 @@ export function buildCertificationChecks(
       id: 'cert-direct-checkout',
       label: 'Direct checkout lifecycle',
       detail: 'A real low-value order must settle through the seller account and persist in the durable order ledger.',
-      evidence: sources.orders
-        ? `${metrics.directOrders} direct order records are available; ${metrics.paidOrders} orders currently remain paid across all channels.`
-        : 'Order evidence is unavailable.',
-      status: !sources.orders ? 'unknown' : paymentEvidence ? 'ready' : 'attention',
+      evidence: directEvidenceAvailable
+        ? `${metrics.directPaymentLifecycles} live direct orders contain linked order-recorded and Stripe-confirmed payment events.`
+        : 'Direct order or activity evidence is unavailable.',
+      status: !directEvidenceAvailable ? 'unknown' : paymentEvidence ? 'ready' : 'attention',
       required: true,
       action: 'Complete one low-value live checkout and confirm the receipt, fee, order portal, and seller ledger.',
+    },
+    {
+      id: 'cert-order-operations',
+      label: 'Direct order operations lifecycle',
+      detail: 'One live direct order must preserve payment, fulfilled work, a resolved buyer problem report, and refund evidence on the same lineage.',
+      evidence: operationsEvidenceAvailable
+        ? `${metrics.directOperationalLifecycles} complete lineages; ${metrics.directFulfillmentLifecycles} fulfilled; ${metrics.directIssueResolutionLifecycles} with resolved buyer issues.`
+        : 'Order activity, fulfillment, or buyer-request evidence is unavailable.',
+      status: !operationsEvidenceAvailable
+        ? 'unknown'
+        : metrics.directOperationalLifecycles > 0
+          ? 'ready'
+          : 'attention',
+      required: true,
+      action: 'On one certification order, mark fulfillment complete, resolve a buyer problem report, then complete the partial and full refund proof.',
     },
     {
       id: 'cert-escrow',
@@ -665,11 +819,11 @@ export function buildCertificationChecks(
     {
       id: 'cert-refund',
       label: 'Partial and full refund lifecycle',
-      detail: 'Refund evidence must prove the refundable remainder, fee reversal, webhook reconciliation, and buyer notification.',
-      evidence: sources.orders && sources.negotiations
-        ? `${metrics.refundedOrders + metrics.refundedNegotiations} durable records contain refund evidence.`
-        : 'Refund evidence is unavailable.',
-      status: !sources.orders || !sources.negotiations ? 'unknown' : refundEvidence ? 'ready' : 'attention',
+      detail: 'A direct order must contain distinct partial and full cumulative refund events; fee reversal and buyer notification remain owner-confirmed proof.',
+      evidence: directEvidenceAvailable
+        ? `${metrics.directRefundLifecycles} live direct orders prove a partial refund followed by the full cumulative total.`
+        : 'Direct order or activity evidence is unavailable.',
+      status: !directEvidenceAvailable ? 'unknown' : refundEvidence ? 'ready' : 'attention',
       required: true,
       action: 'Partially refund a captured certification order, verify the remainder, then finish the refund and confirm both ledgers.',
     },

@@ -4,6 +4,7 @@ import {
   buildConfigurationChecks,
   buildMarketplaceCurationCheck,
   buildOperationalChecks,
+  deriveDirectOrderLifecycleEvidence,
   deriveAdvancedCommerceEvidence,
   isSettledProtocolOrder,
   isStripeCatalogSyncEvent,
@@ -74,6 +75,11 @@ function metrics(overrides: Partial<LaunchMetrics> = {}): LaunchMetrics {
     paidOrders: 1,
     refundedOrders: 1,
     disputedOrders: 0,
+    directPaymentLifecycles: 1,
+    directFulfillmentLifecycles: 1,
+    directIssueResolutionLifecycles: 1,
+    directRefundLifecycles: 1,
+    directOperationalLifecycles: 1,
     protocolOrders: 1,
     sandboxProtocolOrders: 0,
     acpProtocolOrders: 1,
@@ -117,6 +123,9 @@ function sources(value = true): LaunchSourceAvailability {
     stripeWebhooks: value,
     checkoutEvents: value,
     orders: value,
+    orderEvents: value,
+    orderFulfillments: value,
+    orderRequests: value,
     negotiations: value,
     billing: value,
     shopify: value,
@@ -130,6 +139,74 @@ function sources(value = true): LaunchSourceAvailability {
     stagedSettlementObligations: value,
   }
 }
+
+describe('direct order lifecycle evidence', () => {
+  const order = {
+    id: 'order-1',
+    status: 'refunded',
+    channel: 'agent_checkout',
+    stripe_livemode: true,
+    amount_cents: 100,
+    refunded_cents: 100,
+  }
+  const events = [
+    { order_id: order.id, event_type: 'order_recorded', metadata: {} },
+    { order_id: order.id, event_type: 'payment_confirmed', metadata: { amountCents: 100, livemode: true } },
+    { order_id: order.id, event_type: 'fulfillment_updated', metadata: { toStatus: 'fulfilled' } },
+    { order_id: order.id, event_type: 'buyer_request_received', metadata: { requestId: 'request-1', kind: 'problem_report' } },
+    { order_id: order.id, event_type: 'buyer_request_updated', metadata: { requestId: 'request-1', status: 'resolved' } },
+    { order_id: order.id, event_type: 'refund_recorded', metadata: { refundedCents: 40, fullyRefunded: false } },
+    { order_id: order.id, event_type: 'refund_recorded', metadata: { refundedCents: 100, fullyRefunded: true } },
+  ]
+
+  it('proves every stage on one exact live direct order lineage', () => {
+    expect(deriveDirectOrderLifecycleEvidence({
+      orders: [order],
+      events,
+      fulfillments: [{ order_id: order.id, status: 'fulfilled' }],
+      requests: [{ id: 'request-1', order_id: order.id, kind: 'problem_report', status: 'resolved' }],
+    })).toEqual({
+      directPaymentLifecycles: 1,
+      directFulfillmentLifecycles: 1,
+      directIssueResolutionLifecycles: 1,
+      directRefundLifecycles: 1,
+      directOperationalLifecycles: 1,
+    })
+  })
+
+  it('does not combine stages from different orders or accept one full-refund snapshot as partial-refund proof', () => {
+    const splitEvents = events.map((event) => (
+      event.event_type.startsWith('buyer_request') ? { ...event, order_id: 'order-2' } : event
+    )).filter((event) => !(event.event_type === 'refund_recorded' && event.metadata.refundedCents === 40))
+    const result = deriveDirectOrderLifecycleEvidence({
+      orders: [order],
+      events: splitEvents,
+      fulfillments: [{ order_id: order.id, status: 'fulfilled' }],
+      requests: [{ id: 'request-1', order_id: order.id, kind: 'problem_report', status: 'resolved' }],
+    })
+
+    expect(result.directPaymentLifecycles).toBe(1)
+    expect(result.directRefundLifecycles).toBe(0)
+    expect(result.directIssueResolutionLifecycles).toBe(0)
+    expect(result.directOperationalLifecycles).toBe(0)
+  })
+
+  it('rejects sandbox and non-direct order rails', () => {
+    const result = deriveDirectOrderLifecycleEvidence({
+      orders: [
+        { ...order, id: 'sandbox', stripe_livemode: false },
+        { ...order, id: 'protocol', channel: 'acp' },
+        { ...order, id: 'staged', channel: 'staged_settlement' },
+      ],
+      events,
+      fulfillments: [{ order_id: order.id, status: 'fulfilled' }],
+      requests: [{ id: 'request-1', order_id: order.id, kind: 'problem_report', status: 'resolved' }],
+    })
+
+    expect(result.directPaymentLifecycles).toBe(0)
+    expect(result.directOperationalLifecycles).toBe(0)
+  })
+})
 
 function evidenceOrder(overrides: Partial<AdvancedCommerceOrderEvidence> = {}): AdvancedCommerceOrderEvidence {
   return {
@@ -369,20 +446,31 @@ describe('Commerce certification and summary', () => {
     const configChecks = buildConfigurationChecks(configuration())
     const checks = buildCertificationChecks(metrics(), sources(), configChecks)
     expect(checks.find((check) => check.id === 'cert-direct-checkout')?.status).toBe('ready')
+    expect(checks.find((check) => check.id === 'cert-order-operations')?.status).toBe('ready')
     expect(checks.find((check) => check.id === 'cert-refund')?.status).toBe('ready')
     expect(checks.find((check) => check.id === 'cert-approval')?.status).toBe('ready')
   })
 
-  it('keeps missing refund and subscription evidence visible instead of declaring success', () => {
+  it('keeps coarse historical refund counters from satisfying the exact direct refund gate', () => {
     const configChecks = buildConfigurationChecks(configuration())
     const checks = buildCertificationChecks(metrics({
-      refundedOrders: 0,
-      refundedNegotiations: 0,
+      directRefundLifecycles: 0,
+      directOperationalLifecycles: 0,
       activeSubscriptions: 0,
       subscriptionRecords: 0,
     }), sources(), configChecks)
     expect(checks.find((check) => check.id === 'cert-refund')?.status).toBe('attention')
     expect(checks.find((check) => check.id === 'cert-subscription')?.status).toBe('attention')
+  })
+
+  it('reports direct order operations as unknown when a required source is unavailable', () => {
+    const configChecks = buildConfigurationChecks(configuration())
+    const unavailable = sources()
+    unavailable.orderRequests = false
+    const checks = buildCertificationChecks(metrics(), unavailable, configChecks)
+
+    expect(checks.find((check) => check.id === 'cert-order-operations')?.status).toBe('unknown')
+    expect(checks.find((check) => check.id === 'cert-direct-checkout')?.status).toBe('ready')
   })
 
   it('requires both webhook delivery and a linked-offer audit for price-sync proof', () => {
@@ -397,6 +485,7 @@ describe('Commerce certification and summary', () => {
     const configChecks = buildConfigurationChecks(configuration())
     const checks = buildCertificationChecks(metrics({
       directOrders: 0,
+      directPaymentLifecycles: 0,
       protocolOrders: 1,
       completedNegotiations: 2,
       paymentBackedNegotiations: 0,
@@ -409,6 +498,7 @@ describe('Commerce certification and summary', () => {
     const configChecks = buildConfigurationChecks(configuration())
     const checks = buildCertificationChecks(metrics({
       directOrders: 0,
+      directPaymentLifecycles: 0,
       protocolOrders: 0,
       sandboxProtocolOrders: 1,
       acpProtocolOrders: 1,
