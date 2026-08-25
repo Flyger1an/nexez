@@ -10,6 +10,9 @@ export const INTEGRATION_PROVIDERS = [
   'shopify',
   'acuity',
   'square',
+  'google_calendar',
+  'woocommerce',
+  'servicem8',
 ] as const
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number]
 

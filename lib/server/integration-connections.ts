@@ -1,6 +1,7 @@
 import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { getStripeConnectPayoutReadiness } from '../stripe-connect-readiness'
+import { listMerchantConnectorRows } from './merchant-connectors'
 
 // The per-listing integration connection state that drives the unified
 // Integrations panel. Service-role read; NEVER returns any credential value -
@@ -8,7 +9,7 @@ import { getStripeConnectPayoutReadiness } from '../stripe-connect-readiness'
 
 export type IntegrationConnectionKind = 'token' | 'oauth' | 'connect'
 export type IntegrationConnectionState = {
-  provider: 'calendly' | 'shopify' | 'square' | 'acuity' | 'stripe'
+  provider: 'calendly' | 'shopify' | 'square' | 'acuity' | 'stripe' | 'google_calendar' | 'woocommerce' | 'servicem8'
   label: string
   connected: boolean
   /** 'token' = a stored per-page credential (connect/disconnect/sync here);
@@ -21,6 +22,7 @@ export type IntegrationConnectionState = {
   lastSyncedAt: string | null
   syncStatus?: 'idle' | 'pending' | 'attention'
   syncError?: string | null
+  capabilities?: string[]
 }
 
 /**
@@ -40,7 +42,7 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
     ? shopifyInstallQuery.eq('owner_id', ownerId)
     : shopifyInstallQuery.is('owner_id', null)
 
-  const [secretsResult, shopifyResult, billingResult] = await Promise.all([
+  const [secretsResult, shopifyResult, billingResult, managedConnections] = await Promise.all([
     admin
       .from('page_secrets')
       .select('calendly_pat_encrypted, shopify_credentials_encrypted, square_credentials_encrypted, acuity_credentials_encrypted, calendly_synced_at')
@@ -61,11 +63,34 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
             stripe_connect_payouts_enabled: boolean | null
           }>()
       : Promise.resolve({ data: null }),
+    listMerchantConnectorRows(admin, pageId),
   ])
   const secrets = secretsResult.data
   const shopifyInstall = shopifyResult.data
   const billing = billingResult.data
   const stripeConnected = getStripeConnectPayoutReadiness(billing).ready
+  const managed = new Map(managedConnections.map((connection) => [connection.provider, connection]))
+  const square = managed.get('square')
+
+  const managedState = (
+    provider: 'google_calendar' | 'woocommerce' | 'servicem8',
+    label: string,
+    canSync: boolean,
+  ): IntegrationConnectionState => {
+    const connection = managed.get(provider)
+    return {
+      provider,
+      label,
+      connected: Boolean(connection && connection.status !== 'revoked'),
+      kind: 'oauth',
+      autoSync: false,
+      canSync,
+      lastSyncedAt: connection?.last_synced_at ?? null,
+      syncStatus: connection?.status === 'attention' ? 'attention' : 'idle',
+      syncError: connection?.last_error ?? null,
+      capabilities: connection?.capabilities ?? [],
+    }
+  }
 
   return [
     { provider: 'calendly', label: 'Calendly', connected: Boolean(secrets?.calendly_pat_encrypted), kind: 'token', autoSync: true, canSync: true, lastSyncedAt: secrets?.calendly_synced_at ?? null },
@@ -84,8 +109,22 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
           : 'idle',
       syncError: shopifyInstall?.catalog_sync_error ?? null,
     },
-    { provider: 'square', label: 'Square', connected: Boolean(secrets?.square_credentials_encrypted), kind: 'token', autoSync: false, canSync: true, lastSyncedAt: null },
+    {
+      provider: 'square',
+      label: 'Square',
+      connected: Boolean((square && square.status !== 'revoked') || secrets?.square_credentials_encrypted),
+      kind: square || !secrets?.square_credentials_encrypted ? 'oauth' : 'token',
+      autoSync: false,
+      canSync: true,
+      lastSyncedAt: square?.last_synced_at ?? null,
+      syncStatus: square?.status === 'attention' ? 'attention' : 'idle',
+      syncError: square?.last_error ?? null,
+      capabilities: square?.capabilities ?? [],
+    },
     { provider: 'acuity', label: 'Acuity', connected: Boolean(secrets?.acuity_credentials_encrypted), kind: 'token', autoSync: false, canSync: true, lastSyncedAt: null },
+    managedState('google_calendar', 'Google Calendar', false),
+    managedState('woocommerce', 'WooCommerce', true),
+    managedState('servicem8', 'ServiceM8', true),
     { provider: 'stripe', label: 'Stripe payouts', connected: stripeConnected, kind: 'connect', autoSync: false, canSync: false, lastSyncedAt: null },
   ]
 }

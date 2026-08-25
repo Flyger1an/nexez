@@ -100,7 +100,7 @@ describe('platform documentation source of truth', () => {
     expect(text('Traffic, intent, and action analytics')).toMatch(/30-day.*Pro/i)
     expect(text('Finance and immutable economics')).toMatch(/current-period.*Pro/i)
     expect(text('Commerce and catalog connections')).toMatch(/installed Shopify.*core.*Pro/i)
-    expect(text('Scheduling and availability connections')).toMatch(/Pro.*sample.*disconnect/i)
+    expect(text('Scheduling and availability connections')).toMatch(/Pro.*OAuth.*live free\/busy.*disconnect/i)
     expect(byName.get('Webhooks and freshness automation')?.availability).toBe('Plan-controlled')
   })
 

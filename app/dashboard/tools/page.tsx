@@ -326,12 +326,14 @@ export default function ToolsPage() {
               <li>• <span className="text-[var(--ready)]">Calendly</span> - event types, plus webhooks and signing secrets</li>
               <li>• <span className="text-[var(--signal)]">Stripe</span> - products, prices, and live price re-sync</li>
               <li>• <span className="text-[var(--signal)]">Shopify</span> - installed OAuth on every plan, or manual Admin credentials on Pro</li>
-              <li>• <span className="text-[var(--signal)]">Square</span> - bookings and payments for mobile, wellness, and home services</li>
+              <li>• <span className="text-[var(--signal)]">Square</span> - catalog and booking profiles through OAuth</li>
               <li>• <span className="text-[var(--amber)]">Acuity Scheduling</span> - appointment types for coaching, beauty, and wellness</li>
-              <li>• <span className="text-[var(--signal)]">Google Calendar</span> - sample availability windows (not connected or synced)</li>
+              <li>• <span className="text-[var(--signal)]">Google Calendar</span> - live free/busy-derived availability through OAuth</li>
+              <li>• <span className="text-[var(--signal)]">WooCommerce</span> - read-only products and order visibility</li>
+              <li>• <span className="text-[var(--ready)]">ServiceM8</span> - job templates and active job visibility through OAuth</li>
               <li>• CSV and website hybrid import</li>
             </ul>
-            <p className="mt-3 text-[10px] text-zinc-500">Connected providers can resync; Google samples and one-time imports remain explicitly labeled.</p>
+            <p className="mt-3 text-[10px] text-zinc-500">Connected providers can resync from each listing's Settings. One-time imports remain explicitly labeled.</p>
           </div>
 
           {/* Account-level outbound webhooks for Zapier, Make, and custom automations. */}

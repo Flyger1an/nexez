@@ -7,7 +7,9 @@ import { useCallback, useEffect, useState } from 'react'
 // re-entering the token until you disconnect. Replaces the token-prompt re-sync
 // scattered across the editor / Tools / legacy Settings section.
 
-type Provider = 'calendly' | 'shopify' | 'square' | 'acuity' | 'stripe'
+type Provider = 'calendly' | 'shopify' | 'square' | 'acuity' | 'stripe' | 'google_calendar' | 'woocommerce' | 'servicem8'
+type TokenProvider = 'calendly' | 'shopify' | 'square' | 'acuity'
+type ManagedProvider = 'square' | 'google_calendar' | 'woocommerce' | 'servicem8'
 type Kind = 'token' | 'oauth' | 'connect'
 type Connection = {
   provider: Provider
@@ -19,18 +21,22 @@ type Connection = {
   lastSyncedAt: string | null
   syncStatus?: 'idle' | 'pending' | 'attention'
   syncError?: string | null
+  capabilities?: string[]
 }
 
 const HELP: Record<Provider, string> = {
   calendly: 'Pull your event types in as bookable offers and keep availability in sync with your real calendar.',
   shopify: 'Install Nexez from Shopify on any plan, or use manually entered Admin API credentials on Pro.',
-  square: 'Import your Square catalog items as offers and re-sync when they change.',
+  square: 'Connect with Square OAuth, import catalog items, and preserve the live Square Appointments booking path.',
   acuity: 'Import your Acuity appointment types as bookable offers.',
   stripe: 'Receive agent-driven transaction revenue through Stripe Connect. Payout setup is available on every plan.',
+  google_calendar: 'Read live free/busy data through a narrow Google Calendar OAuth scope. Nexez does not read event details.',
+  woocommerce: 'Authorize a read-only WooCommerce key to sync published products, inventory state, and order access.',
+  servicem8: 'Connect ServiceM8 to turn active job templates into offers and verify live job access.',
 }
 
 // Fields collected to connect a token provider. Empty = uses the stored value.
-const CONNECT_FIELDS: Record<Exclude<Provider, 'stripe'>, { key: string; label: string; secret?: boolean }[]> = {
+const CONNECT_FIELDS: Record<TokenProvider, { key: string; label: string; secret?: boolean }[]> = {
   calendly: [{ key: 'token', label: 'Calendly Personal Access Token', secret: true }],
   shopify: [{ key: 'shop', label: 'your-store.myshopify.com' }, { key: 'token', label: 'Admin API access token', secret: true }],
   square: [{ key: 'accessToken', label: 'Square access token', secret: true }],
@@ -50,7 +56,7 @@ function timeAgo(iso: string | null): string | null {
 }
 
 // Build the POST /secrets body from the collected fields for a token provider.
-function connectBody(provider: Exclude<Provider, 'stripe'>, vals: string[]): Record<string, unknown> {
+function connectBody(provider: TokenProvider, vals: string[]): Record<string, unknown> {
   switch (provider) {
     case 'calendly':
       return { calendly_pat: vals[0] }
@@ -63,7 +69,7 @@ function connectBody(provider: Exclude<Provider, 'stripe'>, vals: string[]): Rec
   }
 }
 
-function clearBody(provider: Exclude<Provider, 'stripe'>): Record<string, unknown> {
+function clearBody(provider: TokenProvider): Record<string, unknown> {
   return provider === 'calendly' ? { calendly_pat: '' } : { [`${provider}_credentials`]: {} }
 }
 
@@ -92,7 +98,7 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
   const say = (m: string) => onMessage?.(m)
   const draftKey = (p: string, f: string) => `${p}:${f}`
 
-  async function connect(provider: Exclude<Provider, 'stripe'>) {
+  async function connect(provider: TokenProvider) {
     const fields = CONNECT_FIELDS[provider]
     const vals = fields.map((f) => (drafts[draftKey(provider, f.key)] ?? '').trim())
     if (vals.some((v) => !v)) return
@@ -123,7 +129,7 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
     }
   }
 
-  async function disconnect(provider: Exclude<Provider, 'stripe'>) {
+  async function disconnectToken(provider: TokenProvider) {
     setBusy(`${provider}:disconnect`)
     try {
       const res = await fetch(`/api/pages/${pageId}/secrets`, {
@@ -137,6 +143,24 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
         return
       }
       say('Disconnected. Reconnect anytime with a token.')
+      await load()
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function disconnectManaged(provider: ManagedProvider) {
+    setBusy(`${provider}:disconnect`)
+    try {
+      const res = await fetch(`/api/pages/${pageId}/integrations/${provider}/connection`, { method: 'DELETE' })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        say(json.error || `Could not disconnect ${provider}.`)
+        return
+      }
+      say(provider === 'servicem8'
+        ? 'Disconnected from Nexez. Disable the Nexez add-on in ServiceM8 to revoke provider access.'
+        : 'Disconnected. You can reconnect securely at any time.')
       await load()
     } finally {
       setBusy(null)
@@ -181,14 +205,15 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
         connection.canSync &&
         connection.syncStatus === 'attention',
     ) ??
-    connections.find((connection) => !connection.connected && connection.kind === 'token' && isPro)
+    connections.find((connection) => !connection.connected && (connection.kind === 'token' || connection.kind === 'oauth') && isPro)
 
   return (
     <div className="flex flex-col gap-3">
       {connections.map((c) => {
         const last = timeAgo(c.lastSyncedAt)
         const isBusy = busy?.startsWith(`${c.provider}:`)
-        const tokenProvider = c.kind === 'token' ? (c.provider as Exclude<Provider, 'stripe'>) : null
+        const tokenProvider = c.kind === 'token' ? (c.provider as TokenProvider) : null
+        const managedProvider = c.kind === 'oauth' && c.provider !== 'shopify' ? c.provider as ManagedProvider : null
         const isPriority = c.provider === priorityConnection?.provider
         const installedShopify = c.provider === 'shopify' && c.kind === 'oauth'
         const premiumConnectionPaused = c.kind !== 'connect' && c.connected && !isPro && !installedShopify
@@ -267,7 +292,19 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                   <button
                     type="button"
                     disabled={isBusy}
-                    onClick={() => disconnect(tokenProvider)}
+                    onClick={() => disconnectToken(tokenProvider)}
+                    aria-label={`Disconnect ${c.label}`}
+                    aria-busy={busy === `${c.provider}:disconnect` || undefined}
+                    className="btn-secondary shrink-0 px-3 py-1.5 text-sm disabled:opacity-40"
+                  >
+                    {busy === `${c.provider}:disconnect` ? 'Disconnecting…' : 'Disconnect'}
+                  </button>
+                ) : null}
+                {managedProvider ? (
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => disconnectManaged(managedProvider)}
                     aria-label={`Disconnect ${c.label}`}
                     aria-busy={busy === `${c.provider}:disconnect` || undefined}
                     className="btn-secondary shrink-0 px-3 py-1.5 text-sm disabled:opacity-40"
@@ -298,6 +335,41 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                 {!premiumConnectionPaused && c.syncStatus === 'attention' && c.syncError ? (
                   <span role="alert" className="w-full text-[10px] text-[var(--amber)]">{c.syncError}</span>
                 ) : null}
+              </div>
+            ) : c.kind === 'oauth' ? (
+              <div className="mt-2 flex flex-col gap-2">
+                {!isPro ? <div className="text-[10px] text-[var(--amber)]">Connecting live integrations is a Pro feature.</div> : null}
+                {c.provider === 'woocommerce' ? (
+                  <form action="/api/integrations/woocommerce/connect" method="get" className="flex flex-col gap-2 sm:flex-row">
+                    <input type="hidden" name="pageId" value={pageId} />
+                    <input
+                      type="url"
+                      name="siteUrl"
+                      required
+                      disabled={!isPro}
+                      placeholder="https://yourstore.com"
+                      className="min-w-0 flex-1 rounded border border-[var(--line)] bg-[var(--fill-2)] px-3 py-1.5 text-sm"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!isPro}
+                      aria-label={`Connect ${c.label}`}
+                      className={`${isPriority ? 'settings-emphasis-action' : 'btn-secondary'} rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40`}
+                    >
+                      Authorize read-only access
+                    </button>
+                  </form>
+                ) : (
+                  <a
+                    href={`/api/integrations/${c.provider}/connect?pageId=${encodeURIComponent(pageId)}`}
+                    aria-label={`Connect ${c.label}`}
+                    aria-disabled={!isPro || undefined}
+                    className={`${isPriority ? 'settings-emphasis-action' : 'btn-secondary'} self-start rounded-lg px-3 py-1.5 text-sm font-medium ${!isPro ? 'pointer-events-none opacity-40' : ''}`}
+                  >
+                    Connect securely
+                  </a>
+                )}
+                <span className="text-[10px] text-[var(--fg-muted)]">OAuth credentials are encrypted server-side and are never returned to this browser.</span>
               </div>
             ) : (
               <div className="mt-2 flex flex-col gap-2">

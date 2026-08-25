@@ -60,13 +60,13 @@ describe('stripAvailabilityMarker', () => {
 })
 
 describe('AvailabilityPanel', () => {
-  it('offers manual save until a calendar is set, then offers explicit sample generation', () => {
+  it('offers manual save until a calendar is set, then offers live Google sync', () => {
     setup()
     expect(screen.getByTestId('availability-save-button').textContent).toBe('Save Manual Availability')
 
     setup({ calendarId: 'me@gmail.com' })
-    expect(screen.getAllByTestId('availability-save-button')[1]!.textContent).toBe('Generate Sample Availability')
-    expect(screen.getAllByText(/does not connect to or read your Google Calendar/i)).not.toHaveLength(0)
+    expect(screen.getAllByTestId('availability-save-button')[1]!.textContent).toBe('Sync Google availability')
+    expect(screen.getAllByText(/reads busy times, not event titles or descriptions/i)).not.toHaveLength(0)
   })
 
   it('reports calendar id edits upward rather than owning them', () => {
@@ -75,29 +75,29 @@ describe('AvailabilityPanel', () => {
     expect(setCalendarId).toHaveBeenCalledWith('me@gmail.com')
   })
 
-  it('keeps manual notes available but pauses sample generation below Pro', () => {
+  it('keeps manual notes available but pauses live sync below Pro', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     const { setCalendarId } = setup({ integrationsAllowed: false, calendarId: 'saved@gmail.com' })
 
     expect(screen.getByTestId('google-calendar-id-input')).toBeDisabled()
     expect(screen.getByTestId('availability-save-button')).toHaveTextContent('Save Manual Availability')
-    expect(screen.getByText(/saved Calendar ID is retained, but generation is paused/i)).toBeVisible()
+    expect(screen.getByText(/saved Calendar ID is retained, but sync is paused/i)).toBeVisible()
     expect(setCalendarId).not.toHaveBeenCalled()
   })
 
-  it('sends the documented calendarId key and reports a sample response truthfully', async () => {
+  it('sends the documented calendarId key and reports live free/busy truthfully', async () => {
     const fetchMock = vi.fn(async (_input: string, _init?: RequestInit) => ({
       ok: true,
       json: async () => ({
         success: true,
-        connected: false,
+        connected: true,
         availability: {
-          source: 'google_calendar_stub',
+          source: 'google_calendar',
           windows: [{ date: '2026-08-24', start: '09:00', end: '12:30', label: 'Mon 9:00am–12:30pm' }],
-          summary_note: 'Sample open slots: Mon 9:00am–12:30pm (not synced with Google Calendar)',
+          summary_note: 'Next open slots: Mon 9:00am–12:30pm (live from Google Calendar)',
         },
-        next_available: 'Sample open slots: Mon 9:00am–12:30pm (not synced with Google Calendar)',
+        next_available: 'Next open slots: Mon 9:00am–12:30pm (live from Google Calendar)',
       }),
     }))
     vi.stubGlobal('fetch', fetchMock)
@@ -111,13 +111,13 @@ describe('AvailabilityPanel', () => {
     expect(JSON.parse(String(init?.body))).toEqual({ calendarId: 'me@gmail.com', pageId: 'page-1' })
     await waitFor(() => {
       expect(onMessage).toHaveBeenCalledWith(
-        'Sample availability generated • 1 window • No Google Calendar connection was created.',
+        'Live Google availability synced • 1 window.',
       )
     })
-    expect(onMessage).not.toHaveBeenCalledWith(expect.stringMatching(/imported|last synced/i))
+    expect(onMessage).not.toHaveBeenCalledWith(expect.stringMatching(/sample|not connected/i))
     expect(onPersisted).toHaveBeenCalledWith(expect.objectContaining({
       google_calendar_id: 'me@gmail.com',
-      next_available: expect.stringMatching(/^Sample open slots:.*\|\|WINDOWS\|\|/),
+      next_available: expect.stringMatching(/^Next open slots:.*\|\|WINDOWS\|\|/),
     }))
   })
 

@@ -6,6 +6,12 @@ import { resolveFeatureOwner } from './page-access'
 import type { OfferItem } from '../agent-page'
 import { mapSquareCatalogToOffers, mapAcuityTypesToOffers } from '../integrations'
 import { SHOPIFY_API_VERSION } from './shopify'
+import {
+  resolvedWooCommerceSiteError,
+  SQUARE_API_VERSION,
+  squareApiBaseUrl,
+  type WooCommerceCredential,
+} from './merchant-connectors'
 
 // Shared cores behind the integration IMPORT routes (Calendly / Shopify / Square /
 // Acuity) so the interview's /ingest can pull the same live catalogs the manual
@@ -55,7 +61,14 @@ export async function gateIntegrationImport(opts: {
 export type ProviderOffers =
   // `lines` (the legacy pipe-format array) is only produced + consumed by the
   // Calendly route; every other caller reads `offers` + `note`.
-  | { ok: true; offers: OfferItem[]; note: string; lines?: string[]; catalogComplete?: boolean }
+  | {
+      ok: true
+      offers: OfferItem[]
+      note: string
+      lines?: string[]
+      catalogComplete?: boolean
+      connectionMetadata?: Record<string, unknown>
+    }
   | { ok: false; status: number; error: string; upstreamStatus?: number }
 
 // Calendly's v2 API returns event-type fields at the resource top level
@@ -324,22 +337,261 @@ export async function importShopifyOffers(opts: { shop: string; accessToken: str
   }
 }
 
-/** Live Square catalog → offers, or null (moved verbatim from the route). The
- *  routes keep their own sample fallback when this is null. */
-export async function fetchSquareCatalog(accessToken: string): Promise<OfferItem[] | null> {
+/** Live Square catalog plus seller booking context. Catalog import remains
+ * useful when the seller does not use Square Appointments. When Bookings is
+ * enabled, the seller's canonical booking URL is attached to every imported
+ * service so an agent hands off to the real booking surface. */
+export async function importSquareOffers(accessToken: string): Promise<ProviderOffers> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 9000)
   try {
-    const res = await fetch('https://connect.squareup.com/v2/catalog/list?types=ITEM', {
-      headers: { Authorization: `Bearer ${accessToken}`, 'Square-Version': '2024-06-04', Accept: 'application/json' },
-      signal: controller.signal,
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    const offers = mapSquareCatalogToOffers(Array.isArray(data?.objects) ? data.objects : [])
-    return offers.length ? offers : null
+    const headers = { Authorization: `Bearer ${accessToken}`, 'Square-Version': SQUARE_API_VERSION, Accept: 'application/json' }
+    const [catalogResponse, bookingResponse, teamResponse, bookingsResponse] = await Promise.all([
+      fetch(`${squareApiBaseUrl()}/v2/catalog/list?types=ITEM`, { headers, redirect: 'error', signal: controller.signal }),
+      fetch(`${squareApiBaseUrl()}/v2/bookings/business-booking-profile`, { headers, redirect: 'error', signal: controller.signal }),
+      fetch(`${squareApiBaseUrl()}/v2/bookings/team-member-booking-profiles?limit=100`, { headers, redirect: 'error', signal: controller.signal }),
+      fetch(`${squareApiBaseUrl()}/v2/bookings?limit=100`, { headers, redirect: 'error', signal: controller.signal }),
+    ])
+    if (!catalogResponse.ok) {
+      return { ok: false, status: 502, error: 'Could not reach Square. Check the connection and Catalog read permission.', upstreamStatus: catalogResponse.status }
+    }
+    const catalog = await catalogResponse.json()
+    const rawOffers = mapSquareCatalogToOffers(Array.isArray(catalog?.objects) ? catalog.objects : [])
+    const booking = bookingResponse.ok ? await bookingResponse.json() : null
+    const bookingSiteUrl = typeof booking?.business_booking_profile?.booking_site_url === 'string'
+      ? booking.business_booking_profile.booking_site_url
+      : ''
+    const team = teamResponse.ok ? await teamResponse.json() : null
+    const bookableTeamMembers = Array.isArray(team?.team_member_booking_profiles)
+      ? team.team_member_booking_profiles.filter((member: { is_bookable?: boolean }) => member?.is_bookable).length
+      : 0
+    const bookings = bookingsResponse.ok ? await bookingsResponse.json() : null
+    const bookingCount = Array.isArray(bookings?.bookings) ? bookings.bookings.length : 0
+    const offers = rawOffers.map((offer) => ({
+      ...offer,
+      url: offer.url || bookingSiteUrl,
+      metadata: {
+        ...(offer.metadata ?? {}),
+        square_booking_site_url: bookingSiteUrl || null,
+        square_bookable_team_members: bookableTeamMembers,
+        commerce_provider: 'square',
+      },
+    }))
+    return {
+      ok: true,
+      offers,
+      catalogComplete: true,
+      note: bookingSiteUrl
+        ? `Imported ${offers.length} Square item(s) with the live Square booking path.`
+        : `Imported ${offers.length} Square item(s). Square Appointments is not enabled or was not granted booking access.`,
+      connectionMetadata: {
+        bookingApiReadable: bookingResponse.ok,
+        bookingsReadable: bookingsResponse.ok,
+        bookingCount,
+        bookingSiteUrl: bookingSiteUrl || null,
+        bookableTeamMembers,
+      },
+    }
   } catch {
-    return null
+    return { ok: false, status: 502, error: 'Could not reach Square. Check the connection and try again.' }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** Legacy compatibility for the original token import route. */
+export async function fetchSquareCatalog(accessToken: string): Promise<OfferItem[] | null> {
+  const result = await importSquareOffers(accessToken)
+  return result.ok && result.offers.length ? result.offers : null
+}
+
+function cleanProviderText(value: unknown, fallback = ''): string {
+  return String(value ?? fallback)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+type WooProduct = {
+  id?: number
+  name?: string
+  description?: string
+  short_description?: string
+  price?: string
+  regular_price?: string
+  permalink?: string
+  sku?: string
+  stock_status?: string
+  stock_quantity?: number | null
+  variations?: number[]
+}
+
+function wooProductUrl(permalink: unknown, siteUrl: string): string {
+  if (typeof permalink !== 'string') return siteUrl
+  try {
+    const candidate = new URL(permalink)
+    return candidate.origin === new URL(siteUrl).origin ? candidate.toString() : siteUrl
+  } catch {
+    return siteUrl
+  }
+}
+
+function wooProductToOffer(product: WooProduct, siteUrl: string, currency: string): OfferItem | null {
+  const name = cleanProviderText(product.name).slice(0, 120)
+  if (!name) return null
+  const amount = Number(product.price || product.regular_price)
+  const price = Number.isFinite(amount)
+    ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount)
+    : 'See options'
+  const stock = product.stock_status === 'outofstock' ? 'sold_out' : product.stock_status === 'onbackorder' ? 'limited' : 'available'
+  return {
+    name,
+    description: cleanProviderText(product.short_description || product.description, 'WooCommerce product').slice(0, 300),
+    price,
+    url: wooProductUrl(product.permalink, siteUrl),
+    source: 'woocommerce',
+    confidence: 0.98,
+    availability: stock,
+    prefer_original_for_this: true,
+    metadata: {
+      woocommerce_product_id: product.id ?? null,
+      woocommerce_sku: product.sku || null,
+      woocommerce_stock_quantity: product.stock_quantity ?? null,
+      woocommerce_variation_ids: Array.isArray(product.variations) ? product.variations.slice(0, 50) : [],
+      woocommerce_site: siteUrl,
+      commerce_provider: 'woocommerce',
+    },
+  }
+}
+
+export async function importWooCommerceOffers(credentials: WooCommerceCredential): Promise<ProviderOffers> {
+  const endpointError = await resolvedWooCommerceSiteError(credentials.siteUrl)
+  if (endpointError) return { ok: false, status: 400, error: endpointError }
+  const auth = Buffer.from(`${credentials.consumerKey}:${credentials.consumerSecret}`).toString('base64')
+  const headers = { Authorization: `Basic ${auth}`, Accept: 'application/json' }
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 12_000)
+  try {
+    const productsUrl = new URL('/wp-json/wc/v3/products', credentials.siteUrl)
+    productsUrl.searchParams.set('status', 'publish')
+    productsUrl.searchParams.set('per_page', '100')
+    productsUrl.searchParams.set('page', '1')
+    const ordersUrl = new URL('/wp-json/wc/v3/orders', credentials.siteUrl)
+    ordersUrl.searchParams.set('per_page', '1')
+    ordersUrl.searchParams.set('page', '1')
+    const currencyUrl = new URL('/wp-json/wc/v3/settings/general/woocommerce_currency', credentials.siteUrl)
+    const [productsResponse, ordersResponse, currencyResponse] = await Promise.all([
+      fetch(productsUrl, { headers, redirect: 'error', signal: controller.signal }),
+      fetch(ordersUrl, { headers, redirect: 'error', signal: controller.signal }),
+      fetch(currencyUrl, { headers, redirect: 'error', signal: controller.signal }),
+    ])
+    if (!productsResponse.ok || !ordersResponse.ok || !currencyResponse.ok) {
+      return {
+        ok: false,
+        status: 502,
+        error: 'WooCommerce rejected the read-only catalog, orders, or store-currency request. Reconnect with a user who can read WooCommerce data.',
+        upstreamStatus: !productsResponse.ok
+          ? productsResponse.status
+          : !ordersResponse.ok
+            ? ordersResponse.status
+            : currencyResponse.status,
+      }
+    }
+    const products = await productsResponse.json()
+    const currencySettings = await currencyResponse.json() as { value?: unknown }
+    const currency = String(currencySettings.value || '').toUpperCase()
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      return { ok: false, status: 502, error: 'WooCommerce did not return a valid store currency.' }
+    }
+    const mapped = (Array.isArray(products) ? products : [])
+      .map((product: WooProduct) => wooProductToOffer(product, credentials.siteUrl, currency))
+      .filter((offer: OfferItem | null): offer is OfferItem => offer !== null)
+    const totalProducts = Number(productsResponse.headers.get('x-wp-total') || mapped.length)
+    const totalOrders = Number(ordersResponse.headers.get('x-wp-total') || 0)
+    return {
+      ok: true,
+      offers: mapped,
+      catalogComplete: Number.isFinite(totalProducts) && totalProducts <= mapped.length,
+      note: `Imported ${mapped.length} published WooCommerce product(s). Read access to orders is active.`,
+      connectionMetadata: {
+        siteUrl: credentials.siteUrl,
+        totalProducts: Number.isFinite(totalProducts) ? totalProducts : mapped.length,
+        totalOrders: Number.isFinite(totalOrders) ? totalOrders : null,
+        ordersReadable: true,
+        currency,
+      },
+    }
+  } catch {
+    return { ok: false, status: 502, error: 'Could not reach the WooCommerce REST API.' }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+type ServiceM8JobTemplate = {
+  uuid?: string
+  name?: string
+  template_name?: string
+  job_description?: string
+  description?: string
+  active?: number | string
+}
+
+export async function importServiceM8Offers(accessToken: string): Promise<ProviderOffers> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 10_000)
+  try {
+    const templateUrl = new URL('https://api.servicem8.com/api_1.0/jobtemplate.json')
+    templateUrl.searchParams.set('$filter', 'active eq 1')
+    const jobsUrl = new URL('https://api.servicem8.com/api_1.0/job.json')
+    jobsUrl.searchParams.set('$filter', 'active eq 1')
+    const headers = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }
+    const [templatesResponse, jobsResponse] = await Promise.all([
+      fetch(templateUrl, { headers, redirect: 'error', signal: controller.signal }),
+      fetch(jobsUrl, { headers, redirect: 'error', signal: controller.signal }),
+    ])
+    if (!templatesResponse.ok || !jobsResponse.ok) {
+      return {
+        ok: false,
+        status: 502,
+        error: 'ServiceM8 rejected the job-template or jobs request. Reconnect and grant read_jobs.',
+        upstreamStatus: !templatesResponse.ok ? templatesResponse.status : jobsResponse.status,
+      }
+    }
+    const templates = await templatesResponse.json()
+    const jobs = await jobsResponse.json()
+    const offers = (Array.isArray(templates) ? templates : [])
+      .map((template: ServiceM8JobTemplate): OfferItem | null => {
+        const description = cleanProviderText(template.job_description || template.description)
+        const name = cleanProviderText(template.name || template.template_name || description).slice(0, 120)
+        if (!name) return null
+        return {
+          name,
+          description: (description || 'ServiceM8 job template').slice(0, 300),
+          price: 'Quote required',
+          url: '',
+          source: 'servicem8',
+          confidence: 0.96,
+          metadata: {
+            servicem8_job_template_uuid: template.uuid || null,
+            servicem8_create_from_template: Boolean(template.uuid),
+            commerce_provider: 'servicem8',
+          },
+        }
+      })
+      .filter((offer: OfferItem | null): offer is OfferItem => offer !== null)
+    const activeJobs = Array.isArray(jobs) ? jobs.length : 0
+    return {
+      ok: true,
+      offers,
+      catalogComplete: true,
+      note: `Imported ${offers.length} ServiceM8 job template(s). Live job read access is active.`,
+      connectionMetadata: { activeJobs, jobTemplates: offers.length, jobsReadable: true },
+    }
+  } catch {
+    return { ok: false, status: 502, error: 'Could not reach ServiceM8.' }
   } finally {
     clearTimeout(timer)
   }
@@ -376,8 +628,10 @@ export type IntegrationIngestInput =
   | { provider: 'shopify'; shop: string; accessToken: string; limit?: number }
   | { provider: 'square'; accessToken: string }
   | { provider: 'acuity'; userId: string; apiKey: string }
+  | { provider: 'woocommerce'; credentials: WooCommerceCredential }
+  | { provider: 'servicem8'; accessToken: string }
 
-export const INGESTABLE_PROVIDERS = ['calendly', 'shopify', 'square', 'acuity'] as const
+export const INGESTABLE_PROVIDERS = ['calendly', 'shopify', 'square', 'acuity', 'woocommerce', 'servicem8'] as const
 
 /**
  * One entry point that returns REAL live offers or a clear error - NEVER sample
@@ -392,14 +646,16 @@ export async function importIntegrationOffers(input: IntegrationIngestInput): Pr
     case 'shopify':
       return importShopifyOffers({ shop: input.shop, accessToken: input.accessToken, limit: input.limit })
     case 'square': {
-      const offers = await fetchSquareCatalog(input.accessToken)
-      if (!offers?.length) return { ok: false, status: 502, error: 'Could not reach Square (check the access token and Catalog read permission).' }
-      return { ok: true, offers, note: `Imported ${offers.length} item(s) from your Square catalog.` }
+      return importSquareOffers(input.accessToken)
     }
     case 'acuity': {
       const offers = await fetchAcuityTypes(input.userId, input.apiKey)
       if (!offers?.length) return { ok: false, status: 502, error: 'Could not reach Acuity (check the User ID and API key).' }
       return { ok: true, offers, note: `Imported ${offers.length} appointment type(s) from Acuity.` }
     }
+    case 'woocommerce':
+      return importWooCommerceOffers(input.credentials)
+    case 'servicem8':
+      return importServiceM8Offers(input.accessToken)
   }
 }

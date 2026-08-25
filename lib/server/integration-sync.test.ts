@@ -16,6 +16,8 @@ const h = vi.hoisted(() => ({
   shopifyCommitResult: 'written' as 'written' | 'mapping_stale' | 'page_conflict',
   shopifyCommitInput: null as any,
   pagesWriteConflict: false,
+  managedCredentials: {} as Record<string, any>,
+  connectorSyncRecords: [] as Array<{ pageId: string; provider: string; input: any }>,
 }))
 
 vi.mock('./integration-importers', () => ({ importIntegrationOffers: async (input: any) => { h.importInput = input; return h.imported } }))
@@ -32,6 +34,16 @@ vi.mock('./shopify-install', () => ({
   commitShopifyCatalogSync: async (_admin: unknown, input: unknown) => {
     h.shopifyCommitInput = input
     return h.shopifyCommitResult
+  },
+}))
+vi.mock('./merchant-connectors', () => ({
+  getUsableConnectorCredential: async (_admin: unknown, _pageId: string, provider: string) => {
+    const credential = h.managedCredentials[provider]
+    return credential ? { ok: true, credential, row: {} } : { ok: false, error: 'Not connected' }
+  },
+  isManagedConnectorProvider: (provider: string) => ['square', 'google_calendar', 'woocommerce', 'servicem8'].includes(provider),
+  recordMerchantConnectorSync: async (_admin: unknown, pageId: string, provider: string, input: any) => {
+    h.connectorSyncRecords.push({ pageId, provider, input })
   },
 }))
 
@@ -72,6 +84,8 @@ describe('syncPageIntegration', () => {
     h.shopifyCommitResult = 'written'
     h.shopifyCommitInput = null
     h.pagesWriteConflict = false
+    h.managedCredentials = {}
+    h.connectorSyncRecords = []
   })
 
   it('503 when credential storage is not configured (dormant)', async () => {
@@ -172,6 +186,75 @@ describe('syncPageIntegration', () => {
     expect(r).toMatchObject({ ok: true, provider: 'square', imported: 1, availabilitySynced: false })
     expect(h.pagesUpdate.services.find((o: any) => o.name === 'Latte').source).toBe('square')
     expect(h.secretsUpdate).toBeNull()
+  })
+
+  it('square: prefers the OAuth connection over a retained legacy access token', async () => {
+    h.managedCredentials.square = { accessToken: 'square-oauth', refreshToken: 'refresh', tokenType: 'Bearer', expiresAt: null }
+    h.squareCreds = { accessToken: 'legacy-token' }
+    h.imported = { ok: true, offers: [], note: 'Imported 0', connectionMetadata: { bookingApiReadable: true } }
+
+    const result = await syncPageIntegration(admin(), 'square', 'pg1')
+
+    expect(result.ok).toBe(true)
+    expect(h.importInput).toEqual({ provider: 'square', accessToken: 'square-oauth' })
+    expect(h.connectorSyncRecords).toContainEqual({
+      pageId: 'pg1',
+      provider: 'square',
+      input: { ok: true, metadata: { bookingApiReadable: true } },
+    })
+  })
+
+  it('woocommerce: syncs through the managed credential without pruning offers omitted by the provider response', async () => {
+    h.managedCredentials.woocommerce = { siteUrl: 'https://shop.example.com', consumerKey: 'ck', consumerSecret: 'cs' }
+    h.imported = {
+      ok: true,
+      offers: [{ name: 'Current Woo product', description: '', price: '$25', url: '', source: 'woocommerce' }],
+      note: 'Imported 1',
+      catalogComplete: true,
+      connectionMetadata: { ordersReadable: true },
+    }
+    h.page = {
+      id: 'pg1',
+      slug: 'acme',
+      services: [
+        { name: 'Manual service', description: '', price: '$10', url: '' },
+        { name: 'Older Woo product', description: '', price: '$20', url: '', source: 'woocommerce' },
+      ],
+      products: [],
+      next_available: null,
+      updated_at: '2026-07-13T12:00:00Z',
+    }
+
+    const result = await syncPageIntegration(admin(), 'woocommerce', 'pg1')
+
+    expect(result).toMatchObject({ ok: true, provider: 'woocommerce', imported: 1 })
+    expect(h.importInput).toEqual({ provider: 'woocommerce', credentials: h.managedCredentials.woocommerce })
+    expect(h.pagesUpdate.services.map((offer: any) => offer.name)).toEqual([
+      'Manual service',
+      'Older Woo product',
+      'Current Woo product',
+    ])
+    expect(h.connectorSyncRecords.at(-1)).toEqual({
+      pageId: 'pg1',
+      provider: 'woocommerce',
+      input: { ok: true, metadata: { ordersReadable: true } },
+    })
+  })
+
+  it('servicem8: records attention without writing page data when the upstream read fails', async () => {
+    h.managedCredentials.servicem8 = { accessToken: 'sm8', refreshToken: 'refresh', tokenType: 'Bearer', expiresAt: null }
+    h.imported = { ok: false, status: 502, error: 'ServiceM8 rejected read_jobs' }
+
+    const result = await syncPageIntegration(admin(), 'servicem8', 'pg1')
+
+    expect(result).toMatchObject({ ok: false, status: 502 })
+    expect(h.importInput).toEqual({ provider: 'servicem8', accessToken: 'sm8' })
+    expect(h.pagesUpdate).toBeNull()
+    expect(h.connectorSyncRecords).toEqual([{
+      pageId: 'pg1',
+      provider: 'servicem8',
+      input: { ok: false, error: 'ServiceM8 rejected read_jobs' },
+    }])
   })
 
   it('acuity: 400 when not connected for the page', async () => {

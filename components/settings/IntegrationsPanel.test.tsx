@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '../../test/dom'
+import { fireEvent, render, screen, waitFor } from '../../test/dom'
 import { IntegrationsPanel } from './IntegrationsPanel'
 
 type TestConnection = {
-  provider: 'calendly' | 'shopify' | 'square' | 'acuity' | 'stripe'
+  provider: 'calendly' | 'shopify' | 'square' | 'acuity' | 'stripe' | 'google_calendar' | 'woocommerce' | 'servicem8'
   label: string
   connected: boolean
   kind: 'token' | 'oauth' | 'connect'
@@ -223,5 +223,71 @@ describe('IntegrationsPanel priority emphasis', () => {
     expect(screen.getByText(/Installed securely through Shopify · available on every plan/)).toBeVisible()
     expect(screen.queryByText('Paused by plan')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Disconnect Shopify' })).not.toBeInTheDocument()
+  })
+
+  it('starts Google Calendar through the server OAuth route without collecting a browser token', async () => {
+    mockContext([{
+      provider: 'google_calendar',
+      label: 'Google Calendar',
+      connected: false,
+      kind: 'oauth',
+      autoSync: false,
+      canSync: false,
+      lastSyncedAt: null,
+    }])
+
+    render(<IntegrationsPanel pageId="page-1" isPro onMessage={() => {}} />)
+
+    const connect = await screen.findByRole('link', { name: 'Connect Google Calendar' })
+    expect(connect).toHaveAttribute('href', '/api/integrations/google_calendar/connect?pageId=page-1')
+    expect(screen.getByText(/never returned to this browser/i)).toBeVisible()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('uses WooCommerce application authorization with the listing and store URL in a GET form', async () => {
+    mockContext([{
+      provider: 'woocommerce',
+      label: 'WooCommerce',
+      connected: false,
+      kind: 'oauth',
+      autoSync: false,
+      canSync: true,
+      lastSyncedAt: null,
+    }])
+
+    const { container } = render(<IntegrationsPanel pageId="page-7" isPro onMessage={() => {}} />)
+
+    const store = await screen.findByPlaceholderText('https://yourstore.com')
+    const form = store.closest('form')
+    expect(form).toHaveAttribute('action', '/api/integrations/woocommerce/connect')
+    expect(form).toHaveAttribute('method', 'get')
+    expect(container.querySelector('input[name="pageId"]')).toHaveValue('page-7')
+    expect(screen.getByRole('button', { name: 'Connect WooCommerce' })).toHaveTextContent('Authorize read-only access')
+  })
+
+  it('disconnects a managed OAuth connector through the page-authorized server route', async () => {
+    const onMessage = vi.fn()
+    const integrations: TestConnection[] = [{
+      provider: 'servicem8',
+      label: 'ServiceM8',
+      connected: true,
+      kind: 'oauth',
+      autoSync: false,
+      canSync: true,
+      lastSyncedAt: null,
+    }]
+    const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+      if (init?.method === 'DELETE') return Response.json({ ok: true })
+      return Response.json({ integrations, contextLimited: false })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<IntegrationsPanel pageId="page-1" isPro onMessage={onMessage} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect ServiceM8' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      '/api/pages/page-1/integrations/servicem8/connection',
+      { method: 'DELETE' },
+    ))
+    expect(onMessage).toHaveBeenCalledWith(expect.stringContaining('Disable the Nexez add-on in ServiceM8'))
   })
 })

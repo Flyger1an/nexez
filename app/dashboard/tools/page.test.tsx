@@ -51,9 +51,11 @@ describe('Tools plan allocation', () => {
     expect(screen.getByText('Calendly live controls')).toBeVisible()
     expect(screen.getByText('Stripe catalog controls')).toBeVisible()
     expect(screen.getByText('Google Calendar').closest('li')).toHaveTextContent(
-      /sample availability windows.*not connected or synced/i,
+      /live free\/busy-derived availability through OAuth/i,
     )
-    expect(screen.getByText(/Google samples and one-time imports remain explicitly labeled/i)).toBeVisible()
+    expect(screen.getByText('WooCommerce').closest('li')).toHaveTextContent(/read-only products and order visibility/i)
+    expect(screen.getByText('ServiceM8').closest('li')).toHaveTextContent(/job templates and active job visibility/i)
+    expect(screen.getByText(/Connected providers can resync from each listing's Settings/i)).toBeVisible()
   })
 
   it('keeps retained webhook removal available below Pro while hiding test and creation', async () => {

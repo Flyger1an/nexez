@@ -240,14 +240,14 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     primaryCta: { label: 'Open integrations', href: appUrl('/dashboard/integrations') },
     secondaryCta: { label: 'Read integration docs', href: '/docs#integrations-automation' },
     stats: [
-      { value: '8', label: 'Named integration paths' },
+      { value: '10+', label: 'Named integration paths' },
       { value: 'CSV', label: 'No-code fallback' },
       { value: 'API', label: 'Developer-ready' },
     ],
     visualTitle: 'Integration sources',
     visualItems: [
-      'Stripe, Shopify, Square, CSV, and website flows shape editable catalogs and prices.',
-      'Calendly and Acuity connect service context and booking data; availability samples can be generated without claiming a Google Calendar connection.',
+      'Stripe, Shopify, Square, WooCommerce, CSV, and website flows shape editable catalogs and prices.',
+      'Calendly, Acuity, ServiceM8, and Google Calendar connect service, job, booking, and free/busy context.',
       'Inbound signatures, outbound webhooks, resync, and reconciliation keep state attributable.',
     ],
     sections: [
@@ -258,7 +258,8 @@ export const marketingPages: Record<string, MarketingPageContent> = {
           'Agents need to know whether a buyer can book, when the service is available, how long it takes, and what happens after the booking. Scheduling integrations reduce stale offer listings.',
         cards: [
           { title: 'Calendly', copy: 'Import service names, booking links, durations, and meeting context.' },
-          { title: 'Google Calendar', copy: 'Generate clearly labeled sample availability without reading or syncing a Google Calendar.' },
+          { title: 'Google Calendar', copy: 'Connect with OAuth and derive availability from free/busy status without reading event names or descriptions.' },
+          { title: 'ServiceM8', copy: 'Import job templates as editable offers and verify live job access through a scoped OAuth connection.' },
           { title: 'Acuity', copy: 'Import services through encrypted per-listing credentials and preserve source context.' },
         ],
       },
@@ -270,7 +271,8 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         cards: [
           { title: 'Stripe', copy: 'Import catalog data, connect seller payments, and preserve platform-fee and settlement evidence.' },
           { title: 'Shopify', copy: 'Install, link a listing, sync catalog records, and serve the storefront through an app proxy.' },
-          { title: 'Square', copy: 'Bring service or product catalog context into the same reviewable offer model.' },
+          { title: 'Square', copy: 'Import catalog context and read booking profiles through a scoped OAuth connection.' },
+          { title: 'WooCommerce', copy: 'Authorize read-only product and order access directly from a merchant store.' },
         ],
       },
       {

@@ -252,15 +252,15 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
       {
         name: 'Commerce and catalog connections',
         availability: 'Plan-controlled',
-        summary: 'CSV and the installed Shopify App Store connector are core; Pro adds manual Stripe catalog, Shopify credential, and Square imports into editable offers.',
-        details: ['Core CSV import and installed Shopify OAuth, listing link, catalog sync, and storefront proxy', 'Pro Stripe catalog and Square import', 'Pro manually supplied Shopify Admin credentials, distinct from the all-plan installed app'],
+        summary: 'CSV and the installed Shopify App Store connector are core; Pro adds Stripe, Square, WooCommerce, and ServiceM8 imports into editable offers.',
+        details: ['Core CSV import and installed Shopify OAuth, listing link, catalog sync, and storefront proxy', 'Pro Stripe catalog plus Square OAuth catalog and booking-profile reads', 'Pro read-only WooCommerce product and order access, plus ServiceM8 job-template and job reads'],
         surfaces: ['Integrations', 'Tools', 'Per-listing Settings'],
       },
       {
         name: 'Scheduling and availability connections',
         availability: 'Plan-controlled',
-        summary: 'Pro unlocks Calendly and Acuity service imports plus Google availability as either a one-shot token read or an explicitly labeled deterministic sample; retained connections can still be disconnected after downgrade.',
-        details: ['Pro Calendly event types, booking links, webhook receiver, and resync', 'Pro Google free/busy with a supplied token, or sample windows with no connection', 'Pro Acuity service import and encrypted per-listing credentials, with cleanup preserved'],
+        summary: 'Pro unlocks Calendly and Acuity service imports plus Google Calendar OAuth and live free/busy-derived availability; retained connections can still be disconnected after downgrade.',
+        details: ['Pro Calendly event types, booking links, webhook receiver, and resync', 'Pro Google Calendar OAuth with narrow free/busy access, encrypted credentials, refresh, and live sync', 'Pro Acuity service import and encrypted per-listing credentials, with cleanup preserved'],
         surfaces: ['Integrations', 'Availability', 'Booking operations'],
       },
       {

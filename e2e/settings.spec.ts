@@ -202,9 +202,9 @@ test.describe('page settings', () => {
       await calendarId.fill('')
       await expect(page.getByTestId('availability-save-button')).toHaveText(/Save Manual Availability/)
       await calendarId.fill('e2e-calendar@example.com')
-      // Google Calendar is intentionally sample-only until a real sync contract
-      // exists; never let the credentialed E2E reintroduce misleading import copy.
-      await expect(page.getByTestId('availability-save-button')).toHaveText(/Generate Sample Availability/)
+      // A configured calendar now uses the stored OAuth connection and live
+      // Google freeBusy data. Keep the retired sample behavior out of the UI.
+      await expect(page.getByTestId('availability-save-button')).toHaveText(/Sync Google availability/)
       await calendarId.fill(originalCalendarId)
     } else {
       await expect(calendarId).toBeDisabled()
@@ -574,6 +574,6 @@ test.describe('page settings', () => {
     })
     expect(res.status()).toBe(401)
     const json = await res.json()
-    expect(json.error).toBe('Authentication required')
+    expect(json.error).toBe('Not authenticated')
   })
 })
