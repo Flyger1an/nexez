@@ -19,6 +19,7 @@ describe('AdminShell', () => {
     expect(screen.getByText('Nexez Admin')).toBeInTheDocument()
     expect(screen.getByText('Protected content')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Growth Control/ })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: /Template outcomes/ })).toHaveAttribute('href', '/admin/templates')
     expect(screen.getByRole('link', { name: /Back to seller dashboard/ })).toHaveAttribute('href', 'https://app.nexez.ai/dashboard')
 
     fireEvent.click(screen.getByRole('button', { name: 'Refresh admin data' }))

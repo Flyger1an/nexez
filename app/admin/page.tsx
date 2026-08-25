@@ -2,6 +2,7 @@ import Link from 'next/link'
 import {
   AlertTriangle,
   ArrowRight,
+  BarChart3,
   CheckCircle2,
   CircleDashed,
   Gift,
@@ -106,6 +107,14 @@ export default async function AdminOverviewPage() {
               detail="Requester context, inbox-delivery evidence, workflow status, and append-only operator notes."
               status={launch.sources.support ? `${launch.supportQueue.length} active` : 'Unavailable'}
               statusClass={launch.sources.support ? (launch.supportQueue.length ? STATUS_CLASS.attention : STATUS_CLASS.ready) : STATUS_CLASS.unknown}
+            />
+            <ControlDomain
+              href="/admin/templates"
+              icon={BarChart3}
+              title="Template outcomes"
+              detail="Observed publishing, readiness, live checkout, and settled-deal results for each recorded Commerce Template version."
+              status="Analytics only"
+              statusClass={STATUS_CLASS.ready}
             />
             <ControlDomain
               href="/admin/audit"

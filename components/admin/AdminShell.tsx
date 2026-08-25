@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
 import {
   ArrowLeft,
+  BarChart3,
   History,
   Inbox,
   LayoutDashboard,
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: '/admin/launch', label: 'Launch Control', icon: Rocket },
   { href: '/admin/support', label: 'Support', icon: Inbox },
   { href: '/admin/growth', label: 'Growth Control', icon: TrendingUp },
+  { href: '/admin/templates', label: 'Template outcomes', icon: BarChart3 },
   { href: '/admin/audit', label: 'Access & audit', icon: History },
 ] as const
 
