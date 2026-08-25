@@ -152,6 +152,10 @@ describe('Smart Rules in the agent manifest (privacy invariant)', () => {
           minNoticeHours: 48,
           blackoutDates: ['2026-12-25'],
           maxBookingsPerWeek: 3,
+          includedScope: 'Design and delivery',
+          excludedScope: 'Copywriting',
+          maxRevisions: 2,
+          maxProjectWeeks: 6,
         },
       },
     ],
@@ -167,6 +171,10 @@ describe('Smart Rules in the agent manifest (privacy invariant)', () => {
     expect(offer.min_notice_hours).toBe(48)
     expect(offer.blackout_dates).toEqual(['2026-12-25'])
     expect(offer.max_bookings_per_week).toBe(3)
+    expect(offer.included_scope).toBe('Design and delivery')
+    expect(offer.excluded_scope).toBe('Copywriting')
+    expect(offer.max_revisions).toBe(2)
+    expect(offer.max_project_weeks).toBe(6)
     expect(offer.negotiation_action.status_check.endpoint).toContain('/api/negotiations/status')
   })
 

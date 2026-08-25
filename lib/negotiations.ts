@@ -296,6 +296,9 @@ export function buildNegotiationAction(page: AgentPage, offer: CheckoutOffer, pl
       query: '{buyer_request}',
       requestedTerms: {
         scope: '{desired_scope}',
+        deliverables: ['{deliverable}'],
+        revisionCount: 2,
+        projectWeeks: 4,
         constraints: '{constraints_or_requirements}',
       },
       budget: '{budget_or_range}',
@@ -314,7 +317,7 @@ export function buildNegotiationAction(page: AgentPage, offer: CheckoutOffer, pl
     status_check: {
       method: 'GET',
       endpoint: `${platformBase}/api/negotiations/status?id={negotiation_id}&token={status_token}`,
-      note: 'id and token are returned once in the create response (statusUrl is pre-built). Proposals matching the seller\'s rules may auto-accept to agreement_proposed.',
+      note: 'id and token are returned once in the create response (statusUrl is pre-built). The response includes buyer-safe ruleEvaluation details after a decision lands. Proposals matching every configured seller rule may auto-accept to agreement_proposed.',
     },
   }
 }

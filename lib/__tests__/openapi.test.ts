@@ -45,6 +45,24 @@ describe('buildOpenApiSpec - programmatic API (G21)', () => {
     expect(checkout.parameters).toContainEqual(expect.objectContaining({ name: 'Idempotency-Key', in: 'header' }))
   })
 
+  it('documents deterministic negotiation terms while preserving custom seller-review terms', () => {
+    const negotiation = spec.paths['/api/negotiations'].post as {
+      requestBody?: { content?: { 'application/json'?: { schema?: any } } }
+    }
+    const terms = negotiation.requestBody?.content?.['application/json']?.schema?.properties?.requestedTerms
+
+    expect(terms).toMatchObject({
+      type: 'object',
+      additionalProperties: true,
+      properties: {
+        scope: { oneOf: expect.any(Array) },
+        deliverables: { oneOf: expect.any(Array) },
+        revisionCount: { type: 'integer', minimum: 0 },
+        projectWeeks: { type: 'integer', minimum: 1 },
+      },
+    })
+  })
+
   it('advertises OpenClaw distribution metadata', () => {
     const distribution = spec.info['x-nexez-agent-distribution'] as {
       docs_url: string

@@ -202,7 +202,7 @@ export async function POST(request: Request) {
   if (input.dryRun) {
     const rulesEvaluation = evaluateProposal(
       { offerType: offer.offerType, rules: offer.rules, price: offer.price },
-      { proposedPriceCents },
+      { proposedPriceCents, requestedTerms: input.requestedTerms },
     )
     const approval = issueActionApprovalToken('negotiation', approvalInput(input as Record<string, unknown>))
     if (actionApprovalRequired() && !approval) {
@@ -411,6 +411,13 @@ async function readNegotiationInput(request: Request): Promise<NegotiationInput>
     requestedTerms = JSON.parse(requestedTermsRaw)
   } catch {
     requestedTerms = { note: requestedTermsRaw }
+  }
+  for (const key of ['scope', 'deliverables', 'revisionCount', 'projectWeeks'] as const) {
+    const value = String(form.get(`requestedTerms.${key}`) || '').trim()
+    if (!value) continue
+    requestedTerms[key] = (key === 'revisionCount' || key === 'projectWeeks') && /^\d+$/.test(value)
+      ? Number(value)
+      : value
   }
 
   return {

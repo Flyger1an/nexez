@@ -3,6 +3,7 @@ import { buildAgentDistributionLinks } from './agent-distribution'
 import { agentArtifactHref } from './custom-domain'
 import { ACP_API_VERSION, acpCheckoutEnabled } from './acp/constants'
 import { ucpCheckoutEnabled } from './ucp/constants'
+import { negotiationTermsSchema } from './negotiation-terms-schema'
 
 export function buildNexezCapabilities() {
   const baseUrl = getBaseUrl()
@@ -130,7 +131,7 @@ function negotiationRequestSchema(pin?: { slug: string; offerKeys: string[] }) {
       offer: pin && pin.offerKeys.length ? { type: 'string', enum: pin.offerKeys } : { type: 'string' },
       buyerAgent: { type: 'string' },
       query: { type: 'string' },
-      requestedTerms: { type: 'object', additionalProperties: true },
+      requestedTerms: negotiationTermsSchema(),
       budget: { type: 'string' },
       timeline: { type: 'string' },
       contact: { type: 'string' },
@@ -174,8 +175,14 @@ const AGENT_NEGOTIATION_RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
     ok: { type: 'boolean' },
-    id: { type: 'string' },
+    dryRun: { type: 'boolean' },
+    negotiationId: { type: 'string' },
     status: { type: 'string' },
+    decisionPending: { type: 'boolean' },
+    persistentLink: { type: 'string' },
+    negotiationUrl: { type: 'string' },
+    statusToken: { type: 'string' },
+    statusUrl: { type: 'string' },
     escrowMode: { type: 'string' },
     stripeConfigured: { type: 'boolean' },
     next: { type: 'string' },
@@ -185,6 +192,10 @@ const AGENT_NEGOTIATION_RESPONSE_SCHEMA = {
     approvalTokenRequired: { type: 'boolean' },
     approvalToken: { type: 'string' },
     approvalExpiresAt: { type: 'string', format: 'date-time' },
+    rulesEvaluation: {
+      type: 'object',
+      description: 'Deterministic price and requested-term checks returned by a dry run.',
+    },
   },
 }
 

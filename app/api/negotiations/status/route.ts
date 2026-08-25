@@ -5,6 +5,7 @@ import { isPayable, type SettlementState } from '../../../../lib/settlement'
 import { sanitizeAgentDecision } from '../../../../lib/negotiation-sanitize'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { hashBearerToken } from '../../../../lib/server/bearer-token'
+import { publicRulesEvaluation } from '../../../../lib/offer-rules'
 
 /**
  * Agent-facing negotiation status check (now also the async-decision poll target).
@@ -55,7 +56,7 @@ export async function GET(request: Request) {
       settlement_state: SettlementState | null
       decision_pending: boolean | null
       decision_seq: number | null
-      metadata: { last_decision?: unknown } | null
+      metadata: { last_decision?: unknown; rules_evaluation?: unknown } | null
     }>()
 
   if (error || !data || !NEGOTIATION_STATUSES.includes(data.status)) {
@@ -74,6 +75,9 @@ export async function GET(request: Request) {
   // The decision is owner-private until sanitized - strip internalNotes before it
   // ever reaches the agent. Null while a decision is still being produced.
   const decision = decisionPending ? null : sanitizeAgentDecision(data.metadata?.last_decision as Record<string, any> | null | undefined) ?? null
+  const ruleEvaluation = decisionPending
+    ? null
+    : publicRulesEvaluation(data.metadata?.rules_evaluation)
 
   return NextResponse.json(
     {
@@ -87,6 +91,7 @@ export async function GET(request: Request) {
       decisionPending,
       decisionSeq: data.decision_seq ?? 0,
       decision,
+      ruleEvaluation,
       updatedAt: data.updated_at,
       next: getAgentNextStep(data.status, { settlement: data.settlement_state, payable, decisionPending, decision }),
     },

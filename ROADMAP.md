@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-08-24 against `origin/main` at `2219f59`._
+_Last reconciled: 2026-08-24 against `origin/main` at `adb7af6`._
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -139,7 +139,7 @@ Ranked by launch leverage.
 
 ### P2 - Post-launch expansion
 
-1. **Smart Rules depth.** Extend deterministic scope enforcement beyond price floors and enrich per-turn status artifacts while keeping all LLM output subordinate to owner policy.
+1. **Smart Rules depth - complete in code.** Negotiations now publish a typed vocabulary for requested scope, deliverables, revision count, and project length while preserving free-form terms for seller review. Deterministic checks run beside price rules in dry runs and live decisions, block automatic acceptance when configured terms are missing or outside seller limits, clamp price decisions to both minimum-price and maximum-discount floors, and never invent a fallback counter. Buyer status exposes fixed safe explanations without seller thresholds, the merchant inbox uses plain-language outcomes, and the offer builder exposes the complete public-term and private pricing-rule controls.
 2. **External agent demand.** Add a compliant transactable discovery partner and continue MCP, OpenClaw, SDK, WordPress, and Shopify distribution.
 3. **Protocol maturity.** Expand ACP/UCP conformance fixtures, interoperability evidence, and automated sandbox certification as official protocol requirements stabilize.
 4. **International operations.** Add tax, locale, currency-conversion reporting, regional policy, and payout guidance without ever summing unlike currencies as one amount.

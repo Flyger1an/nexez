@@ -33,6 +33,7 @@ import { toMajorAmount } from '../../../lib/currency'
 import { withTimeout } from '../../../lib/async-timeout'
 import { createClient } from '../../../utils/supabase/client'
 import { agentRuntimeUrl } from '../../../lib/site'
+import { publicRulesEvaluation } from '../../../lib/offer-rules'
 import {
   getNegotiationQueueState,
   loadNegotiationRollup,
@@ -1021,7 +1022,26 @@ function getNegotiationReasoningSummary(metadata: Record<string, unknown> | null
 // Falls back to basic rules_evaluation for legacy.
 function RulesEvaluationBadge({ metadata }: { metadata: Record<string, unknown> | null }) {
   const review = metadata?.proposal_review as { recommendation?: string; reasoning?: string; source?: string; model?: string } | undefined
-  const evaluation = metadata?.rules_evaluation as { decision?: string; reasons?: string[] } | undefined
+  const evaluation = publicRulesEvaluation(metadata?.rules_evaluation)
+
+  if (evaluation) {
+    const title = [evaluation.summary, ...evaluation.checks.map((check) => check.message)].join(' ')
+    const color = evaluation.outcome === 'meets_rules'
+      ? 'border-[var(--ready)]/30 bg-[var(--ready)]/10 text-[var(--ready)]'
+      : evaluation.outcome === 'outside_rules'
+        ? 'border-red-300/30 bg-red-300/10 text-red-200'
+        : 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]'
+    const label = evaluation.outcome === 'meets_rules'
+      ? 'Meets seller rules'
+      : evaluation.outcome === 'outside_rules'
+        ? 'Outside seller rules'
+        : 'Seller review needed'
+    return (
+      <span className={`rounded-full border px-2.5 py-0.5 text-xs ${color}`} title={title}>
+        {label}
+      </span>
+    )
+  }
 
   if (review?.recommendation) {
     const rec = review.recommendation
@@ -1036,26 +1056,5 @@ function RulesEvaluationBadge({ metadata }: { metadata: Record<string, unknown> 
     )
   }
 
-  if (!evaluation?.decision) return null
-
-  if (evaluation.decision === 'auto_accept') {
-    return (
-      <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2.5 py-0.5 text-xs text-[var(--ready)]">
-        Auto-accepted by rules
-      </span>
-    )
-  }
-  if (evaluation.decision === 'flag') {
-    const reason = evaluation.reasons?.includes('below_min_price')
-      ? 'below minimum price'
-      : evaluation.reasons?.includes('exceeds_max_discount')
-        ? 'exceeds max discount'
-        : 'outside rules'
-    return (
-      <span className="rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-2.5 py-0.5 text-xs text-[var(--amber)]">
-        Flagged: {reason}
-      </span>
-    )
-  }
   return null
 }

@@ -9,6 +9,7 @@ import { normalizePreferences, preferencesPromptBlock } from './nexie-preference
 import { searchAllSources } from './source-adapters'
 import { agentRuntimeUrl } from '../site'
 import { executeApprovalBoundAction } from '../approval-bound-action'
+import { negotiationTermsSchema } from '../negotiation-terms-schema'
 
 type Db = SupabaseClient
 
@@ -199,7 +200,7 @@ const NEXIE_TOOLS = [
           budget: { type: 'string', description: 'Buyer budget or proposed price.' },
           timeline: { type: 'string', description: 'Desired delivery or booking timeline.' },
           query: { type: 'string', description: 'Buyer request in natural language.' },
-          requestedTerms: { type: 'object', description: 'Scope, constraints, deliverables, or custom terms.' },
+          requestedTerms: negotiationTermsSchema(),
           contact: { type: 'string', description: 'Optional buyer contact email.' },
         },
         required: ['slug', 'offer', 'query'],
