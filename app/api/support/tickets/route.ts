@@ -5,6 +5,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { getOwnerPlanId } from '../../../../lib/server/plan'
 import { supportServiceForPlan, type SupportService } from '../../../../lib/support-routing'
 import { deliverSupportTicketNotification } from '../../../../lib/server/support-email'
+import { getRequesterSupportTickets } from '../../../../lib/server/requester-support'
 
 type SupportTicketInput = {
   pageId?: string
@@ -35,7 +36,12 @@ export async function GET() {
 
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  return NextResponse.json({ supportService: await resolveSupportService(supabase, user.id) })
+  const [supportService, tickets] = await Promise.all([
+    resolveSupportService(supabase, user.id),
+    getRequesterSupportTickets(supabase, user.id),
+  ])
+
+  return NextResponse.json({ supportService, tickets })
 }
 
 export async function POST(request: Request) {
@@ -162,6 +168,7 @@ export async function POST(request: Request) {
     createdAt: data.created_at,
     notificationStatus: notification.status,
     supportService,
+    requestPath: `/support/requests/${data.id}`,
   })
 }
 

@@ -119,6 +119,7 @@ describe('exportUserAccount', () => {
     expect(result!.facets.seller).toContain('service_agreements')
     expect(result!.facets.seller).toContain('staged_settlement_agreements')
     expect(result!.facets.seller).toContain('staged_settlement_obligations')
+    expect(result!.facets.seller).toContain('support_ticket_messages')
 
     // api_keys metadata only - never the hash.
     const keyOp = adminRef.ops.find((o) => o.table === 'api_keys')
@@ -176,6 +177,23 @@ describe('exportUserAccount', () => {
     expect(result!.data.staged_settlement_obligations).toEqual([
       { id: 'obligation-1', agreement_id: 'agreement-1' },
     ])
+  })
+
+  it('exports requester-safe conversation fields through owned support request ids', async () => {
+    adminRef.rows.support_tickets = [{ id: 'ticket-1' }]
+    adminRef.rows.support_ticket_messages = [{
+      id: 'message-1',
+      ticket_id: 'ticket-1',
+      author_type: 'operator',
+      body: 'We are checking the issue.',
+    }]
+
+    const result = await exportUserAccount('user-1', 'owner@example.com', 'TS')
+
+    expect(result!.data.support_ticket_messages).toEqual([expect.objectContaining({ id: 'message-1' })])
+    const messageOp = adminRef.ops.find((op) => op.table === 'support_ticket_messages')
+    expect(messageOp).toMatchObject({ by: 'ticket_id', val: ['ticket-1'] })
+    expect(messageOp.cols).not.toMatch(/provider_message_id|delivery_error|author_id/)
   })
 
   it('paginates past the previous row cap and records exact manifest counts', async () => {

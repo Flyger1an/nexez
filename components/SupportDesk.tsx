@@ -26,6 +26,15 @@ type TicketResult = {
   persisted: boolean
   message?: string
   supportService?: SupportService
+  requestPath?: string
+  createdAt?: string
+}
+
+type TicketSummary = {
+  id: string
+  subject: string
+  status: 'open' | 'in_review' | 'waiting_on_user' | 'resolved' | 'closed'
+  updatedAt: string
 }
 
 const STANDARD_SUPPORT: SupportService = {
@@ -51,6 +60,7 @@ export function SupportDesk() {
   const [pages, setPages] = useState<PageOption[]>([])
   const [loadingPages, setLoadingPages] = useState(true)
   const [supportService, setSupportService] = useState<SupportService | null>(null)
+  const [tickets, setTickets] = useState<TicketSummary[]>([])
   const [target, setTarget] = useState('workspace')
   const [category, setCategory] = useState('agent_visibility')
   const [severity, setSeverity] = useState('normal')
@@ -80,7 +90,7 @@ export function SupportDesk() {
         return
       }
 
-      const [{ data }, resolvedSupportService] = await Promise.all([
+      const [{ data }, supportContext] = await Promise.all([
         supabase
           .from('pages')
           .select('id,name,slug')
@@ -88,12 +98,13 @@ export function SupportDesk() {
           .order('updated_at', { ascending: false })
           .limit(50)
           .returns<PageOption[]>(),
-        loadSupportService(),
+        loadSupportContext(),
       ])
 
       if (!cancelled) {
         setPages(data ?? [])
-        setSupportService(resolvedSupportService)
+        setSupportService(supportContext.supportService)
+        setTickets(supportContext.tickets)
         setLoadingPages(false)
       }
     }
@@ -165,6 +176,14 @@ export function SupportDesk() {
       if (!response.ok && response.status !== 202) throw new Error(json.error || 'Ticket could not be created.')
       setTicket(json)
       if (isSupportService(json.supportService)) setSupportService(json.supportService)
+      if (json.persisted && json.id) {
+        setTickets((current) => [{
+          id: json.id,
+          subject: subject || inferSubject(query),
+          status: json.status,
+          updatedAt: json.createdAt ?? new Date().toISOString(),
+        }, ...current.filter((item) => item.id !== json.id)].slice(0, 20))
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Ticket could not be created.')
     } finally {
@@ -326,6 +345,30 @@ export function SupportDesk() {
           )}
         </div>
 
+        {tickets.length ? (
+          <div className="rounded-lg border border-border bg-white/[0.03] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Your requests</p>
+              <span className="font-mono text-xs text-muted-foreground">{tickets.length}</span>
+            </div>
+            <div className="mt-3 divide-y divide-border">
+              {tickets.slice(0, 5).map((item) => (
+                <a
+                  key={item.id}
+                  href={appUrl(`/support/requests/${item.id}`)}
+                  className="flex items-center justify-between gap-3 py-3 text-sm transition first:pt-0 last:pb-0 hover:text-[var(--signal)]"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{item.subject}</span>
+                    <span className="mt-1 block text-xs capitalize text-muted-foreground">{supportStatusLabel(item.status)}</span>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">Open</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="rounded-lg border border-border bg-white/[0.03] p-5">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Selected context</p>
           <h3 className="mt-3 text-lg font-semibold">{targetName}</h3>
@@ -391,6 +434,11 @@ export function SupportDesk() {
               </p>
             ) : null}
             {ticket.message ? <p className="mt-2 text-xs leading-5 text-[var(--ready)]/80">{ticket.message}</p> : null}
+            {ticket.requestPath ? (
+              <a href={appUrl(ticket.requestPath)} className="mt-3 inline-flex text-sm font-medium text-[var(--ready)] underline underline-offset-4">
+                Track this request
+              </a>
+            ) : null}
             {!ticket.persisted && ticket.id !== 'resolved' ? (
               <p className="mt-2 text-xs leading-5 text-[var(--ready)]/80">
                 Review mode: this will persist after the support_tickets migration is applied.
@@ -409,14 +457,19 @@ function inferSubject(query: string) {
   return first.length > 72 ? `${first.slice(0, 69)}...` : first
 }
 
-async function loadSupportService(): Promise<SupportService> {
+async function loadSupportContext(): Promise<{ supportService: SupportService; tickets: TicketSummary[] }> {
   try {
     const response = await fetch('/api/support/tickets', { cache: 'no-store' })
-    if (!response.ok) return STANDARD_SUPPORT
-    const body = await response.json() as { supportService?: unknown }
-    return isSupportService(body.supportService) ? body.supportService : STANDARD_SUPPORT
+    if (!response.ok) return { supportService: STANDARD_SUPPORT, tickets: [] }
+    const body = await response.json() as { supportService?: unknown; tickets?: unknown }
+    return {
+      supportService: isSupportService(body.supportService) ? body.supportService : STANDARD_SUPPORT,
+      tickets: Array.isArray(body.tickets)
+        ? body.tickets.filter(isTicketSummary)
+        : [],
+    }
   } catch {
-    return STANDARD_SUPPORT
+    return { supportService: STANDARD_SUPPORT, tickets: [] }
   }
 }
 
@@ -430,4 +483,18 @@ function isSupportService(value: unknown): value is SupportService {
     && (service.upgradePlanId === 'scale' || service.upgradePlanId === null)
     && service.priorityRouting === (service.tier === 'priority')
     && service.upgradePlanId === (service.priorityRouting ? null : 'scale')
+}
+
+function isTicketSummary(value: unknown): value is TicketSummary {
+  if (!value || typeof value !== 'object') return false
+  const ticket = value as Partial<TicketSummary>
+  return typeof ticket.id === 'string'
+    && typeof ticket.subject === 'string'
+    && typeof ticket.updatedAt === 'string'
+    && ['open', 'in_review', 'waiting_on_user', 'resolved', 'closed'].includes(ticket.status ?? '')
+}
+
+function supportStatusLabel(status: TicketSummary['status']) {
+  if (status === 'waiting_on_user') return 'Waiting on you'
+  return status.replaceAll('_', ' ')
 }

@@ -243,6 +243,21 @@ export async function exportUserAccount(
     put('seller', table, result)
   }
 
+  const supportTicketIds = ((data.support_tickets ?? []) as Array<{ id?: unknown }>)
+    .map((row) => row.id)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  const supportMessages = await readRelatedRows(
+    admin,
+    'support_ticket_messages',
+    'ticket_id',
+    supportTicketIds,
+    'id,ticket_id,author_type,body,channel,delivery_status,sent_at,created_at',
+  )
+  put('seller', 'support_ticket_messages', inheritCompleteness(
+    supportMessages,
+    manifest.datasets.support_tickets,
+  ))
+
   const sellerStagedAgreementIds = ((data.staged_settlement_agreements ?? []) as Array<{ id?: unknown }>)
     .map((row) => row.id)
     .filter((id): id is string => typeof id === 'string' && id.length > 0)
@@ -349,6 +364,7 @@ async function readRelatedRows(
   table: string,
   foreignKey: string,
   ids: string[],
+  projection = '*',
 ) {
   if (!ids.length) return { rows: [], complete: true }
   const chunks = Array.from(
@@ -358,7 +374,7 @@ async function readRelatedRows(
   const results = await Promise.all(chunks.map((chunk) => readEveryRow((from, to) =>
     admin
       .from(table)
-      .select('*')
+      .select(projection)
       .in(foreignKey, chunk)
       .order('id', { ascending: true })
       .range(from, to),

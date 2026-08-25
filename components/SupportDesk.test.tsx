@@ -58,4 +58,27 @@ describe('SupportDesk support service', () => {
     expect(await screen.findByRole('heading', { name: 'Standard support' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Upgrade to Scale' })).toHaveAttribute('href', '/pricing')
   })
+
+  it('shows recent request history with requester-facing status language', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      supportService: {
+        planId: 'free',
+        tier: 'standard',
+        priorityRouting: false,
+        upgradePlanId: 'scale',
+      },
+      tickets: [{
+        id: '10000000-0000-4000-8000-000000000001',
+        subject: 'Checkout incident',
+        status: 'waiting_on_user',
+        updatedAt: '2026-08-24T12:00:00.000Z',
+      }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } })))
+
+    render(<SupportDesk />)
+
+    expect(await screen.findByText('Your requests')).toBeInTheDocument()
+    expect(screen.getByText('Checkout incident')).toBeInTheDocument()
+    expect(screen.getByText('Waiting on you')).toBeInTheDocument()
+  })
 })
