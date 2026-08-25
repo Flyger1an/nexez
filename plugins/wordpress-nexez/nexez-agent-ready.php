@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Nexez Agent-Ready
  * Plugin URI:        https://nexez.ai/scan
- * Description:        Make your WordPress site legible and transactable to AI shopping agents. Injects your Nexez listing's structured data (JSON-LD) and serves your live agent artifacts (/.well-known/agent.json, /llms.txt, …) — no server config, always up to date.
+ * Description:       Connect your Nexez listing to WordPress with live structured data and agent-ready discovery files.
  * Version:           1.0.0
  * Requires at least: 5.5
  * Requires PHP:      7.2
@@ -19,7 +19,7 @@
  *     (so agents that read your HTML see your offers), and
  *   - 301-redirects the agent artifact paths on your domain to your live
  *     Nexez listing (so an agent probing yoursite.com/.well-known/agent.json
- *     gets your current offers — nothing to maintain, never goes stale).
+ *     gets your current offers, with nothing to maintain and nothing going stale).
  *
  * The plugin never re-computes any structured data locally; it always reflects
  * your live Nexez listing. The only network host it ever contacts is nexez.app.
@@ -47,7 +47,7 @@ function nexez_agent_ready_options() {
 }
 
 /**
- * A URL is safe to redirect to only if it points at the pinned Nexez host — so a
+ * A URL is safe to redirect to only if it points at the pinned Nexez host, so a
  * redirect target can never send visitors off to an arbitrary origin, whatever the
  * embed response contains.
  *
@@ -57,6 +57,18 @@ function nexez_agent_ready_options() {
 function nexez_agent_ready_is_trusted_url($url) {
 	return is_string($url) && 0 === strpos($url, NEXEZ_AGENT_READY_HOST . '/');
 }
+
+/**
+ * Allow safe redirects to the single host used for Nexez agent artifacts.
+ *
+ * @param string[] $hosts Allowed redirect hosts.
+ * @return string[]
+ */
+function nexez_agent_ready_allowed_redirect_hosts($hosts) {
+	$hosts[] = 'nexez.app';
+	return array_unique($hosts);
+}
+add_filter('allowed_redirect_hosts', 'nexez_agent_ready_allowed_redirect_hosts');
 
 /**
  * Fetch + cache the listing's embed manifest from Nexez (host-pinned to nexez.app).
@@ -153,7 +165,7 @@ function nexez_agent_ready_intercept() {
 		return;
 	}
 
-	$uri  = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
+	$uri  = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
 	$path = strtok($uri, '?');
 	if (!is_string($path) || '' === $path) {
 		return;
@@ -163,8 +175,9 @@ function nexez_agent_ready_intercept() {
 		$path = rtrim($path, '/');
 	}
 
-	// The file-verification proof (Nexez Settings → "Verify (file)" fetches this).
+	// The file-verification proof (Nexez Settings > "Verify (file)" fetches this).
 	if ('/.well-known/nexez-verify.txt' === $path && '' !== $opts['token']) {
+		status_header(200);
 		header('Content-Type: text/plain; charset=utf-8');
 		header('X-Robots-Tag: noindex');
 		echo esc_html($opts['token']);
@@ -184,7 +197,7 @@ function nexez_agent_ready_intercept() {
 		foreach ($data['redirects'] as $rule) {
 			if (isset($rule['from'], $rule['to']) && $rule['from'] === $path
 				&& nexez_agent_ready_is_trusted_url($rule['to'])) {
-				wp_redirect(esc_url_raw($rule['to']), 301);
+				wp_safe_redirect(esc_url_raw($rule['to']), 301);
 				exit;
 			}
 		}
@@ -198,7 +211,7 @@ function nexez_agent_ready_intercept() {
 		'/openapi.json'           => '/openapi.json',
 	);
 	if (isset($fallback[$path])) {
-		wp_redirect(esc_url_raw($listing . $fallback[$path]), 301);
+		wp_safe_redirect(esc_url_raw($listing . $fallback[$path]), 301);
 		exit;
 	}
 }
@@ -216,6 +229,10 @@ add_action('template_redirect', 'nexez_agent_ready_intercept', 0);
  * @return array{slug:string,token:string}
  */
 function nexez_agent_ready_sanitize($input) {
+	if (!is_array($input)) {
+		$input = array();
+	}
+
 	$slug = isset($input['slug']) ? strtolower(trim((string) $input['slug'])) : '';
 	if (false !== strpos($slug, '/')) {
 		$slug = preg_replace('#^https?://#', '', $slug);
@@ -229,7 +246,7 @@ function nexez_agent_ready_sanitize($input) {
 
 	$token = isset($input['token']) ? trim((string) $input['token']) : '';
 	if ('' !== $token && !preg_match('/^nexez-site-verify-[0-9a-f]{16,64}$/', $token)) {
-		add_settings_error('nexez_agent_ready', 'bad_token', __('That verification token doesn’t look right — copy it exactly from Nexez Settings.', 'nexez-agent-ready'));
+		add_settings_error('nexez_agent_ready', 'bad_token', __('That verification token does not look right. Copy it exactly from Nexez Settings.', 'nexez-agent-ready'));
 		$token = '';
 	}
 
@@ -269,7 +286,7 @@ function nexez_agent_ready_render_settings() {
 	?>
 	<div class="wrap">
 		<h1><?php echo esc_html__('Nexez Agent-Ready', 'nexez-agent-ready'); ?></h1>
-		<p><?php echo esc_html__('Make this site legible and transactable to AI agents. Paste your Nexez listing slug below — the plugin injects your structured data and serves your live agent artifacts automatically.', 'nexez-agent-ready'); ?></p>
+		<p><?php echo esc_html__('Make this site legible and transactable to AI agents. Paste your Nexez listing slug below. The plugin injects your structured data and serves your live agent artifacts automatically.', 'nexez-agent-ready'); ?></p>
 
 		<?php if ($opts['slug']) : ?>
 			<?php if (!empty($data['ok'])) : ?>
@@ -300,7 +317,7 @@ function nexez_agent_ready_render_settings() {
 					<th scope="row"><label for="nexez-token"><?php echo esc_html__('Verification token', 'nexez-agent-ready'); ?></label></th>
 					<td>
 						<input name="<?php echo esc_attr(NEXEZ_AGENT_READY_OPTION); ?>[token]" id="nexez-token" type="text" class="regular-text" value="<?php echo esc_attr($opts['token']); ?>" placeholder="nexez-site-verify-…" />
-						<p class="description"><?php echo esc_html__('Optional. Paste the token from Nexez → Settings → Your website to let this plugin serve the file/meta ownership proof.', 'nexez-agent-ready'); ?></p>
+						<p class="description"><?php echo esc_html__('Optional. Paste the token from Nexez > Settings > Your website to let this plugin serve the file and meta ownership proof.', 'nexez-agent-ready'); ?></p>
 					</td>
 				</tr>
 			</table>

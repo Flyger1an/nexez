@@ -34,11 +34,11 @@ exactly what this plugin does. It is the WordPress packaging of the Phase-2
 ## Install / test locally
 
 - Copy this directory into `wp-content/plugins/nexez-agent-ready/` and activate.
-- Settings → **Nexez Agent-Ready** → paste a real published listing slug → Save.
+- Settings > **Nexez Agent-Ready** > paste a real published listing slug > Save.
 - Verify:
   - `view-source:` on any page shows the `<script type="application/ld+json">` block.
-  - `curl -sI https://<site>/.well-known/agent.json` → `301` to `https://nexez.app/<slug>/agent.json`.
-  - `curl -s https://<site>/.well-known/nexez-verify.txt` → the token (if set).
+  - `curl -sI https://<site>/.well-known/agent.json` returns `301` to `https://nexez.app/<slug>/agent.json`.
+  - `curl -s https://<site>/.well-known/nexez-verify.txt` returns the token (if set).
 
 ## Files
 

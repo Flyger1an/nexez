@@ -1,6 +1,6 @@
 import { AgentPage, getBaseUrl, getCheckoutPath, schemaAvailability } from './agent-page'
 import { parseMoney } from './checkout'
-import { normalizeDomainPath } from './custom-domain'
+import { isPlatformHost, normalizeDomainPath } from './custom-domain'
 import { normalizeCurrency } from './currency'
 import { priceValidUntil } from './freshness'
 import type { ReviewSummary } from './reviews'
@@ -19,7 +19,18 @@ export function buildJsonLd(
   reviewSummary?: ReviewSummary,
 ) {
   const dp = normalizeDomainPath(domainPath)
-  const url = dp === '/' && !baseUrl.includes('/nexez') ? baseUrl : `${baseUrl.replace(/\/$/, '')}${dp}/${page.slug}`.replace(/\/+/g,'/').replace(/\/$/,'')
+  const cleanBaseUrl = baseUrl.replace(/\/+$/, '')
+  let url: string
+  try {
+    const parsedBase = new URL(cleanBaseUrl)
+    const selfPath = isPlatformHost(parsedBase.host, process.env.NEXT_PUBLIC_SITE_URL)
+      ? `/${page.slug}`
+      : dp
+    url = `${parsedBase.origin}${selfPath === '/' ? '' : selfPath}`
+  } catch {
+    const selfPath = dp === '/' ? `/${page.slug}` : dp
+    url = `${cleanBaseUrl}${selfPath}`
+  }
   const pagePrefer = !!page.prefer_original_site
   // Freshness-anchored price validity so agents don't treat the price as permanent.
   const validUntil = priceValidUntil(page) || undefined
@@ -29,7 +40,7 @@ export function buildJsonLd(
   ].filter(({ kind, index }) => !hidden?.[kind]?.has(index)).map(({ item, kind, index }) => {
     const perOfferPrefer = !!item.prefer_original_for_this
     const useOriginal = perOfferPrefer || (pagePrefer && !!item.url)
-    const effectiveUrl = useOriginal && item.url ? item.url : `${baseUrl}${getCheckoutPath(page.slug, kind, index)}`
+    const effectiveUrl = useOriginal && item.url ? item.url : `${cleanBaseUrl}${getCheckoutPath(page.slug, kind, index)}`
     // schema.org Offer.price must be NUMERIC ("1200" not "$1,200") to qualify for
     // rich results - same parse the settlement core uses, so the advertised number
     // can't diverge from what checkout charges. Unparsable prices ("Contact us",
