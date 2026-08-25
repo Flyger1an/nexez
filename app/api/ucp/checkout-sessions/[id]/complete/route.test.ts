@@ -40,7 +40,17 @@ function req(body: unknown, headers: Record<string, string> = {}) {
   })
 }
 const ctx = { params: Promise.resolve({ id: 'sess_1' }) }
-const PAYMENT = { buyer: { email: 'b@x.com' }, payment: { instruments: [{ credential: { token: 'gp_123' } }] } }
+const PAYMENT = {
+  buyer: { email: 'b@x.com' },
+  payment: {
+    instruments: [{
+      id: 'instrument_1',
+      handler_id: 'handler_123',
+      type: 'card',
+      credential: { type: 'PAYMENT_GATEWAY', token: 'gp_123' },
+    }],
+  },
+}
 
 describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
   beforeEach(() => {
@@ -50,12 +60,14 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
     resolveSettlementContext.mockResolvedValue(OK_CONTEXT)
     settleSessionToPaymentIntent.mockResolvedValue(OK_SETTLE)
     vi.stubEnv('UCP_SHARED_SECRET', 'sk_ucp')
+    vi.stubEnv('UCP_GOOGLE_PAY_HANDLER_ID', 'handler_123')
   })
   afterEach(() => vi.unstubAllEnvs())
 
   function readyDb(over: Record<string, any> = {}, page: Record<string, any> = PAGE) {
     let sessionUpdate: any
     let orderUpsert: any
+    let credentialEvent: any
     createAdminClient.mockReturnValue(
       adminMock((c) => {
         if (c.table === 'checkout_sessions' && c.op === 'select') return { data: { ...ROW, ...over } }
@@ -68,11 +80,19 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
           orderUpsert = c.payload
           return { error: null }
         }
-        if (c.table === 'checkout_orders' && c.op === 'select') return { data: { access_token_encrypted: encryptForTest('tok123') } }
+        if (c.table === 'checkout_orders' && c.op === 'select') return { data: { id: 'order-1', access_token_encrypted: encryptForTest('tok123') } }
+        if (c.table === 'checkout_order_events' && c.op === 'insert') {
+          credentialEvent = c.payload
+          return { error: null }
+        }
         return { data: null }
       }),
     )
-    return { getSessionUpdate: () => sessionUpdate, getOrderUpsert: () => orderUpsert }
+    return {
+      getSessionUpdate: () => sessionUpdate,
+      getOrderUpsert: () => orderUpsert,
+      getCredentialEvent: () => credentialEvent,
+    }
   }
 
   it('settles via the shared bridge with the Google Pay token (200 + order)', async () => {
@@ -84,8 +104,14 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
     expect(body.order).toMatchObject({ id: 'pi_1', status: 'completed' })
     expect(body.order.permalink_url).toMatch(/\/orders\/tok123$/)
     const [, payment] = settleSessionToPaymentIntent.mock.calls[0]
-    expect(payment).toEqual({ token: 'gp_123', kind: 'google_pay' })
+    expect(payment).toEqual({ token: 'gp_123', kind: 'google_pay', handlerId: 'handler_123', credentialType: 'PAYMENT_GATEWAY' })
     expect(spy.getOrderUpsert()).toMatchObject({ channel: 'ucp', stripe_payment_intent_id: 'pi_1', commission_bps: 900, commission_percent: 9, plan_id_at_purchase: 'free', commission_source: 'plan_default', stripe_livemode: false, status: 'paid' })
+    expect(spy.getCredentialEvent()).toMatchObject({
+      order_id: 'order-1',
+      event_type: 'protocol_credential_confirmed',
+      source: 'system',
+      metadata: { channel: 'ucp', credentialKind: 'google_pay', handlerId: 'handler_123' },
+    })
     expect(spy.getSessionUpdate()).toMatchObject({ status: 'completed', stripe_payment_intent_id: 'pi_1', stripe_livemode: false })
   })
 
@@ -93,6 +119,25 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
     readyDb()
     const res = await COMPLETE(req({ buyer: { email: 'b@x.com' } }), ctx)
     expect(res.status).toBe(400)
+    expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
+  })
+
+  it('503 when the Google Pay handler declaration is not configured', async () => {
+    readyDb()
+    vi.stubEnv('UCP_GOOGLE_PAY_HANDLER_ID', '')
+    const res = await COMPLETE(req(PAYMENT), ctx)
+    expect(res.status).toBe(503)
+    expect((await res.json()).code).toBe('payment_handler_unconfigured')
+    expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
+  })
+
+  it('400 when the selected instrument points at another handler', async () => {
+    readyDb()
+    const res = await COMPLETE(req({
+      payment: { instruments: [{ ...PAYMENT.payment.instruments[0], handler_id: 'other_handler' }] },
+    }), ctx)
+    expect(res.status).toBe(400)
+    expect((await res.json()).code).toBe('payment_handler_mismatch')
     expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
   })
 

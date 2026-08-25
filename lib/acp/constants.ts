@@ -7,6 +7,11 @@
 
 export const ACP_API_VERSION = '2025-09-12'
 
+/** Latest ACP release reviewed by this adapter. This is tracked separately from
+ * `ACP_API_VERSION`: Nexez must not claim the newer wire contract until every
+ * response shape and capability declaration has been migrated and certified. */
+export const ACP_REVIEWED_STABLE_VERSION = '2026-04-17'
+
 export const ACP_FEED_SCHEMA_VERSION = 'acp.product-feed.v1'
 
 /** ACP checkout is an OpenAI-APPROVED partner program (not self-serve) and charging

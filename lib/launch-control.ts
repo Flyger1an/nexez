@@ -78,8 +78,12 @@ export type LaunchMetrics = {
   directOperationalLifecycles: number
   protocolOrders: number
   sandboxProtocolOrders: number
-  acpProtocolOrders: number
-  ucpProtocolOrders: number
+  acpLiveProtocolOrders: number
+  ucpLiveProtocolOrders: number
+  acpSandboxProtocolOrders: number
+  ucpSandboxProtocolOrders: number
+  acpDelegatedPayments: number
+  ucpDelegatedPayments: number
   negotiations: number
   pendingNegotiationDecisions: number
   staleNegotiationDecisions: number
@@ -135,6 +139,18 @@ export type DirectOrderEventEvidence = {
   order_id: string
   event_type: string
   metadata: Record<string, unknown>
+}
+
+export type ProtocolOrderEvidence = {
+  id: string
+  channel: string | null
+  status: string
+  stripe_livemode: boolean | null
+}
+
+export type ProtocolCredentialEvidence = {
+  acpDelegatedPayments: number
+  ucpDelegatedPayments: number
 }
 
 export type DirectOrderFulfillmentEvidence = {
@@ -274,6 +290,30 @@ export function isSettledProtocolOrder(order: {
   return order.stripe_livemode != null
     && (order.channel === 'acp' || order.channel === 'ucp')
     && SETTLED_ORDER_STATUSES.has(order.status)
+}
+
+export function deriveProtocolCredentialEvidence(input: {
+  orders: ProtocolOrderEvidence[]
+  events: DirectOrderEventEvidence[]
+}): ProtocolCredentialEvidence {
+  const ordersById = new Map(
+    input.orders.filter(isSettledProtocolOrder).map((order) => [order.id, order]),
+  )
+  const acp = new Set<string>()
+  const ucp = new Set<string>()
+
+  for (const event of input.events) {
+    if (event.event_type !== 'protocol_credential_confirmed') continue
+    const order = ordersById.get(event.order_id)
+    if (order?.channel === 'acp' && event.metadata?.credentialKind === 'shared_payment_token') {
+      acp.add(order.id)
+    }
+    if (order?.channel === 'ucp' && event.metadata?.credentialKind === 'google_pay') {
+      ucp.add(order.id)
+    }
+  }
+
+  return { acpDelegatedPayments: acp.size, ucpDelegatedPayments: ucp.size }
 }
 
 export function deriveDirectOrderLifecycleEvidence(input: {
@@ -891,18 +931,18 @@ export function buildCertificationChecks(
     },
     {
       id: 'cert-protocol',
-      label: 'ACP and UCP checkout lifecycle',
-      detail: 'Protocol-created sessions must preserve idempotency and settle into the same durable seller order ledger.',
-      evidence: sources.orders
-        ? `${metrics.acpProtocolOrders} ACP and ${metrics.ucpProtocolOrders} UCP orders are proven (${metrics.protocolOrders} live, ${metrics.sandboxProtocolOrders} sandbox).`
-        : 'Protocol order evidence is unavailable.',
-      status: !sources.orders
+      label: 'ACP and UCP delegated checkout',
+      detail: 'Adapter checks, sandbox lifecycle evidence, and real delegated-payment proof are separate gates.',
+      evidence: sources.orders && sources.orderEvents
+        ? `Delegated proof: ${metrics.acpDelegatedPayments} ACP SPT and ${metrics.ucpDelegatedPayments} UCP Google Pay orders. Ledger counts: ACP ${metrics.acpLiveProtocolOrders} live and ${metrics.acpSandboxProtocolOrders} sandbox; UCP ${metrics.ucpLiveProtocolOrders} live and ${metrics.ucpSandboxProtocolOrders} sandbox.`
+        : 'Protocol order or credential evidence is unavailable.',
+      status: !sources.orders || !sources.orderEvents
         ? 'unknown'
-        : metrics.acpProtocolOrders > 0 && metrics.ucpProtocolOrders > 0
+        : metrics.acpDelegatedPayments > 0 && metrics.ucpDelegatedPayments > 0
           ? 'ready'
           : 'attention',
       required: false,
-      action: 'Run one sandbox ACP and one sandbox UCP create, update, and complete sequence with replayed idempotency keys.',
+      action: 'Run npm run certify:protocol-adapters. After enrollment, deliberately complete the owner-run ACP SPT smoke test. Keep UCP checkout off until its declared handler and gateway processing path are certified.',
     },
   ]
 }

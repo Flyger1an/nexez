@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   parseUcpLineItems,
   parseUcpBuyer,
-  parseUcpPaymentToken,
+  parseUcpPaymentCredential,
   toUcpStatus,
   toUcpCheckoutSession,
   ucpError,
@@ -60,17 +60,62 @@ describe('parseUcpBuyer', () => {
   })
 })
 
-describe('parseUcpPaymentToken', () => {
-  it('extracts the Google Pay token from instruments[].credential.token + flatter shapes', () => {
-    expect(parseUcpPaymentToken({ instruments: [{ credential: { token: 'gp_123' } }] })).toBe('gp_123')
-    expect(parseUcpPaymentToken({ credential: { token: '  gp_456  ' } })).toBe('gp_456')
-    expect(parseUcpPaymentToken({ token: 'gp_789' })).toBe('gp_789')
+describe('parseUcpPaymentCredential', () => {
+  const handlerId = 'handler_123'
+  const instrument = (overrides: Record<string, unknown> = {}) => ({
+    id: 'instrument_1',
+    handler_id: handlerId,
+    type: 'card',
+    credential: { type: 'PAYMENT_GATEWAY', token: '{"protocolVersion":"ECv2"}' },
+    ...overrides,
   })
-  it('returns null when absent/blank', () => {
-    expect(parseUcpPaymentToken({ instruments: [] })).toBeNull()
-    expect(parseUcpPaymentToken({ instruments: [{ credential: { token: '' } }] })).toBeNull()
-    expect(parseUcpPaymentToken({})).toBeNull()
-    expect(parseUcpPaymentToken(null)).toBeNull()
+
+  it('parses one Google Pay instrument bound to the declared handler', () => {
+    expect(parseUcpPaymentCredential({ instruments: [instrument()] }, handlerId)).toEqual({
+      ok: true,
+      payment: {
+        kind: 'google_pay',
+        token: '{"protocolVersion":"ECv2"}',
+        handlerId,
+        credentialType: 'PAYMENT_GATEWAY',
+      },
+    })
+  })
+
+  it('uses the one selected instrument when several are supplied', () => {
+    const result = parseUcpPaymentCredential({
+      instruments: [instrument({ id: 'old', selected: false }), instrument({ id: 'chosen', selected: true })],
+    }, handlerId)
+    expect(result.ok).toBe(true)
+  })
+
+  it('rejects ambiguous instruments, handler drift, and non-gateway credentials', () => {
+    const ambiguous = parseUcpPaymentCredential({ instruments: [instrument({ id: 'one' }), instrument({ id: 'two' })] }, handlerId)
+    expect(ambiguous.ok).toBe(false)
+    if (!ambiguous.ok) expect(ambiguous.error.code).toBe('ambiguous_payment_instrument')
+
+    const mismatch = parseUcpPaymentCredential({ instruments: [instrument({ handler_id: 'other' })] }, handlerId)
+    expect(mismatch.ok).toBe(false)
+    if (!mismatch.ok) expect(mismatch.error.code).toBe('payment_handler_mismatch')
+
+    const direct = parseUcpPaymentCredential({
+      instruments: [instrument({ credential: { type: 'DIRECT', token: 'opaque' } })],
+    }, handlerId)
+    expect(direct.ok).toBe(false)
+    if (!direct.ok) expect(direct.error.code).toBe('unsupported_payment_credential')
+  })
+
+  it('rejects missing and blank payment credentials', () => {
+    for (const input of [{ instruments: [] }, {}, null]) {
+      const result = parseUcpPaymentCredential(input, handlerId)
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.code).toBe('missing_payment')
+    }
+    const blank = parseUcpPaymentCredential({
+      instruments: [instrument({ credential: { type: 'PAYMENT_GATEWAY', token: '' } })],
+    }, handlerId)
+    expect(blank.ok).toBe(false)
+    if (!blank.ok) expect(blank.error.code).toBe('missing_payment')
   })
 })
 

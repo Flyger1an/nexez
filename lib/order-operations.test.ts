@@ -41,5 +41,16 @@ describe('order operations', () => {
       metadata: { refundedCents: 2_500 },
       created_at: '2026-08-23T12:00:00.000Z',
     }, 'usd')).toMatchObject({ title: 'Refund recorded', detail: '$25 refunded in total.', tone: 'attention' })
+
+    expect(describeOrderActivity({
+      event_type: 'protocol_credential_confirmed',
+      source: 'system',
+      metadata: { credentialKind: 'shared_payment_token', handlerId: 'card_tokenized' },
+      created_at: '2026-08-25T12:00:00.000Z',
+    }, 'usd')).toEqual({
+      title: 'Agent payment verified',
+      detail: 'The delegated payment credential was accepted without storing the credential.',
+      tone: 'ready',
+    })
   })
 })

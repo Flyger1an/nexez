@@ -9,6 +9,7 @@
 
 import type {
   CheckoutSession,
+  DelegatedPayment,
   RequestedLineItem,
   SessionBuyer,
   SessionStatus,
@@ -81,18 +82,54 @@ export function parseUcpBuyer(body: { buyer?: unknown; contact?: unknown; billin
   return buyer.name || buyer.email ? buyer : null
 }
 
-/** Extract the Google Pay tokenized credential from UCP `payment.instruments[].credential.token`.
- * Tolerates a couple of flatter shapes. Returns null when absent/blank. */
-export function parseUcpPaymentToken(payment: unknown): string | null {
-  if (!payment || typeof payment !== 'object') return null
-  const p = payment as {
-    instruments?: Array<{ credential?: { token?: unknown } }>
-    token?: unknown
-    credential?: { token?: unknown }
+export type ParsedUcpPaymentCredential =
+  | { ok: true; payment: Extract<DelegatedPayment, { kind: 'google_pay' }> }
+  | { ok: false; error: UcpError }
+
+/** Parse the selected UCP Google Pay instrument and bind it to the handler instance
+ * Nexez declared. Multiple instruments are accepted only when exactly one is marked
+ * selected. The opaque gateway payload is trimmed at its boundary but never decoded,
+ * transformed, or treated as a Stripe PaymentMethod id. */
+export function parseUcpPaymentCredential(
+  payment: unknown,
+  expectedHandlerId: string,
+): ParsedUcpPaymentCredential {
+  if (!payment || typeof payment !== 'object') {
+    return { ok: false, error: ucpError('missing_payment', 'payment with a Google Pay credential is required.', 'payment') }
   }
-  const fromInstrument = Array.isArray(p.instruments) ? p.instruments[0]?.credential?.token : undefined
-  const candidate = fromInstrument ?? p.credential?.token ?? p.token
-  return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null
+  const p = payment as { instruments?: unknown }
+  if (!Array.isArray(p.instruments) || p.instruments.length === 0) {
+    return { ok: false, error: ucpError('missing_payment', 'payment.instruments must include a Google Pay credential.', 'payment.instruments') }
+  }
+
+  const instruments = p.instruments.filter((instrument): instrument is Record<string, unknown> => Boolean(instrument && typeof instrument === 'object'))
+  const selected = instruments.filter((instrument) => instrument.selected === true)
+  const instrument = instruments.length === 1 ? instruments[0] : selected.length === 1 ? selected[0] : null
+  if (!instrument) {
+    return { ok: false, error: ucpError('ambiguous_payment_instrument', 'Exactly one payment instrument must be selected.', 'payment.instruments') }
+  }
+
+  const handlerId = typeof instrument.handler_id === 'string' ? instrument.handler_id.trim() : ''
+  if (!handlerId || handlerId !== expectedHandlerId) {
+    return { ok: false, error: ucpError('payment_handler_mismatch', 'The selected instrument does not match this checkout payment handler.', 'payment.instruments[].handler_id') }
+  }
+  const credential = instrument.credential
+  if (!credential || typeof credential !== 'object') {
+    return { ok: false, error: ucpError('missing_payment', 'The selected instrument has no payment credential.', 'payment.instruments[].credential') }
+  }
+  const typedCredential = credential as { type?: unknown; token?: unknown }
+  if (typedCredential.type !== 'PAYMENT_GATEWAY') {
+    return { ok: false, error: ucpError('unsupported_payment_credential', 'The selected instrument must contain a PAYMENT_GATEWAY credential.', 'payment.instruments[].credential.type') }
+  }
+  const token = typeof typedCredential.token === 'string' ? typedCredential.token.trim() : ''
+  if (!token) {
+    return { ok: false, error: ucpError('missing_payment', 'The selected instrument has no payment token.', 'payment.instruments[].credential.token') }
+  }
+
+  return {
+    ok: true,
+    payment: { kind: 'google_pay', token, handlerId, credentialType: 'PAYMENT_GATEWAY' },
+  }
 }
 
 // ---------------------------------------------------------------------------

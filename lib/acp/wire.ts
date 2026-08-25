@@ -9,6 +9,7 @@
 
 import type {
   CheckoutSession,
+  DelegatedPayment,
   RequestedLineItem,
   SessionBuyer,
   SessionStatus,
@@ -77,15 +78,53 @@ export function parseAcpLineItems(lineItems: unknown): ParsedAcpLineItems {
   return { ok: true, slug: slug as string, items }
 }
 
-/** Extract the delegated payment credential from ACP `payment_data`. The Shared
- * Payment Token lives at `payment_data.instrument.credential`; tolerate a couple of
- * flatter shapes so a version skew doesn't drop a valid token. Returns null when
- * absent/blank (the route rejects with a missing_payment error). */
-export function parseAcpPaymentToken(paymentData: unknown): string | null {
-  if (!paymentData || typeof paymentData !== 'object') return null
-  const p = paymentData as { instrument?: { credential?: unknown }; token?: unknown; credential?: unknown }
-  const candidate = p.instrument?.credential ?? p.token ?? p.credential
-  return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null
+export type ParsedAcpPaymentCredential =
+  | { ok: true; payment: Extract<DelegatedPayment, { kind: 'shared_payment_token' }> }
+  | { ok: false; error: AcpError }
+
+/** Parse ACP's typed delegated credential without guessing its Stripe meaning.
+ * Current ACP sends `instrument.credential: { type: "spt", token: "spt_..." }`.
+ * Older enrolled clients sent the token as a bare string, so that shape remains
+ * accepted only when the token itself proves it is an SPT or vaulted token. A raw
+ * `pm_` test method is never accepted through this public protocol boundary. */
+export function parseAcpPaymentCredential(paymentData: unknown): ParsedAcpPaymentCredential {
+  if (!paymentData || typeof paymentData !== 'object') {
+    return { ok: false, error: acpError('missing_payment', 'payment_data with a payment credential is required.', '$.payment_data') }
+  }
+
+  const p = paymentData as {
+    handler_id?: unknown
+    instrument?: { credential?: unknown }
+    token?: unknown
+    credential?: unknown
+  }
+  const handlerId = typeof p.handler_id === 'string' && p.handler_id.trim() ? p.handler_id.trim() : undefined
+  const rawCredential = p.instrument?.credential ?? p.token ?? p.credential
+
+  let credentialType: string | undefined
+  let token: string | null = null
+  if (typeof rawCredential === 'string') {
+    token = rawCredential.trim() || null
+  } else if (rawCredential && typeof rawCredential === 'object') {
+    const credential = rawCredential as { type?: unknown; token?: unknown }
+    credentialType = typeof credential.type === 'string' ? credential.type.trim().toLowerCase() : undefined
+    token = typeof credential.token === 'string' && credential.token.trim() ? credential.token.trim() : null
+  }
+
+  if (!token) {
+    return { ok: false, error: acpError('missing_payment', 'payment_data with a payment credential is required.', '$.payment_data.instrument.credential') }
+  }
+  if (credentialType && credentialType !== 'spt') {
+    return { ok: false, error: acpError('unsupported_payment_credential', 'Only an ACP Shared Payment Token can complete this checkout.', '$.payment_data.instrument.credential.type') }
+  }
+  if (!token.startsWith('spt_') && !token.startsWith('vt_')) {
+    return { ok: false, error: acpError('invalid_payment_credential', 'The ACP payment credential must be a Stripe token beginning with spt_ or vt_.', '$.payment_data.instrument.credential.token') }
+  }
+
+  return {
+    ok: true,
+    payment: { kind: 'shared_payment_token', token, ...(handlerId ? { handlerId } : {}) },
+  }
 }
 
 /** Parse the ACP buyer{name,email,phone} into the core's SessionBuyer (phone unused

@@ -94,6 +94,12 @@ export function describeOrderActivity(event: OrderActivityEvent, currency: strin
         detail: amount == null ? 'Stripe-confirmed payment recorded.' : `${formatCurrencyAmount(amount, stringValue(metadata.currency) || currency)} collected.`,
         tone: 'ready',
       }
+    case 'protocol_credential_confirmed':
+      return {
+        title: 'Agent payment verified',
+        detail: 'The delegated payment credential was accepted without storing the credential.',
+        tone: 'ready',
+      }
     case 'fulfillment_updated':
       return { title: `Fulfillment ${fulfillmentLabel(asFulfillmentStatus(status)).toLowerCase()}`, detail: 'Fulfillment status updated.', tone: status === 'fulfilled' ? 'ready' : 'neutral' }
     case 'refund_recorded':

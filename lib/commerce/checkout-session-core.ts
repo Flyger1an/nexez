@@ -516,10 +516,27 @@ export function checkApprovalDrift(session: CheckoutSession): ApprovalDrift {
  *   settlement path end-to-end against a Stripe test method. Both protocol orders
  *   in production settled this way, in test mode; no real delegated credential has
  *   ever been charged. */
-export type DelegatedPayment = {
-  token: string
-  kind: 'payment_method' | 'shared_payment_token' | 'google_pay'
-}
+export type DelegatedPayment =
+  | {
+      kind: 'payment_method'
+      /** Stripe PaymentMethod id used only by the internal sandbox certification. */
+      token: string
+    }
+  | {
+      kind: 'shared_payment_token'
+      /** Stripe Shared Payment Token (`spt_`) or seller-backed vaulted token (`vt_`). */
+      token: string
+      /** ACP payment handler instance selected by the buyer, when the wire version supplies it. */
+      handlerId?: string
+    }
+  | {
+      kind: 'google_pay'
+      /** Opaque Google Pay PAYMENT_GATEWAY payload. It must be forwarded unchanged. */
+      token: string
+      /** UCP payment handler instance id, validated against Nexez's declaration. */
+      handlerId: string
+      credentialType: 'PAYMENT_GATEWAY'
+    }
 
 /** Everything the settlement layer needs beyond the resolved session. These are
  * resolved from the database by the bridge (owner plan → commission percent,

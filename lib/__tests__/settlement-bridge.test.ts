@@ -384,7 +384,12 @@ describe('settlement bridge - delegated credential kinds', () => {
 
   it('refuses a Google Pay credential without calling Stripe', async () => {
     const stripe = fakeStripe()
-    const res = await createSettlementBridge(stripe)(readySession(), { token: 'ECv2_payload', kind: 'google_pay' }, baseContext())
+    const res = await createSettlementBridge(stripe)(readySession(), {
+      token: 'ECv2_payload',
+      kind: 'google_pay',
+      handlerId: 'handler_123',
+      credentialType: 'PAYMENT_GATEWAY',
+    }, baseContext())
     expect(res).toMatchObject({ ok: false, code: 'unsupported_credential' })
     expect(stripe.calls).toHaveLength(0)
   })
@@ -396,13 +401,33 @@ describe('settlement bridge - delegated credential kinds', () => {
     expect(stripe.calls).toHaveLength(0)
   })
 
+  it('rejects credential ids whose prefix does not match their declared kind', async () => {
+    const rawMethodStripe = fakeStripe()
+    const rawMethod = await createSettlementBridge(rawMethodStripe)(
+      readySession(),
+      { token: 'spt_not_a_method', kind: 'payment_method' },
+      baseContext(),
+    )
+    expect(rawMethod).toMatchObject({ ok: false, code: 'unsupported_credential' })
+    expect(rawMethodStripe.calls).toHaveLength(0)
+
+    const sptStripe = fakeStripe()
+    const spt = await createSettlementBridge(sptStripe)(
+      readySession(),
+      { token: 'pm_card_visa', kind: 'shared_payment_token' },
+      baseContext(),
+    )
+    expect(spt).toMatchObject({ ok: false, code: 'unsupported_credential' })
+    expect(sptStripe.calls).toHaveLength(0)
+  })
+
   // The credential check runs after the readiness/amount/connect gates, so a
   // refusal never masks a more fundamental reason not to charge.
   it('still reports no_connect ahead of an unsupported credential', async () => {
     const stripe = fakeStripe()
     const res = await createSettlementBridge(stripe)(
       readySession(),
-      { token: 'ECv2_payload', kind: 'google_pay' },
+      { token: 'ECv2_payload', kind: 'google_pay', handlerId: 'handler_123', credentialType: 'PAYMENT_GATEWAY' },
       baseContext({ connectAccountId: '' }),
     )
     expect(res).toMatchObject({ ok: false, code: 'no_connect' })

@@ -6,6 +6,7 @@ import {
   buildCertificationChecks,
   buildConfigurationChecks,
   deriveDirectOrderLifecycleEvidence,
+  deriveProtocolCredentialEvidence,
   deriveAdvancedCommerceEvidence,
   buildMarketplaceCurationCheck,
   buildOperationalChecks,
@@ -563,6 +564,10 @@ function buildMetrics(
   const orders = sources.orders.rows
   const liveOrders = orders.filter((row) => row.stripe_livemode === true)
   const provenProtocolOrders = orders.filter(isSettledProtocolOrder)
+  const protocolCredentialEvidence = deriveProtocolCredentialEvidence({
+    orders,
+    events: sources.orderEvents.rows,
+  })
   const negotiations = sources.negotiations.rows
   const liveNegotiations = negotiations.filter((row) => row.stripe_livemode === true)
   const billing = sources.billing.rows
@@ -598,8 +603,11 @@ function buildMetrics(
     ...directOrderLifecycles,
     protocolOrders: provenProtocolOrders.filter((row) => row.stripe_livemode === true).length,
     sandboxProtocolOrders: provenProtocolOrders.filter((row) => row.stripe_livemode === false).length,
-    acpProtocolOrders: provenProtocolOrders.filter((row) => row.channel === 'acp').length,
-    ucpProtocolOrders: provenProtocolOrders.filter((row) => row.channel === 'ucp').length,
+    acpLiveProtocolOrders: provenProtocolOrders.filter((row) => row.channel === 'acp' && row.stripe_livemode === true).length,
+    ucpLiveProtocolOrders: provenProtocolOrders.filter((row) => row.channel === 'ucp' && row.stripe_livemode === true).length,
+    acpSandboxProtocolOrders: provenProtocolOrders.filter((row) => row.channel === 'acp' && row.stripe_livemode === false).length,
+    ucpSandboxProtocolOrders: provenProtocolOrders.filter((row) => row.channel === 'ucp' && row.stripe_livemode === false).length,
+    ...protocolCredentialEvidence,
     negotiations: negotiations.length,
     pendingNegotiationDecisions: negotiations.filter((row) => row.decision_pending).length,
     staleNegotiationDecisions: negotiations.filter((row) => row.decision_pending && timestamp(row.decision_requested_at || row.updated_at || row.created_at) < staleNegotiationBefore).length,

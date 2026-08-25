@@ -14,6 +14,13 @@ export const UCP_FEED_SCHEMA_VERSION = 'ucp.product-feed.v1'
 export const UCP_TERMS_URL = 'https://nexez.ai/terms'
 export const UCP_PRIVACY_URL = 'https://nexez.ai/privacy'
 
+/** The unique Google Pay handler instance id declared in Nexez's UCP profile and
+ * checkout responses. UCP requires every selected instrument to point back to this
+ * exact id. Checkout remains unavailable until enrollment supplies the declaration. */
+export function ucpGooglePayHandlerId(): string | null {
+  return process.env.UCP_GOOGLE_PAY_HANDLER_ID?.trim() || null
+}
+
 /** UCP checkout is a Google-APPROVED program (Merchant Center + UCP waitlist) and the
  * AP2 mandate verification needs Google's signing keys - both owner-blocked. Until
  * enrollment lands, the checkout endpoints are dormant (fail-closed) and the feed

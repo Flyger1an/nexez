@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildOperationalChecks, type LaunchMetrics, type LaunchSourceAvailability } from '../launch-control'
+import { buildCertificationChecks, buildOperationalChecks, type LaunchMetrics, type LaunchSourceAvailability } from '../launch-control'
 
 const NOW = '2026-08-10T00:00:00.000Z'
 const hoursAgo = (h: number) => new Date(Date.parse(NOW) - h * 3_600_000).toISOString()
@@ -23,8 +23,12 @@ const baseMetrics: LaunchMetrics = {
   directOperationalLifecycles: 0,
   protocolOrders: 0,
   sandboxProtocolOrders: 0,
-  acpProtocolOrders: 0,
-  ucpProtocolOrders: 0,
+  acpLiveProtocolOrders: 0,
+  ucpLiveProtocolOrders: 0,
+  acpSandboxProtocolOrders: 0,
+  ucpSandboxProtocolOrders: 0,
+  acpDelegatedPayments: 0,
+  ucpDelegatedPayments: 0,
   negotiations: 0,
   pendingNegotiationDecisions: 0,
   staleNegotiationDecisions: 0,
@@ -131,5 +135,44 @@ describe('stripe-delivery launch check (idle-aware)', () => {
   it('treats a zero-event ledger as ready when endpoints verify enabled, attention otherwise', () => {
     expect(stripeDelivery({ stripeWebhookEvents: 0, stripeWebhookEndpointsEnabled: true }).status).toBe('ready')
     expect(stripeDelivery({ stripeWebhookEvents: 0, stripeWebhookEndpointsEnabled: null }).status).toBe('attention')
+  })
+})
+
+function protocolCertification(overrides: Partial<LaunchMetrics>, sources: LaunchSourceAvailability = allSources) {
+  const checks = buildCertificationChecks({ ...baseMetrics, ...overrides }, sources, [])
+  const check = checks.find((candidate) => candidate.id === 'cert-protocol')
+  if (!check) throw new Error('cert-protocol check missing')
+  return check
+}
+
+describe('protocol certification evidence', () => {
+  it('does not treat one sandbox order per channel as delegated-payment proof', () => {
+    const check = protocolCertification({
+      sandboxProtocolOrders: 2,
+      acpSandboxProtocolOrders: 1,
+      ucpSandboxProtocolOrders: 1,
+    })
+    expect(check.status).toBe('attention')
+    expect(check.evidence).toMatch(/Delegated proof: 0 ACP SPT and 0 UCP Google Pay orders/)
+  })
+
+  it('does not infer credential kind from live protocol orders', () => {
+    const check = protocolCertification({
+      protocolOrders: 2,
+      acpLiveProtocolOrders: 1,
+      ucpLiveProtocolOrders: 1,
+    })
+    expect(check.status).toBe('attention')
+    expect(check.evidence).toMatch(/Delegated proof: 0 ACP SPT and 0 UCP Google Pay orders/)
+  })
+
+  it('becomes ready only when both channels have token-free delegated proof events', () => {
+    const check = protocolCertification({ acpDelegatedPayments: 1, ucpDelegatedPayments: 1 })
+    expect(check.status).toBe('ready')
+  })
+
+  it('is unknown when the order ledger cannot be read', () => {
+    const check = protocolCertification({}, { ...allSources, orders: false })
+    expect(check.status).toBe('unknown')
   })
 })
