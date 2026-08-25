@@ -574,6 +574,6 @@ test.describe('page settings', () => {
     })
     expect(res.status()).toBe(401)
     const json = await res.json()
-    expect(json.error).toBe('Authentication required')
+    expect(json.error).toBe('Not authenticated')
   })
 })

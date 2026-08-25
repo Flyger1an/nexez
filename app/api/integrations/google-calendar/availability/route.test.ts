@@ -19,7 +19,15 @@ const { gateRef, connectionRef } = vi.hoisted(() => ({
 }))
 
 vi.mock('../../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => null) }))
-vi.mock('../../../../../lib/server/require-page-access', () => ({ requirePageAccess: vi.fn(async () => gateRef.value) }))
+vi.mock('../../../../../lib/server/require-page-access', () => ({
+  requirePageAccess: vi.fn(async (options: { pageId: unknown }) => {
+    const gate = gateRef.value
+    if (!gate.ok || typeof options.pageId !== 'function') return gate
+    const resolved = await options.pageId(gate.admin)
+    if (resolved instanceof Response) return { ok: false, response: resolved }
+    return { ...gate, access: { ...gate.access, pageId: resolved } }
+  }),
+}))
 vi.mock('../../../../../lib/server/plan', () => ({ ownerAllows: vi.fn(async () => true) }))
 vi.mock('../../../../../lib/server/merchant-connectors', () => ({
   getUsableConnectorCredential: vi.fn(async () => connectionRef.value),
@@ -55,7 +63,7 @@ describe('Google Calendar availability route', () => {
     vi.mocked(ownerAllows).mockResolvedValue(true)
   })
 
-  it('rejects invalid JSON before any provider call', async () => {
+  it('rejects invalid JSON after authentication and before any provider call', async () => {
     const response = await POST(post('{', true))
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({ error: 'Invalid JSON' })
@@ -65,7 +73,15 @@ describe('Google Calendar availability route', () => {
     const response = await POST(post({ calendarId: 'primary' }))
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({ error: 'pageId is required' })
-    expect(requirePageAccess).not.toHaveBeenCalled()
+    expect(requirePageAccess).toHaveBeenCalled()
+    expect(getUsableConnectorCredential).not.toHaveBeenCalled()
+  })
+
+  it('checks authentication before returning request-validation details', async () => {
+    gateRef.value = { ok: false, response: Response.json({ error: 'Not authenticated' }, { status: 401 }) }
+    const response = await POST(post({ calendarId: 'primary' }))
+    expect(response.status).toBe(401)
+    expect(await response.json()).toEqual({ error: 'Not authenticated' })
   })
 
   it('propagates the page access authentication boundary', async () => {

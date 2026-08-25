@@ -83,13 +83,18 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, 'google-calendar-availability', 20, 60_000)
   if (limited) return limited
   const body = await request.json().catch(() => null) as { pageId?: unknown; calendarId?: unknown; calendar_id?: unknown } | null
-  if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  const pageId = typeof body.pageId === 'string' ? body.pageId.trim() : ''
-  if (!pageId) return NextResponse.json({ error: 'pageId is required' }, { status: 400 })
-  const calendarId = String(body.calendarId || body.calendar_id || 'primary').trim() || 'primary'
+  const pageId = body && typeof body.pageId === 'string' ? body.pageId.trim() : ''
 
-  const gate = await requirePageAccess({ pageId, unavailableMessage: 'Google Calendar connections are not configured.' })
+  const gate = await requirePageAccess({
+    pageId: async () => {
+      if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+      if (!pageId) return NextResponse.json({ error: 'pageId is required' }, { status: 400 })
+      return pageId
+    },
+    unavailableMessage: 'Google Calendar connections are not configured.',
+  })
   if (!gate.ok) return gate.response
+  const calendarId = String(body?.calendarId || body?.calendar_id || 'primary').trim() || 'primary'
   if (!(await ownerAllows(gate.admin, gate.access.ownerId, 'integrations'))) {
     return NextResponse.json({ error: 'Google Calendar availability requires Pro or higher.' }, { status: 402 })
   }
