@@ -12,6 +12,7 @@
 // any model).
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getReadinessScore, normalizeSlug, type AgentPage, type OfferItem } from '../agent-page'
+import { commerceTemplateLineageFromSources } from '../commerce-template-lineage'
 import {
   publicIdentifierSuggestions,
   publicIdentifierWithSuffix,
@@ -788,6 +789,7 @@ export async function commitIntakeSession(
   }
 
   const draft = state.draft
+  const commerceTemplateLineage = commerceTemplateLineageFromSources(state.sources)
   let pageId: string
   let slug: string | null = null
 
@@ -834,6 +836,7 @@ export async function commitIntakeSession(
         faqs: draft.faqs,
         is_published: false,
         branding: {},
+        ...(commerceTemplateLineage ?? {}),
       })
       .select('id, slug')
       .single()
@@ -867,6 +870,8 @@ export async function commitIntakeSession(
     readiness: draftReadiness(state.draft),
     offers: state.draft.services.length + state.draft.products.length,
     negotiationNormalized,
+    commerceTemplateId: commerceTemplateLineage?.commerce_template_id ?? null,
+    commerceTemplateVersion: commerceTemplateLineage?.commerce_template_version ?? null,
     timeToHandoffMs: row.created_at ? Math.max(0, now().getTime() - new Date(row.created_at).getTime()) : null,
   })
   return { ok: true, pageId, slug, alreadyCommitted: false }

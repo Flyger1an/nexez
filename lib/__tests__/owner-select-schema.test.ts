@@ -81,4 +81,8 @@ describe('owner/server selects vs pages schema', () => {
   it('regression: marketplace_discoverable exists on base pages', () => {
     expect(schemaCols.has('marketplace_discoverable')).toBe(true)
   })
+
+  it('keeps optional Commerce Template lineage out of the shared rollout select', () => {
+    expect(OWNER_PAGE_SELECT).not.toContain('commerce_template_')
+  })
 })

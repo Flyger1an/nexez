@@ -27,6 +27,7 @@ import {
   StatusPill,
 } from '../../../components/settings/SettingsPrimitives'
 import { appUrl } from '../../../lib/site'
+import { TemplateLineageCard } from '../../../components/editor/TemplateLineageCard'
 
 const EDITOR_SECTIONS = [
   { id: 'basics', label: 'Listing basics', icon: FileText },
@@ -118,6 +119,9 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                 icon={FileText}
               >
                 <div className="space-y-6 p-5 sm:p-6">
+                  {initial.commerceTemplateLineage ? (
+                    <TemplateLineageCard lineage={initial.commerceTemplateLineage} />
+                  ) : null}
                   {page && isStale(page) && page.website_url ? (
                     <div className="rounded-[var(--radius)] border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-3 text-sm">
                       <span className="text-[var(--amber)]">

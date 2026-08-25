@@ -440,6 +440,58 @@ describe('commitIntakeSession - materialization (spec §10)', () => {
     expect(captured.sessions[0].state.handoff.via).toBe('owner_exit') // commit before agent handoff = the owner exit
   })
 
+  it('atomically retains an exact, registered template selection on a new listing', async () => {
+    const state = committableState()
+    state.sources.push({
+      id: 'template-source',
+      kind: 'template',
+      value: 'commerce-template:events.party-rentals@1',
+      addedAt: '2026-08-25T22:30:00.000Z',
+    })
+    const { db } = makeDb(sessionRow(state))
+    const inserted: any[] = []
+
+    const result = await commitIntakeSession({
+      db,
+      admin: makeAdmin([], inserted),
+      user: OWNER,
+      sessionId: 'sess-1',
+    })
+
+    expect(result.ok).toBe(true)
+    expect(inserted[0]).toMatchObject({
+      commerce_template_id: 'events.party-rentals',
+      commerce_template_version: 1,
+      commerce_template_adopted_at: '2026-08-25T22:30:00.000Z',
+      commerce_template_source: 'owner_selected_intake',
+    })
+  })
+
+  it('does not persist an unregistered template reference', async () => {
+    const state = committableState()
+    state.sources.push({
+      id: 'unknown-template-source',
+      kind: 'template',
+      value: 'commerce-template:events.party-rentals@999',
+      addedAt: '2026-08-25T22:30:00.000Z',
+    })
+    const { db } = makeDb(sessionRow(state))
+    const inserted: any[] = []
+
+    const result = await commitIntakeSession({
+      db,
+      admin: makeAdmin([], inserted),
+      user: OWNER,
+      sessionId: 'sess-1',
+    })
+
+    expect(result.ok).toBe(true)
+    expect(inserted[0].commerce_template_id).toBeUndefined()
+    expect(inserted[0].commerce_template_version).toBeUndefined()
+    expect(inserted[0].commerce_template_adopted_at).toBeUndefined()
+    expect(inserted[0].commerce_template_source).toBeUndefined()
+  })
+
   it('serializes offers losslessly - the formatOfferLines/parseOfferLines roundtrip holds for every field', async () => {
     const state = committableState()
     const { db } = makeDb(sessionRow(state))
