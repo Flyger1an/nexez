@@ -8,10 +8,9 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 	exit;
 }
 
-delete_option('nexez_agent_ready_options');
+$options = get_option('nexez_agent_ready_options', array());
+if (is_array($options) && !empty($options['slug']) && is_string($options['slug'])) {
+	delete_transient('nexez_embed_' . md5($options['slug']));
+}
 
-// Clear any embed-manifest transients (both value + timeout rows).
-global $wpdb;
-$wpdb->query(
-	"DELETE FROM {$wpdb->options} WHERE option_name LIKE '\_transient\_nexez\_embed\_%' OR option_name LIKE '\_transient\_timeout\_nexez\_embed\_%'"
-);
+delete_option('nexez_agent_ready_options');

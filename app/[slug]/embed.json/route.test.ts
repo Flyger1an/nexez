@@ -53,6 +53,9 @@ describe('GET /[slug]/embed.json', () => {
     const ld = JSON.parse(inner)
     expect(ld['@context']).toBe('https://schema.org')
     expect(JSON.stringify(ld)).toContain('Consult')
+    expect(ld.url).toBe('https://demo.example.com')
+    expect(ld.mainEntity.url).toBe('https://demo.example.com')
+    expect(ld.mainEntity.makesOffer[0].url).toBe('https://nexez.test/checkout/demo?offer=services-0')
 
     // Self-references the merchant's own domain.
     expect(body.websiteBase).toBe('https://demo.example.com')
@@ -74,6 +77,10 @@ describe('GET /[slug]/embed.json', () => {
     dbRef.handler = () => ({ data: { ...demoPage, website_url: null }, error: null })
     const body = await (await GET(req(), ctx('demo'))).json()
     expect(body.websiteBase).toMatch(/\/demo$/)
+    const inner = body.jsonld.replace(/^<script[^>]*>/, '').replace(/<\/script>$/, '')
+    const ld = JSON.parse(inner)
+    expect(ld.url).toBe('https://nexez.test/demo')
+    expect(ld.mainEntity.makesOffer[0].url).toBe('https://nexez.test/checkout/demo?offer=services-0')
   })
 
   it('does NOT leak owner-private verification fields', async () => {

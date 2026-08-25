@@ -46,7 +46,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   // Reuse the kit for the escaped <link> (href on the platform base); the JSON-LD
   // is built separately so it can self-reference the merchant domain.
   const headLink = buildAgentReadyKit(page, { baseUrl: base }).find((b) => b.id === 'head_link')?.content ?? ''
-  const jsonld = `<script type="application/ld+json">${safeJsonScript(buildJsonLd(page, websiteBase))}</script>`
+  const structuredData = buildJsonLd(page, base)
+  structuredData.url = websiteBase
+  structuredData.mainEntity.url = websiteBase
+  const jsonld = `<script type="application/ld+json">${safeJsonScript(structuredData)}</script>`
   const mcpEnabled = Boolean((page as { mcp_enabled?: boolean }).mcp_enabled)
 
   captureEvent('embed.fetch', { slug, host: websiteHost ?? null })
