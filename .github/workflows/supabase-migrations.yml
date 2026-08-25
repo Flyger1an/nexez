@@ -70,6 +70,10 @@ jobs:
         run: supabase test db supabase/tests/checkout_session_privacy.test.sql --local
       - name: Prove seller notification preference ownership
         run: supabase test db supabase/tests/seller_notification_preferences.test.sql --local
+      - name: Prove support requester and operator boundaries
+        run: supabase test db supabase/tests/support_operations.test.sql --local
+      - name: Prove support conversation privacy and delivery evidence
+        run: supabase test db supabase/tests/support_operations_v2.test.sql --local
       - name: Prove the canonical plan entitlement contract
         run: supabase test db supabase/tests/plan_entitlements.test.sql --local
       - name: Prove Shopify mapping serialization and lifecycle boundaries

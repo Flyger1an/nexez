@@ -21,6 +21,8 @@ const POLL_MS = positiveNumber(process.env.NEXEZ_RELEASE_POLL_MS, 10_000)
 const REPORT_PATH = process.env.NEXEZ_RELEASE_REPORT_PATH || 'release-certification.json'
 const HEALTH_URL = `${APP_BASE}/api/internal/launch-health`
 const RECORD_URL = process.env.NEXEZ_RELEASE_CERT_ENDPOINT || `${APP_BASE}/api/internal/release-certifications`
+const SUPPORT_REQUEST_ID = '00000000-0000-4000-8000-000000000001'
+const SUPPORT_REPLY_ID = '00000000-0000-4000-8000-000000000002'
 const startedAt = new Date().toISOString()
 const checks = []
 
@@ -86,6 +88,40 @@ await check('admin-host', 'Platform admin host', true, async () => {
   assert(protectedDesk.ok && protectedUrl.pathname === '/login', 'Signed-out support desk did not fail closed to admin login')
   assert(protectedUrl.searchParams.get('next') === '/admin/support', 'Admin login lost the support-desk return destination')
   return `${ADMIN_BASE} served an isolated login and protected support desk.`
+})
+
+await check('support-privacy', 'Support requester boundaries', true, async () => {
+  const requestPath = `/support/requests/${SUPPORT_REQUEST_ID}`
+  const [supportHub, protectedRequest, privateTickets, privateReply] = await Promise.all([
+    fetchRetry(`${APP_BASE}/support`),
+    fetchRetry(`${APP_BASE}${requestPath}`),
+    fetchRetry(`${APP_BASE}/api/support/tickets`, {
+      headers: { Accept: 'application/json' },
+    }),
+    fetchRetry(`${APP_BASE}/api/support/tickets/${SUPPORT_REQUEST_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        body: 'Release certification privacy probe.',
+        clientMessageId: SUPPORT_REPLY_ID,
+      }),
+    }),
+  ])
+
+  const supportHtml = await supportHub.text()
+  assert(supportHub.ok && /<html[\s>]/i.test(supportHtml), `Support hub returned HTTP ${supportHub.status}`)
+  assert(new URL(supportHub.url).hostname === new URL(MARKETING_BASE).hostname, 'Support hub resolved to the wrong canonical host')
+
+  const protectedUrl = new URL(protectedRequest.url)
+  assert(protectedRequest.ok && protectedUrl.pathname === '/login', 'Signed-out support request did not fail closed to login')
+  assert(protectedUrl.searchParams.get('next') === requestPath, 'Support login lost the request return destination')
+  assert(privateTickets.status === 401, `Private support history returned HTTP ${privateTickets.status} instead of 401`)
+  assert(privateReply.status === 401, `Private support reply returned HTTP ${privateReply.status} instead of 401`)
+
+  return 'Public support canonicalizes to marketing while requester history, request detail, and replies reject anonymous access.'
 })
 
 await check('settings-agent-lab', 'Settings and Agent Lab boundaries', true, async () => {
