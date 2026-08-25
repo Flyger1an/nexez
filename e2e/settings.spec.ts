@@ -74,7 +74,7 @@ async function createDisposableListing(): Promise<string> {
     .insert({
       owner_id: ownerId,
       name: 'Nexez settings E2E',
-      slug: `nexez-settings-e2e-${unique}`,
+      slug: `settings-e2e-${unique}`,
       description: 'Disposable private listing used to verify the settings experience.',
       website_url: 'https://example.com',
       cta_url: 'https://example.com/contact',
