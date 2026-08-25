@@ -31,7 +31,7 @@ test.describe('authed editor', () => {
       .insert({
         owner_id: authData.user.id,
         name: 'Nexez editor E2E',
-        slug: `nexez-editor-e2e-${unique}`,
+        slug: `editor-e2e-${unique}`,
         description: 'Disposable listing used to verify the structured listing editor.',
         website_url: 'https://example.com',
         cta_url: 'https://example.com/contact',
