@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import type { CSSProperties } from 'react'
 import { after } from 'next/server'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { headers, cookies } from 'next/headers'
 import { createClient as createServerClient } from '../../utils/supabase/server'
 import { applyDraftOverlay } from '../../lib/draft'
@@ -27,6 +27,7 @@ import { getPagePrivateMeta } from '../../lib/server/page-private-meta'
 import { loadReviewSummaryForSlug } from '../../lib/server/reviews'
 import type { ReviewSummary } from '../../lib/reviews'
 import { ApprovedActionForm } from '../../components/ApprovedActionForm'
+import { resolveRenamedPageSlug } from '../../lib/server/public-identifier'
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -134,6 +135,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   }
 
   if (!page) {
+    const renamed = await resolveRenamedPageSlug(slug)
+    if (renamed) permanentRedirect(`/${renamed}`)
     notFound()
   }
 

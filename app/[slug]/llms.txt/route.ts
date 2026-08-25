@@ -5,6 +5,7 @@ import { markdownText, plainAgentText } from '../../../lib/agent-text'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../../lib/custom-domain'
 import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
 import { supabase } from '../../../lib/supabase'
+import { renamedPageArtifactRedirect } from '../../../lib/server/public-identifier'
 
 /**
  * B5 follow-up: per-page llms.txt scoped to a single page.
@@ -22,6 +23,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     .single<AgentPage>()
 
   if (!page) {
+    const redirect = await renamedPageArtifactRedirect(request, slug)
+    if (redirect) return redirect
     return new Response('Not found', { status: 404 })
   }
 

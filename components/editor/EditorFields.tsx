@@ -2,6 +2,7 @@ import { normalizeSlug } from '../../lib/agent-page'
 import { Field, inputClass, textareaClass } from './Field'
 import { PageEditor } from './usePageEditor'
 import { PlanBadge } from '../billing/PlanGate'
+import { PublicIdentifierFeedback } from '../public-identifier/PublicIdentifierFeedback'
 
 const industries = [
   'Consulting & Strategy', 'Coaching & Training', 'Creative & Design', 'Legal & Professional Services', 'Marketing & Sales',
@@ -17,8 +18,14 @@ export function EditorFields({ e }: { e: PageEditor }) {
         <Field label="Business or offer name">
           <input value={e.name} onChange={(event) => e.setName(event.target.value)} className={inputClass} required />
         </Field>
-        <Field label="Public slug">
+        <Field label="Public listing name">
           <input value={e.slug} onChange={(event) => e.setSlug(normalizeSlug(event.target.value))} className={inputClass} required />
+          <PublicIdentifierFeedback
+            checking={e.slugAvailability.checking}
+            result={e.slugAvailability.result}
+            localMessage={e.slugValidation.ok ? null : e.slugValidation.message}
+            onSuggestion={e.setSlug}
+          />
         </Field>
       </div>
 

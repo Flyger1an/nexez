@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-08-25 against `origin/main` at `950d06c`._
+_Last reconciled: 2026-08-25 against `origin/main` at `b896b34`._
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -9,6 +9,8 @@ This document tracks product direction and launch status. Use [HANDOFF.md](HANDO
 ## Current standing
 
 The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`; platform operations live on `admin.nexez.ai`. Automated release certification is active. The seller-facing Nexez Certified Agent-Ready standard is versioned, continuously evaluated, and machine-verifiable without conflating technical readiness, identity trust, or human marketplace review.
+
+Public listing names and storefront names now share one protected identity policy. New names use 5 to 63 lowercase ASCII letters, numbers, and single hyphens; every 1 to 4 character name, product route, trust-sensitive name, punycode prefix, and Nexez impersonation pattern is reserved. A private database claim registry makes creation and rename decisions atomic. Listing renames retain permanent aliases across pages, checkout, and agent artifacts, while retired storefront names remain reserved. Existing short names are grandfathered only while unchanged, and custom-domain listing paths are limited to root or one clean 5 to 63 character segment.
 
 Support Operations v2 is live across the requester and operator surfaces. Signed-in requesters can track one private conversation and reply from the app. Platform operators can triage, assign, reply, resolve, inspect delivery evidence, and export privacy-safe records from the isolated admin host. The 2026-08-25 production audit matched every local migration through custom-domain lifecycle migration `20260825173952` to the linked database. Commit `950d06c` passed source CI, migration replay, exact-revision deployment verification, the non-money commerce gauntlet, and Launch Control at 100 with no required blockers; durable certificate `525d7f03-87a2-49cb-a9c6-2cec045b287c` preserves that evidence.
 
@@ -36,6 +38,7 @@ The next milestone remains growing real launch-quality supply and proving demand
 - Conversational seller intake with a reducer-validated tool loop, invention firewall, resumable sessions, deterministic fallback, draft handoff, and web/mobile clients.
 - Visual builder and editor with services, products, tiers, pricing, booking, location, availability, negotiation rules, branding, previews, versions, restore, and custom domains.
 - Hosted storefronts plus an external-site Agent-Ready Kit, scanner, embed/widget, verified-domain artifacts, WordPress plugin, and Shopify app.
+- Protected public-name lifecycle with shared validation, live availability feedback, readable alternatives, atomic database claims, reserved platform namespaces, grandfathered legacy identities, and safe listing rename redirects.
 
 ### Agent legibility and distribution
 

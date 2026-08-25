@@ -6,6 +6,7 @@ const refs = vi.hoisted(() => ({
   result: { data: { handle: 'acme' }, error: null } as any,
   captured: null as QueryContext | null,
   count: 0,
+  currentHandle: 'acme',
   plan: 'free' as 'free' | 'launch' | 'pro' | 'scale' | 'enterprise',
 }))
 
@@ -25,7 +26,10 @@ function wire(user: any = refs.user) {
       if ((ctx.table === 'storefronts' || ctx.table === 'pages') && ctx.op !== 'select') {
         refs.captured = ctx
       }
-      if (ctx.table === 'storefronts' && ctx.op === 'select') return { data: null, error: null, count: refs.count }
+      if (ctx.table === 'storefronts' && ctx.op === 'select') {
+        if (ctx.eqs.id) return { data: { handle: refs.currentHandle }, error: null }
+        return { data: null, error: null, count: refs.count }
+      }
       if (ctx.table === 'storefronts' || ctx.table === 'pages') return refs.result
       return { data: null, error: null }
     }, { user }) as any,
@@ -44,6 +48,7 @@ describe('POST /api/storefront', () => {
     refs.result = { data: { id: 'sf-1', handle: 'acme' }, error: null }
     refs.captured = null
     refs.count = 0
+    refs.currentHandle = 'acme'
     refs.plan = 'free'
   })
 
@@ -55,6 +60,18 @@ describe('POST /api/storefront', () => {
   it('400 when the handle normalizes to empty', async () => {
     wire()
     expect((await POST(post({ handle: '!!!' }))).status).toBe(400)
+  })
+
+  it('rejects a long handle instead of silently storing a shortened one', async () => {
+    wire()
+    expect((await POST(post({ handle: 'x'.repeat(64) }))).status).toBe(400)
+    expect(refs.captured).toBeNull()
+  })
+
+  it('requires five characters for a new handle while preserving an unchanged legacy handle', async () => {
+    wire()
+    expect((await POST(post({ handle: 'acme' }))).status).toBe(400)
+    expect((await POST(post({ id: 'sf-1', handle: 'acme', display_name: 'Legacy' }))).status).toBe(200)
   })
 
   it('creates a NEW storefront (no id): normalized handle, owner from auth, hex-only accent', async () => {
@@ -100,7 +117,10 @@ describe('POST /api/storefront', () => {
   })
 
   it('409 when the handle is already taken (unique violation)', async () => {
-    refs.result = { data: null, error: { code: '23505', message: 'duplicate key' } }
+    refs.result = {
+      data: null,
+      error: { code: '23505', message: 'duplicate key value violates unique constraint "storefronts_handle_key"' },
+    }
     wire()
     expect((await POST(post({ handle: 'taken' }))).status).toBe(409)
   })

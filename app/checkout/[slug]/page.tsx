@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { after } from 'next/server'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import {
   ArrowLeft,
@@ -38,6 +38,7 @@ import { safeJsonScript } from '../../../lib/safe-json'
 import { agentRuntimeUrl } from '../../../lib/site'
 import { supabase } from '../../../lib/supabase'
 import { ApprovedActionForm } from '../../../components/ApprovedActionForm'
+import { resolveRenamedPageSlug } from '../../../lib/server/public-identifier'
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -85,6 +86,17 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
   const page = await getPage(slug)
 
   if (!page) {
+    const renamed = await resolveRenamedPageSlug(slug)
+    if (renamed) {
+      const query = new URLSearchParams()
+      const offer = Array.isArray(search.offer) ? search.offer[0] : search.offer
+      const missingCheckout = Array.isArray(search.missing_checkout)
+        ? search.missing_checkout[0]
+        : search.missing_checkout
+      if (offer) query.set('offer', offer)
+      if (missingCheckout) query.set('missing_checkout', missingCheckout)
+      permanentRedirect(`/checkout/${renamed}${query.size ? `?${query}` : ''}`)
+    }
     notFound()
   }
 

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { loadOrderTokenBySession } from '../../../../lib/server/load-order'
 import { loadServiceAgreementTokenBySession } from '../../../../lib/server/load-service-agreement'
+import { resolveRenamedPageSlug } from '../../../../lib/server/public-identifier'
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -11,17 +12,18 @@ type PageProps = {
 
 export default async function CheckoutSuccessPage({ params, searchParams }: PageProps) {
   const [{ slug }, search] = await Promise.all([params, searchParams])
+  const currentSlug = await resolveRenamedPageSlug(slug) || slug
 
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const { data: page } = await supabase
     .from('pages_public')
     .select('name, contact_email')
-    .eq('slug', slug)
+    .eq('slug', currentSlug)
     .maybeSingle<{ name: string | null; contact_email: string | null }>()
   const sellerEmail = page?.contact_email || null
   const mailto = sellerEmail
-    ? `mailto:${sellerEmail}?subject=${encodeURIComponent(`Order question - ${slug}`)}&body=${encodeURIComponent(`Hi, I have a question about my recent order${search.session_id ? ` (Stripe session ${search.session_id})` : ''}.`)}`
+    ? `mailto:${sellerEmail}?subject=${encodeURIComponent(`Order question - ${currentSlug}`)}&body=${encodeURIComponent(`Hi, I have a question about my recent order${search.session_id ? ` (Stripe session ${search.session_id})` : ''}.`)}`
     : null
 
   // One-shot orders and recurring agreements use distinct bearer capabilities.
@@ -43,7 +45,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
   return (
     <main className="min-h-screen bg-[#090b10] text-white">
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-12">
-        <a href={`/${slug}`} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
+        <a href={`/${currentSlug}`} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
           <ArrowLeft className="size-4" />
           Back to agent page
         </a>
@@ -68,11 +70,11 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
           </div>
 
           <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <a href={`/${slug}`} className="inline-flex items-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]">
+            <a href={`/${currentSlug}`} className="inline-flex items-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]">
               <Bot className="size-4" />
               Public Page
             </a>
-            <a href={`/checkout/${slug}${search.offer ? `?offer=${search.offer}` : ''}`} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-5 py-3 text-sm text-zinc-200 hover:bg-white/10">
+            <a href={`/checkout/${currentSlug}${search.offer ? `?offer=${search.offer}` : ''}`} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-5 py-3 text-sm text-zinc-200 hover:bg-white/10">
               <BadgeCheck className="size-4" />
               Checkout Context
             </a>

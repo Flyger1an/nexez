@@ -2,6 +2,7 @@ import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { RESERVED_SLUGS, isReservedSlug, normalizeSlug } from '../agent-page'
+import { PUBLIC_IDENTIFIER_MIN } from '../public-identifier'
 import { buildDuplicatePayload } from '../duplicate-page'
 import type { AgentPage } from '../agent-page'
 
@@ -15,6 +16,12 @@ describe('isReservedSlug', () => {
   it('leaves normal business slugs alone', () => {
     for (const slug of ['acme-studio', 'kismetpros', 'learn-piano-with-sam', 'store-front-cafe']) {
       expect(isReservedSlug(slug), slug).toBe(false)
+    }
+  })
+
+  it('reserves the entire one-to-four character namespace', () => {
+    for (const slug of ['a', 'z', 'ab', 'abc', 'abcd']) {
+      expect(normalizeSlug(slug).length).toBeLessThan(PUBLIC_IDENTIFIER_MIN)
     }
   })
 })

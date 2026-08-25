@@ -12,6 +12,11 @@
 // any model).
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getReadinessScore, normalizeSlug, type AgentPage, type OfferItem } from '../agent-page'
+import {
+  publicIdentifierSuggestions,
+  publicIdentifierWithSuffix,
+  validatePublicIdentifier,
+} from '../public-identifier'
 import type { ImportResult } from '../importer'
 import { INTAKE_SAFETY_PREAMBLE, fenceUntrusted } from '../llm-engine/prompt-safety'
 import { captureError, captureEvent } from '../observability'
@@ -870,12 +875,16 @@ export async function commitIntakeSession(
 /** First-free slug: base, base-2, base-3… (checked with the admin client since
  *  slug uniqueness is global and RLS hides other tenants' pages). */
 async function uniqueIntakeSlug(admin: Db, base: string): Promise<string> {
+  const normalized = normalizeSlug(base)
+  const root = validatePublicIdentifier(normalized).ok
+    ? normalized
+    : publicIdentifierSuggestions(normalized)[0] || 'new-listing'
   for (let i = 0; i < 50; i++) {
-    const candidate = i === 0 ? base : `${base}-${i + 1}`
+    const candidate = i === 0 ? root : publicIdentifierWithSuffix(root, i + 1)
     const { data } = await admin.from('pages').select('id').eq('slug', candidate).maybeSingle()
     if (!data) return candidate
   }
-  return `${base}-${crypto.randomUUID().slice(0, 8)}`
+  return publicIdentifierWithSuffix(root, crypto.randomUUID().slice(0, 8))
 }
 
 // ---------------------------------------------------------------------------

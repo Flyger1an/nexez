@@ -1,3 +1,10 @@
+import {
+  PUBLIC_IDENTIFIER_MAX,
+  PUBLIC_IDENTIFIER_MIN,
+  normalizePublicIdentifier,
+  validatePublicIdentifier,
+} from './public-identifier'
+
 // Storefront = the account-level brand entity that aggregates a seller's published
 // listings at /store/<handle> (STOREFRONT_RENAME.md §5/§7). An account owns 1..N
 // storefronts (Phase 4); each listing carries a storefront_id. Public reads go through
@@ -26,7 +33,8 @@ export type Storefront = {
 /** A storefront plus its published-listing count, for the account picker + directory. */
 export type StorefrontWithCount = Storefront & { listing_count: number }
 
-export const HANDLE_MAX = 63
+export const HANDLE_MIN = PUBLIC_IDENTIFIER_MIN
+export const HANDLE_MAX = PUBLIC_IDENTIFIER_MAX
 
 /**
  * Normalize a user-entered storefront handle to the DB-safe form (matches the
@@ -34,19 +42,14 @@ export const HANDLE_MAX = 63
  * or doubled hyphens. Returns '' when nothing usable remains (caller rejects empty).
  */
 export function normalizeHandle(input: unknown): string {
-  if (typeof input !== 'string') return ''
-  return input
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-') // collapse any run of non-alphanumerics to one hyphen
-    .replace(/^-+/, '') // trim leading hyphens
-    .replace(/-+$/, '') // trim trailing hyphens
+  return normalizePublicIdentifier(input)
     .slice(0, HANDLE_MAX)
-    .replace(/-+$/, '') // re-trim if the slice cut mid-hyphen
+    .replace(/-+$/, '')
 }
 
 /** True when a handle is already in the canonical, DB-valid form. */
 export function isValidHandle(handle: string): boolean {
-  return handle.length > 0 && handle.length <= HANDLE_MAX && normalizeHandle(handle) === handle
+  return validatePublicIdentifier(handle).ok
 }
 
 // ── §7 billing/payout SEAMS ────────────────────────────────────────────────────────────

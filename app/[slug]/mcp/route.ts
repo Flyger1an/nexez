@@ -5,6 +5,7 @@ import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visib
 import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { agentArtifactHref, normalizeDomainPath } from '../../../lib/custom-domain'
+import { renamedPageArtifactRedirect } from '../../../lib/server/public-identifier'
 
 // Cap on JSON-RPC batch size - an unbounded array was a single-request
 // amplification DoS (~194x) on this unauthenticated endpoint (red-team gauntlet).
@@ -28,6 +29,10 @@ async function loadPage(slug: string) {
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const page = await loadPage(slug)
+  if (!page) {
+    const redirect = await renamedPageArtifactRedirect(request, slug)
+    if (redirect) return redirect
+  }
   if (!page || !(page as { mcp_enabled?: boolean }).mcp_enabled) {
     return NextResponse.json({ error: 'MCP not enabled for this page.' }, { status: 404 })
   }
@@ -51,6 +56,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
 
   const { slug } = await params
   const page = await loadPage(slug)
+  if (!page) {
+    const redirect = await renamedPageArtifactRedirect(request, slug)
+    if (redirect) return redirect
+  }
   if (!page || !(page as { mcp_enabled?: boolean }).mcp_enabled) {
     return NextResponse.json(
       { jsonrpc: '2.0', id: null, error: { code: -32601, message: 'MCP not enabled for this page.' } },

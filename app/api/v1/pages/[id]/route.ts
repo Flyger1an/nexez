@@ -14,6 +14,10 @@ import {
   entitlementAllocationRetryInit,
   isEntitlementAllocationRetry,
 } from '../../../../../lib/entitlement-allocation-error'
+import {
+  publicIdentifierDatabaseMessage,
+  validatePublicIdentifier,
+} from '../../../../../lib/public-identifier'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateApiKey(request)
@@ -45,13 +49,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
 
+  const admin = createAdminClient()
   const update = pickWritablePageFields(body)
-  if (typeof update.slug === 'string') update.slug = normalizeSlug(update.slug as string)
+  if (typeof update.slug === 'string') {
+    update.slug = normalizeSlug(update.slug as string)
+    const { data: current } = await admin
+      .from('pages')
+      .select('slug')
+      .eq('id', id)
+      .eq('owner_id', auth.ownerId)
+      .maybeSingle<{ slug: string }>()
+    if (!current) return NextResponse.json({ error: 'Page not found.' }, { status: 404 })
+    const validation = validatePublicIdentifier(update.slug, { current: current.slug })
+    if (!validation.ok) return NextResponse.json({ error: validation.message }, { status: 400 })
+  }
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: 'No writable fields provided.' }, { status: 400 })
   }
-
-  const admin = createAdminClient()
 
   // Plan gate: attaching a custom domain is a Launch+ (`customDomain`) capability.
   // Clearing it stays open so a downgraded owner can still detach.
@@ -87,6 +101,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         { error: `${error.message} Upgrade your plan to publish more.` },
         { status: 402 },
       )
+    }
+    const identifierError = publicIdentifierDatabaseMessage(error)
+    if (identifierError) {
+      return NextResponse.json({ error: identifierError }, { status: error.code === '23505' ? 409 : 400 })
     }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }

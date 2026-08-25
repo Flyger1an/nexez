@@ -38,7 +38,16 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('StorefrontSettings entitlement lifecycle', () => {
   it('keeps retained branding visible for cleanup but omits it from ordinary Free updates', async () => {
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes('/api/public-identifiers/availability')) {
+        return new Response(JSON.stringify({
+          value: 'acme',
+          available: true,
+          reason: 'owned',
+          message: 'This is your current public name.',
+          grandfathered: true,
+        }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
       const body = JSON.parse(String(init?.body))
       return new Response(JSON.stringify({
         ok: true,
@@ -52,23 +61,37 @@ describe('StorefrontSettings entitlement lifecycle', () => {
     expect(screen.getByLabelText('Accent color')).toBeDisabled()
     expect(screen.getByRole('link', { name: 'Upgrade to Launch' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save storefront' }))
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+    const save = screen.getByRole('button', { name: 'Save storefront' })
+    await waitFor(() => expect(save).toBeEnabled())
+    fireEvent.click(save)
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(true))
+    const saveCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')!
+    const body = JSON.parse(String(saveCall[1]?.body))
     expect(body).not.toHaveProperty('logo_url')
     expect(body).not.toHaveProperty('accent_color')
   })
 
   it('requires confirmation before removal and retains the assigned listing', async () => {
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => new Response(
-      JSON.stringify({ ok: true, id: JSON.parse(String(init?.body)).id }),
-      { status: 200, headers: { 'content-type': 'application/json' } },
-    ))
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes('/api/public-identifiers/availability')) {
+        return new Response(JSON.stringify({
+          value: 'acme',
+          available: true,
+          reason: 'owned',
+          message: 'This is your current public name.',
+          grandfathered: true,
+        }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response(
+        JSON.stringify({ ok: true, id: JSON.parse(String(init?.body)).id }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      )
+    })
     vi.stubGlobal('fetch', fetchMock)
     view('pro')
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove storefront' }))
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false)
     expect(screen.getByText(/1 assigned listing will be kept but unassigned/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Confirm remove' }))
 

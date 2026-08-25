@@ -1,4 +1,5 @@
 import { isEntitlementAllocationRetry } from './entitlement-allocation-error'
+import { publicIdentifierDatabaseMessage } from './public-identifier'
 
 /**
  * Turn a Supabase write error from a publish attempt into a user-facing message.
@@ -11,13 +12,15 @@ import { isEntitlementAllocationRetry } from './entitlement-allocation-error'
  */
 /** True when a publish write was rejected by the published-page limit trigger. */
 export function isPublishLimitError(error: { code?: string; message?: string }): boolean {
-  return error.code === '23514' || /published page limit/i.test(error.message ?? '')
+  return /published page limit/i.test(error.message ?? '')
 }
 
 export function publishErrorMessage(error: { code?: string; message?: string; hint?: string }): string {
   if (isEntitlementAllocationRetry(error)) {
     return 'Your plan allocation changed while this update was running. Please try again.'
   }
+  const identifierError = publicIdentifierDatabaseMessage(error)
+  if (identifierError) return identifierError
   if (isPublishLimitError(error)) return [error.message, error.hint].filter(Boolean).join(' ')
   return `Could not update this page: ${error.message ?? 'unknown error'}`
 }

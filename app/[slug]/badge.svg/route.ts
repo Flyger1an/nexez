@@ -1,6 +1,7 @@
 import { AgentPage, PUBLIC_PAGE_SELECT, getCertification } from '../../../lib/agent-page'
 import { buildAgentReadyBadgeSvg } from '../../../lib/badge'
 import { supabase } from '../../../lib/supabase'
+import { renamedPageArtifactRedirect } from '../../../lib/server/public-identifier'
 
 /**
  * Embeddable Agent-Ready badge: GET /<slug>/badge.svg
@@ -8,7 +9,7 @@ import { supabase } from '../../../lib/supabase'
  * the agent page. The certified claim appears only while every standard check
  * passes; incomplete pages receive a plain readiness badge.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const { data: page } = await supabase
     .from('pages_public')
@@ -16,6 +17,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     .eq('slug', slug)
     .eq('is_published', true)
     .single<AgentPage>()
+
+  if (!page) {
+    const redirect = await renamedPageArtifactRedirect(request, slug)
+    if (redirect) return redirect
+  }
 
   const certification = page ? getCertification(page) : null
   const score = certification?.readiness ?? 0

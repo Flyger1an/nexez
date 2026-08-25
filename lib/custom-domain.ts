@@ -279,6 +279,25 @@ export function normalizeDomainPath(input: string | null | undefined): string {
   return p || '/'
 }
 
+export function validateDomainPath(input: string | null | undefined): { ok: true; value: string } | { ok: false; value: string; message: string } {
+  const value = normalizeDomainPath(input)
+  if (value === '/') return { ok: true, value }
+  if (value.length < 6) {
+    return { ok: false, value, message: 'Use at least 5 characters after the slash.' }
+  }
+  if (value.length > 64) {
+    return { ok: false, value, message: 'Use no more than 63 characters after the slash.' }
+  }
+  if (!/^\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) {
+    return {
+      ok: false,
+      value,
+      message: 'Use one path segment with lowercase letters, numbers, and single hyphens.',
+    }
+  }
+  return { ok: true, value }
+}
+
 /** True when the request arrives on a customer's custom domain (not a platform host). */
 export function isCustomHost(host: string | null | undefined, siteUrl?: string | null): boolean {
   return Boolean(host) && !isPlatformHost(host, siteUrl)

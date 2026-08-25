@@ -5,6 +5,11 @@ import { Store, Loader2, ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { agentRuntimeUrl } from '../lib/site'
 import { getBillingPlan, getLimitUpgradeDecision, minPlanForFeature } from '../lib/billing'
 import { normalizeHandle, type StorefrontWithCount } from '../lib/storefront'
+import { normalizePublicIdentifier, validatePublicIdentifier } from '../lib/public-identifier'
+import {
+  PublicIdentifierFeedback,
+  usePublicIdentifierAvailability,
+} from './public-identifier/PublicIdentifierFeedback'
 import { usePlanEntitlements } from './billing/PlanProvider'
 import { upgradeCta, upgradeHref } from './billing/PlanGate'
 
@@ -64,6 +69,7 @@ export function StorefrontSettings({
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
+  const normalizedHandle = normalizePublicIdentifier(edit.handle)
   const preview = normalizeHandle(edit.handle)
   const isNew = edit.id === null
   const storefrontLimit = entitlements.limits.storefronts
@@ -72,6 +78,13 @@ export function StorefrontSettings({
   const upgradePlan = limitDecision.upgradePlanId
   const upgradePlanName = upgradePlan ? getBillingPlan(upgradePlan)?.name ?? 'a higher plan' : null
   const selectedSaved = storefronts.find((s) => s.id === edit.id) ?? null
+  const handleValidation = validatePublicIdentifier(normalizedHandle, { current: selectedSaved?.handle })
+  const handleAvailability = usePublicIdentifierAvailability({
+    namespace: 'storefront_handle',
+    value: normalizedHandle,
+    subjectId: edit.id,
+    enabled: handleValidation.ok,
+  })
   const brandingAllowed = entitlements.features.whiteLabel
   const brandingPlan = minPlanForFeature('whiteLabel')
 
@@ -239,13 +252,19 @@ export function StorefrontSettings({
         ) : null}
 
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-zinc-200">Handle</span>
+          <span className="mb-1 block text-sm font-medium text-zinc-200">Public storefront name</span>
           <input value={edit.handle} onChange={(e) => setEdit({ ...edit, handle: e.target.value })} className={inputClass} placeholder="acme-co" />
           {preview ? (
             <p className="mt-1 text-[11px] text-zinc-500">
               Public URL: <span className="font-mono text-[var(--signal)]">{agentRuntimeUrl(`/store/${preview}`)}</span>
             </p>
           ) : null}
+          <PublicIdentifierFeedback
+            checking={handleAvailability.checking}
+            result={handleAvailability.result}
+            localMessage={handleValidation.ok ? null : handleValidation.message}
+            onSuggestion={(handle) => setEdit({ ...edit, handle })}
+          />
         </label>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -290,7 +309,12 @@ export function StorefrontSettings({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-3 pt-1">
-          <button type="button" onClick={() => void save()} disabled={saving || !preview} className="btn-primary h-9 px-4 text-sm disabled:opacity-60">
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving || !handleValidation.ok || handleAvailability.result?.available === false}
+            className="btn-primary h-9 px-4 text-sm disabled:opacity-60"
+          >
             {saving ? <Loader2 className="size-4 animate-spin" /> : isNew ? 'Create storefront' : 'Save storefront'}
           </button>
           {selectedSaved && !selectedSaved.plan_suspended_at ? (

@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../utils/supabase/server'
 import { normalizeHandle } from '../../../lib/storefront'
+import {
+  normalizePublicIdentifier,
+  publicIdentifierDatabaseMessage,
+  validatePublicIdentifier,
+} from '../../../lib/public-identifier'
 import { getBillingPlan, getLimitUpgradeDecision, minPlanForFeature, planAllows } from '../../../lib/billing'
 import { getOwnerPlanId } from '../../../lib/server/plan'
 import { loadStorefrontsForOwner } from '../../../lib/server/storefront'
@@ -63,9 +68,24 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+  const normalizedHandle = normalizePublicIdentifier(body.handle)
   const handle = normalizeHandle(body.handle)
-  if (!handle) return NextResponse.json({ error: 'Enter a valid handle (letters, numbers, and hyphens).' }, { status: 400 })
   const id = typeof body.id === 'string' && body.id.trim() ? body.id.trim() : null
+  let currentHandle: string | null = null
+  if (id) {
+    const { data: current } = await supabase
+      .from('storefronts')
+      .select('handle')
+      .eq('id', id)
+      .eq('owner_id', user.id)
+      .maybeSingle<{ handle: string }>()
+    if (!current) return NextResponse.json({ error: 'Storefront not found.' }, { status: 404 })
+    currentHandle = current.handle
+  }
+  const handleValidation = validatePublicIdentifier(normalizedHandle, { current: currentHandle })
+  if (!handleValidation.ok) {
+    return NextResponse.json({ error: handleValidation.message }, { status: 400 })
+  }
   const fields = brandFields(body)
   const planId = await getOwnerPlanId(supabase, user.id)
   if ((fields.logo_url || fields.accent_color) && !planAllows(planId, 'whiteLabel')) {
@@ -91,7 +111,8 @@ export async function POST(request: Request) {
       .maybeSingle()
     if (error) {
       if (isEntitlementAllocationRetry(error)) return allocationRetryResponse()
-      if (error.code === '23505') return NextResponse.json({ error: 'That handle is already taken. Try another.' }, { status: 409 })
+      const identifierError = publicIdentifierDatabaseMessage(error)
+      if (identifierError) return NextResponse.json({ error: identifierError }, { status: error.code === '23505' ? 409 : 400 })
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
     if (!data) return NextResponse.json({ error: 'Storefront not found.' }, { status: 404 })
@@ -126,7 +147,8 @@ export async function POST(request: Request) {
     .maybeSingle()
   if (error) {
     if (isEntitlementAllocationRetry(error)) return allocationRetryResponse()
-    if (error.code === '23505') return NextResponse.json({ error: 'That handle is already taken. Try another.' }, { status: 409 })
+    const identifierError = publicIdentifierDatabaseMessage(error)
+    if (identifierError) return NextResponse.json({ error: identifierError }, { status: error.code === '23505' ? 409 : 400 })
     if (error.code === '23514' || /storefront limit/i.test(error.message)) {
       return NextResponse.json(
         { error: 'Your storefront limit was reached. Refresh your plan and try again.', code: 'plan_limit_reached' },

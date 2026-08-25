@@ -8,6 +8,7 @@ import { loadReviewSummaryForSlug } from '../../../lib/server/reviews'
 import { loadStorefrontHandleForSlug } from '../../../lib/server/storefront'
 import { supabase } from '../../../lib/supabase'
 import { negotiationTermsSchema } from '../../../lib/negotiation-terms-schema'
+import { renamedPageArtifactRedirect } from '../../../lib/server/public-identifier'
 
 /**
  * MCP discovery manifest (static) for /<slug>.
@@ -46,6 +47,10 @@ export async function GET(
     .eq('is_published', true)
     .single<AgentPage>()
 
+  if (!page) {
+    const redirect = await renamedPageArtifactRedirect(request, slug)
+    if (redirect) return redirect
+  }
   if (!page || !(page as any).mcp_enabled) {
     return NextResponse.json(
       { error: 'MCP not enabled for this page or page not found' },

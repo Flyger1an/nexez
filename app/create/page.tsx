@@ -40,6 +40,14 @@ import { getCreatePageTemplate } from '../../lib/create-page-templates'
 import { isPublishLimitError, publishErrorMessage } from '../../lib/publish-error'
 import { isEntitlementAllocationRetry } from '../../lib/entitlement-allocation-error'
 import { planAllows } from '../../lib/billing'
+import {
+  publicIdentifierDatabaseMessage,
+  validatePublicIdentifier,
+} from '../../lib/public-identifier'
+import {
+  PublicIdentifierFeedback,
+  usePublicIdentifierAvailability,
+} from '../../components/public-identifier/PublicIdentifierFeedback'
 
 type GuidedImportReview = {
   suggestedPage?: {
@@ -139,6 +147,12 @@ export default function CreatePage() {
   const [calendlyImporting, setCalendlyImporting] = useState(false)
 
   const previewSlug = useMemo(() => normalizeSlug(slug || name), [name, slug])
+  const slugValidation = validatePublicIdentifier(previewSlug)
+  const slugAvailability = usePublicIdentifierAvailability({
+    namespace: 'page_slug',
+    value: previewSlug,
+    enabled: mode === 'form' && slugValidation.ok,
+  })
   const sampleCsvHref = useMemo(() => `data:text/csv;charset=utf-8,${encodeURIComponent(sampleAgentCsv)}`, [])
   // Prefer rich arrays (Phase 1 A) for builder + submit; fall back to text for compat
   const parsedProducts = useMemo(() => (productsOffers.length ? productsOffers : parseOfferLines(products)), [productsOffers, products])
@@ -297,6 +311,16 @@ export default function CreatePage() {
     setLoading(true)
     setPublishError('')
     setDraftOffer(false)
+    if (!slugValidation.ok) {
+      setPublishError(slugValidation.message)
+      setLoading(false)
+      return
+    }
+    if (slugAvailability.result?.available === false) {
+      setPublishError(slugAvailability.result.message)
+      setLoading(false)
+      return
+    }
     // Drafts aren't public, so they skip the optimistic public tab.
     const publicPageTab = asDraft ? null : openPendingPublicPageTab()
 
@@ -328,11 +352,11 @@ export default function CreatePage() {
     }
 
     const cleanSlug = normalizeSlug(slug || name)
-    // Platform route segments can't be listing slugs - the static route would
-    // shadow the listing and make it unreachable.
+    // Keep the fast local route check alongside the authoritative database
+    // claim. The shared validator above also covers trust and brand names.
     if (isReservedSlug(cleanSlug)) {
       closePendingPublicPageTab(publicPageTab)
-      setPublishError(`"${cleanSlug}" is a reserved word on Nexez - pick a different link name for your listing.`)
+      setPublishError('That public name is reserved. Choose another.')
       setLoading(false)
       return
     }
@@ -379,10 +403,10 @@ export default function CreatePage() {
 
     if (error) {
       closePendingPublicPageTab(publicPageTab)
-      const isSlugTaken = (error as { code?: string }).code === '23505' || /duplicate|unique|already exists/i.test(error.message)
+      const identifierError = publicIdentifierDatabaseMessage(error)
       setPublishError(
-        isSlugTaken
-          ? `The link “/${cleanSlug}” is already taken. Try a different listing name or edit the slug, then publish again.`
+        identifierError
+          ? identifierError
           : `Couldn’t publish your listing: ${error.message}. Your work is saved. Try again.`,
       )
       return
@@ -1341,8 +1365,14 @@ export default function CreatePage() {
                   </div>
                   <ReadinessChecklist criteria={readinessCriteria} score={score} />
                   <div className="grid gap-5 md:grid-cols-2">
-                    <Field label="Public slug">
+                    <Field label="Public listing name">
                       <input value={slug} onChange={(event) => setSlug(normalizeSlug(event.target.value))} className={inputClass} />
+                      <PublicIdentifierFeedback
+                        checking={slugAvailability.checking}
+                        result={slugAvailability.result}
+                        localMessage={slugValidation.ok ? null : slugValidation.message}
+                        onSuggestion={setSlug}
+                      />
                     </Field>
                     <Field label="CTA label">
                       <input value={ctaLabel} onChange={(event) => setCtaLabel(event.target.value)} className={inputClass} />
@@ -1413,7 +1443,19 @@ Action: ${ctaLabel || 'Visit website'}`}
                 <ArrowRight className="size-4" />
               </button>
             ) : (
-              <button onClick={() => handleSubmit()} disabled={loading || !name || !previewSlug || !description || !websiteUrl} className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 font-semibold text-zinc-950 hover:bg-zinc-200 disabled:opacity-60" type="button">
+              <button
+                onClick={() => handleSubmit()}
+                disabled={
+                  loading
+                  || !name
+                  || !slugValidation.ok
+                  || slugAvailability.result?.available === false
+                  || !description
+                  || !websiteUrl
+                }
+                className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 font-semibold text-zinc-950 hover:bg-zinc-200 disabled:opacity-60"
+                type="button"
+              >
                 {loading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                 {loading ? 'Publishing...' : 'Publish listing'}
               </button>
