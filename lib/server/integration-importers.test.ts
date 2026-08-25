@@ -256,6 +256,19 @@ describe('importIntegrationOffers (intake dispatcher - real offers or error, nev
     const r = await importIntegrationOffers({ provider: 'acuity', accessToken: 'oauth-token' })
     expect(r).toMatchObject({ ok: false, status: 502 })
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer oauth-token')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('acuity: retries one transient read failure before returning live offers', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({}, false, 503))
+      .mockResolvedValueOnce(jsonResponse([{ id: 1 }]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const r = await importIntegrationOffers({ provider: 'acuity', accessToken: 'oauth-token' })
+
+    expect(r.ok).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })
 

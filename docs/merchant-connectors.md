@@ -21,7 +21,20 @@ The credential table is server-only:
 
 Every importer follows the same safety contract. Upstream redirects are rejected,
 provider errors are reduced to safe platform messages, and new provider syncs add
-or update offers without deleting unseen merchant data.
+or update offers without deleting unseen merchant data. Read-only provider calls
+use one bounded retry for transient network failures, rate limits, and upstream 5xx
+responses. Authorization-code exchange, credential refresh, revocation, and other
+token mutations are never retried automatically.
+
+OAuth callback state is single-use. Nexez clears it as soon as a valid callback is
+accepted, even if ownership, entitlement, storage, or initial sync fails later. A
+connection is reported as fully connected only after its initial catalog sync or
+Google Calendar default-calendar save completes. Saved credentials with a failed
+first sync are retained as `attention` so the merchant can retry without granting
+access again. If encrypted storage fails after token exchange, Nexez attempts to
+revoke the unstored provider token immediately. ServiceM8 does not expose a remote
+revocation step in this connector path, so its failure message directs the merchant
+to disable the Nexez add-on before retrying.
 
 ## Required configuration
 
@@ -61,6 +74,8 @@ merchant can retry.
 Square access tokens are refreshed by a bounded daily credential-maintenance job
 when they enter the final 23 days of their 30-day validity window. This keeps
 renewal on a seven-day-or-less cadence even when a merchant is inactive.
+Refreshed credentials are not returned to a caller until the encrypted replacement
+has been written successfully.
 
 ### Acuity
 
@@ -138,6 +153,10 @@ to complete provider-side revocation.
    manual resync, token refresh where applicable, and disconnect behavior.
 7. Confirm no provider token, WooCommerce secret, event detail, order body, or job
    customer detail appears in browser responses, application logs, or offer data.
+8. Confirm `integration.connection`, `integration.sync`,
+   `integration.credential_refresh`, `integration.disconnection`, and
+   `cron.merchant_connector_credentials` events reach the configured observability
+   sink. Connector identifiers and outcomes are logged, never credentials.
 
 ## Support checks
 
@@ -148,6 +167,11 @@ When a connection reports `Needs attention`:
 3. Check whether the merchant revoked access or removed a required read scope.
 4. Reconnect from listing Settings, then run a manual sync.
 5. For ServiceM8 disconnect disputes, verify the add-on state inside ServiceM8.
+
+Transient read failures retry once automatically. A continued failure is stored as
+`Needs attention`; use Sync now after the provider recovers. Do not repeatedly
+reconnect during an upstream outage, since the existing encrypted authorization is
+retained unless the provider reports expired or revoked access.
 
 Do not request raw merchant tokens through support channels. Reauthorization is
 the recovery path.

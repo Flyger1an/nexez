@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { jar, stateRef, gateRef, exchangeRef, saveRef, admin } = vi.hoisted(() => {
+const { jar, stateRef, gateRef, exchangeRef, saveRef, syncRef, googleUpdateErrorRef, admin } = vi.hoisted(() => {
+  const googleUpdateErrorRef = { value: null as Error | null }
   const admin = {
     from: vi.fn(() => ({
       update: vi.fn(() => ({
-        eq: vi.fn(() => ({ is: vi.fn(async () => ({ error: null })) })),
+        eq: vi.fn(() => ({ is: vi.fn(async () => ({ error: googleUpdateErrorRef.value })) })),
       })),
     })),
   }
@@ -14,6 +15,8 @@ const { jar, stateRef, gateRef, exchangeRef, saveRef, admin } = vi.hoisted(() =>
     gateRef: { value: { ok: true, user: { id: 'user-1' }, access: { pageId: 'page-1', ownerId: 'owner-1' }, admin } as any },
     exchangeRef: { value: { credential: { accessToken: 'token' }, externalAccountId: 'merchant-1', scopes: ['ITEMS_READ'] } as any },
     saveRef: { value: true },
+    syncRef: { value: { ok: true } as any },
+    googleUpdateErrorRef,
     admin,
   }
 })
@@ -22,18 +25,25 @@ vi.mock('next/headers', () => ({ cookies: vi.fn(async () => jar) }))
 vi.mock('../../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => null) }))
 vi.mock('../../../../../lib/server/require-page-access', () => ({ requirePageAccess: vi.fn(async () => gateRef.value) }))
 vi.mock('../../../../../lib/server/plan', () => ({ ownerAllows: vi.fn(async () => true) }))
-vi.mock('../../../../../lib/server/integration-sync', () => ({ syncPageIntegration: vi.fn(async () => ({ ok: true })) }))
+vi.mock('../../../../../lib/server/integration-sync', () => ({ syncPageIntegration: vi.fn(async () => syncRef.value) }))
 vi.mock('../../../../../lib/server/merchant-connectors', () => ({
   connectorStateCookie: vi.fn((provider: string) => `oauth-${provider}`),
+  discardMerchantConnectorCredential: vi.fn(async () => {}),
   exchangeConnectorCode: vi.fn(async () => exchangeRef.value),
   isOAuthConnectorProvider: vi.fn((provider: string) => ['square', 'acuity', 'google_calendar', 'servicem8'].includes(provider)),
   readConnectorState: vi.fn(() => stateRef.value),
+  recordMerchantConnectorSync: vi.fn(async () => {}),
   upsertMerchantConnectorConnection: vi.fn(async () => saveRef.value),
 }))
 
 import { GET } from './route'
 import { syncPageIntegration } from '../../../../../lib/server/integration-sync'
-import { exchangeConnectorCode, upsertMerchantConnectorConnection } from '../../../../../lib/server/merchant-connectors'
+import {
+  discardMerchantConnectorCredential,
+  exchangeConnectorCode,
+  recordMerchantConnectorSync,
+  upsertMerchantConnectorConnection,
+} from '../../../../../lib/server/merchant-connectors'
 
 const callback = (provider: string, query = 'code=code-1&state=state-1') => GET(
   new Request(`https://app.nexez.ai/api/integrations/${provider}/callback?${query}`),
@@ -48,6 +58,8 @@ describe('connector OAuth callback', () => {
     gateRef.value = { ok: true, user: { id: 'user-1' }, access: { pageId: 'page-1', ownerId: 'owner-1' }, admin }
     exchangeRef.value = { credential: { accessToken: 'token' }, externalAccountId: 'merchant-1', scopes: ['ITEMS_READ'] }
     saveRef.value = true
+    syncRef.value = { ok: true }
+    googleUpdateErrorRef.value = null
   })
 
   it('rejects a callback when URL state and HttpOnly cookie do not match', async () => {
@@ -60,6 +72,7 @@ describe('connector OAuth callback', () => {
     gateRef.value = { ...gateRef.value, user: { id: 'other-user' } }
     expect((await callback('square')).status).toBe(403)
     expect(upsertMerchantConnectorConnection).not.toHaveBeenCalled()
+    expect(jar.set).toHaveBeenCalledWith('oauth-square', '', expect.objectContaining({ maxAge: 0 }))
   })
 
   it('exchanges, encrypts, stores, and initially syncs Square', async () => {
@@ -73,7 +86,7 @@ describe('connector OAuth callback', () => {
       externalAccountId: 'merchant-1',
       scopes: ['ITEMS_READ'],
     }))
-    expect(syncPageIntegration).toHaveBeenCalledWith(admin, 'square', 'page-1')
+    expect(syncPageIntegration).toHaveBeenCalledWith(admin, 'square', 'page-1', { trigger: 'oauth_callback' })
     expect(response.headers.get('location')).toContain('connection=connected')
     expect(jar.set).toHaveBeenCalledWith('oauth-square', '', expect.objectContaining({
       path: '/api/integrations/square',
@@ -95,7 +108,38 @@ describe('connector OAuth callback', () => {
     const response = await callback('acuity')
     expect(response.status).toBe(302)
     expect(exchangeConnectorCode).toHaveBeenCalledWith('acuity', 'code-1')
-    expect(syncPageIntegration).toHaveBeenCalledWith(admin, 'acuity', 'page-1')
+    expect(syncPageIntegration).toHaveBeenCalledWith(admin, 'acuity', 'page-1', { trigger: 'oauth_callback' })
+  })
+
+  it('reports a saved connection as needing attention when its first sync fails', async () => {
+    syncRef.value = { ok: false, status: 502, error: 'Square temporarily unavailable.' }
+
+    const response = await callback('square')
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toContain('connection=attention')
+  })
+
+  it('revokes an exchanged credential when encrypted storage fails', async () => {
+    saveRef.value = false
+
+    const response = await callback('square')
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toContain('connection=failed')
+    expect(discardMerchantConnectorCredential).toHaveBeenCalledWith('square', exchangeRef.value.credential)
+    expect(syncPageIntegration).not.toHaveBeenCalled()
+  })
+
+  it('marks Google Calendar attention when the default calendar cannot be saved', async () => {
+    stateRef.value = { ...stateRef.value, provider: 'google_calendar' }
+    googleUpdateErrorRef.value = new Error('database unavailable')
+
+    const response = await callback('google_calendar')
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toContain('connection=attention')
+    expect(recordMerchantConnectorSync).toHaveBeenCalledWith(admin, 'page-1', 'google_calendar', expect.objectContaining({ ok: false }))
   })
 
   it('does not store anything when the provider declines consent', async () => {

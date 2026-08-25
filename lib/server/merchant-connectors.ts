@@ -6,6 +6,7 @@ import { appUrl } from '../site'
 import { decryptSecret, encryptSecret, hasSecretCryptoKey } from './secret-crypto'
 import { hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { getResolvedWebhookEndpointError, getWebhookEndpointError } from '../webhooks'
+import { captureError, captureEvent } from '../observability'
 
 export const MANAGED_CONNECTOR_PROVIDERS = ['square', 'acuity', 'google_calendar', 'woocommerce', 'servicem8'] as const
 export type ManagedConnectorProvider = (typeof MANAGED_CONNECTOR_PROVIDERS)[number]
@@ -218,17 +219,25 @@ function expiryFrom(value: unknown, expiresIn: unknown): string | null {
   return Number.isFinite(seconds) && seconds > 0 ? new Date(Date.now() + seconds * 1000).toISOString() : null
 }
 
-async function fetchToken(url: string, init: RequestInit): Promise<Record<string, unknown> | null> {
+async function fetchConnectorEndpoint(url: string, init: RequestInit): Promise<Response | null> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TOKEN_TIMEOUT_MS)
   try {
-    const response = await fetch(url, { ...init, redirect: 'error', signal: controller.signal })
-    if (!response.ok) return null
-    return await response.json() as Record<string, unknown>
+    return await fetch(url, { ...init, redirect: 'error', signal: controller.signal })
   } catch {
     return null
   } finally {
     clearTimeout(timer)
+  }
+}
+
+async function fetchToken(url: string, init: RequestInit): Promise<Record<string, unknown> | null> {
+  const response = await fetchConnectorEndpoint(url, init)
+  if (!response?.ok) return null
+  try {
+    return await response.json() as Record<string, unknown>
+  } catch {
+    return null
   }
 }
 
@@ -310,14 +319,22 @@ export async function upsertMerchantConnectorConnection(
     metadata: input.metadata ?? {},
     updated_at: new Date().toISOString(),
   }, { onConflict: 'page_id,provider' })
-  if (error) return false
-  await admin.from('user_integrations').upsert({
+  if (error) {
+    captureError(error, { scope: 'merchant_connector', operation: 'connect_store', provider: input.provider, pageId: input.pageId })
+    captureEvent('integration.connection', { provider: input.provider, pageId: input.pageId, outcome: 'failed' })
+    return false
+  }
+  const { error: overviewError } = await admin.from('user_integrations').upsert({
     user_id: input.ownerId,
     provider: input.provider,
     status: 'connected',
     detail: `${CONNECTOR_MANIFEST[input.provider].label} connected to a listing.`,
     last_event_at: new Date().toISOString(),
   }, { onConflict: 'user_id,provider' })
+  if (overviewError) {
+    captureError(overviewError, { scope: 'merchant_connector', operation: 'connect_overview', provider: input.provider, pageId: input.pageId })
+  }
+  captureEvent('integration.connection', { provider: input.provider, pageId: input.pageId, outcome: 'connected' })
   return true
 }
 
@@ -371,6 +388,16 @@ export async function getMerchantConnectorRow(
   return data ?? null
 }
 
+function decryptMerchantConnectorCredential(row: MerchantConnectorRow): MerchantConnectorCredential | null {
+  const raw = decryptSecret(row.credential_encrypted)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as MerchantConnectorCredential
+  } catch {
+    return null
+  }
+}
+
 export async function getUsableConnectorCredential(
   admin: SupabaseClient,
   pageId: string,
@@ -378,14 +405,8 @@ export async function getUsableConnectorCredential(
 ): Promise<{ ok: true; credential: MerchantConnectorCredential; row: MerchantConnectorRow } | { ok: false; error: string }> {
   const row = await getMerchantConnectorRow(admin, pageId, provider)
   if (!row || row.status === 'revoked') return { ok: false, error: `Connect ${CONNECTOR_MANIFEST[provider].label} in Settings before syncing.` }
-  const raw = decryptSecret(row.credential_encrypted)
-  if (!raw) return { ok: false, error: `${CONNECTOR_MANIFEST[provider].label} credentials could not be decrypted. Reconnect the integration.` }
-  let credential: MerchantConnectorCredential
-  try {
-    credential = JSON.parse(raw) as MerchantConnectorCredential
-  } catch {
-    return { ok: false, error: `${CONNECTOR_MANIFEST[provider].label} credentials are invalid. Reconnect the integration.` }
-  }
+  const credential = decryptMerchantConnectorCredential(row)
+  if (!credential) return { ok: false, error: `${CONNECTOR_MANIFEST[provider].label} credentials could not be decrypted. Reconnect the integration.` }
   if (provider === 'woocommerce') return { ok: true, credential, row }
   const oauth = credential as OAuthCredential
   if (!oauth.accessToken) return { ok: false, error: `${CONNECTOR_MANIFEST[provider].label} credentials are invalid. Reconnect the integration.` }
@@ -394,22 +415,32 @@ export async function getUsableConnectorCredential(
   if (expires > Date.now() + refreshSkew) return { ok: true, credential: oauth, row }
   const refreshed = await refreshCredential(provider, oauth)
   if (!refreshed) {
-    await admin.from('merchant_connector_connections').update({
+    const { error: attentionError } = await admin.from('merchant_connector_connections').update({
       status: 'attention',
       last_error: 'Authorization expired. Reconnect this integration.',
       updated_at: new Date().toISOString(),
     }).eq('page_id', pageId).eq('provider', provider)
+    if (attentionError) {
+      captureError(attentionError, { scope: 'merchant_connector', operation: 'refresh_mark_attention', provider, pageId })
+    }
+    captureEvent('integration.credential_refresh', { provider, pageId, outcome: 'failed' })
     return { ok: false, error: `${CONNECTOR_MANIFEST[provider].label} authorization expired. Reconnect the integration.` }
   }
   const encrypted = encryptedCredential(refreshed)
   if (!encrypted) return { ok: false, error: 'Integration credential storage is not configured.' }
-  await admin.from('merchant_connector_connections').update({
+  const { error: persistError } = await admin.from('merchant_connector_connections').update({
     credential_encrypted: encrypted,
     expires_at: refreshed.expiresAt,
     status: 'connected',
     last_error: null,
     updated_at: new Date().toISOString(),
   }).eq('page_id', pageId).eq('provider', provider)
+  if (persistError) {
+    captureError(persistError, { scope: 'merchant_connector', operation: 'refresh_store', provider, pageId })
+    captureEvent('integration.credential_refresh', { provider, pageId, outcome: 'store_failed' })
+    return { ok: false, error: `${CONNECTOR_MANIFEST[provider].label} renewed access but could not save it. Reconnect the integration.` }
+  }
+  captureEvent('integration.credential_refresh', { provider, pageId, outcome: 'refreshed' })
   return { ok: true, credential: refreshed, row: { ...row, credential_encrypted: encrypted, expires_at: refreshed.expiresAt, status: 'connected', last_error: null } }
 }
 
@@ -435,7 +466,16 @@ export async function recordMerchantConnectorSync(
   }
   if (input.ok) values.last_synced_at = now
   if (input.metadata) values.metadata = input.metadata
-  await admin.from('merchant_connector_connections').update(values).eq('page_id', pageId).eq('provider', provider)
+  const { error } = await admin.from('merchant_connector_connections').update(values).eq('page_id', pageId).eq('provider', provider)
+  if (error) {
+    captureError(error, { scope: 'merchant_connector', operation: 'sync_status', provider, pageId, syncSucceeded: input.ok })
+  }
+  captureEvent('integration.sync', {
+    provider,
+    pageId,
+    outcome: input.ok ? 'succeeded' : 'failed',
+    statusStored: !error,
+  })
 }
 
 export async function refreshDueMerchantConnectorCredentials(
@@ -464,6 +504,10 @@ export async function refreshDueMerchantConnectorCredentials(
       .limit(CREDENTIAL_REFRESH_BATCH_SIZE),
   ])
   if (squareResult.error || otherResult.error) {
+    captureError(squareResult.error || otherResult.error || new Error('Connector refresh selection failed.'), {
+      scope: 'merchant_connector',
+      operation: 'refresh_select',
+    })
     return { selected: 0, refreshed: 0, failed: 1 }
   }
   type DueCredential = { page_id: string; provider: OAuthConnectorProvider; expires_at: string }
@@ -489,7 +533,7 @@ async function revokeRemote(provider: ManagedConnectorProvider, credential: Merc
   if (provider === 'square') {
     const client = oauthClient('square')
     if (!client) return false
-    const response = await fetch(`${squareApiBaseUrl()}/oauth2/revoke`, {
+    const response = await fetchConnectorEndpoint(`${squareApiBaseUrl()}/oauth2/revoke`, {
       method: 'POST',
       headers: {
         authorization: `Client ${client.secret}`,
@@ -498,24 +542,22 @@ async function revokeRemote(provider: ManagedConnectorProvider, credential: Merc
         'Square-Version': SQUARE_API_VERSION,
       },
       body: JSON.stringify({ client_id: client.id, access_token: (credential as OAuthCredential).accessToken }),
-      redirect: 'error',
-    }).catch(() => null)
+    })
     return Boolean(response?.ok)
   }
   if (provider === 'google_calendar') {
     const token = (credential as OAuthCredential).refreshToken || (credential as OAuthCredential).accessToken
-    const response = await fetch('https://oauth2.googleapis.com/revoke', {
+    const response = await fetchConnectorEndpoint('https://oauth2.googleapis.com/revoke', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
       body: new URLSearchParams({ token }),
-      redirect: 'error',
-    }).catch(() => null)
+    })
     return Boolean(response?.ok)
   }
   if (provider === 'acuity') {
     const client = oauthClient('acuity')
     if (!client) return false
-    const response = await fetch('https://acuityscheduling.com/oauth2/disconnect', {
+    const response = await fetchConnectorEndpoint('https://acuityscheduling.com/oauth2/disconnect', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
       body: new URLSearchParams({
@@ -523,11 +565,34 @@ async function revokeRemote(provider: ManagedConnectorProvider, credential: Merc
         client_id: client.id,
         client_secret: client.secret,
       }),
-      redirect: 'error',
-    }).catch(() => null)
+    })
     return Boolean(response?.ok)
   }
   return true
+}
+
+export async function discardMerchantConnectorCredential(
+  provider: OAuthConnectorProvider,
+  credential: OAuthCredential,
+): Promise<void> {
+  if (provider === 'servicem8') {
+    captureError(new Error('ServiceM8 access requires provider-side add-on removal after credential storage fails.'), {
+      scope: 'merchant_connector',
+      operation: 'discard_unstored_credential',
+      provider,
+    })
+    captureEvent('integration.connection_cleanup', { provider, outcome: 'provider_action_required' })
+    return
+  }
+  const revoked = await revokeRemote(provider, credential)
+  if (!revoked) {
+    captureError(new Error('Could not revoke an unstored connector credential.'), {
+      scope: 'merchant_connector',
+      operation: 'discard_unstored_credential',
+      provider,
+    })
+  }
+  captureEvent('integration.connection_cleanup', { provider, outcome: revoked ? 'revoked' : 'failed' })
 }
 
 export async function disconnectMerchantConnector(
@@ -536,12 +601,29 @@ export async function disconnectMerchantConnector(
   ownerId: string,
   provider: ManagedConnectorProvider,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const current = await getUsableConnectorCredential(admin, pageId, provider)
-  if (current.ok && !(await revokeRemote(provider, current.credential))) {
-    return { ok: false, error: `Could not revoke ${CONNECTOR_MANIFEST[provider].label} access. Try again.` }
+  const requiresRemoteRevocation = provider === 'square' || provider === 'acuity' || provider === 'google_calendar'
+  let remoteRevocationAttempted = false
+  if (requiresRemoteRevocation) {
+    const row = await getMerchantConnectorRow(admin, pageId, provider)
+    if (row && row.status !== 'revoked') {
+      const credential = decryptMerchantConnectorCredential(row)
+      if (!credential) {
+        captureEvent('integration.disconnection', { provider, pageId, outcome: 'credential_unreadable' })
+        return { ok: false, error: `Could not read ${CONNECTOR_MANIFEST[provider].label} access. Reconnect or revoke it in ${CONNECTOR_MANIFEST[provider].label}.` }
+      }
+      remoteRevocationAttempted = true
+      if (!(await revokeRemote(provider, credential))) {
+        captureEvent('integration.disconnection', { provider, pageId, outcome: 'remote_revoke_failed' })
+        return { ok: false, error: `Could not revoke ${CONNECTOR_MANIFEST[provider].label} access. Try again.` }
+      }
+    }
   }
   const { error } = await admin.from('merchant_connector_connections').delete().eq('page_id', pageId).eq('provider', provider)
-  if (error) return { ok: false, error: 'Could not remove the connection.' }
+  if (error) {
+    captureError(error, { scope: 'merchant_connector', operation: 'disconnect_delete', provider, pageId })
+    captureEvent('integration.disconnection', { provider, pageId, outcome: 'local_delete_failed' })
+    return { ok: false, error: 'Could not remove the connection.' }
+  }
   const { data: remaining } = await admin
     .from('merchant_connector_connections')
     .select('page_id')
@@ -549,7 +631,11 @@ export async function disconnectMerchantConnector(
     .eq('provider', provider)
     .limit(1)
   if (!remaining?.length) {
-    await admin.from('user_integrations').delete().eq('user_id', ownerId).eq('provider', provider)
+    const { error: overviewError } = await admin.from('user_integrations').delete().eq('user_id', ownerId).eq('provider', provider)
+    if (overviewError) {
+      captureError(overviewError, { scope: 'merchant_connector', operation: 'disconnect_overview', provider, pageId })
+    }
   }
+  captureEvent('integration.disconnection', { provider, pageId, outcome: 'disconnected', remoteRevocationAttempted })
   return { ok: true }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 // One per-listing home for every integration: connect once (token stored
 // encrypted server-side), then re-sync manually or let auto-sync run - never
@@ -33,6 +33,17 @@ const HELP: Record<Provider, string> = {
   google_calendar: 'Read live free/busy data through a narrow Google Calendar OAuth scope. Nexez does not read event details.',
   woocommerce: 'Authorize a read-only WooCommerce key to sync published products, inventory state, and order access.',
   servicem8: 'Connect ServiceM8 to turn active job templates into offers and verify live job access.',
+}
+
+const LABEL: Record<Provider, string> = {
+  calendly: 'Calendly',
+  shopify: 'Shopify',
+  square: 'Square',
+  acuity: 'Acuity',
+  stripe: 'Stripe',
+  google_calendar: 'Google Calendar',
+  woocommerce: 'WooCommerce',
+  servicem8: 'ServiceM8',
 }
 
 // Fields collected to connect a token provider. Empty = uses the stored value.
@@ -76,24 +87,55 @@ function clearBody(provider: TokenProvider): Record<string, unknown> {
 export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string; isPro: boolean; onMessage?: (m: string) => void }) {
   const [connections, setConnections] = useState<Connection[] | null>(null)
   const [contextLimited, setContextLimited] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null) // `${provider}:${action}`
   const [drafts, setDrafts] = useState<Record<string, string>>({}) // `${provider}:${fieldKey}` -> value
+  const callbackNoticeHandled = useRef(false)
 
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/pages/${pageId}/settings-context`)
-      if (!res.ok) return
+      if (!res.ok) {
+        setLoadError('Could not load integration status. Retry without reconnecting any provider.')
+        return
+      }
       const json = (await res.json()) as { integrations?: Connection[]; contextLimited?: boolean }
       setContextLimited(json.contextLimited === true)
-      if (Array.isArray(json.integrations)) setConnections(json.integrations)
+      if (Array.isArray(json.integrations)) {
+        setConnections(json.integrations)
+        setLoadError(null)
+      }
     } catch {
-      /* leave prior state */
+      setLoadError('Could not load integration status. Retry without reconnecting any provider.')
     }
   }, [pageId])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (callbackNoticeHandled.current) return
+    callbackNoticeHandled.current = true
+    const url = new URL(window.location.href)
+    const provider = url.searchParams.get('provider') as Provider | null
+    const outcome = url.searchParams.get('connection')
+    if (!provider || !(provider in LABEL) || !outcome) return
+    const label = LABEL[provider]
+    const message = outcome === 'connected'
+      ? `${label} connected and its first sync completed.`
+      : outcome === 'attention'
+        ? `${label} connected, but its first sync needs attention. Use Sync now or reconnect if the issue continues.`
+        : outcome === 'cancelled'
+          ? `${label} connection was cancelled. No access was stored.`
+          : provider === 'servicem8'
+            ? 'ServiceM8 could not be connected. Disable the Nexez add-on in ServiceM8, then try again.'
+            : `${label} could not be connected. Try again.`
+    onMessage?.(message)
+    url.searchParams.delete('provider')
+    url.searchParams.delete('connection')
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [onMessage])
 
   const say = (m: string) => onMessage?.(m)
   const draftKey = (p: string, f: string) => `${p}:${f}`
@@ -144,6 +186,8 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
       }
       say('Disconnected. Reconnect anytime with a token.')
       await load()
+    } catch {
+      say(`Could not disconnect ${LABEL[provider]}. Check your connection and try again.`)
     } finally {
       setBusy(null)
     }
@@ -162,6 +206,8 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
         ? 'Disconnected from Nexez. Disable the Nexez add-on in ServiceM8 to revoke provider access.'
         : 'Disconnected. You can reconnect securely at any time.')
       await load()
+    } catch {
+      say(`Could not disconnect ${LABEL[provider]}. Check your connection and try again.`)
     } finally {
       setBusy(null)
     }
@@ -179,13 +225,22 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
       const slots = j.windows ? ` · ${j.windows} open-slot window${j.windows === 1 ? '' : 's'}` : ''
       say(`Synced ${j.imported ?? 0} offer${j.imported === 1 ? '' : 's'}${slots}.`)
       await load()
+    } catch {
+      say(`Could not sync ${LABEL[provider]}. Check your connection and try again.`)
     } finally {
       setBusy(null)
     }
   }
 
   if (!connections) {
-    return <div className="text-xs text-[var(--fg-muted)]">Loading integrations…</div>
+    return loadError ? (
+      <div role="alert" className="rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-4 text-xs text-[var(--fg)]">
+        <p>{loadError}</p>
+        <button type="button" onClick={() => void load()} className="btn-secondary mt-3 rounded-lg px-3 py-1.5 text-sm">
+          Retry status
+        </button>
+      </div>
+    ) : <div className="text-xs text-[var(--fg-muted)]">Loading integrations…</div>
   }
 
   if (contextLimited) {
@@ -209,6 +264,14 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
 
   return (
     <div className="flex flex-col gap-3">
+      {loadError ? (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-3 text-xs text-[var(--fg)]">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => void load()} className="btn-secondary rounded-lg px-3 py-1.5 text-sm">
+            Retry status
+          </button>
+        </div>
+      ) : null}
       {connections.map((c) => {
         const last = timeAgo(c.lastSyncedAt)
         const isBusy = busy?.startsWith(`${c.provider}:`)

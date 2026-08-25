@@ -13,6 +13,50 @@ import {
   type WooCommerceCredential,
 } from './merchant-connectors'
 
+const PROVIDER_READ_ATTEMPTS = 2
+const PROVIDER_RETRY_BASE_MS = 100
+const RETRYABLE_PROVIDER_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504])
+
+function providerRetryDelay(response: Response, attempt: number): number {
+  const retryAfter = response.headers?.get?.('retry-after')
+  const seconds = Number(retryAfter)
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(1_000, Math.max(PROVIDER_RETRY_BASE_MS, seconds * 1_000))
+  }
+  const retryAt = retryAfter ? Date.parse(retryAfter) : Number.NaN
+  if (Number.isFinite(retryAt)) {
+    return Math.min(1_000, Math.max(PROVIDER_RETRY_BASE_MS, retryAt - Date.now()))
+  }
+  return PROVIDER_RETRY_BASE_MS * (attempt + 1)
+}
+
+async function fetchProviderRead(
+  input: string | URL,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  let lastError: unknown = new Error('Provider request failed.')
+  for (let attempt = 0; attempt < PROVIDER_READ_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const response = await fetch(input, { ...init, redirect: 'error', signal: controller.signal })
+      if (!RETRYABLE_PROVIDER_STATUSES.has(response.status) || attempt === PROVIDER_READ_ATTEMPTS - 1) {
+        return response
+      }
+      await response.body?.cancel().catch(() => undefined)
+      await new Promise((resolve) => setTimeout(resolve, providerRetryDelay(response, attempt)))
+    } catch (error) {
+      lastError = error
+      if (attempt === PROVIDER_READ_ATTEMPTS - 1) throw error
+      await new Promise((resolve) => setTimeout(resolve, PROVIDER_RETRY_BASE_MS * (attempt + 1)))
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+  throw lastError
+}
+
 // Shared cores behind the integration IMPORT routes (Calendly / Shopify / Square /
 // Acuity) so the interview's /ingest can pull the same live catalogs the manual
 // importers do - one fetch+parse per provider, one authorize step. Stripe's
@@ -104,16 +148,17 @@ function normalizeCalendlyEventType(event: CalendlyEventTypeRaw): NormalizedEven
 /** Live Calendly event types → bookable offers (moved verbatim from the route). */
 export async function importCalendlyOffers(token: string): Promise<ProviderOffers> {
   try {
-    const userRes = await fetch('https://api.calendly.com/users/me', {
+    const userRes = await fetchProviderRead('https://api.calendly.com/users/me', {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
+    }, 9_000)
     if (!userRes.ok) return { ok: false, status: 401, error: 'Invalid Calendly token or API error' }
     const userData = await userRes.json()
     const userUri = userData.resource.uri
 
-    const eventsRes = await fetch(
+    const eventsRes = await fetchProviderRead(
       `https://api.calendly.com/event_types?user=${encodeURIComponent(userUri)}&active=true`,
       { headers: { Authorization: `Bearer ${token}` } },
+      9_000,
     )
     if (!eventsRes.ok) {
       // A permission failure is not "no event types" - surface it (status only;
@@ -281,8 +326,6 @@ export async function importShopifyOffers(opts: { shop: string; accessToken: str
   const shopDomain = resolveShopDomain(opts.shop)
   if (!shopDomain) return { ok: false, status: 400, error: 'Invalid Shopify store domain (expected your-store.myshopify.com).' }
   const safeLimit = Math.min(Math.max(1, Number(opts.limit) || 50), 250)
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 12_000)
   try {
     const offers: OfferItem[] = []
     let after: string | null = null
@@ -291,7 +334,7 @@ export async function importShopifyOffers(opts: { shop: string; accessToken: str
 
     while (offers.length < safeLimit) {
       const first = Math.min(50, safeLimit - offers.length)
-      const res = await fetch(`https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
+      const res = await fetchProviderRead(`https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
         method: 'POST',
         headers: { 'X-Shopify-Access-Token': opts.accessToken, 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
@@ -299,9 +342,7 @@ export async function importShopifyOffers(opts: { shop: string; accessToken: str
           variables: { first, after, query: 'status:active published_status:published' },
         }),
         // The token must never follow a redirect off *.myshopify.com.
-        redirect: 'error',
-        signal: controller.signal,
-      })
+      }, 12_000)
       if (!res.ok) {
         // Never reflect the upstream body (a read-SSRF exfil channel) - status only.
         return { ok: false, status: 502, error: 'Failed to fetch from Shopify', upstreamStatus: res.status }
@@ -332,8 +373,6 @@ export async function importShopifyOffers(opts: { shop: string; accessToken: str
   } catch (error) {
     console.error('Shopify import error:', error)
     return { ok: false, status: 500, error: 'Shopify import failed' }
-  } finally {
-    clearTimeout(timer)
   }
 }
 
@@ -342,15 +381,13 @@ export async function importShopifyOffers(opts: { shop: string; accessToken: str
  * enabled, the seller's canonical booking URL is attached to every imported
  * service so an agent hands off to the real booking surface. */
 export async function importSquareOffers(accessToken: string): Promise<ProviderOffers> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 9000)
   try {
     const headers = { Authorization: `Bearer ${accessToken}`, 'Square-Version': SQUARE_API_VERSION, Accept: 'application/json' }
     const [catalogResponse, bookingResponse, teamResponse, bookingsResponse] = await Promise.all([
-      fetch(`${squareApiBaseUrl()}/v2/catalog/list?types=ITEM`, { headers, redirect: 'error', signal: controller.signal }),
-      fetch(`${squareApiBaseUrl()}/v2/bookings/business-booking-profile`, { headers, redirect: 'error', signal: controller.signal }),
-      fetch(`${squareApiBaseUrl()}/v2/bookings/team-member-booking-profiles?limit=100`, { headers, redirect: 'error', signal: controller.signal }),
-      fetch(`${squareApiBaseUrl()}/v2/bookings?limit=100`, { headers, redirect: 'error', signal: controller.signal }),
+      fetchProviderRead(`${squareApiBaseUrl()}/v2/catalog/list?types=ITEM`, { headers }, 9_000),
+      fetchProviderRead(`${squareApiBaseUrl()}/v2/bookings/business-booking-profile`, { headers }, 9_000),
+      fetchProviderRead(`${squareApiBaseUrl()}/v2/bookings/team-member-booking-profiles?limit=100`, { headers }, 9_000),
+      fetchProviderRead(`${squareApiBaseUrl()}/v2/bookings?limit=100`, { headers }, 9_000),
     ])
     if (!catalogResponse.ok) {
       return { ok: false, status: 502, error: 'Could not reach Square. Check the connection and Catalog read permission.', upstreamStatus: catalogResponse.status }
@@ -394,8 +431,6 @@ export async function importSquareOffers(accessToken: string): Promise<ProviderO
     }
   } catch {
     return { ok: false, status: 502, error: 'Could not reach Square. Check the connection and try again.' }
-  } finally {
-    clearTimeout(timer)
   }
 }
 
@@ -471,8 +506,6 @@ export async function importWooCommerceOffers(credentials: WooCommerceCredential
   if (endpointError) return { ok: false, status: 400, error: endpointError }
   const auth = Buffer.from(`${credentials.consumerKey}:${credentials.consumerSecret}`).toString('base64')
   const headers = { Authorization: `Basic ${auth}`, Accept: 'application/json' }
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 12_000)
   try {
     const productsUrl = new URL('/wp-json/wc/v3/products', credentials.siteUrl)
     productsUrl.searchParams.set('status', 'publish')
@@ -483,9 +516,9 @@ export async function importWooCommerceOffers(credentials: WooCommerceCredential
     ordersUrl.searchParams.set('page', '1')
     const currencyUrl = new URL('/wp-json/wc/v3/settings/general/woocommerce_currency', credentials.siteUrl)
     const [productsResponse, ordersResponse, currencyResponse] = await Promise.all([
-      fetch(productsUrl, { headers, redirect: 'error', signal: controller.signal }),
-      fetch(ordersUrl, { headers, redirect: 'error', signal: controller.signal }),
-      fetch(currencyUrl, { headers, redirect: 'error', signal: controller.signal }),
+      fetchProviderRead(productsUrl, { headers }, 12_000),
+      fetchProviderRead(ordersUrl, { headers }, 12_000),
+      fetchProviderRead(currencyUrl, { headers }, 12_000),
     ])
     if (!productsResponse.ok || !ordersResponse.ok || !currencyResponse.ok) {
       return {
@@ -525,8 +558,6 @@ export async function importWooCommerceOffers(credentials: WooCommerceCredential
     }
   } catch {
     return { ok: false, status: 502, error: 'Could not reach the WooCommerce REST API.' }
-  } finally {
-    clearTimeout(timer)
   }
 }
 
@@ -540,8 +571,6 @@ type ServiceM8JobTemplate = {
 }
 
 export async function importServiceM8Offers(accessToken: string): Promise<ProviderOffers> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 10_000)
   try {
     const templateUrl = new URL('https://api.servicem8.com/api_1.0/jobtemplate.json')
     templateUrl.searchParams.set('$filter', 'active eq 1')
@@ -549,8 +578,8 @@ export async function importServiceM8Offers(accessToken: string): Promise<Provid
     jobsUrl.searchParams.set('$filter', 'active eq 1')
     const headers = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }
     const [templatesResponse, jobsResponse] = await Promise.all([
-      fetch(templateUrl, { headers, redirect: 'error', signal: controller.signal }),
-      fetch(jobsUrl, { headers, redirect: 'error', signal: controller.signal }),
+      fetchProviderRead(templateUrl, { headers }, 10_000),
+      fetchProviderRead(jobsUrl, { headers }, 10_000),
     ])
     if (!templatesResponse.ok || !jobsResponse.ok) {
       return {
@@ -592,8 +621,6 @@ export async function importServiceM8Offers(accessToken: string): Promise<Provid
     }
   } catch {
     return { ok: false, status: 502, error: 'Could not reach ServiceM8.' }
-  } finally {
-    clearTimeout(timer)
   }
 }
 
@@ -605,25 +632,19 @@ export type AcuityAuthentication =
  * or the remote catalog is unavailable. OAuth is the managed multi-merchant
  * path; Basic credentials remain supported for legacy and one-time imports. */
 export async function fetchAcuityTypes(authentication: AcuityAuthentication): Promise<OfferItem[] | null> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 9000)
   try {
     const authorization = authentication.accessToken
       ? `Bearer ${authentication.accessToken}`
       : `Basic ${Buffer.from(`${authentication.userId}:${authentication.apiKey}`).toString('base64')}`
-    const res = await fetch('https://acuityscheduling.com/api/v1/appointment-types', {
+    const res = await fetchProviderRead('https://acuityscheduling.com/api/v1/appointment-types', {
       headers: { Authorization: authorization, Accept: 'application/json' },
-      signal: controller.signal,
-      redirect: 'error',
-    })
+    }, 9_000)
     if (!res.ok) return null
     const data = await res.json()
     const offers = mapAcuityTypesToOffers(Array.isArray(data) ? data : [])
     return offers.length ? offers : null
   } catch {
     return null
-  } finally {
-    clearTimeout(timer)
   }
 }
 

@@ -29,6 +29,7 @@ function mockContext(integrations: TestConnection[]) {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  window.history.replaceState({}, '', '/')
 })
 
 describe('IntegrationsPanel priority emphasis', () => {
@@ -289,5 +290,49 @@ describe('IntegrationsPanel priority emphasis', () => {
       { method: 'DELETE' },
     ))
     expect(onMessage).toHaveBeenCalledWith(expect.stringContaining('Disable the Nexez add-on in ServiceM8'))
+  })
+
+  it('surfaces OAuth callback attention instead of silently calling the provider connected', async () => {
+    window.history.replaceState({}, '', '/dashboard/page-1/settings?section=integrations&provider=square&connection=attention')
+    const onMessage = vi.fn()
+    mockContext([])
+
+    render(<IntegrationsPanel pageId="page-1" isPro onMessage={onMessage} />)
+
+    await waitFor(() => expect(onMessage).toHaveBeenCalledWith(expect.stringContaining('first sync needs attention')))
+    expect(window.location.search).toBe('?section=integrations')
+  })
+
+  it('shows a retry action when integration status cannot be loaded', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
+
+    render(<IntegrationsPanel pageId="page-1" isPro onMessage={() => {}} />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load integration status')
+    expect(screen.getByRole('button', { name: 'Retry status' })).toBeEnabled()
+  })
+
+  it('reports a network failure from manual sync and clears the busy state', async () => {
+    const onMessage = vi.fn()
+    const integrations: TestConnection[] = [{
+      provider: 'square',
+      label: 'Square',
+      connected: true,
+      kind: 'oauth',
+      autoSync: false,
+      canSync: true,
+      lastSyncedAt: null,
+    }]
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ integrations, contextLimited: false }))
+      .mockRejectedValueOnce(new Error('offline'))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<IntegrationsPanel pageId="page-1" isPro onMessage={onMessage} />)
+
+    const sync = await screen.findByRole('button', { name: 'Sync Square' })
+    fireEvent.click(sync)
+
+    await waitFor(() => expect(onMessage).toHaveBeenCalledWith('Could not sync Square. Check your connection and try again.'))
+    expect(sync).toBeEnabled()
   })
 })
