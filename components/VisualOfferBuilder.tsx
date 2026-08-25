@@ -586,7 +586,7 @@ function SortableOfferCard({
             )}
           </div>
 
-          {/* Smart Rules Phase 1: offer type + per-offer rules */}
+          {/* Offer type, public terms, and seller decision rules. */}
           {onUpdateFull && (
             <div className="border border-white/10 rounded-lg p-3 bg-black/20">
               <div className="flex items-center justify-between mb-2">
@@ -643,7 +643,7 @@ function SortableOfferCard({
               ) : null}
 
               {offer.offerType === 'negotiable' && (
-                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <label className="text-[10px] text-zinc-400">
                     Minimum acceptable price
                     <input
@@ -657,24 +657,115 @@ function SortableOfferCard({
                       className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white read-only:cursor-not-allowed read-only:opacity-60"
                     />
                   </label>
-                  <label className="flex items-end gap-2 pb-1.5 text-[10px] text-zinc-300">
+                  <label className="text-[10px] text-zinc-400">
+                    Maximum discount (%)
                     <input
-                      type="checkbox"
-                      checked={!!offer.rules?.autoAccept}
-                      disabled={!negotiationEnabled}
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={offer.rules?.maxDiscountPercent ?? ''}
+                      placeholder="10"
+                      readOnly={!negotiationEnabled}
                       onChange={(e) => {
-                        if (negotiationEnabled) updateRules({ autoAccept: e.target.checked })
+                        if (negotiationEnabled) updateRules({ maxDiscountPercent: e.target.value ? Number(e.target.value) : undefined })
                       }}
-                      className="size-3 accent-[var(--signal)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white read-only:cursor-not-allowed read-only:opacity-60"
                     />
-                    Auto-accept proposals that meet every rule
                   </label>
+                  <label className="text-[10px] text-zinc-400">
+                    Auto-accept range (%)
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={offer.rules?.autoAcceptWithinPercent ?? ''}
+                      placeholder="5"
+                      readOnly={!negotiationEnabled}
+                      onChange={(e) => {
+                        if (negotiationEnabled) updateRules({ autoAcceptWithinPercent: e.target.value ? Number(e.target.value) : undefined })
+                      }}
+                      className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white read-only:cursor-not-allowed read-only:opacity-60"
+                    />
+                  </label>
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-center gap-2 text-[10px] text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={!!offer.rules?.autoAccept}
+                        disabled={!negotiationEnabled}
+                        onChange={(e) => {
+                          if (negotiationEnabled) updateRules({ autoAccept: e.target.checked })
+                        }}
+                        className="size-3 accent-[var(--signal)] disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                      Auto-accept proposals that meet every rule
+                    </label>
+                    <label className="flex items-center gap-2 text-[10px] text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={!!offer.rules?.autoCounter}
+                        disabled={!negotiationEnabled}
+                        onChange={(e) => {
+                          if (negotiationEnabled) updateRules({ autoCounter: e.target.checked })
+                        }}
+                        className="size-3 accent-[var(--signal)] disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                      Automatically counter at your lowest allowed price
+                    </label>
+                  </div>
                 </div>
               )}
 
+              <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="text-[10px] text-zinc-400">
+                  What&apos;s included
+                  <textarea
+                    value={offer.rules?.includedScope || ''}
+                    placeholder="Logo design, brand guide"
+                    onChange={(e) => updateRules({ includedScope: e.target.value })}
+                    className="mt-0.5 min-h-16 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"
+                  />
+                </label>
+                <label className="text-[10px] text-zinc-400">
+                  What&apos;s not included
+                  <textarea
+                    value={offer.rules?.excludedScope || ''}
+                    placeholder="Website development, source files"
+                    onChange={(e) => updateRules({ excludedScope: e.target.value })}
+                    className="mt-0.5 min-h-16 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"
+                  />
+                </label>
+                <label className="text-[10px] text-zinc-400">
+                  Included revisions
+                  <input
+                    type="number"
+                    min={0}
+                    value={offer.rules?.maxRevisions ?? ''}
+                    placeholder="2"
+                    onChange={(e) => updateRules({ maxRevisions: e.target.value ? Number(e.target.value) : undefined })}
+                    className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"
+                  />
+                </label>
+                <label className="text-[10px] text-zinc-400">
+                  Maximum project length (weeks)
+                  <input
+                    type="number"
+                    min={1}
+                    value={offer.rules?.maxProjectWeeks ?? ''}
+                    placeholder="4"
+                    onChange={(e) => updateRules({ maxProjectWeeks: e.target.value ? Number(e.target.value) : undefined })}
+                    className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"
+                  />
+                </label>
+              </div>
+
+              <p className="mb-3 text-[9px] text-zinc-500">
+                These offer terms are shown to buyers and agents. For negotiable offers, Nexez checks them before any automatic acceptance.
+              </p>
+
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <label className="text-[10px] text-zinc-400">
-                  Min notice (hours)
+                  Minimum notice (hours)
                   <input
                     type="number"
                     min={0}
@@ -685,7 +776,7 @@ function SortableOfferCard({
                   />
                 </label>
                 <label className="text-[10px] text-zinc-400">
-                  Blackout dates (YYYY-MM-DD, comma-separated)
+                  Unavailable dates (YYYY-MM-DD, comma-separated)
                   <input
                     value={(offer.rules?.blackoutDates || []).join(', ')}
                     placeholder="2026-07-04, 2026-12-25"
@@ -696,7 +787,7 @@ function SortableOfferCard({
                   />
                 </label>
                 <label className="text-[10px] text-zinc-400">
-                  Max bookings / week
+                  Maximum bookings per week
                   <input
                     type="number"
                     min={0}
@@ -708,7 +799,7 @@ function SortableOfferCard({
                 </label>
               </div>
               <p className="mt-1.5 text-[9px] text-zinc-500">
-                Minimum price and auto-accept rules are private - never shown to agents. Notice, blackout, and weekly-cap constraints are published in agent.json so agents can respect them.
+                Pricing rules stay private. Offer terms, notice, unavailable dates, and booking limits are shared so agents can respect them.
               </p>
             </div>
           )}

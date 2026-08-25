@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 import { createAdminClient, hasSupabaseAdminEnv } from '../utils/supabase/admin';
 import { bearerTokenColumns, hashBearerToken, recoverBearerToken } from './server/bearer-token';
 import { createLLMAdapter, NegotiationDecision, NegotiationAction } from './llm-engine/index';
-import { evaluateProposal } from './offer-rules';
+import { evaluateProposal, type RulesEvaluation } from './offer-rules';
 import { AgentPage, getCheckoutOffer, getBaseUrl } from './agent-page';
 import { getAutoSettleCeilingCents, classifySettlement, SettlementState } from './settlement';
 import { captureError } from './observability';
@@ -298,7 +298,10 @@ export class NegotiationService {
 
     const rulesEval = evaluateProposal(
       { offerType: offer.offerType, rules, price: offer.price },
-      { proposedPriceCents: buyerProposal.proposedPriceCents || null },
+      {
+        proposedPriceCents: buyerProposal.proposedPriceCents || null,
+        requestedTerms: buyerProposal.requestedTerms,
+      },
     );
 
     // Per-page consent is necessary but not sufficient for paid AI execution.
@@ -321,17 +324,17 @@ export class NegotiationService {
       } catch {
         // Provider outage / bad key - fall back to the deterministic rules decision
         // so a polling agent still gets an answer.
-        llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules);
+        llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules, offer.price);
       }
     } else {
       // Missing consent, a below-Launch owner, or an entitlement-read failure →
       // deterministic decision only. This keeps the core negotiation state machine
       // moving without spending a paid LLM completion.
-      llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules);
+      llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules, offer.price);
     }
 
     // Rules always win.
-    llmDecision = this.clampWithRules(llmDecision, rulesEval, proposalForLLM, rules);
+    llmDecision = this.clampWithRules(llmDecision, rulesEval, proposalForLLM, rules, offer.price);
     // Never let an LLM-emitted scheduling link reach the agent unless it points at a
     // known provider (or the owner's own configured link) - blocks a prompt injection
     // from planting a phishing <a href> in the rendered decision. Falls back to the
@@ -397,7 +400,16 @@ export class NegotiationService {
     };
     const newStatus = this.decisionToStatus('review', claimed?.status || 'negotiation');
     const nextSeq = (Number(claimed?.decision_seq) || 0) + 1;
-    await this.persistDecision(claimed.id, newStatus, sellerTurn, decision, { decision: 'review' }, null, null, nextSeq);
+    await this.persistDecision(
+      claimed.id,
+      newStatus,
+      sellerTurn,
+      decision,
+      { schemaVersion: 2, decision: 'review', reasons: ['decision_processing_failed'], checks: [] },
+      null,
+      null,
+      nextSeq,
+    );
   }
 
   /** Load full conversation history from the dedicated negotiation_messages table. */
@@ -688,25 +700,62 @@ export class NegotiationService {
 
   private clampWithRules(
     decision: NegotiationDecision,
-    rulesEval: any,
+    rulesEval: RulesEvaluation,
     proposal: any,
     rules: any,
+    listedPrice?: string,
   ): NegotiationDecision {
-    // Rules are absolute. Never allow the LLM to accept below floor.
-    const { floorCents, misconfigured } = this.computeFloor(rules);
+    // Rules are absolute. Never allow the LLM to accept a proposal that is
+    // outside a deterministic term limit or is missing a configured term.
+    const termChecks = rulesEval.checks.filter((check) => check.key !== 'price');
+    if (decision.action === 'accept' && termChecks.some((check) => check.status !== 'pass')) {
+      return {
+        ...decision,
+        action: 'review',
+        counter: undefined,
+        reasoning: `${decision.reasoning || 'Proposal reviewed.'} Seller review is required for one or more requested terms.`,
+      };
+    }
 
-    // A configured-but-unparseable floor (e.g. "abc") must FAIL CLOSED: never
+    // Price rules are absolute too. Resolve one effective floor from both the
+    // explicit minimum and the maximum discount from the listed price.
+    const { floorCents, misconfigured } = this.computeFloor(rules, listedPrice);
+
+    // A configured-but-unparseable floor (e.g. "abc") must fail closed: never
     // silently disable the clamp and auto-accept. Hold for owner review instead.
-    if (decision.action === 'accept' && misconfigured) {
-      decision.action = 'review';
-      decision.reasoning = (decision.reasoning || '') + ' (Seller minimum is misconfigured - held for owner review instead of auto-accepting.)';
-      return decision;
+    const priceCheck = rulesEval.checks.find((check) => check.key === 'price');
+    if (
+      decision.action === 'accept'
+      && (misconfigured || priceCheck?.status === 'review' || !proposal.proposedPriceCents)
+    ) {
+      return {
+        ...decision,
+        action: 'review',
+        counter: undefined,
+        reasoning: `${decision.reasoning || 'Proposal reviewed.'} Seller review is required for the proposed price.`,
+      };
+    }
+
+    if (
+      decision.action === 'accept'
+      && priceCheck?.status === 'fail'
+      && floorCents == null
+    ) {
+      return {
+        ...decision,
+        action: 'review',
+        counter: undefined,
+        reasoning: `${decision.reasoning || 'Proposal reviewed.'} The proposed price is outside the seller's automatic rules.`,
+      };
     }
 
     if (decision.action === 'accept' && floorCents != null && proposal.proposedPriceCents != null && proposal.proposedPriceCents < floorCents) {
-      decision.action = 'counter';
-      decision.counter = decision.counter || { priceCents: floorCents };
-      decision.reasoning = (decision.reasoning || '') + ' (Clamped to seller minimum rules.)';
+      return {
+        ...decision,
+        action: 'counter',
+        counter: { priceCents: floorCents },
+        reasoning: `${decision.reasoning || 'Proposal reviewed.'} Adjusted to the seller's lowest allowed price.`,
+      };
     }
 
     if (decision.action === 'counter' && decision.counter?.priceCents != null && floorCents != null) {
@@ -727,13 +776,27 @@ export class NegotiationService {
    *   - explicit 0/$0     -> no floor (owner's deliberate "any price" waiver)
    *   - set-but-garbage   -> misconfigured: fail closed, never auto-accept
    */
-  private computeFloor(rules: any): { floorCents: number | null; misconfigured: boolean } {
+  private computeFloor(rules: any, listedPrice?: string): { floorCents: number | null; misconfigured: boolean } {
     const raw = rules?.minPrice;
-    if (raw == null || String(raw).trim() === '') return { floorCents: null, misconfigured: false };
-    const dollars = parseMoney(String(raw));
-    if (dollars == null) return { floorCents: null, misconfigured: true };
-    if (dollars <= 0) return { floorCents: null, misconfigured: false };
-    return { floorCents: Math.round(dollars * 100), misconfigured: false };
+    let minimumFloor: number | null = null;
+    if (raw != null && String(raw).trim() !== '') {
+      const dollars = parseMoney(String(raw));
+      if (dollars == null) return { floorCents: null, misconfigured: true };
+      if (dollars > 0) minimumFloor = Math.round(dollars * 100);
+    }
+
+    let discountFloor: number | null = null;
+    if (rules?.maxDiscountPercent != null) {
+      const discount = Number(rules.maxDiscountPercent);
+      const listed = parseMoney(listedPrice);
+      if (!Number.isFinite(discount) || discount < 0 || discount > 100 || listed == null) {
+        return { floorCents: null, misconfigured: true };
+      }
+      discountFloor = Math.round(listed * 100 * (1 - discount / 100));
+    }
+
+    const floors = [minimumFloor, discountFloor].filter((value): value is number => value != null && value > 0);
+    return { floorCents: floors.length ? Math.max(...floors) : null, misconfigured: false };
   }
 
   private decisionToStatus(action: NegotiationAction, current: string): string {
@@ -746,17 +809,38 @@ export class NegotiationService {
     return current === 'negotiation' ? 'negotiation' : current;
   }
 
-  private fallbackDecision(rulesEval: any, proposal: any, rules: any): NegotiationDecision {
+  private fallbackDecision(
+    rulesEval: RulesEvaluation,
+    proposal: any,
+    rules: any,
+    listedPrice?: string,
+  ): NegotiationDecision {
     if (rulesEval.decision === 'auto_accept') {
       return { action: 'accept', reasoning: 'Proposal meets all deterministic rules.', schedulingLink: proposal?.schedulingLink };
     }
+    const termChecks = rulesEval.checks.filter((check) => check.key !== 'price');
+    if (termChecks.some((check) => check.status !== 'pass')) {
+      return {
+        action: 'review',
+        reasoning: 'One or more requested terms need seller review.',
+        schedulingLink: proposal?.schedulingLink,
+      };
+    }
     if (rulesEval.decision === 'flag') {
+      const { floorCents, misconfigured } = this.computeFloor(rules, listedPrice);
+      if (rules?.autoCounter === true && !misconfigured && floorCents != null) {
+        return {
+          action: 'counter',
+          reasoning: 'The seller has set a lowest allowed price for automatic counters.',
+          counter: { priceCents: floorCents },
+          schedulingLink: proposal?.schedulingLink,
+        };
+      }
       return { action: 'reject', reasoning: 'Proposal violates core pricing rules.', schedulingLink: proposal?.schedulingLink };
     }
     return {
-      action: 'counter',
-      reasoning: 'Counter suggested within rules.',
-      counter: { priceCents: Math.round((proposal.proposedPriceCents || 0) * 1.1) },
+      action: 'review',
+      reasoning: 'This proposal needs seller review.',
       schedulingLink: proposal?.schedulingLink,
     };
   }

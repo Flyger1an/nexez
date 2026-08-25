@@ -146,6 +146,9 @@ describe('pages_public projection ⊇ PUBLIC_PAGE_SELECT (the SEV1 coupling guar
     it('still projects the public metadata and booking-rule contract', () => {
       expect(metadataSql).toContain("'service_area'")
       expect(offerRulesSql).toContain("'minNoticeHours'")
+      for (const key of ['includedScope', 'excludedScope', 'maxRevisions', 'maxProjectWeeks']) {
+        expect(offerRulesSql).toContain(`'${key}'`)
+      }
     })
 
     it('still projects the public verification contract', () => {

@@ -86,6 +86,46 @@ describe('VisualOfferBuilder', () => {
     expect(next[0].rules).toEqual({ minNoticeHours: 24 }) // controlled parent not re-rendered; patch is pruned-merge of original (no rules)
   })
 
+  it('lets every seller publish clear scope and delivery limits', () => {
+    const onChange = vi.fn()
+    render(
+      <VisualOfferBuilder
+        offers={[offer({ name: 'Brand package' })]}
+        kind="services"
+        onChange={onChange}
+        pageId="p1"
+      />,
+    )
+
+    fireEvent.change(screen.getByRole('textbox', { name: /what's included/i }), { target: { value: 'Logo design' } })
+    expect((onChange.mock.calls.at(-1)![0] as OfferItem[])[0].rules).toEqual({ includedScope: 'Logo design' })
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: /included revisions/i }), { target: { value: '2' } })
+    expect((onChange.mock.calls.at(-1)![0] as OfferItem[])[0].rules).toEqual({ maxRevisions: 2 })
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: /maximum project length/i }), { target: { value: '4' } })
+    expect((onChange.mock.calls.at(-1)![0] as OfferItem[])[0].rules).toEqual({ maxProjectWeeks: 4 })
+  })
+
+  it('lets entitled sellers configure discount limits and explicit automatic counters', () => {
+    const onChange = vi.fn()
+    render(
+      <VisualOfferBuilder
+        offers={[offer({ name: 'Custom build', price: '$1,000', offerType: 'negotiable' })]}
+        kind="services"
+        onChange={onChange}
+        pageId="p1"
+        negotiationEnabled
+      />,
+    )
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: /maximum discount/i }), { target: { value: '10' } })
+    expect((onChange.mock.calls.at(-1)![0] as OfferItem[])[0].rules).toEqual({ maxDiscountPercent: 10 })
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /automatically counter/i }))
+    expect((onChange.mock.calls.at(-1)![0] as OfferItem[])[0].rules).toEqual({ autoCounter: true })
+  })
+
   it('clearing the only rule removes the rules object entirely', () => {
     const onChange = vi.fn()
     render(
@@ -144,6 +184,7 @@ describe('VisualOfferBuilder', () => {
     fireEvent.change(minimumPrice, { target: { value: '$900' } })
     expect(onChange).not.toHaveBeenCalled()
     expect(screen.getByRole('checkbox', { name: /Auto-accept proposals/ })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: /automatically counter/i })).toBeDisabled()
   })
 
   it('keeps downgrade cleanup available by switching to Fixed and pruning only paid rules', () => {

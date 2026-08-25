@@ -66,13 +66,20 @@ describe('GET /api/negotiations/status', () => {
           updated_at: null,
           decision_pending: true,
           decision_seq: 0,
-          metadata: { last_decision: { action: 'counter', reasoning: 'stale', internalNotes: 'secret' } },
+          metadata: {
+            last_decision: { action: 'counter', reasoning: 'stale', internalNotes: 'secret' },
+            rules_evaluation: {
+              decision: 'flag',
+              checks: [{ key: 'price', status: 'fail', reason: 'outside_price_rules' }],
+            },
+          },
         },
       })) as any,
     )
     const body = await (await GET(req({ id: 'n1', token: 'tok' }))).json()
     expect(body.decisionPending).toBe(true)
     expect(body.decision).toBeNull() // not surfaced until it lands
+    expect(body.ruleEvaluation).toBeNull()
     expect(body.next).toMatch(/responding|evaluat/i)
   })
 
@@ -93,6 +100,16 @@ describe('GET /api/negotiations/status', () => {
               counter: { priceCents: 90000 },
               internalNotes: 'owner-only - never send to the agent',
             },
+            rules_evaluation: {
+              schemaVersion: 2,
+              decision: 'flag',
+              reasons: ['below_min_price', 'private_floor_80000'],
+              checks: [
+                { key: 'price', status: 'fail', reason: 'outside_price_rules' },
+                { key: 'revision_limit', status: 'review', reason: 'revision_count_not_provided' },
+              ],
+              minPrice: '$800',
+            },
           },
         },
       })) as any,
@@ -104,6 +121,14 @@ describe('GET /api/negotiations/status', () => {
     // Privacy invariant: the owner-private internalNotes must never reach the agent.
     expect(body.decision.internalNotes).toBeUndefined()
     expect(JSON.stringify(body)).not.toContain('owner-only')
+    expect(body.ruleEvaluation).toMatchObject({
+      outcome: 'outside_rules',
+      checks: [
+        { key: 'price', status: 'fail' },
+        { key: 'revision_limit', status: 'review' },
+      ],
+    })
+    expect(JSON.stringify(body.ruleEvaluation)).not.toMatch(/800|below_min|private_floor|minPrice/)
     expect(body.next).toMatch(/counter/i)
   })
 })

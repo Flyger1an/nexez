@@ -7,6 +7,7 @@ import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visib
 import { loadReviewSummaryForSlug } from '../../../lib/server/reviews'
 import { loadStorefrontHandleForSlug } from '../../../lib/server/storefront'
 import { supabase } from '../../../lib/supabase'
+import { negotiationTermsSchema } from '../../../lib/negotiation-terms-schema'
 
 /**
  * MCP discovery manifest (static) for /<slug>.
@@ -157,7 +158,7 @@ export async function GET(
                   offer: { type: 'string', description: 'e.g. services-0 or products-1' },
                   buyerAgent: { type: 'string' },
                   query: { type: 'string' },
-                  requestedTerms: { type: 'object' },
+                  requestedTerms: negotiationTermsSchema(),
                   budget: { type: 'string' },
                   timeline: { type: 'string' },
                   contact: { type: 'string' },

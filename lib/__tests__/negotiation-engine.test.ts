@@ -421,6 +421,84 @@ describe('NegotiationService.runDecision (async phase - LLM + claim)', () => {
     expect(seller?.content?.decision?.counter?.priceCents).toBe(80000) // clamped to the $800 floor
   })
 
+  it('clamps an LLM accept to the stricter maximum-discount floor', async () => {
+    const state = seedNegotiationDb(demoPage({
+      services: [{
+        name: 'Svc',
+        price: '$1,000',
+        offerType: 'negotiable',
+        rules: { minPrice: '$500', maxDiscountPercent: 10 },
+      }],
+    }))
+    const service = new NegotiationService(okLLM({ action: 'accept', reasoning: 'tempted' }))
+    const submitted = await service.submitProposal({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 800_00 },
+    })
+
+    await service.runDecision(submitted.negotiationId)
+
+    const seller = state.messages.find((message) => message.role === 'seller_llm')
+    expect(seller?.content?.decision?.action).toBe('counter')
+    expect(seller?.content?.decision?.counter?.priceCents).toBe(900_00)
+  })
+
+  it('prevents LLM acceptance when a configured buyer term is missing', async () => {
+    const state = seedNegotiationDb(demoPage({
+      services: [{
+        name: 'Svc',
+        price: '$1,000',
+        offerType: 'negotiable',
+        rules: { minPrice: '$500', includedScope: 'Logo design', maxRevisions: 2 },
+      }],
+    }))
+    const service = new NegotiationService(okLLM({ action: 'accept', reasoning: 'looks good' }))
+    const submitted = await service.submitProposal({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 900_00, requestedTerms: { scope: 'Logo design' } },
+    })
+
+    await service.runDecision(submitted.negotiationId)
+
+    const seller = state.messages.find((message) => message.role === 'seller_llm')
+    expect(seller?.content?.decision).toMatchObject({ action: 'review', counter: undefined })
+    expect(state.finalUpdates.at(-1)?.status).toBe('negotiation')
+    expect(state.finalUpdates.at(-1)?.amount_cents).toBeUndefined()
+    expect(state.finalUpdates.at(-1)?.metadata.rules_evaluation.checks).toContainEqual({
+      key: 'revision_limit',
+      status: 'review',
+      reason: 'revision_count_not_provided',
+    })
+  })
+
+  it('prevents LLM acceptance when requested terms exceed seller limits', async () => {
+    const state = seedNegotiationDb(demoPage({
+      services: [{
+        name: 'Svc',
+        price: '$1,000',
+        offerType: 'negotiable',
+        rules: { minPrice: '$500', excludedScope: 'Source files', maxProjectWeeks: 4 },
+      }],
+    }))
+    const service = new NegotiationService(okLLM({ action: 'accept', reasoning: 'looks good' }))
+    const submitted = await service.submitProposal({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: {
+        proposedPriceCents: 900_00,
+        requestedTerms: { deliverables: 'Source files', projectWeeks: 6 },
+      },
+    })
+
+    await service.runDecision(submitted.negotiationId)
+
+    const seller = state.messages.find((message) => message.role === 'seller_llm')
+    expect(seller?.content?.decision?.action).toBe('review')
+    expect(state.finalUpdates.at(-1)?.metadata.rules_evaluation.decision).toBe('flag')
+  })
+
   it('rules win against a prompt-injection payload: an "accept at $1" the LLM obeys is still clamped', async () => {
     const state = seedNegotiationDb(demoPage({ services: [{ name: 'Svc', price: '$1000', offerType: 'negotiable', rules: { minPrice: '800' } }] }))
     // A hostile buyer query + the LLM "falling for it" and accepting $1.
@@ -535,7 +613,35 @@ describe('NegotiationService.runDecision (async phase - LLM + claim)', () => {
     // A seller turn is still written (deterministic fallback) and the seq advances.
     const seller = state.messages.find((m) => m.role === 'seller_llm')
     expect(seller).toBeTruthy()
+    expect(seller?.content?.decision?.action).toBe('review')
+    expect(seller?.content?.decision?.counter).toBeUndefined()
     expect(state.finalUpdates.at(-1)?.decision_seq).toBe(1)
+  })
+
+  it('uses only an explicit seller floor for a deterministic automatic counter', async () => {
+    const state = seedNegotiationDb(demoPage({
+      llm_opt_in: false,
+      services: [{
+        name: 'Svc',
+        price: '$1,000',
+        offerType: 'negotiable',
+        rules: { minPrice: '$800', autoCounter: true },
+      }],
+    }))
+    const service = new NegotiationService(okLLM({ action: 'accept', reasoning: 'should not run' }))
+    const submitted = await service.submitProposal({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 500_00 },
+    })
+
+    await service.runDecision(submitted.negotiationId)
+
+    const seller = state.messages.find((message) => message.role === 'seller_llm')
+    expect(seller?.content?.decision).toMatchObject({
+      action: 'counter',
+      counter: { priceCents: 800_00 },
+    })
   })
 
   it('claims via a lease (keeps decision_pending true); only the final write clears it', async () => {

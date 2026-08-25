@@ -86,6 +86,7 @@ export function ApprovedActionForm({ action, children, onNavigate, ...formProps 
 function formDataToActionInput(formData: FormData) {
   const input: Record<string, unknown> = {}
   const offerConfiguration: Record<string, unknown> = {}
+  const requestedTerms: Record<string, unknown> = {}
   for (const [key, value] of formData.entries()) {
     if (typeof value !== 'string') continue
     const configurationField = parseOfferConfigurationFieldName(key)
@@ -102,6 +103,15 @@ function formDataToActionInput(formData: FormData) {
       }
       continue
     }
+    const negotiationTerm = parseNegotiationTermFieldName(key)
+    if (negotiationTerm) {
+      if (value.trim()) {
+        requestedTerms[negotiationTerm.key] = negotiationTerm.numeric && /^\d+$/.test(value.trim())
+          ? Number(value.trim())
+          : value
+      }
+      continue
+    }
     input[key] = value
   }
 
@@ -114,7 +124,24 @@ function formDataToActionInput(formData: FormData) {
       input.requestedTerms = { note: input.requestedTerms }
     }
   }
+  if (Object.keys(requestedTerms).length) {
+    const existing = input.requestedTerms && typeof input.requestedTerms === 'object' && !Array.isArray(input.requestedTerms)
+      ? input.requestedTerms as Record<string, unknown>
+      : {}
+    input.requestedTerms = { ...existing, ...requestedTerms }
+  }
   return input
+}
+
+const NEGOTIATION_TERM_FORM_FIELD = /^requestedTerms\.(scope|deliverables|revisionCount|projectWeeks)$/
+
+function parseNegotiationTermFieldName(name: string) {
+  const match = NEGOTIATION_TERM_FORM_FIELD.exec(name)
+  if (!match) return null
+  return {
+    key: match[1],
+    numeric: match[1] === 'revisionCount' || match[1] === 'projectWeeks',
+  }
 }
 
 const OFFER_CONFIGURATION_FORM_FIELD = /^offerConfiguration\.(text|number|boolean|single-select|multi-select|quantity|date|date-time|location|asset)\.([a-z0-9][a-z0-9_-]{0,63})$/

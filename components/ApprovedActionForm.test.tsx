@@ -71,6 +71,37 @@ describe('ApprovedActionForm', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('groups plain-language negotiation fields into canonical requested terms', async () => {
+    const navigate = vi.fn()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ approvalTokenRequired: true, approvalToken: 'v1.terms.signature' }))
+      .mockResolvedValueOnce(response({ statusUrl: 'https://nexez.test/api/negotiations/status?id=n1&token=t1' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <ApprovedActionForm action="/api/negotiations" onNavigate={navigate}>
+        <input name="slug" value="acme" readOnly />
+        <input name="offer" value="services-0" readOnly />
+        <input name="requestedTerms.scope" value="Logo design" readOnly />
+        <input name="requestedTerms.revisionCount" value="2" readOnly />
+        <input name="requestedTerms.projectWeeks" value="4" readOnly />
+        <button type="submit">Send proposal</button>
+      </ApprovedActionForm>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send proposal' }))
+    await waitFor(() => expect(navigate).toHaveBeenCalled())
+
+    const dryRunBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+    expect(dryRunBody.requestedTerms).toEqual({
+      scope: 'Logo design',
+      revisionCount: 2,
+      projectWeeks: 4,
+    })
+    const liveBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body))
+    expect(liveBody.requestedTerms).toEqual(dryRunBody.requestedTerms)
+  })
+
   it('returns to the checkout page explanation when no payment destination exists', async () => {
     const navigate = vi.fn()
     const fetchMock = vi.fn()

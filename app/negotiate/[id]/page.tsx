@@ -9,6 +9,7 @@ import { isPayable } from '../../../lib/settlement'
 import { sanitizeAgentDecision, sanitizeNegotiationMessageContent } from '../../../lib/negotiation-sanitize'
 import PendingPoller from './PendingPoller'
 import { ApprovedActionForm } from '../../../components/ApprovedActionForm'
+import { publicRulesEvaluation } from '../../../lib/offer-rules'
 
 // Private negotiation thread keyed by an unguessable token credential - never index
 // (URLs leak via referrers/shared logs; same convention as the buyer order portal).
@@ -152,6 +153,9 @@ export default async function PersistentNegotiationPage({ params, searchParams }
   const rawLastDecision =
     negotiation.metadata?.last_decision || (history.length > 0 ? history[history.length - 1]?.decision : null)
   const lastDecision = sanitizeDecision(rawLastDecision, viewerIsOwner)
+  const rulesSummary = negotiation.decision_pending
+    ? null
+    : publicRulesEvaluation(negotiation.metadata?.rules_evaluation)
 
   // Credential for the continuation form: the API now requires the token to resume
   // a thread. The agent already has it (URL); the owner gets their own stored token.
@@ -189,9 +193,9 @@ export default async function PersistentNegotiationPage({ params, searchParams }
             <div className="text-right">
               <div className="uppercase text-[10px] tracking-[2px] text-[var(--fg-muted-2)]">Current Status</div>
               <div className="text-lg font-semibold text-[var(--ready)]">{negotiation.status}</div>
-              {negotiation.amount_cents && (
+              {negotiation.amount_cents != null && negotiation.amount_cents > 0 ? (
                 <div className="text-sm">{formatNegotiationAmount(negotiation.amount_cents, negotiation.currency)}</div>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -199,6 +203,22 @@ export default async function PersistentNegotiationPage({ params, searchParams }
         {/* Async decision in flight - poll + soft-refresh when it lands. */}
         {negotiation.decision_pending && formToken && (
           <PendingPoller id={negotiation.id} token={formToken} currentSeq={negotiation.decision_seq ?? 0} />
+        )}
+
+        {rulesSummary && (
+          <div className="card mb-6 border border-white/10">
+            <div className="text-xs uppercase tracking-widest text-[var(--signal)]">Proposal check</div>
+            <p className="mt-2 text-sm text-zinc-200">{rulesSummary.summary}</p>
+            {rulesSummary.checks.length > 0 ? (
+              <ul className="mt-3 space-y-1.5 text-xs text-[var(--fg-muted)]">
+                {rulesSummary.checks.map((check) => (
+                  <li key={check.key}>
+                    <span className="font-medium text-zinc-200">{check.label}:</span> {check.message}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         )}
 
         {/* Buyer-funded settlement */}
@@ -340,9 +360,28 @@ export default async function PersistentNegotiationPage({ params, searchParams }
             {formToken && <input type="hidden" name="statusToken" value={formToken} />}
 
             <textarea name="query" rows={3} className="input" placeholder="Updated scope, new constraints, or response to previous counter..." required />
+            <label className="grid gap-1 text-sm text-[var(--fg-muted)]">
+              Requested work
+              <textarea
+                name="requestedTerms.scope"
+                rows={2}
+                className="input text-white"
+                placeholder="Describe the work or deliverables you want included"
+              />
+            </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <input name="budget" className="input" placeholder="Updated budget e.g. 820" />
               <input name="timeline" className="input" placeholder="New timeline" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="grid gap-1 text-sm text-[var(--fg-muted)]">
+                Requested revisions
+                <input name="requestedTerms.revisionCount" type="number" min={0} className="input text-white" placeholder="2" />
+              </label>
+              <label className="grid gap-1 text-sm text-[var(--fg-muted)]">
+                Project length (weeks)
+                <input name="requestedTerms.projectWeeks" type="number" min={1} className="input text-white" placeholder="4" />
+              </label>
             </div>
             <input name="contact" className="input" placeholder="Your contact (optional)" />
 

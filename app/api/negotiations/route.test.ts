@@ -182,6 +182,43 @@ describe('POST /api/negotiations', () => {
     expect(ops.some((o) => o.includes('insert'))).toBe(false)
   })
 
+  it('dryRun evaluates documented buyer terms against seller limits', async () => {
+    dbRef.handler = (ctx: QueryContext) => ctx.table === 'pages'
+      ? {
+          data: {
+            ...pageWithOffer,
+            services: [{
+              name: 'Consult',
+              price: '$100',
+              description: '',
+              url: '',
+              offerType: 'negotiable',
+              rules: { autoAccept: true, includedScope: 'Strategy', maxRevisions: 1 },
+            }],
+          },
+          error: null,
+        }
+      : { data: null, error: null }
+
+    const response = await POST(post({
+      slug: 'demo',
+      offer: 'services-0',
+      budget: '$100',
+      requestedTerms: { scope: 'Strategy', revisionCount: 2 },
+      dryRun: true,
+    }))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.rulesEvaluation).toMatchObject({
+      schemaVersion: 2,
+      decision: 'flag',
+      checks: expect.arrayContaining([
+        { key: 'revision_limit', status: 'fail', reason: 'exceeds_revision_limit' },
+      ]),
+    })
+  })
+
   it('binds a required approval token to the exact validated proposal', async () => {
     vi.stubEnv('NEXEZ_ACTION_APPROVAL_SECRET', 'route-test-secret-with-at-least-thirty-two-characters')
     vi.stubEnv('NEXEZ_REQUIRE_ACTION_APPROVAL_TOKEN', 'true')
