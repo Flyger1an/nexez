@@ -27,6 +27,7 @@ const SOURCE_LABEL = {
   growth: 'Growth',
   marketplace: 'Marketplace',
   release: 'Release',
+  launch: 'Launch',
 } as const
 
 export default async function AdminAuditPage() {
@@ -76,7 +77,7 @@ export default async function AdminAuditPage() {
                 {snapshot.events.map((event) => <AuditRow key={event.id} event={event} generatedAt={snapshot.generatedAt} />)}
               </div>
             ) : (
-              <div className="flex min-h-36 items-center gap-3 px-4 py-5"><History className="size-5 text-[var(--fg-muted)]" /><div><p className="text-sm font-medium">No audit evidence is available</p><p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">No growth, marketplace, or release event was returned by the protected ledgers.</p></div></div>
+              <div className="flex min-h-36 items-center gap-3 px-4 py-5"><History className="size-5 text-[var(--fg-muted)]" /><div><p className="text-sm font-medium">No audit evidence is available</p><p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">No access, growth, marketplace, release, or launch decision was returned by the protected ledgers.</p></div></div>
             )}
           </div>
         </section>
@@ -104,7 +105,15 @@ function OperatorRow({ operator, generatedAt }: { operator: AdminOperator; gener
 }
 
 function AuditRow({ event, generatedAt }: { event: AdminAuditEvent; generatedAt: string }) {
-  const Icon = event.source === 'access' ? UserRoundCheck : event.source === 'growth' ? TrendingUp : event.source === 'marketplace' ? Store : GitCommitHorizontal
+  const Icon = event.source === 'access'
+    ? UserRoundCheck
+    : event.source === 'growth'
+      ? TrendingUp
+      : event.source === 'marketplace'
+        ? Store
+        : event.source === 'launch'
+          ? ShieldCheck
+          : GitCommitHorizontal
   return (
     <Link href={event.href} className="grid gap-3 px-4 py-4 transition hover:bg-white/[0.04] sm:grid-cols-[32px_minmax(0,1fr)_auto] sm:items-start">
       <span className="flex size-8 items-center justify-center rounded-md border border-border bg-white/[0.04]"><Icon className="size-4 text-[var(--fg-muted)]" /></span>
