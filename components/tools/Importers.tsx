@@ -223,17 +223,10 @@ export function ShopifyImporter() {
 }
 
 export function AcuityImporter() {
-  const [acuityToken, setAcuityToken] = useState('')
+  const [acuityUserId, setAcuityUserId] = useState('')
+  const [acuityApiKey, setAcuityApiKey] = useState('')
   const [acuityLoading, setAcuityLoading] = useState(false)
   const [acuityResult, setAcuityResult] = useState<any>(null)
-  const [acuityConnected, setAcuityConnected] = useState<{ lastImport: string } | null>(null)
-
-  useEffect(() => {
-    try {
-      const s = localStorage.getItem('nexez_acuity_connection')
-      if (s) setAcuityConnected(JSON.parse(s))
-    } catch {}
-  }, [])
 
   async function handleAcuityImport() {
     setAcuityLoading(true)
@@ -243,15 +236,12 @@ export function AcuityImporter() {
       const res = await fetch('/api/integrations/acuity/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken: acuityToken.trim() || undefined }),
+        body: JSON.stringify({ userId: acuityUserId.trim(), apiKey: acuityApiKey.trim() }),
       })
       const data = await res.json()
       setAcuityResult(data)
 
-      if (!data.error) {
-        const conn = { lastImport: new Date().toISOString() }
-        setAcuityConnected(conn)
-        try { localStorage.setItem('nexez_acuity_connection', JSON.stringify(conn)) } catch {}
+      if (res.ok && data.connected === true) {
         void recordIntegration('acuity', 'Appointments imported')
       }
     } catch (e) {
@@ -265,38 +255,35 @@ export function AcuityImporter() {
     <div className="mt-6 rounded-xl border border-white/10 p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <div className="font-semibold text-[var(--amber)]">Acuity Scheduling - Consumer Services</div>
-          <p className="text-xs text-[#9CA3AF]">Import appointment types for coaching, beauty, wellness, medical, fitness. Strong scheduling + consumer fields.</p>
+          <div className="font-semibold text-[var(--amber)]">Acuity Scheduling - live catalog</div>
+          <p className="text-xs text-[#9CA3AF]">Import real appointment types for coaching, beauty, wellness, medical, and fitness listings. Nexez never substitutes sample offers when Acuity rejects a request.</p>
         </div>
-        {acuityConnected && (
-          <span className="text-[10px] text-[var(--ready)]">Connected • {new Date(acuityConnected.lastImport).toLocaleTimeString()}</span>
-        )}
       </div>
 
-      <div className="flex gap-2 mb-2">
+      <div className="grid gap-2 mb-2 sm:grid-cols-2">
         <input
           type="text"
-          value={acuityToken}
-          onChange={(e) => setAcuityToken(e.target.value)}
-          placeholder="Acuity API Key or User ID"
-          className="flex-1 input text-sm"
+          value={acuityUserId}
+          onChange={(e) => setAcuityUserId(e.target.value)}
+          placeholder="Acuity User ID"
+          className="input text-sm"
         />
+        <input
+          type="password"
+          value={acuityApiKey}
+          onChange={(e) => setAcuityApiKey(e.target.value)}
+          placeholder="Acuity API key"
+          className="input text-sm"
+        />
+      </div>
+      <div className="flex gap-2 mb-2">
         <button
           onClick={handleAcuityImport}
-          disabled={acuityLoading}
+          disabled={acuityLoading || !acuityUserId.trim() || !acuityApiKey.trim()}
           className="btn-primary"
         >
           {acuityLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import from Acuity'}
         </button>
-        {acuityConnected && (
-          <button
-            onClick={() => handleAcuityImport()}
-            disabled={acuityLoading}
-            className="rounded-lg border border-[var(--amber)]/40 px-3 py-1 text-sm text-[var(--amber)] hover:bg-white/5"
-          >
-            Re-sync
-          </button>
-        )}
       </div>
 
       <ImportResult
@@ -311,7 +298,7 @@ export function AcuityImporter() {
         renderOffer={(o: any, i: number) => (
           <div key={i}>• {o.name} - {o.price} {o.duration ? `(${o.duration})` : ''}</div>
         )}
-        footer={<p className="mt-2 text-[10px] text-zinc-500">Great for time-based consumer services with durations and tiers.</p>}
+        footer={<p className="mt-2 text-[10px] text-zinc-500">This is a one-time live import. After creating the listing, connect Acuity in Listing Settings for encrypted credentials and repeatable sync.</p>}
       />
     </div>
   )

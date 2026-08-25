@@ -1,33 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { fireOutboundWebhook, getWebhookEndpointError, OutboundWebhookPayload } from '../../../lib/webhooks'
-import { createClient } from '../../../utils/supabase/server'
-import { ownerAllows } from '../../../lib/server/plan'
+import { NextResponse } from 'next/server'
 import { minPlanForFeature } from '../../../lib/billing'
+import { enforceRateLimit } from '../../../lib/rate-limit'
+import { fireOutboundWebhook, type OutboundWebhookPayload } from '../../../lib/webhooks'
+import { outboundWebhooksForDelivery } from '../../../lib/server/outbound-webhook-config'
+import { ownerAllows } from '../../../lib/server/plan'
+import { requirePageAccess } from '../../../lib/server/require-page-access'
 
-/**
- * Test Outbound Webhook (Phase 3)
- * 
- * Allows the Settings page (and future UIs) to send a real test `booking.received` (or generic)
- * payload to a specific endpoint + optional secret.
- * 
- * This makes per-page outbound configuration actually testable end-to-end from the UI
- * ("Send Test" buttons next to each configured webhook).
- */
-export async function POST(request: NextRequest) {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+/** Send a fixed test event to an endpoint already saved on an editable listing. */
+export async function POST(request: Request) {
+  const limited = await enforceRateLimit(request, 'test-outbound', 10, 60_000)
+  if (limited) return limited
 
-  if (!user) {
-    return NextResponse.json({ error: 'Sign in to test outbound webhooks.' }, { status: 401 })
+  const body = (await request.json().catch(() => null)) as { endpoint?: unknown; pageId?: unknown } | null
+  if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  const endpoint = typeof body.endpoint === 'string' ? body.endpoint.trim() : ''
+  const pageId = typeof body.pageId === 'string' ? body.pageId.trim() : ''
+  if (!endpoint || !pageId) {
+    return NextResponse.json({ error: 'A saved endpoint and listing are required.' }, { status: 400 })
   }
 
-  // Outbound webhooks are a Pro (`outboundWebhooks`) capability - gate the test
-  // sender too, so it can't be used to fire arbitrary webhooks below Pro.
-  if (!(await ownerAllows(supabase, user.id, 'outboundWebhooks'))) {
+  const gate = await requirePageAccess({ pageId, unavailableMessage: 'Listing not available.' })
+  if (!gate.ok) return gate.response
+  const { access, admin } = gate
+  if (!(await ownerAllows(admin, access.ownerId, 'outboundWebhooks'))) {
     const required = minPlanForFeature('outboundWebhooks')
     return NextResponse.json(
       { error: `Outbound webhooks are available on the ${required.name} plan and up.`, upgrade: required.id },
@@ -35,78 +30,38 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  let body: {
-    endpoint?: string
-    secret?: string | null
-    eventType?: string
-    data?: Record<string, unknown>
-    pageId?: string
-    page?: { id?: string; slug?: string; name?: string }
-  }
+  const [{ data: page }, { data: secrets, error: secretError }] = await Promise.all([
+    admin.from('pages').select('id, slug, name').eq('id', access.pageId).maybeSingle(),
+    admin.from('page_secrets').select('outbound_webhooks').eq('page_id', access.pageId).maybeSingle(),
+  ])
+  if (secretError) return NextResponse.json({ error: 'Could not read webhook settings.' }, { status: 500 })
+  if (!page) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 })
 
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const endpoint = (body?.endpoint || '').trim()
-  const secret = body?.secret || null
-  const eventType = body?.eventType || 'booking.received'
-  const pageId = body?.pageId || body?.page?.id || ''
-
-  if (!endpoint) {
-    return NextResponse.json({ error: 'endpoint is required' }, { status: 400 })
-  }
-  // Surface obviously-invalid/SSRF endpoints as a clean 400 (fireOutboundWebhook
-  // also runs the resolved-DNS check, but this gives a clearer up-front error).
-  const endpointError = getWebhookEndpointError(endpoint)
-  if (endpointError) {
-    return NextResponse.json({ error: endpointError }, { status: 400 })
-  }
-
-  let page = body?.page
-  if (pageId) {
-    const { data, error } = await supabase
-      .from('pages')
-      .select('id, slug, name')
-      .eq('id', pageId)
-      .eq('owner_id', user.id)
-      .single()
-
-    if (error || !data) {
-      return NextResponse.json({ error: 'Page not found, or you do not own it.' }, { status: 403 })
-    }
-
-    page = data
-  }
+  const saved = outboundWebhooksForDelivery(
+    (secrets as { outbound_webhooks?: unknown } | null)?.outbound_webhooks,
+  ).find((candidate) => candidate.url === endpoint)
+  if (!saved) return NextResponse.json({ error: 'Save this endpoint before testing it.' }, { status: 404 })
 
   const payload: OutboundWebhookPayload = {
-    event: eventType,
+    event: 'test.webhook',
     timestamp: new Date().toISOString(),
-    page: page?.id && page.slug && page.name ? { id: page.id, slug: page.slug, name: page.name } : undefined,
+    page: { id: page.id, slug: page.slug, name: page.name || page.slug },
     data: {
       test: true,
-      source: 'manual_test',
-      message: 'This is a test outbound webhook from Nexez Settings.',
-      ... (body?.data || {}),
+      source: 'listing_settings',
+      message: 'Test event from Nexez listing settings.',
     },
   }
-
-  const result = await fireOutboundWebhook(endpoint, secret, payload)
-
+  const result = await fireOutboundWebhook(saved.url, saved.secret, payload)
   return NextResponse.json({
     success: result.ok,
-    status: result.status,
-    error: result.error || null,
-    endpoint,
-    event: eventType,
+    status: result.status ?? null,
+    error: result.error ?? null,
+    endpoint: saved.url,
+    event: payload.event,
   })
 }
 
 export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    usage: 'POST { endpoint, secret?, eventType?, data?, page? }',
-  })
+  return NextResponse.json({ status: 'ok', usage: 'POST { endpoint, pageId }, using a saved listing endpoint.' })
 }

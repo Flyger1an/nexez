@@ -7,6 +7,7 @@ import { getOwnerPlanId } from '../../../../../lib/server/plan'
 import { getPageIntegrationConnections } from '../../../../../lib/server/integration-connections'
 import { agenticProgramFlags, resolveOwnerSettlementReadiness } from '../../../../../lib/server/agentic-commerce-eligibility'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
+import { outboundWebhooksForClient } from '../../../../../lib/server/outbound-webhook-config'
 
 /**
  * Settings context for the page editor's Settings screen, collaborator-aware. Returns
@@ -64,7 +65,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       integrations: [],
       secrets: {
         calendly_webhook_secret: secrets?.calendly_webhook_secret ?? null,
-        outbound_webhooks: secrets?.outbound_webhooks ?? null,
+        outbound_webhooks: outboundWebhooksForClient(secrets?.outbound_webhooks),
         domain_verification_token: secrets?.domain_verification_token ?? null,
         website_verification_token: secrets?.website_verification_token ?? null,
         // This boolean depends on a service-role-only encrypted column. Unknown
@@ -110,7 +111,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     },
     secrets: {
       calendly_webhook_secret: secrets?.calendly_webhook_secret ?? null,
-      outbound_webhooks: secrets?.outbound_webhooks ?? null,
+      outbound_webhooks: outboundWebhooksForClient(secrets?.outbound_webhooks),
       domain_verification_token: secrets?.domain_verification_token ?? null,
       website_verification_token: secrets?.website_verification_token ?? null,
       // Boolean only - the encrypted PAT is never returned to the client.

@@ -247,7 +247,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     visualTitle: 'Integration sources',
     visualItems: [
       'Stripe, Shopify, Square, WooCommerce, CSV, and website flows shape editable catalogs and prices.',
-      'Calendly, Acuity, ServiceM8, and Google Calendar connect service, job, booking, and free/busy context.',
+      'Calendly, Acuity, ServiceM8, and Google Calendar connect service catalogs, job context, booking signals, and free/busy data.',
       'Inbound signatures, outbound webhooks, resync, and reconciliation keep state attributable.',
     ],
     sections: [
@@ -260,7 +260,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
           { title: 'Calendly', copy: 'Import service names, booking links, durations, and meeting context.' },
           { title: 'Google Calendar', copy: 'Connect with OAuth and derive availability from free/busy status without reading event names or descriptions.' },
           { title: 'ServiceM8', copy: 'Import job templates as editable offers and verify live job access through a scoped OAuth connection.' },
-          { title: 'Acuity', copy: 'Import services through encrypted per-listing credentials and preserve source context.' },
+          { title: 'Acuity', copy: 'Import live appointment-type catalogs through OAuth or encrypted per-listing API credentials.' },
         ],
       },
       {
@@ -282,7 +282,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
           'Signed inbound events, owner-configured outbound webhooks, manual resync, and scheduled repair jobs move changes through observable paths.',
         cards: [
           { title: 'Verified inbound events', copy: 'Provider signatures are checked before supported events update platform state.' },
-          { title: 'Outbound webhooks', copy: 'Owners can configure and test delivery for their own downstream systems.' },
+          { title: 'Zapier-compatible webhooks', copy: 'Owners can send signed booking and checkout signals to saved Zapier Catch Hooks, Make, n8n, or their own HTTPS systems.' },
           { title: 'Freshness controls', copy: 'Resync and scheduled reconciliation surface failures instead of silently presenting stale availability.' },
         ],
       },

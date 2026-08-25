@@ -242,10 +242,20 @@ describe('importIntegrationOffers (intake dispatcher - real offers or error, nev
   })
 
   it('acuity: a live account maps to offers', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse([{ id: 1 }])))
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse([{ id: 1 }]))
+    vi.stubGlobal('fetch', fetchMock)
     const r = await importIntegrationOffers({ provider: 'acuity', userId: 'u', apiKey: 'k' })
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.offers[0].name).toBe('Acuity Session')
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe(`Basic ${Buffer.from('u:k').toString('base64')}`)
+  })
+
+  it('acuity: OAuth uses a bearer token and a failed live request stays an error', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({}, false, 401))
+    vi.stubGlobal('fetch', fetchMock)
+    const r = await importIntegrationOffers({ provider: 'acuity', accessToken: 'oauth-token' })
+    expect(r).toMatchObject({ ok: false, status: 502 })
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer oauth-token')
   })
 })
 

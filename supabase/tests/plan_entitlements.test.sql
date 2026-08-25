@@ -1915,7 +1915,7 @@ select lives_ok(
   'Pro may create an API key through the direct owner table path'
 );
 
-select lives_ok(
+select throws_ok(
   $$
     insert into public.outbound_webhooks (
       id, owner_id, url, secret, active
@@ -1927,7 +1927,8 @@ select lives_ok(
       true
     )
   $$,
-  'Pro may register an account outbound webhook through the direct table path'
+  '42501', null,
+  'Authenticated Pro clients cannot access account webhook secrets through the direct table path'
 );
 
 select lives_ok(
@@ -1959,6 +1960,16 @@ select lives_ok(
 
 reset role;
 select set_config('request.jwt.claims', '', true);
+
+insert into public.outbound_webhooks (
+  id, owner_id, url, secret, active
+) values (
+  'b7000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000020',
+  'https://hooks.example.test/retained',
+  'whsec_retained',
+  true
+);
 
 update public.billing_subscriptions
 set plan_id = 'free'
@@ -2023,7 +2034,7 @@ select throws_ok(
   'Free owner cannot mint an API key through PostgREST'
 );
 
-select lives_ok(
+select throws_ok(
   $$
     update public.outbound_webhooks
     set url = url,
@@ -2031,7 +2042,8 @@ select lives_ok(
         active = active
     where id = 'b7000000-0000-0000-0000-000000000001'
   $$,
-  'Free downgrade may retain an account webhook unchanged'
+  '42501', null,
+  'Authenticated Free clients cannot touch retained account webhook secrets'
 );
 
 select throws_ok(
@@ -2040,17 +2052,18 @@ select throws_ok(
     set url = 'https://hooks.example.test/changed'
     where id = 'b7000000-0000-0000-0000-000000000001'
   $$,
-  '23514', null,
-  'Free downgrade cannot reconfigure a retained account webhook'
+  '42501', null,
+  'Authenticated Free clients cannot reconfigure a retained account webhook'
 );
 
-select lives_ok(
+select throws_ok(
   $$
     update public.outbound_webhooks
     set active = false
     where id = 'b7000000-0000-0000-0000-000000000001'
   $$,
-  'Free downgrade may disable a retained account webhook'
+  '42501', null,
+  'Authenticated Free clients cannot disable a retained account webhook directly'
 );
 
 select throws_ok(
@@ -2059,8 +2072,8 @@ select throws_ok(
     set active = true
     where id = 'b7000000-0000-0000-0000-000000000001'
   $$,
-  '23514', null,
-  'Free downgrade cannot re-enable a disabled account webhook'
+  '42501', null,
+  'Authenticated Free clients cannot re-enable a retained account webhook directly'
 );
 
 select throws_ok(
@@ -2072,8 +2085,8 @@ select throws_ok(
       'whsec_free_forged'
     )
   $$,
-  '23514', null,
-  'Free owner cannot register an account webhook through PostgREST'
+  '42501', null,
+  'Authenticated Free clients cannot register an account webhook through PostgREST'
 );
 
 select lives_ok(

@@ -597,15 +597,24 @@ export async function importServiceM8Offers(accessToken: string): Promise<Provid
   }
 }
 
-/** Live Acuity appointment types → offers, or null (moved verbatim from the route). */
-export async function fetchAcuityTypes(userId: string, apiKey: string): Promise<OfferItem[] | null> {
+export type AcuityAuthentication =
+  | { accessToken: string; userId?: never; apiKey?: never }
+  | { accessToken?: never; userId: string; apiKey: string }
+
+/** Live Acuity appointment types to offers, or null when authorization, network,
+ * or the remote catalog is unavailable. OAuth is the managed multi-merchant
+ * path; Basic credentials remain supported for legacy and one-time imports. */
+export async function fetchAcuityTypes(authentication: AcuityAuthentication): Promise<OfferItem[] | null> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 9000)
   try {
-    const auth = Buffer.from(`${userId}:${apiKey}`).toString('base64')
+    const authorization = authentication.accessToken
+      ? `Bearer ${authentication.accessToken}`
+      : `Basic ${Buffer.from(`${authentication.userId}:${authentication.apiKey}`).toString('base64')}`
     const res = await fetch('https://acuityscheduling.com/api/v1/appointment-types', {
-      headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
+      headers: { Authorization: authorization, Accept: 'application/json' },
       signal: controller.signal,
+      redirect: 'error',
     })
     if (!res.ok) return null
     const data = await res.json()
@@ -627,7 +636,7 @@ export type IntegrationIngestInput =
   | { provider: 'calendly'; token: string }
   | { provider: 'shopify'; shop: string; accessToken: string; limit?: number }
   | { provider: 'square'; accessToken: string }
-  | { provider: 'acuity'; userId: string; apiKey: string }
+  | ({ provider: 'acuity' } & AcuityAuthentication)
   | { provider: 'woocommerce'; credentials: WooCommerceCredential }
   | { provider: 'servicem8'; accessToken: string }
 
@@ -649,7 +658,10 @@ export async function importIntegrationOffers(input: IntegrationIngestInput): Pr
       return importSquareOffers(input.accessToken)
     }
     case 'acuity': {
-      const offers = await fetchAcuityTypes(input.userId, input.apiKey)
+      const authentication: AcuityAuthentication = typeof input.accessToken === 'string'
+        ? { accessToken: input.accessToken }
+        : { userId: input.userId, apiKey: input.apiKey }
+      const offers = await fetchAcuityTypes(authentication)
       if (!offers?.length) return { ok: false, status: 502, error: 'Could not reach Acuity (check the User ID and API key).' }
       return { ok: true, offers, note: `Imported ${offers.length} appointment type(s) from Acuity.` }
     }

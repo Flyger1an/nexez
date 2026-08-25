@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Same collaboration gate as the other importers. Owner-disallow forces 402 right after
 // the gate, so no Acuity API call / sample-data path is reached.
-const { userRef, featureRef, ownerAllowsRef } = vi.hoisted(() => ({
+const { userRef, featureRef, ownerAllowsRef, acuityRef } = vi.hoisted(() => ({
   userRef: { user: { id: 'user-1', email: 'me@x.com', email_confirmed_at: '2026-01-01' } as any },
   featureRef: { fn: (_o: any) => ({ ok: true, ownerId: 'user-1', pageId: null, scoped: false, role: 'owner' }) as any },
   ownerAllowsRef: { calls: [] as Array<{ ownerId: any; feature: any; client: any }>, value: false },
+  acuityRef: { value: null as any, input: null as any },
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
@@ -20,6 +21,16 @@ vi.mock('../../../../../lib/server/plan', () => ({
     return ownerAllowsRef.value
   }),
 }))
+vi.mock('../../../../../lib/server/integration-importers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../../lib/server/integration-importers')>()
+  return {
+    ...actual,
+    fetchAcuityTypes: vi.fn(async (input: unknown) => {
+      acuityRef.input = input
+      return acuityRef.value
+    }),
+  }
+})
 
 import { POST } from './route'
 
@@ -35,6 +46,8 @@ describe('POST /api/integrations/acuity/import (collaboration gate)', () => {
     featureRef.fn = () => ({ ok: true, ownerId: 'user-1', pageId: null, scoped: false, role: 'owner' })
     ownerAllowsRef.calls = []
     ownerAllowsRef.value = false
+    acuityRef.value = null
+    acuityRef.input = null
   })
 
   it('401 when not authenticated', async () => {
@@ -58,5 +71,27 @@ describe('POST /api/integrations/acuity/import (collaboration gate)', () => {
     expect((await POST(post({}))).status).toBe(402)
     expect(ownerAllowsRef.calls[0]).toMatchObject({ ownerId: 'user-1', feature: 'integrations' })
     expect(ownerAllowsRef.calls[0].client).toMatchObject({ __session: true })
+  })
+
+  it('requires both legacy credential fields after the entitlement gate', async () => {
+    ownerAllowsRef.value = true
+    expect((await POST(post({ userId: 'user-only' }))).status).toBe(400)
+    expect(acuityRef.input).toBeNull()
+  })
+
+  it('returns a live import and never substitutes sample data', async () => {
+    ownerAllowsRef.value = true
+    acuityRef.value = [{ name: 'Strategy Session', description: '', price: '$250', url: '', source: 'acuity' }]
+    const res = await POST(post({ userId: 'acct-1', apiKey: 'key-1' }))
+    expect(res.status).toBe(200)
+    expect(acuityRef.input).toEqual({ userId: 'acct-1', apiKey: 'key-1' })
+    await expect(res.json()).resolves.toMatchObject({ connected: true, structuredOffers: [{ name: 'Strategy Session' }] })
+
+    acuityRef.value = null
+    const failed = await POST(post({ userId: 'acct-1', apiKey: 'bad' }))
+    expect(failed.status).toBe(502)
+    const failedJson = await failed.json()
+    expect(failedJson).not.toHaveProperty('structuredOffers')
+    expect(failedJson).not.toHaveProperty('connected')
   })
 })

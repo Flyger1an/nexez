@@ -48,7 +48,9 @@ describe('OutboundWebhooksPanel', () => {
     const { upsertSecrets, onPersisted } = setup({ endpoints })
     fireEvent.click(screen.getByRole('button', { name: /Save \d+ Webhook URL/i }))
     await waitFor(() => expect(upsertSecrets).toHaveBeenCalledWith({ outbound_webhooks: endpoints }))
-    await waitFor(() => expect(onPersisted).toHaveBeenCalledWith(endpoints))
+    await waitFor(() => expect(onPersisted).toHaveBeenCalledWith([
+      { url: 'https://hooks.example.com/a', hasSecret: false, persisted: true },
+    ]))
   })
 
   it('does not mirror onto the listing when the save fails', async () => {
@@ -81,12 +83,12 @@ describe('OutboundWebhooksPanel', () => {
       async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ ok: true })),
     )
     vi.stubGlobal('fetch', fetchMock)
-    setup({ endpoints: [{ url: 'https://hooks.example.com/a', secret: 's3cret' }] })
+    setup({ endpoints: [{ url: 'https://hooks.example.com/a', hasSecret: true, persisted: true }] })
     fireEvent.click(screen.getByRole('button', { name: 'Send Test' }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
     expect(body.pageId).toBe('page-1')
-    expect(body.secret).toBe('s3cret')
+    expect(body).toEqual({ endpoint: 'https://hooks.example.com/a', pageId: 'page-1' })
   })
 })

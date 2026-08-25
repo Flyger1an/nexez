@@ -68,8 +68,8 @@ export const CONNECTOR_MANIFEST = {
   acuity: {
     provider: 'acuity',
     label: 'Acuity',
-    auth: 'token',
-    capabilities: ['catalog', 'availability', 'bookings'],
+    auth: 'oauth',
+    capabilities: ['catalog'],
     syncsOffers: true,
     autoSync: false,
     plan: 'integrations',

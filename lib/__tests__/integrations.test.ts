@@ -50,7 +50,16 @@ describe('mapAcuityTypesToOffers', () => {
     expect(offers).toHaveLength(2)
     expect(offers[0]).toMatchObject({ name: 'Strategy Session', price: '$250', duration: '90 min', source: 'acuity' })
     expect(offers[0].description).toBe('Deep dive')
+    expect(offers[0].url).toBe('')
     expect(offers[1].price).toBe('$0')
+  })
+
+  it('does not publish private or inactive appointment types', () => {
+    expect(mapAcuityTypesToOffers([
+      { id: 1, name: 'Private consult', private: true, active: true },
+      { id: 2, name: 'Deleted consult', private: false, active: false },
+      { id: 3, name: 'Public consult', private: false, active: true },
+    ])).toHaveLength(1)
   })
 })
 

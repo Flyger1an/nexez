@@ -15,7 +15,7 @@ fallback path, so nothing changes in production before the keys are set.
 
 | Function id | Trigger | What it does |
 | --- | --- | --- |
-| `outbound-webhooks-dispatch` | event `nexez/outbound-webhooks.dispatch` | Owner + per-page outbound webhook fan-out. Plan-gated at dispatch time (Pro+). One retried step per endpoint; delivery bookkeeping on `outbound_webhooks` rows preserved. Emitted by `lib/server/log-checkout-event.ts` for valuable checkout events. |
+| `outbound-webhooks-dispatch` | event `nexez/outbound-webhooks.dispatch` | Owner + per-page outbound webhook fan-out. Plan-gated at dispatch time (Pro+). One retried step per endpoint; delivery bookkeeping on `outbound_webhooks` rows preserved. Emitted by checkout logging and the verified Calendly receiver. |
 | `freshness-nudge` | event `nexez/freshness.nudge` | One stale-listing re-interview nudge: resolve recipient, send the seller-facet email (retried), then stamp the `page_freshness_nudges` cooldown ledger only after a successful send. Emitted per due page by the daily freshness cron. |
 | `feed-regenerate` | event `nexez/feed.regenerate` + cron `0 */6 * * *` | Fetches the public agent feed surfaces (`/acp/feed.json`, `/ucp/feed.json`, `/agent-pages.json`, `/llms.txt`) off the request path, revalidating expired CDN entries and failing visibly when a surface breaks. IndexNow pings will attach here. |
 

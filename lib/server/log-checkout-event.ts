@@ -7,6 +7,7 @@ import { getPagePrivateMeta } from './page-private-meta'
 import { hasInngestEnv, inngest } from '../inngest/client'
 import { OUTBOUND_WEBHOOKS_DISPATCH } from '../inngest/events'
 import { insertVerifiedCheckoutEvent } from './analytics-ingestion'
+import { outboundWebhooksForDelivery } from './outbound-webhook-config'
 
 type LogCheckoutEventInput = {
   page: AgentPage
@@ -120,21 +121,13 @@ export async function logCheckoutEvent({
               .eq('page_id', page.id)
               .maybeSingle()
 
-            const outbounds = (pageSecrets as any)?.outbound_webhooks
-            let endpoints: string[] = []
-            if (Array.isArray(outbounds)) {
-              endpoints = outbounds.map((o: any) => o?.url || o).filter(Boolean)
-            }
+            const outbounds = outboundWebhooksForDelivery(
+              (pageSecrets as { outbound_webhooks?: unknown } | null)?.outbound_webhooks,
+            )
 
-            if (endpoints.length > 0) {
-              // Support richer shape {url, secret?} for signing (same as Calendly receiver)
-              const outboundsFull = (pageSecrets as any)?.outbound_webhooks || []
-              for (const ep of endpoints) {
-                const stored = Array.isArray(outboundsFull) ? outboundsFull.find((o: any) => (o?.url || o) === ep) : null
-                const secret = stored?.secret || null
-                const res = await fireOutboundWebhook(ep, secret, obPayload)
-                console.log(`[Checkout Events] Fired outbound ${obPayload.event} to ${ep} (secret: ${!!secret}):`, res)
-              }
+            for (const endpoint of outbounds) {
+              const res = await fireOutboundWebhook(endpoint.url, endpoint.secret, obPayload)
+              console.log(`[Checkout Events] Fired outbound ${obPayload.event} to ${endpoint.url} (secret: ${Boolean(endpoint.secret)}):`, res)
             }
 
             // Account-level webhooks (Tools → Developer platform): fire for every

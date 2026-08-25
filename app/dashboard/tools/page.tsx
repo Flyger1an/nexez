@@ -14,7 +14,8 @@ type OutboundWebhook = {
   id: string
   url: string
   active: boolean
-  secret: string
+  secret?: string
+  has_secret: boolean
   last_status: string | null
   last_delivery_at: string | null
   created_at: string
@@ -28,13 +29,12 @@ export default function ToolsPage() {
   const [result, setResult] = useState<any>(null)
 
   // Account-level outbound webhooks: persisted server-side (DB + RLS) and
-  // delivered, HMAC-signed, on real booking + checkout/re-sync events.
+  // delivered, HMAC-signed, on supported booking and checkout signals.
   const [outboundWebhookUrl, setOutboundWebhookUrl] = useState('')
   const [outboundWebhooks, setOutboundWebhooks] = useState<OutboundWebhook[]>([])
   const [webhookBusy, setWebhookBusy] = useState(false)
   const [webhookError, setWebhookError] = useState<string | null>(null)
   const [webhookStatus, setWebhookStatus] = useState<Record<string, string>>({})
-  const [revealedSecret, setRevealedSecret] = useState<Record<string, boolean>>({})
 
   async function handleImport() {
     if (!url) return
@@ -86,7 +86,9 @@ export default function ToolsPage() {
         return
       }
       setOutboundWebhookUrl('')
-      await loadWebhooks()
+      if (data.webhook) {
+        setOutboundWebhooks((previous) => [data.webhook, ...previous.filter((row) => row.id !== data.webhook.id)])
+      }
     } catch {
       setWebhookError('Network error adding webhook.')
     } finally {
@@ -340,7 +342,7 @@ export default function ToolsPage() {
           <div className="rounded-xl border border-white/10 p-5">
             <div className="font-semibold mb-2 text-[var(--signal)]">Outbound webhooks</div>
             <p className="text-xs text-[#9CA3AF] mb-3">
-              Send booking and checkout/re-sync events to Zapier, Make, or your own URL. Nexez delivers them
+              Send confirmed Calendly bookings and checkout signals to a Zapier Catch Hook, Make, or your own URL. Nexez delivers them
               server-side, signed with HMAC-SHA256 (header <code className="text-[var(--ready)]">X-Nexez-Signature: t=…,v1=…</code>).
             </p>
 
@@ -349,7 +351,7 @@ export default function ToolsPage() {
               currentPlan={plan}
               variant="inline"
               title="Outbound webhooks"
-              description="deliver signed booking & checkout events to Zapier, Make, or your own URL. Pro plan and up."
+              description="Deliver signed booking and checkout signals to Zapier, Make, or your own URL. Pro plan and up."
             >
               <div className="flex gap-2">
                 <input
@@ -396,16 +398,13 @@ export default function ToolsPage() {
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500">
                       <span>
-                        Secret:{' '}
-                        <code className="text-zinc-400">
-                          {revealedSecret[wh.id] ? wh.secret : `${wh.secret.slice(0, 9)}…`}
-                        </code>
-                        <button
-                          onClick={() => setRevealedSecret((prev) => ({ ...prev, [wh.id]: !prev[wh.id] }))}
-                          className="ml-1.5 text-[var(--signal)] hover:underline"
-                        >
-                          {revealedSecret[wh.id] ? 'Hide' : 'Reveal'}
-                        </button>
+                        {wh.secret ? (
+                          <>Copy this signing secret now: <code className="text-zinc-300">{wh.secret}</code></>
+                        ) : wh.has_secret ? (
+                          'Signing secret stored securely and shown only when created.'
+                        ) : (
+                          'No signing secret.'
+                        )}
                       </span>
                       {webhookStatus[wh.id] ? (
                         <span className="text-zinc-400">{webhookStatus[wh.id]}</span>
@@ -428,6 +427,7 @@ export default function ToolsPage() {
                   : 'No retained webhooks to remove.'}
               </p>
             )}
+            <p className="mt-3 text-[10px] text-zinc-500">Zapier Catch Hook parses the JSON body. Use Catch Raw Hook when your Zap needs to inspect the signature header.</p>
           </div>
         </div>
 

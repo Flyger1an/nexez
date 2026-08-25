@@ -7,6 +7,7 @@ import { EditorClient } from './EditorClient'
 import { getOwnerEntitlements } from '../../../lib/server/plan'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { getPageIntegrationConnections } from '../../../lib/server/integration-connections'
+import { outboundWebhooksForClient } from '../../../lib/server/outbound-webhook-config'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -101,7 +102,9 @@ export default async function EditAgentPage({ params }: PageProps) {
 
   const page = {
     ...data,
-    outbound_webhooks: (secretsRes.data as { outbound_webhooks?: unknown } | null)?.outbound_webhooks ?? null,
+    outbound_webhooks: outboundWebhooksForClient(
+      (secretsRes.data as { outbound_webhooks?: unknown } | null)?.outbound_webhooks,
+    ),
   } as AgentPage
   const shopifyConnection = integrationConnections.find(
     (connection) => connection.provider === 'shopify' && connection.connected,

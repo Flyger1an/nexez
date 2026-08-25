@@ -297,7 +297,11 @@ export default function PageSettings({ params }: PageProps) {
     setTestResults({})
     if (ob) {
       const arr: OutboundEndpoint[] = Array.isArray(ob)
-        ? ob.map((o: any) => (typeof o === 'string' ? { url: o } : { url: o?.url, secret: o?.secret })).filter((o) => o.url)
+        ? ob.map((o: any) => (
+            typeof o === 'string'
+              ? { url: o, persisted: true }
+              : { url: o?.url, hasSecret: o?.hasSecret === true, persisted: true }
+          )).filter((o) => o.url)
         : []
       setOutboundEndpoints(arr)
     } else {

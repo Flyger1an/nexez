@@ -1,7 +1,7 @@
 // Real integration mappers (Phase 3 "Set once, forget").
 // Pure, testable functions that turn live vendor API payloads into our OfferItem
-// shape / availability windows. The route handlers do the authenticated fetch
-// and fall back to sample data when no credentials are supplied.
+// shape / availability windows. Route handlers own authentication and must
+// distinguish live provider failures from any explicitly labeled demo surface.
 
 import type { OfferItem, PricingTier } from './agent-page'
 
@@ -56,6 +56,7 @@ export function mapAcuityTypesToOffers(types: unknown[]): OfferItem[] {
   const offers: OfferItem[] = []
   for (const raw of types ?? []) {
     const t = raw as Record<string, any>
+    if (t?.private === true || t?.active === false) continue
     const name = String(t?.name ?? '').trim().slice(0, 120)
     if (!name) continue
     const priceNum = Number(t?.price)
@@ -65,7 +66,9 @@ export function mapAcuityTypesToOffers(types: unknown[]): OfferItem[] {
       name,
       description: stripHtml(String(t?.description ?? '')).slice(0, 300),
       price,
-      url: typeof t?.schedulingUrl === 'string' ? t.schedulingUrl : '',
+      // /appointment-types does not return a public scheduling URL. Preserve
+      // the provider id for later booking-link or availability enrichment.
+      url: '',
       duration: Number.isFinite(dur) && dur > 0 ? `${dur} min` : undefined,
       source: 'acuity',
       confidence: 0.95,

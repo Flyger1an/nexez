@@ -78,8 +78,13 @@ async function resolveStoredInput(
     const managed = await getUsableConnectorCredential(admin, pageId, 'servicem8')
     return managed.ok ? { provider: 'servicem8', accessToken: (managed.credential as OAuthCredential).accessToken } : null
   }
-  const creds = await getAcuityCreds(pageId)
-  return creds ? { provider: 'acuity', userId: creds.userId, apiKey: creds.apiKey } : null
+  if (provider === 'acuity') {
+    const managed = await getUsableConnectorCredential(admin, pageId, 'acuity')
+    if (managed.ok) return { provider: 'acuity', accessToken: (managed.credential as OAuthCredential).accessToken }
+    const creds = await getAcuityCreds(pageId)
+    return creds ? { provider: 'acuity', userId: creds.userId, apiKey: creds.apiKey } : null
+  }
+  return null
 }
 
 export type SyncOptions = {

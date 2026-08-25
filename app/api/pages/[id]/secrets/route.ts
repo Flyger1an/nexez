@@ -5,6 +5,7 @@ import { encryptSecret, hasSecretCryptoKey } from '../../../../../lib/server/sec
 import { getCalendlyUser } from '../../../../../lib/server/calendly-write'
 import { ownerAllows } from '../../../../../lib/server/plan'
 import { minPlanForFeature } from '../../../../../lib/billing'
+import { sealOutboundWebhooks } from '../../../../../lib/server/outbound-webhook-config'
 
 /**
  * Upsert the page's owner-only secrets (domain verification token, Calendly webhook
@@ -78,6 +79,26 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const values: Record<string, unknown> = {}
   for (const key of ALLOWED_KEYS) {
     if (key in body) values[key] = body[key]
+  }
+
+  if ('outbound_webhooks' in body) {
+    const { data: current, error: readError } = await admin
+      .from('page_secrets')
+      .select('outbound_webhooks')
+      .eq('page_id', access.pageId)
+      .maybeSingle<{ outbound_webhooks: unknown }>()
+    if (readError) {
+      console.warn('[page-secrets] outbound webhook read failed:', readError.message)
+      return NextResponse.json({ error: 'Could not read existing webhook settings.' }, { status: 500 })
+    }
+    const sealed = sealOutboundWebhooks(body.outbound_webhooks, current?.outbound_webhooks)
+    if (!sealed.ok) {
+      return NextResponse.json(
+        { error: sealed.error },
+        { status: sealed.configurationError ? 503 : 400 },
+      )
+    }
+    values.outbound_webhooks = sealed.value
   }
 
   // Calendly PAT: a powerful write-scope credential - encrypt at rest (the

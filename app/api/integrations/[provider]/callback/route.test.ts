@@ -26,7 +26,7 @@ vi.mock('../../../../../lib/server/integration-sync', () => ({ syncPageIntegrati
 vi.mock('../../../../../lib/server/merchant-connectors', () => ({
   connectorStateCookie: vi.fn((provider: string) => `oauth-${provider}`),
   exchangeConnectorCode: vi.fn(async () => exchangeRef.value),
-  isOAuthConnectorProvider: vi.fn((provider: string) => ['square', 'google_calendar', 'servicem8'].includes(provider)),
+  isOAuthConnectorProvider: vi.fn((provider: string) => ['square', 'acuity', 'google_calendar', 'servicem8'].includes(provider)),
   readConnectorState: vi.fn(() => stateRef.value),
   upsertMerchantConnectorConnection: vi.fn(async () => saveRef.value),
 }))
@@ -87,6 +87,15 @@ describe('connector OAuth callback', () => {
     expect(response.status).toBe(302)
     expect(admin.from).toHaveBeenCalledWith('pages')
     expect(syncPageIntegration).not.toHaveBeenCalled()
+  })
+
+  it('stores and initially syncs an Acuity OAuth connection', async () => {
+    stateRef.value = { ...stateRef.value, provider: 'acuity' }
+    exchangeRef.value = { credential: { accessToken: 'acuity-token' }, externalAccountId: null, scopes: ['api-v1'] }
+    const response = await callback('acuity')
+    expect(response.status).toBe(302)
+    expect(exchangeConnectorCode).toHaveBeenCalledWith('acuity', 'code-1')
+    expect(syncPageIntegration).toHaveBeenCalledWith(admin, 'acuity', 'page-1')
   })
 
   it('does not store anything when the provider declines consent', async () => {

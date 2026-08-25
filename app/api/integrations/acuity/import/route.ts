@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../utils/supabase/server'
-import { formatOfferLines, type OfferItem } from '../../../../../lib/agent-page'
+import { formatOfferLines } from '../../../../../lib/agent-page'
 import { fetchAcuityTypes, gateIntegrationImport } from '../../../../../lib/server/integration-importers'
 
 /**
@@ -10,51 +10,13 @@ import { fetchAcuityTypes, gateIntegrationImport } from '../../../../../lib/serv
  * Real path: POST { userId, apiKey } → live Acuity API
  * (GET /api/v1/appointment-types, HTTP Basic auth) mapped to rich OfferItem[].
  * The live fetch lives in lib/server/integration-importers (shared with the
- * interview's /ingest); this route adds the sample fallback.
+ * interview's /ingest). This route never substitutes invented sample offers.
  */
 
 type AcuityImportRequest = {
   userId?: string
   apiKey?: string
   pageId?: string        // when importing INTO an existing page (collaboration)
-}
-
-function sampleOffers(): OfferItem[] {
-  return [
-    {
-      name: 'Discovery Call (30 min)',
-      description: 'Free initial call to explore fit for a coaching or consulting engagement.',
-      price: '$0',
-      url: '',
-      duration: '30 min',
-      source: 'acuity',
-      confidence: 0.95,
-    },
-    {
-      name: 'Strategy Session',
-      description: 'Deep-dive strategy session for business or personal development goals.',
-      price: '$250',
-      url: '',
-      duration: '90 min',
-      source: 'acuity',
-      confidence: 0.93,
-    },
-    {
-      name: 'Personal Training (In Studio)',
-      description: 'One-on-one personal training session tailored to your goals.',
-      price: '$85',
-      url: '',
-      duration: '60 min',
-      serviceArea: 'Studio only',
-      isMobile: false,
-      source: 'acuity',
-      confidence: 0.91,
-      tiers: [
-        { name: 'Single Session', price: '$85' },
-        { name: '5-Pack', price: '$375', description: '$75 per session' },
-      ],
-    },
-  ]
 }
 
 export async function POST(request: Request) {
@@ -86,38 +48,30 @@ export async function POST(request: Request) {
 
   const userId = (body?.userId || '').trim()
   const apiKey = (body?.apiKey || '').trim()
-
-  if (userId && apiKey) {
-    const live = await fetchAcuityTypes(userId, apiKey)
-    if (live && live.length) {
-      return NextResponse.json({
-        success: true,
-        source: 'acuity',
-        connected: true,
-        structuredOffers: live,
-        lines: formatOfferLines(live),
-        note: `Imported ${live.length} appointment type(s) live from Acuity.`,
-      })
-    }
+  if (!userId || !apiKey) {
+    return NextResponse.json({ error: 'An Acuity User ID and API key are required.' }, { status: 400 })
   }
 
-  const offers = sampleOffers()
+  const live = await fetchAcuityTypes({ userId, apiKey })
+  if (!live?.length) {
+    return NextResponse.json(
+      { error: 'Could not reach Acuity. Check the User ID and API key, then try again.' },
+      { status: 502 },
+    )
+  }
   return NextResponse.json({
     success: true,
     source: 'acuity',
-    connected: false,
-    structuredOffers: offers,
-    lines: formatOfferLines(offers),
-    note:
-      userId && apiKey
-        ? 'Could not reach Acuity (check the User ID and API key). Showing sample data.'
-        : 'Sample Acuity appointment types. POST { userId, apiKey } to import live.',
+    connected: true,
+    structuredOffers: live,
+    lines: formatOfferLines(live),
+    note: `Imported ${live.length} appointment type(s) live from Acuity.`,
   })
 }
 
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
-    message: 'Acuity import. POST { userId, apiKey } to sync live appointment types, or POST {} for sample data.',
+    message: 'Acuity live import. POST { userId, apiKey } to sync appointment types.',
   })
 }

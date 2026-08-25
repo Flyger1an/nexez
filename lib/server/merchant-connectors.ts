@@ -7,7 +7,7 @@ import { decryptSecret, encryptSecret, hasSecretCryptoKey } from './secret-crypt
 import { hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { getResolvedWebhookEndpointError, getWebhookEndpointError } from '../webhooks'
 
-export const MANAGED_CONNECTOR_PROVIDERS = ['square', 'google_calendar', 'woocommerce', 'servicem8'] as const
+export const MANAGED_CONNECTOR_PROVIDERS = ['square', 'acuity', 'google_calendar', 'woocommerce', 'servicem8'] as const
 export type ManagedConnectorProvider = (typeof MANAGED_CONNECTOR_PROVIDERS)[number]
 export type OAuthConnectorProvider = Exclude<ManagedConnectorProvider, 'woocommerce'>
 
@@ -67,6 +67,7 @@ const OAUTH_SCOPES: Record<OAuthConnectorProvider, readonly string[]> = {
     'APPOINTMENTS_ALL_READ',
     'APPOINTMENTS_BUSINESS_SETTINGS_READ',
   ],
+  acuity: ['api-v1'],
   google_calendar: ['https://www.googleapis.com/auth/calendar.freebusy'],
   servicem8: ['vendor', 'read_jobs'],
 }
@@ -80,9 +81,11 @@ export function squareApiBaseUrl(): string {
 function oauthClient(provider: OAuthConnectorProvider): { id: string; secret: string } | null {
   const values = provider === 'square'
     ? [process.env.SQUARE_APPLICATION_ID, process.env.SQUARE_APPLICATION_SECRET]
-    : provider === 'google_calendar'
-      ? [process.env.GOOGLE_CALENDAR_CLIENT_ID, process.env.GOOGLE_CALENDAR_CLIENT_SECRET]
-      : [process.env.SERVICEM8_APP_ID, process.env.SERVICEM8_APP_SECRET]
+    : provider === 'acuity'
+      ? [process.env.ACUITY_CLIENT_ID, process.env.ACUITY_CLIENT_SECRET]
+      : provider === 'google_calendar'
+        ? [process.env.GOOGLE_CALENDAR_CLIENT_ID, process.env.GOOGLE_CALENDAR_CLIENT_SECRET]
+        : [process.env.SERVICEM8_APP_ID, process.env.SERVICEM8_APP_SECRET]
   const [id, secret] = values.map((value) => String(value || '').trim())
   return id && secret ? { id, secret } : null
 }
@@ -92,7 +95,7 @@ export function isManagedConnectorProvider(value: string): value is ManagedConne
 }
 
 export function isOAuthConnectorProvider(value: string): value is OAuthConnectorProvider {
-  return value === 'square' || value === 'google_calendar' || value === 'servicem8'
+  return value === 'square' || value === 'acuity' || value === 'google_calendar' || value === 'servicem8'
 }
 
 export function merchantConnectorStorageConfigured(): boolean {
@@ -164,6 +167,15 @@ export function buildConnectorAuthorizationUrl(provider: OAuthConnectorProvider,
     url.searchParams.set('access_type', 'offline')
     url.searchParams.set('include_granted_scopes', 'true')
     url.searchParams.set('prompt', 'consent')
+    url.searchParams.set('state', state)
+    return url.toString()
+  }
+  if (provider === 'acuity') {
+    const url = new URL('https://acuityscheduling.com/oauth2/authorize')
+    url.searchParams.set('response_type', 'code')
+    url.searchParams.set('scope', OAUTH_SCOPES.acuity.join(' '))
+    url.searchParams.set('client_id', client.id)
+    url.searchParams.set('redirect_uri', redirectUri)
     url.searchParams.set('state', state)
     return url.toString()
   }
@@ -243,7 +255,11 @@ export async function exchangeConnectorCode(
       redirect_uri: redirectUri,
     })
     json = await fetchToken(
-      provider === 'google_calendar' ? 'https://oauth2.googleapis.com/token' : 'https://go.servicem8.com/oauth/access_token',
+      provider === 'google_calendar'
+        ? 'https://oauth2.googleapis.com/token'
+        : provider === 'acuity'
+          ? 'https://acuityscheduling.com/oauth2/token'
+          : 'https://go.servicem8.com/oauth/access_token',
       { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' }, body },
     )
   }
@@ -319,6 +335,7 @@ async function refreshCredential(
       body: JSON.stringify({ client_id: client.id, client_secret: client.secret, refresh_token: current.refreshToken, grant_type: 'refresh_token' }),
     })
   } else {
+    if (provider === 'acuity') return null
     const body = new URLSearchParams({
       client_id: client.id,
       client_secret: client.secret,
@@ -491,6 +508,21 @@ async function revokeRemote(provider: ManagedConnectorProvider, credential: Merc
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
       body: new URLSearchParams({ token }),
+      redirect: 'error',
+    }).catch(() => null)
+    return Boolean(response?.ok)
+  }
+  if (provider === 'acuity') {
+    const client = oauthClient('acuity')
+    if (!client) return false
+    const response = await fetch('https://acuityscheduling.com/oauth2/disconnect', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+      body: new URLSearchParams({
+        access_token: (credential as OAuthCredential).accessToken,
+        client_id: client.id,
+        client_secret: client.secret,
+      }),
       redirect: 'error',
     }).catch(() => null)
     return Boolean(response?.ok)
