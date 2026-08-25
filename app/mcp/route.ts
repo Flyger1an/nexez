@@ -1,32 +1,56 @@
+import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { getRequestBaseUrl } from '../../lib/agent-page'
-import { MCP_PROTOCOL_VERSION } from '../../lib/mcp-server'
+import {
+  buildMcpBuyerAgent,
+  mcpEventType,
+  mcpHandoffKind,
+  MCP_TOOL_NAMES,
+  type McpToolName,
+} from '../../lib/mcp-demand'
 import { handlePlatformMcpRequest } from '../../lib/mcp-platform'
+import {
+  isAllowedMcpOrigin,
+  MCP_PROTOCOL_VERSION,
+  validateMcpRequest,
+  type McpJsonRpcRequest,
+} from '../../lib/mcp-transport'
 import { clientIp, enforceRateLimit } from '../../lib/rate-limit'
+import { scheduleMcpDemandEvent } from '../../lib/server/mcp-demand'
 
-// One page fetch + up to a handful of forwarded REST calls per batch.
 export const maxDuration = 30
 
-// Same bounded-batch DoS guard as the per-listing/storefront MCP endpoints.
-const MCP_MAX_BATCH = 25
+const MCP_MAX_LEGACY_BATCH = 25
+const MODERN_METHODS = new Set([
+  'server/discover',
+  'ping',
+  'tools/list',
+  'tools/call',
+  'resources/list',
+  'resources/read',
+])
 
 /**
- * The canonical PLATFORM MCP endpoint (JSON-RPC 2.0 over HTTP) at nexez.app/mcp.
- * One stable, discovery-first server for the whole Nexez catalog - search,
- * directory, get_page, and dry-run checkout/negotiation validation. GET returns a
- * transport hint; POST handles single requests or a bounded batch.
+ * Canonical public MCP server. Current MCP is stateless POST-only. The legacy
+ * initialize and bounded batch path remains available for existing clients
+ * that do not send the 2026-07-28 request envelope.
  */
-export async function GET(request: Request) {
-  const base = getRequestBaseUrl(request)
-  return NextResponse.json({
-    transport: 'http-jsonrpc',
-    protocolVersion: MCP_PROTOCOL_VERSION,
-    hint: 'POST JSON-RPC 2.0 requests here: initialize, tools/list, tools/call, resources/list, resources/read.',
-    static_manifest: `${base}/.well-known/mcp.json`,
-  })
+export async function GET() {
+  return methodNotAllowed()
+}
+
+export async function DELETE() {
+  return methodNotAllowed()
 }
 
 export async function POST(request: Request) {
+  if (!isAllowedMcpOrigin(request.headers.get('origin'))) {
+    return NextResponse.json(
+      { jsonrpc: '2.0', id: null, error: { code: -32000, message: 'Origin is not allowed.' } },
+      { status: 403 },
+    )
+  }
+
   const limited = await enforceRateLimit(request, 'platform-mcp', 60, 60_000)
   if (limited) return limited
 
@@ -34,23 +58,155 @@ export async function POST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }, { status: 400 })
+    return NextResponse.json(
+      { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } },
+      { status: 400 },
+    )
   }
 
   const base = getRequestBaseUrl(request)
-  // Forward the SANITIZED caller identity (leftmost trusted value) so the inner
-  // endpoints' rate limits key per buyer-agent, not the raw spoofable header.
   const callerIp = clientIp(request) || undefined
+  const recordEvidence = !isInternalMcpProbe(request)
 
   if (Array.isArray(body)) {
-    if (body.length > MCP_MAX_BATCH) {
+    if (request.headers.has('mcp-protocol-version')) {
       return NextResponse.json(
-        { jsonrpc: '2.0', id: null, error: { code: -32600, message: `Batch too large (max ${MCP_MAX_BATCH} requests).` } },
-        { status: 413 },
+        { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Current MCP accepts one JSON-RPC request per POST.' } },
+        { status: 400 },
       )
     }
-    const results = await Promise.all(body.map((r) => handlePlatformMcpRequest(r as Record<string, unknown>, base, { clientIp: callerIp })))
-    return NextResponse.json(results)
+    if (!body.length || body.length > MCP_MAX_LEGACY_BATCH) {
+      return NextResponse.json(
+        {
+          jsonrpc: '2.0',
+          id: null,
+          error: {
+            code: -32600,
+            message: body.length
+              ? `Batch too large (max ${MCP_MAX_LEGACY_BATCH} requests).`
+              : 'An empty JSON-RPC batch is invalid.',
+          },
+        },
+        { status: body.length ? 413 : 400 },
+      )
+    }
+    const results = await Promise.all(body.map((item) => dispatchMcpRequest(
+      request,
+      item as McpJsonRpcRequest,
+      base,
+      callerIp,
+      recordEvidence,
+    )))
+    return NextResponse.json(results.map((result) => result.body))
   }
-  return NextResponse.json(await handlePlatformMcpRequest(body as Record<string, unknown>, base, { clientIp: callerIp }))
+
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json(
+      { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } },
+      { status: 400 },
+    )
+  }
+  const dispatched = await dispatchMcpRequest(request, body as McpJsonRpcRequest, base, callerIp, recordEvidence)
+  return NextResponse.json(dispatched.body, { status: dispatched.status })
+}
+
+async function dispatchMcpRequest(
+  request: Request,
+  body: McpJsonRpcRequest,
+  baseUrl: string,
+  callerIp: string | undefined,
+  recordEvidence: boolean,
+): Promise<{ status: number; body: unknown }> {
+  const validation = validateMcpRequest(request, body)
+  const method = typeof body.method === 'string' ? body.method : ''
+  const eventType = mcpEventType(method)
+  const toolName = validToolName(body.params?.name)
+
+  if (!validation.ok) {
+    if (recordEvidence && eventType && (eventType !== 'tool_call' || toolName)) {
+      scheduleMcpDemandEvent({
+        eventType,
+        toolName,
+        clientFamily: validation.clientFamily,
+        outcome: 'protocol_error',
+      })
+    }
+    return { status: validation.error.status, body: validation.error.body }
+  }
+
+  const handoffKind = mcpHandoffKind(toolName)
+  const attributionId = handoffKind ? randomUUID() : undefined
+  const buyerAgent = attributionId
+    ? buildMcpBuyerAgent(validation.clientFamily, attributionId) ?? undefined
+    : undefined
+  const response = await handlePlatformMcpRequest(body, baseUrl, {
+    clientIp: callerIp,
+    modern: validation.modern,
+    clientFamily: validation.clientFamily,
+    buyerAgent,
+    attributionId,
+  })
+
+  if (recordEvidence && eventType && (eventType !== 'tool_call' || toolName)) {
+    const actionReady = handoffKind ? responseHasMcpHandoff(response) : false
+    scheduleMcpDemandEvent({
+      eventType,
+      toolName,
+      clientFamily: validation.clientFamily,
+      outcome: response.error?.code === -32603 ? 'upstream_error' : 'handled',
+      actionReady,
+      handoffKind,
+      attributionId: attributionId ?? null,
+    })
+  }
+
+  return {
+    status: validation.modern && !MODERN_METHODS.has(method) ? 404 : 200,
+    body: response,
+  }
+}
+
+function responseHasMcpHandoff(response: Awaited<ReturnType<typeof handlePlatformMcpRequest>>): boolean {
+  if (!response.result || typeof response.result !== 'object' || Array.isArray(response.result)) return false
+  const content = (response.result as { content?: unknown }).content
+  if (!Array.isArray(content)) return false
+  return content.some((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return false
+    const text = (item as { text?: unknown }).text
+    if (typeof text !== 'string') return false
+    try {
+      const body = JSON.parse(text) as { mcpHandoff?: unknown }
+      return Boolean(body.mcpHandoff)
+    } catch {
+      return false
+    }
+  })
+}
+
+function validToolName(value: unknown): McpToolName | null {
+  return typeof value === 'string' && (MCP_TOOL_NAMES as readonly string[]).includes(value)
+    ? value as McpToolName
+    : null
+}
+
+function methodNotAllowed() {
+  return NextResponse.json(
+    {
+      error: 'Use POST for stateless MCP requests.',
+      protocolVersion: MCP_PROTOCOL_VERSION,
+      discoverMethod: 'server/discover',
+      staticManifest: 'https://nexez.app/.well-known/mcp.json',
+    },
+    { status: 405, headers: { allow: 'POST' } },
+  )
+}
+
+function isInternalMcpProbe(request: Request): boolean {
+  const expected = process.env.CRON_SECRET?.trim() || ''
+  const supplied = request.headers.get('x-nexez-internal-probe') || ''
+  if (!expected || !supplied) return false
+  const expectedBuffer = Buffer.from(expected)
+  const suppliedBuffer = Buffer.from(supplied)
+  return expectedBuffer.length === suppliedBuffer.length
+    && timingSafeEqual(expectedBuffer, suppliedBuffer)
 }

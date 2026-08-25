@@ -9,7 +9,8 @@
 // mutating/charging tools (start_checkout, submit_negotiation) are deliberately
 // NOT here - they need a human-approval gate an anonymous endpoint can't enforce;
 // the two validate_* tools always force dryRun:true so they never charge or write.
-import { MCP_PROTOCOL_VERSION } from './mcp-server'
+import { MCP_LEGACY_PROTOCOL_VERSION, MCP_PROTOCOL_VERSION } from './mcp-transport'
+import type { McpClientFamily } from './mcp-demand'
 import { agentRuntimeUrl, marketingUrl } from './site'
 
 type JsonRpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> }
@@ -20,10 +21,19 @@ type JsonRpcResponse = {
   error?: { code: number; message: string }
 }
 
-const ok = (id: string | number | null, result: unknown): JsonRpcResponse => ({ jsonrpc: '2.0', id, result })
+const ok = (id: string | number | null, result: unknown, modern = false): JsonRpcResponse => ({
+  jsonrpc: '2.0',
+  id,
+  result: modern && result && typeof result === 'object' && !Array.isArray(result)
+    ? { ...result as Record<string, unknown>, resultType: 'complete' }
+    : result,
+})
 const err = (id: string | number | null, code: number, message: string): JsonRpcResponse => ({ jsonrpc: '2.0', id, error: { code, message } })
-const textResult = (id: string | number | null, obj: unknown): JsonRpcResponse =>
-  ok(id, { content: [{ type: 'text', text: JSON.stringify(obj) }] })
+const textResult = (id: string | number | null, obj: unknown, modern = false, isError = false): JsonRpcResponse =>
+  ok(id, {
+    content: [{ type: 'text', text: JSON.stringify(obj) }],
+    ...(isError ? { isError: true } : {}),
+  }, modern)
 
 const TOOLS = [
   {
@@ -99,6 +109,8 @@ const TOOLS = [
         query: { type: 'string' },
         budget: { type: 'string' },
         timeline: { type: 'string' },
+        requestedTerms: { type: 'object', description: 'Optional structured terms the buyer wants the seller to review.' },
+        contact: { type: 'string', description: 'Optional buyer contact route.' },
       },
       required: ['slug', 'offer'],
     },
@@ -116,7 +128,7 @@ function platformResources(baseUrl: string) {
 async function fetchJson(url: string, init: RequestInit | undefined, clientIp: string | undefined): Promise<{ status: number; body: unknown }> {
   const headers: Record<string, string> = {
     accept: 'application/json',
-    'x-nexez-client': 'platform-mcp/1.0.0',
+    'x-nexez-client': 'platform-mcp/1.1.0',
     ...(init?.headers as Record<string, string> | undefined),
   }
   // Forward the real caller IP so the underlying endpoint's rate limit keys on the
@@ -134,43 +146,68 @@ async function fetchJson(url: string, init: RequestInit | undefined, clientIp: s
 export async function handlePlatformMcpRequest(
   req: JsonRpcRequest,
   baseUrl: string,
-  opts: { clientIp?: string } = {},
+  opts: {
+    clientIp?: string
+    modern?: boolean
+    clientFamily?: McpClientFamily
+    buyerAgent?: string
+    attributionId?: string
+  } = {},
 ): Promise<JsonRpcResponse> {
   const id = req.id ?? null
   const method = req.method || ''
+  const modern = opts.modern === true
 
   switch (method) {
-    case 'initialize':
+    case 'server/discover':
       return ok(id, {
-        protocolVersion: MCP_PROTOCOL_VERSION,
+        supportedVersions: [MCP_PROTOCOL_VERSION],
         capabilities: { tools: {}, resources: {} },
-        serverInfo: {
-          name: 'nexez:platform',
-          title: 'Nexez Agentic Commerce',
-          version: '1.0.0',
-          websiteUrl: 'https://nexez.ai/agents',
-          description: 'Search merchants, inspect structured offers, and validate checkout or negotiation before buying.',
-          icons: [{ src: 'https://nexez.ai/icon.png', mimeType: 'image/png', sizes: ['512x512'] }],
+        _meta: {
+          'io.modelcontextprotocol/serverInfo': platformServerInfo(),
         },
+        instructions: 'Search Nexez merchants, inspect published offers, and validate an exact checkout or negotiation before a buyer-approved handoff.',
+        ttlMs: 3_600_000,
+        cacheScope: 'public',
+      }, true)
+    case 'initialize':
+      if (modern) return err(id, -32601, 'Method not found: initialize')
+      return ok(id, {
+        protocolVersion: MCP_LEGACY_PROTOCOL_VERSION,
+        capabilities: { tools: {}, resources: {} },
+        serverInfo: platformServerInfo(),
       })
     case 'ping':
-      return ok(id, {})
+      return ok(id, {}, modern)
     case 'tools/list':
-      return ok(id, { tools: TOOLS })
+      return ok(id, {
+        tools: TOOLS,
+        ...(modern ? { ttlMs: 3_600_000, cacheScope: 'public' } : {}),
+      }, modern)
     case 'resources/list':
-      return ok(id, { resources: platformResources(baseUrl) })
+      return ok(id, {
+        resources: platformResources(baseUrl),
+        ...(modern ? { ttlMs: 300_000, cacheScope: 'public' } : {}),
+      }, modern)
     case 'resources/read': {
       const uri = String(req.params?.uri || '')
       const match = platformResources(baseUrl).find((r) => r.uri === uri)
       if (!match) return err(id, -32602, `Unknown resource: ${uri}`)
-      return ok(id, { contents: [{ uri, mimeType: match.mimeType, text: `See ${uri}` }] })
+      return ok(id, {
+        contents: [{ uri, mimeType: match.mimeType, text: `See ${uri}` }],
+        ...(modern ? { ttlMs: 300_000, cacheScope: 'public' } : {}),
+      }, modern)
     }
     case 'tools/call': {
       const name = String(req.params?.name || '')
-      const args = (req.params?.arguments as Record<string, unknown>) || {}
+      if (req.params?.arguments !== undefined && !isRecord(req.params.arguments)) {
+        return err(id, -32602, 'Tool arguments must be an object.')
+      }
+      const args = isRecord(req.params?.arguments) ? req.params.arguments : {}
       const ip = opts.clientIp
       try {
         if (name === 'nexez_search') {
+          if (typeof args.q !== 'string' || !args.q.trim()) return err(id, -32602, 'q is required')
           const u = new URL(marketingUrl('/api/agent-search'))
           for (const k of [
             'q',
@@ -188,25 +225,31 @@ export async function handlePlatformMcpRequest(
             'supports_negotiation',
             'price_band',
           ]) if (args[k] != null) u.searchParams.set(k, String(args[k]))
-          return textResult(id, (await fetchJson(u.toString(), undefined, ip)).body)
+          const result = await fetchJson(u.toString(), undefined, ip)
+          return textResult(id, result.body, modern, result.status >= 400)
         }
         if (name === 'nexez_directory') {
           const u = new URL(marketingUrl('/api/directory'))
           for (const k of ['category', 'q', 'min_readiness', 'location', 'lat', 'lng']) if (args[k] != null) u.searchParams.set(k, String(args[k]))
-          return textResult(id, (await fetchJson(u.toString(), undefined, ip)).body)
+          const result = await fetchJson(u.toString(), undefined, ip)
+          return textResult(id, result.body, modern, result.status >= 400)
         }
         if (name === 'nexez_get_page') {
           const slug = String(args.slug || '')
           if (!slug) return err(id, -32602, 'slug is required')
           const { status, body } = await fetchJson(agentRuntimeUrl(`/${encodeURIComponent(slug)}/agent.json`), undefined, ip)
           if (status === 404) return err(id, -32602, `Unknown listing: ${slug}`)
-          return textResult(id, body)
+          return textResult(id, body, modern, status >= 400)
         }
         if (name === 'nexez_validate_checkout') {
+          if (typeof args.slug !== 'string' || !args.slug || typeof args.offer !== 'string' || !args.offer) {
+            return err(id, -32602, 'slug and offer are required')
+          }
           // dryRun forced last → a caller can NEVER turn this into a real charge.
+          const buyerAgent = opts.buyerAgent || 'Nexez MCP/other'
           const initial = await fetchJson(
             agentRuntimeUrl('/api/checkout'),
-            { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...args, dryRun: true, buyerAgent: 'mcp' }) },
+            { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...args, dryRun: true, buyerAgent }) },
             ip,
           )
           const initialBody = initial.body && typeof initial.body === 'object' && !Array.isArray(initial.body)
@@ -221,28 +264,106 @@ export async function handlePlatformMcpRequest(
                   'content-type': 'application/json',
                   'idempotency-key': `mcp-resource:${globalThis.crypto.randomUUID()}`,
                 },
-                body: JSON.stringify({ ...args, dryRun: true, buyerAgent: 'mcp' }),
+                body: JSON.stringify({ ...args, dryRun: true, buyerAgent }),
               },
               ip,
             )
-            return textResult(id, resource.body)
+            return textResult(
+              id,
+              withMcpHandoff(resource.body, 'checkout', args, buyerAgent, opts.attributionId),
+              modern,
+              resource.status >= 400,
+            )
           }
-          return textResult(id, initial.body)
+          return textResult(
+            id,
+            withMcpHandoff(initial.body, 'checkout', args, buyerAgent, opts.attributionId),
+            modern,
+            initial.status >= 400,
+          )
         }
         if (name === 'nexez_validate_negotiation') {
-          const { body } = await fetchJson(
+          if (typeof args.slug !== 'string' || !args.slug || typeof args.offer !== 'string' || !args.offer) {
+            return err(id, -32602, 'slug and offer are required')
+          }
+          const buyerAgent = opts.buyerAgent || 'Nexez MCP/other'
+          const { body, status } = await fetchJson(
             agentRuntimeUrl('/api/negotiations'),
-            { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...args, dryRun: true }) },
+            { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...args, dryRun: true, buyerAgent }) },
             ip,
           )
-          return textResult(id, body)
+          return textResult(
+            id,
+            withMcpHandoff(body, 'negotiation', args, buyerAgent, opts.attributionId),
+            modern,
+            status >= 400,
+          )
         }
-        return err(id, -32601, `Unknown tool: ${name}`)
+        return err(id, -32602, `Unknown tool: ${name}`)
       } catch {
         return err(id, -32603, 'Tool execution failed.')
       }
     }
     default:
       return err(id, -32601, `Method not found: ${method}`)
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function platformServerInfo() {
+  return {
+    name: 'nexez:platform',
+    title: 'Nexez Agentic Commerce',
+    version: '1.1.0',
+    websiteUrl: 'https://nexez.ai/agents',
+    description: 'Search merchants, inspect structured offers, and validate checkout or negotiation before buying.',
+    icons: [{ src: 'https://nexez.ai/icon.png', mimeType: 'image/png', sizes: ['512x512'] }],
+  }
+}
+
+function withMcpHandoff(
+  value: unknown,
+  kind: 'checkout' | 'negotiation',
+  args: Record<string, unknown>,
+  buyerAgent: string,
+  attributionId: string | undefined,
+): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const body = value as Record<string, unknown>
+  const approvalToken = typeof body.approvalToken === 'string' ? body.approvalToken : null
+  if (body.ok !== true || !approvalToken || !attributionId) return value
+
+  const fallbackUrl = kind === 'checkout'
+    ? agentRuntimeUrl('/api/checkout')
+    : agentRuntimeUrl('/api/negotiations')
+  const actionUrl = typeof body.actionUrl === 'string' && body.actionUrl
+    ? body.actionUrl
+    : fallbackUrl
+  const finalBody = {
+    ...args,
+    buyerAgent,
+    dryRun: false,
+    approvalToken,
+  }
+
+  return {
+    ...body,
+    mcpHandoff: {
+      kind,
+      source: 'platform_mcp',
+      attributionId,
+      actionUrl,
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': 'Generate a unique 16 to 255 character key for the buyer-approved action.',
+      },
+      body: finalBody,
+      requiresBuyerApproval: true,
+      note: 'Nexez validated this exact action but did not submit it. Use the approval token before it expires only after the buyer approves.',
+    },
   }
 }
