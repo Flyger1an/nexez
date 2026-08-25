@@ -97,8 +97,8 @@ const integrations = [
   },
   {
     id: 'automation',
-    name: 'Zapier / Make',
-    description: 'Send every agent-driven booking to your CRM and thousands of other apps.',
+    name: 'Zapier-compatible webhooks',
+    description: 'Send signed confirmed-booking and checkout signals to a Zapier Catch Hook, Make, or your own system.',
     status: 'Available',
     action: 'Connect',
     href: '/dashboard/settings',
@@ -142,10 +142,10 @@ const integrations = [
   {
     id: 'acuity',
     name: 'Acuity Scheduling',
-    description: 'Import appointment types, duration, and scheduling context as bookable offers.',
+    description: 'Import live appointment types and duration as catalog offers through OAuth or a private API connection.',
     status: 'Available',
-    action: 'Import in Tools',
-    href: '/dashboard/tools',
+    action: 'Open listings',
+    href: '/dashboard',
     icon: CalendarClock,
     accent: 'violet',
     requiresIntegrations: true,
@@ -326,14 +326,14 @@ export default function IntegrationsPage() {
                 <div className="flex justify-between gap-3"><span>Stripe catalog</span><span className="text-right text-[var(--ready)]">Import &amp; live price sync</span></div>
                 <div className="flex justify-between gap-3"><span>Shopify App Store</span><span className="text-right text-[var(--ready)]">Every plan</span></div>
                 <div className="flex justify-between gap-3"><span>Shopify Admin API</span><span className="text-right text-[var(--ready)]">Manual import &amp; re-sync</span></div>
-                <div className="flex justify-between gap-3"><span>Square / Acuity</span><span className="text-right text-[var(--ready)]">Catalog &amp; scheduling</span></div>
+                <div className="flex justify-between gap-3"><span>Square / Acuity</span><span className="text-right text-[var(--ready)]">Live catalog import</span></div>
                 <div className="flex justify-between gap-3"><span>Google Calendar</span><span className="text-right text-[var(--ready)]">Live free/busy via OAuth</span></div>
                 <div className="flex justify-between gap-3"><span>WooCommerce</span><span className="text-right text-[var(--ready)]">Catalog, inventory &amp; orders</span></div>
                 <div className="flex justify-between gap-3"><span>ServiceM8</span><span className="text-right text-[var(--ready)]">Job templates &amp; active jobs</span></div>
-                <div className="flex justify-between gap-3"><span>Zapier / Make</span><span className="text-right text-[var(--ready)]">Outbound on every booking</span></div>
+                <div className="flex justify-between gap-3"><span>Zapier / Make</span><span className="text-right text-[var(--ready)]">Signed booking and checkout signals</span></div>
               </div>
               <div className="mt-3 pt-2 border-t border-[var(--signal)]/30 text-[var(--signal)] text-[10px]">
-                Outbound webhooks fire automatically on every agent-driven booking.
+                Outbound webhooks cover confirmed Calendly bookings and supported checkout signals.
               </div>
             </div>
           </aside>

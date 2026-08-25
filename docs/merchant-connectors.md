@@ -1,11 +1,11 @@
 # Merchant connector operations
 
 This document is the deployment and support source of truth for the Square,
-Google Calendar, WooCommerce, and ServiceM8 connectors.
+Acuity, Google Calendar, WooCommerce, and ServiceM8 connectors.
 
 ## Shared architecture
 
-All four connectors are listing-scoped. A signed-in owner starts authorization
+All five connectors are listing-scoped. A signed-in owner starts authorization
 from the listing Settings page. Nexez binds the authorization state to the user,
 owner, listing, and provider for ten minutes. OAuth and application credentials
 are encrypted with `INTEGRATION_SECRET_KEY` before they are written to
@@ -32,6 +32,7 @@ credentials makes existing connections unreadable.
 | Provider | Environment variables | Registered callback |
 | --- | --- | --- |
 | Square | `SQUARE_APPLICATION_ID`, `SQUARE_APPLICATION_SECRET`, optional `SQUARE_ENVIRONMENT=sandbox` | `/api/integrations/square/callback` |
+| Acuity | `ACUITY_CLIENT_ID`, `ACUITY_CLIENT_SECRET` | `/api/integrations/acuity/callback` |
 | Google Calendar | `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` | `/api/integrations/google_calendar/callback` |
 | ServiceM8 | `SERVICEM8_APP_ID`, `SERVICEM8_APP_SECRET` | `/api/integrations/servicem8/callback` |
 | WooCommerce | No shared provider secret | `/api/integrations/woocommerce/callback` |
@@ -60,6 +61,23 @@ merchant can retry.
 Square access tokens are refreshed by a bounded daily credential-maintenance job
 when they enter the final 23 days of their 30-day validity window. This keeps
 renewal on a seven-day-or-less cadence even when a merchant is inactive.
+
+### Acuity
+
+Authorization requests Acuity's `api-v1` OAuth scope. Acuity recommends OAuth
+for applications that connect multiple merchant accounts. Existing private API
+credential connections remain readable for a controlled migration, and the
+Tools importer can perform a one-time live import with a merchant-supplied User
+ID and API key. Neither path substitutes sample offers after a failed request.
+
+Sync reads `/api/v1/appointment-types` and imports active, non-private service
+catalog records. The response does not provide a public scheduling URL, so the
+connector does not claim live availability or completed-booking capability.
+Those require the separate availability and appointment endpoints plus an
+explicit booking experience.
+
+Disconnect posts the access token and registered client credentials to Acuity's
+OAuth disconnect endpoint before deleting the encrypted local connection.
 
 ### Google Calendar
 
@@ -109,10 +127,12 @@ to complete provider-side revocation.
 
 ## Release order
 
-1. Apply `20260825002059_merchant_connector_connections.sql`.
+1. Apply `20260825002059_merchant_connector_connections.sql`, then
+   `20260825021918_add_acuity_managed_connector.sql` and
+   `20260825024553_harden_outbound_webhook_secrets.sql`.
 2. Confirm the service role has CRUD access and browser roles have no access.
 3. Set provider credentials and the stable encryption key in each environment.
-4. Register exact callback URLs in Square, Google, and ServiceM8.
+4. Register exact callback URLs in Square, Acuity, Google, and ServiceM8.
 5. Deploy the application and confirm the daily credential cron is registered.
 6. Connect one test listing per provider and inspect connection state, first sync,
    manual resync, token refresh where applicable, and disconnect behavior.

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 type Provider = 'calendly' | 'shopify' | 'square' | 'acuity' | 'stripe' | 'google_calendar' | 'woocommerce' | 'servicem8'
 type TokenProvider = 'calendly' | 'shopify' | 'square' | 'acuity'
-type ManagedProvider = 'square' | 'google_calendar' | 'woocommerce' | 'servicem8'
+type ManagedProvider = 'square' | 'acuity' | 'google_calendar' | 'woocommerce' | 'servicem8'
 type Kind = 'token' | 'oauth' | 'connect'
 type Connection = {
   provider: Provider
@@ -28,7 +28,7 @@ const HELP: Record<Provider, string> = {
   calendly: 'Pull your event types in as bookable offers and keep availability in sync with your real calendar.',
   shopify: 'Install Nexez from Shopify on any plan, or use manually entered Admin API credentials on Pro.',
   square: 'Connect with Square OAuth, import catalog items, and preserve the live Square Appointments booking path.',
-  acuity: 'Import your Acuity appointment types as bookable offers.',
+  acuity: 'Import live Acuity appointment types as catalog offers. OAuth is used when the Nexez Acuity app is configured; existing private API connections remain supported.',
   stripe: 'Receive agent-driven transaction revenue through Stripe Connect. Payout setup is available on every plan.',
   google_calendar: 'Read live free/busy data through a narrow Google Calendar OAuth scope. Nexez does not read event details.',
   woocommerce: 'Authorize a read-only WooCommerce key to sync published products, inventory state, and order access.',

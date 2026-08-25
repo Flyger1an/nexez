@@ -1,5 +1,6 @@
 import { fireOutboundWebhook, type OutboundWebhookPayload } from '../webhooks'
 import { ownerAllows } from './plan'
+import { resolveOutboundWebhookSecret } from './outbound-webhook-config'
 
 // The codebase uses loosely-typed Supabase clients; we only need `.from()`.
 // Kept `any`-returning to avoid fighting the generated Database types.
@@ -49,7 +50,7 @@ export async function fireOwnerOutboundWebhooks(
   const results: OutboundDeliveryResult[] = []
   for (const wh of rows) {
     if (!wh?.url) continue
-    const res = (await fireOutboundWebhook(wh.url, wh.secret ?? null, payload)) as {
+    const res = (await fireOutboundWebhook(wh.url, resolveOutboundWebhookSecret(wh.secret), payload)) as {
       ok: boolean
       status?: number
       error?: string

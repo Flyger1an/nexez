@@ -41,7 +41,7 @@ vi.mock('./merchant-connectors', () => ({
     const credential = h.managedCredentials[provider]
     return credential ? { ok: true, credential, row: {} } : { ok: false, error: 'Not connected' }
   },
-  isManagedConnectorProvider: (provider: string) => ['square', 'google_calendar', 'woocommerce', 'servicem8'].includes(provider),
+  isManagedConnectorProvider: (provider: string) => ['square', 'acuity', 'google_calendar', 'woocommerce', 'servicem8'].includes(provider),
   recordMerchantConnectorSync: async (_admin: unknown, pageId: string, provider: string, input: any) => {
     h.connectorSyncRecords.push({ pageId, provider, input })
   },
@@ -260,6 +260,22 @@ describe('syncPageIntegration', () => {
   it('acuity: 400 when not connected for the page', async () => {
     h.acuityCreds = null
     expect(await syncPageIntegration(admin(), 'acuity', 'pg1')).toMatchObject({ ok: false, status: 400 })
+  })
+
+  it('acuity: prefers the managed OAuth credential over retained Basic credentials', async () => {
+    h.managedCredentials.acuity = { accessToken: 'acuity-oauth', refreshToken: null, tokenType: 'Bearer', expiresAt: null }
+    h.acuityCreds = { userId: 'legacy-user', apiKey: 'legacy-key' }
+    h.imported = { ok: true, offers: [], note: 'Imported 0' }
+
+    const result = await syncPageIntegration(admin(), 'acuity', 'pg1')
+
+    expect(result.ok).toBe(true)
+    expect(h.importInput).toEqual({ provider: 'acuity', accessToken: 'acuity-oauth' })
+    expect(h.connectorSyncRecords).toContainEqual({
+      pageId: 'pg1',
+      provider: 'acuity',
+      input: { ok: true, metadata: undefined },
+    })
   })
 
   it('updates a provider offer that already lives in products - no cross-column duplicate', async () => {

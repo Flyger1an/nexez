@@ -17,6 +17,10 @@ import { OUTBOUND_WEBHOOKS_DISPATCH, type OutboundWebhooksDispatchData } from '.
 import { fireOutboundWebhook, type OutboundWebhookPayload } from '../../webhooks'
 import { ownerAllows } from '../../server/plan'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import {
+  outboundWebhooksForDelivery,
+  resolveOutboundWebhookSecret,
+} from '../../server/outbound-webhook-config'
 
 type Endpoint = {
   /** Stable step id: owner:<row id> or page:<index>. */
@@ -55,14 +59,9 @@ export const dispatchOutboundWebhooks = inngest.createFunction(
           .eq('page_id', data.pageId)
           .maybeSingle()
         const rows = (pageSecrets as { outbound_webhooks?: unknown } | null)?.outbound_webhooks
-        if (Array.isArray(rows)) {
-          rows.forEach((row, index) => {
-            const url = typeof row === 'string' ? row : (row as { url?: string } | null)?.url
-            if (!url) return
-            const secret = typeof row === 'object' && row ? ((row as { secret?: string }).secret ?? null) : null
-            found.push({ key: `page:${index}`, url, secret, ownerRowId: null })
-          })
-        }
+        outboundWebhooksForDelivery(rows).forEach((row, index) => {
+          found.push({ key: `page:${index}`, url: row.url, secret: row.secret, ownerRowId: null })
+        })
       }
 
       // Account-level webhooks (Tools -> Developer platform).
@@ -73,7 +72,12 @@ export const dispatchOutboundWebhooks = inngest.createFunction(
         .eq('active', true)
       for (const row of (ownerRows ?? []) as Array<{ id: string; url: string; secret: string | null }>) {
         if (!row?.url) continue
-        found.push({ key: `owner:${row.id}`, url: row.url, secret: row.secret ?? null, ownerRowId: row.id })
+        found.push({
+          key: `owner:${row.id}`,
+          url: row.url,
+          secret: resolveOutboundWebhookSecret(row.secret),
+          ownerRowId: row.id,
+        })
       }
 
       return found

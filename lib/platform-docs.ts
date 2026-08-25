@@ -16,8 +16,8 @@ export type PlatformDocsChapter = {
   capabilities: readonly PlatformCapability[]
 }
 
-export const PLATFORM_DOCS_REVIEWED_AT = '2026-08-22'
-export const PLATFORM_DOCS_VERSION = '1.0'
+export const PLATFORM_DOCS_REVIEWED_AT = '2026-08-25'
+export const PLATFORM_DOCS_VERSION = '1.1'
 
 export const platformPrimitives = [
   {
@@ -260,14 +260,14 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
         name: 'Scheduling and availability connections',
         availability: 'Plan-controlled',
         summary: 'Pro unlocks Calendly and Acuity service imports plus Google Calendar OAuth and live free/busy-derived availability; retained connections can still be disconnected after downgrade.',
-        details: ['Pro Calendly event types, booking links, webhook receiver, and resync', 'Pro Google Calendar OAuth with narrow free/busy access, encrypted credentials, refresh, and live sync', 'Pro Acuity service import and encrypted per-listing credentials, with cleanup preserved'],
+        details: ['Pro Calendly event types, booking links, webhook receiver, and resync', 'Pro Google Calendar OAuth with narrow free/busy access, encrypted credentials, refresh, and live sync', 'Pro Acuity appointment-type catalog import through OAuth or encrypted legacy per-listing credentials, with cleanup preserved'],
         surfaces: ['Integrations', 'Availability', 'Booking operations'],
       },
       {
         name: 'Webhooks and freshness automation',
         availability: 'Plan-controlled',
-        summary: 'Core signed provider callbacks and reconciliation keep commerce safe; Pro adds owner-configured outbound endpoints and premium integration automation.',
-        details: ['Core Stripe and installed-Shopify callback verification', 'Pro outbound owner webhooks, test delivery, and premium-integration automation', 'Core safety reconciliation for escrow, billing, settlement, and holds'],
+        summary: 'Core signed provider callbacks and reconciliation keep commerce safe; Pro adds encrypted owner-configured webhooks compatible with Zapier Catch Hook, Make, n8n, and custom HTTPS receivers.',
+        details: ['Core Stripe and installed-Shopify callback verification', 'Pro listing and account outbound endpoints, one-time or encrypted signing secrets, saved-endpoint tests, and durable retries', 'Core safety reconciliation for escrow, billing, settlement, and holds'],
         surfaces: ['Developer tools', 'Cron operations', 'Integration status'],
       },
     ],

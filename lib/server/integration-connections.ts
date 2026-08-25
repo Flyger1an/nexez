@@ -1,7 +1,7 @@
 import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { getStripeConnectPayoutReadiness } from '../stripe-connect-readiness'
-import { listMerchantConnectorRows } from './merchant-connectors'
+import { connectorOAuthConfigured, listMerchantConnectorRows } from './merchant-connectors'
 
 // The per-listing integration connection state that drives the unified
 // Integrations panel. Service-role read; NEVER returns any credential value -
@@ -71,6 +71,7 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
   const stripeConnected = getStripeConnectPayoutReadiness(billing).ready
   const managed = new Map(managedConnections.map((connection) => [connection.provider, connection]))
   const square = managed.get('square')
+  const acuity = managed.get('acuity')
 
   const managedState = (
     provider: 'google_calendar' | 'woocommerce' | 'servicem8',
@@ -121,7 +122,18 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
       syncError: square?.last_error ?? null,
       capabilities: square?.capabilities ?? [],
     },
-    { provider: 'acuity', label: 'Acuity', connected: Boolean(secrets?.acuity_credentials_encrypted), kind: 'token', autoSync: false, canSync: true, lastSyncedAt: null },
+    {
+      provider: 'acuity',
+      label: 'Acuity',
+      connected: Boolean((acuity && acuity.status !== 'revoked') || secrets?.acuity_credentials_encrypted),
+      kind: acuity || (connectorOAuthConfigured('acuity') && !secrets?.acuity_credentials_encrypted) ? 'oauth' : 'token',
+      autoSync: false,
+      canSync: true,
+      lastSyncedAt: acuity?.last_synced_at ?? null,
+      syncStatus: acuity?.status === 'attention' ? 'attention' : 'idle',
+      syncError: acuity?.last_error ?? null,
+      capabilities: acuity?.capabilities ?? [],
+    },
     managedState('google_calendar', 'Google Calendar', false),
     managedState('woocommerce', 'WooCommerce', true),
     managedState('servicem8', 'ServiceM8', true),

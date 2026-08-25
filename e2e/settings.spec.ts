@@ -537,6 +537,7 @@ test.describe('page settings', () => {
     await expect(successRow).toBeVisible()
     await expect(summary).toHaveAttribute('data-tone', 'neutral')
     await expect(summary).toContainText(/webhooks? configured/)
+    await panel.getByRole('button', { name: /Save 1 Webhook URL/i }).click()
 
     await successRow.getByRole('button', { name: 'Send Test' }).click()
     const successResult = successRow.getByTestId('outbound-test-result')
@@ -557,6 +558,7 @@ test.describe('page settings', () => {
     await urlInput.fill(failureUrl)
     await addButton.click()
     const failureRow = panel.getByTestId('outbound-webhook-row').filter({ hasText: failureUrl })
+    await panel.getByRole('button', { name: /Save 1 Webhook URL/i }).click()
     await failureRow.getByRole('button', { name: 'Send Test' }).click()
     const failureResult = failureRow.getByRole('alert')
     await expect(failureResult).toHaveAttribute('data-state', 'failure')

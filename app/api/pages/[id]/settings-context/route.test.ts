@@ -56,6 +56,7 @@ describe('GET /api/pages/[id]/settings-context', () => {
     refs.access = { pageId: 'p1', ownerId: 'owner-1', role: 'editor' }
     refs.adminEnv = true
     refs.ownedPage = { id: 'p1', owner_id: 'editor-2' }
+    refs.secrets = { calendly_webhook_secret: 'cs', outbound_webhooks: [{ url: 'u' }], domain_verification_token: 'tok', calendly_pat_encrypted: 'v1.enc.crypt.tag' }
   })
 
   it('401 when not authenticated', async () => {
@@ -70,6 +71,12 @@ describe('GET /api/pages/[id]/settings-context', () => {
   })
 
   it('returns the OWNER plan + role + owner-only secrets for an editor', async () => {
+    refs.secrets = {
+      calendly_webhook_secret: 'cs',
+      outbound_webhooks: [{ url: 'https://hooks.example.com/a', secret: 'v1.encrypted.secret.value' }],
+      domain_verification_token: 'tok',
+      calendly_pat_encrypted: 'v1.enc.crypt.tag',
+    }
     const res = await GET(req(), { params })
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -79,7 +86,7 @@ describe('GET /api/pages/[id]/settings-context', () => {
       plan: 'enterprise', // the OWNER's plan, not the editor's
       secrets: {
         calendly_webhook_secret: 'cs',
-        outbound_webhooks: [{ url: 'u' }],
+        outbound_webhooks: [{ url: 'https://hooks.example.com/a', hasSecret: true }],
         domain_verification_token: 'tok',
         calendly_connected: true, // boolean derived from ciphertext presence
       },
@@ -91,6 +98,7 @@ describe('GET /api/pages/[id]/settings-context', () => {
     expect(cal).toMatchObject({ connected: true, kind: 'token', canSync: true })
     // The encrypted PAT itself must never reach the client.
     expect(JSON.stringify(json)).not.toContain('v1.enc.crypt.tag')
+    expect(JSON.stringify(json)).not.toContain('v1.encrypted.secret.value')
   })
 
   it('falls back through RLS for the direct owner when the admin credential is absent', async () => {

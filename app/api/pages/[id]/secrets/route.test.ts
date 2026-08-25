@@ -6,12 +6,14 @@ const refs = vi.hoisted(() => ({
   upsertArg: null as any,
   upsertError: null as any,
   cryptoKey: true,
+  existingOutbounds: [] as any[],
   calendlyCheck: { ok: true, uri: 'u1' } as any,
   allowedFeatures: new Set(['integrations', 'outboundWebhooks']),
 }))
 vi.mock('../../../../../lib/server/secret-crypto', () => ({
   hasSecretCryptoKey: () => refs.cryptoKey,
   encryptSecret: (v: string) => (refs.cryptoKey && v ? `enc(${v})` : null),
+  decryptSecret: (v: string) => (v.startsWith('enc(') ? v.slice(4, -1) : null),
 }))
 vi.mock('../../../../../lib/server/calendly-write', () => ({
   getCalendlyUser: async () => refs.calendlyCheck,
@@ -29,7 +31,15 @@ vi.mock('../../../../../lib/server/page-access', () => ({ resolvePageAccess: vi.
 vi.mock('../../../../../utils/supabase/admin', () => ({
   hasSupabaseAdminEnv: vi.fn(() => true),
   createAdminClient: vi.fn(() => ({
-    from: () => ({ upsert: (arg: any) => { refs.upsertArg = arg; return Promise.resolve({ error: refs.upsertError }) } }),
+    from: () => {
+      const query: any = {
+        select: () => query,
+        eq: () => query,
+        maybeSingle: async () => ({ data: { outbound_webhooks: refs.existingOutbounds }, error: null }),
+        upsert: (arg: any) => { refs.upsertArg = arg; return Promise.resolve({ error: refs.upsertError }) },
+      }
+      return query
+    },
   })),
 }))
 
@@ -51,6 +61,7 @@ describe('POST /api/pages/[id]/secrets', () => {
     refs.upsertArg = null
     refs.upsertError = null
     refs.cryptoKey = true
+    refs.existingOutbounds = []
     refs.calendlyCheck = { ok: true, uri: 'u1' }
     refs.allowedFeatures = new Set(['integrations', 'outboundWebhooks'])
   })
@@ -70,11 +81,11 @@ describe('POST /api/pages/[id]/secrets', () => {
 
   it('upserts ONLY whitelisted keys, under the PAGE OWNER, ignoring client owner_id/page_id', async () => {
     const res = await POST(
-      post({ domain_verification_token: 'tok', outbound_webhooks: [{ url: 'u' }], owner_id: 'attacker', page_id: 'evil', evil: 'x' }),
+      post({ domain_verification_token: 'tok', outbound_webhooks: [{ url: 'https://hooks.example.com/nexez' }], owner_id: 'attacker', page_id: 'evil', evil: 'x' }),
       { params },
     )
     expect(res.status).toBe(200)
-    expect(refs.upsertArg).toMatchObject({ page_id: 'p1', owner_id: 'owner-1', domain_verification_token: 'tok', outbound_webhooks: [{ url: 'u' }] })
+    expect(refs.upsertArg).toMatchObject({ page_id: 'p1', owner_id: 'owner-1', domain_verification_token: 'tok', outbound_webhooks: [{ url: 'https://hooks.example.com/nexez' }] })
     expect(refs.upsertArg.owner_id).toBe('owner-1') // NOT the client-supplied 'attacker'
     expect(refs.upsertArg.page_id).toBe('p1') // NOT 'evil'
     expect('evil' in refs.upsertArg).toBe(false)
@@ -134,6 +145,37 @@ describe('POST /api/pages/[id]/secrets', () => {
   it('500 when the upsert fails', async () => {
     refs.upsertError = { message: 'boom' }
     expect((await POST(post({ domain_verification_token: 't' }), { params })).status).toBe(500)
+  })
+
+  it('encrypts outbound signing secrets and never echoes them', async () => {
+    const res = await POST(post({
+      outbound_webhooks: [{ url: 'https://hooks.zapier.com/hooks/catch/1/abc', secret: 'signing-secret' }],
+    }), { params })
+    expect(res.status).toBe(200)
+    expect(refs.upsertArg.outbound_webhooks).toEqual([
+      { url: 'https://hooks.zapier.com/hooks/catch/1/abc', secret: 'enc(signing-secret)' },
+    ])
+    expect(JSON.stringify(await res.json())).not.toContain('signing-secret')
+  })
+
+  it('preserves a stored secret through hasSecret without returning it to the browser', async () => {
+    refs.existingOutbounds = [{ url: 'https://hooks.example.com/a', secret: 'enc(existing-secret)' }]
+    const res = await POST(post({
+      outbound_webhooks: [{ url: 'https://hooks.example.com/a', hasSecret: true }],
+    }), { params })
+    expect(res.status).toBe(200)
+    expect(refs.upsertArg.outbound_webhooks).toEqual([
+      { url: 'https://hooks.example.com/a', secret: 'enc(existing-secret)' },
+    ])
+  })
+
+  it('fails closed when a new webhook secret cannot be encrypted', async () => {
+    refs.cryptoKey = false
+    const res = await POST(post({
+      outbound_webhooks: [{ url: 'https://hooks.example.com/a', secret: 'signing-secret' }],
+    }), { params })
+    expect(res.status).toBe(503)
+    expect(refs.upsertArg).toBeNull()
   })
 
   it('encrypts a calendly_pat, stores the ciphertext, and NEVER echoes the raw token', async () => {

@@ -17,6 +17,8 @@ describe('merchant connector foundation', () => {
     vi.stubEnv('INTEGRATION_SECRET_KEY', KEY)
     vi.stubEnv('SQUARE_APPLICATION_ID', 'square-app')
     vi.stubEnv('SQUARE_APPLICATION_SECRET', 'square-secret')
+    vi.stubEnv('ACUITY_CLIENT_ID', 'acuity-client')
+    vi.stubEnv('ACUITY_CLIENT_SECRET', 'acuity-secret')
     vi.stubEnv('GOOGLE_CALENDAR_CLIENT_ID', 'google-client')
     vi.stubEnv('GOOGLE_CALENDAR_CLIENT_SECRET', 'google-secret')
     vi.stubEnv('SERVICEM8_APP_ID', 'servicem8-app')
@@ -78,6 +80,13 @@ describe('merchant connector foundation', () => {
     expect(google.searchParams.get('scope')).toBe('https://www.googleapis.com/auth/calendar.freebusy')
     expect(google.searchParams.get('access_type')).toBe('offline')
     expect(google.searchParams.get('prompt')).toBe('consent')
+
+    const acuity = new URL(buildConnectorAuthorizationUrl('acuity', 'state-acuity')!)
+    expect(acuity.origin).toBe('https://acuityscheduling.com')
+    expect(acuity.pathname).toBe('/oauth2/authorize')
+    expect(acuity.searchParams.get('scope')).toBe('api-v1')
+    expect(acuity.searchParams.get('client_id')).toBe('acuity-client')
+    expect(acuity.searchParams.get('redirect_uri')).toBe('https://app.nexez.ai/api/integrations/acuity/callback')
 
     const servicem8 = new URL(buildConnectorAuthorizationUrl('servicem8', 'state-3')!)
     expect(servicem8.origin).toBe('https://go.servicem8.com')
@@ -280,5 +289,46 @@ describe('merchant connector foundation', () => {
     expect(init?.headers).toMatchObject({ authorization: 'Client square-secret' })
     expect(String(init?.body)).not.toContain('square-secret')
     expect(JSON.parse(String(init?.body))).toEqual({ client_id: 'square-app', access_token: 'square-access' })
+  })
+
+  it('revokes Acuity remotely before deleting the encrypted local connection', async () => {
+    const credential = { accessToken: 'acuity-access', refreshToken: null, tokenType: 'Bearer', expiresAt: null }
+    const row = {
+      page_id: 'page-1', owner_id: 'owner-1', provider: 'acuity',
+      credential_encrypted: encryptSecret(JSON.stringify(credential))!, status: 'connected',
+      external_account_id: null, granted_scopes: ['api-v1'], capabilities: ['catalog'], expires_at: null,
+      last_synced_at: null, last_error: null, metadata: {}, updated_at: new Date().toISOString(),
+    }
+    const admin = {
+      from: (table: string) => {
+        if (table === 'user_integrations') {
+          return { delete: () => ({ eq: () => ({ eq: async () => ({ error: null }) }) }) }
+        }
+        return {
+          select: () => {
+            const query: any = {
+              eq: () => query,
+              maybeSingle: async () => ({ data: row }),
+              limit: async () => ({ data: [] }),
+            }
+            return query
+          },
+          delete: () => ({ eq: () => ({ eq: async () => ({ error: null }) }) }),
+        }
+      },
+    } as any
+    const fetchMock = vi.fn(async (_input: string | URL, _init?: RequestInit) => Response.json({ success: true }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await disconnectMerchantConnector(admin, 'page-1', 'owner-1', 'acuity')).toEqual({ ok: true })
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(String(url)).toBe('https://acuityscheduling.com/oauth2/disconnect')
+    expect(init?.redirect).toBe('error')
+    const body = new URLSearchParams(String(init?.body))
+    expect(Object.fromEntries(body)).toEqual({
+      access_token: 'acuity-access',
+      client_id: 'acuity-client',
+      client_secret: 'acuity-secret',
+    })
   })
 })

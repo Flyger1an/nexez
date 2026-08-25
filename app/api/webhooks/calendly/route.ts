@@ -21,6 +21,9 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
 import { createClient as createServerClient } from '../../../../utils/supabase/server'
 import { insertVerifiedCheckoutEvent } from '../../../../lib/server/analytics-ingestion'
 import { appUrl } from '../../../../lib/site'
+import { hasInngestEnv, inngest } from '../../../../lib/inngest/client'
+import { OUTBOUND_WEBHOOKS_DISPATCH } from '../../../../lib/inngest/events'
+import { outboundWebhooksForDelivery } from '../../../../lib/server/outbound-webhook-config'
 
 type CalendlyPayload = {
   event?: string
@@ -292,7 +295,7 @@ export async function POST(request: NextRequest) {
   // One booking payload, delivered to both the per-page webhooks and the owner's
   // account-level webhooks (Tools → Developer platform).
   const bookingPayload: OutboundWebhookPayload = {
-    event: 'booking.received',
+    event: eventType === 'invitee.canceled' ? 'booking.canceled' : 'booking.received',
     timestamp: new Date().toISOString(),
     page: { id: page.id, slug: page.slug, name: page.name || page.slug },
     data: {
@@ -303,18 +306,36 @@ export async function POST(request: NextRequest) {
       calendly_event_type: eventType,
     },
   }
-  // Outbound webhooks are Pro+ - re-check at dispatch time so a downgraded owner
-  // stops receiving deliveries (both per-page and account-level). `supabase` here
-  // is the service-role client, so the plan resolves correctly.
-  const obAllowed = await ownerAllows(supabase, page.owner_id, 'outboundWebhooks')
-  const outboundResults = obAllowed ? await firePageOutbounds(pageSecrets?.outbound_webhooks, bookingPayload) : []
-  const accountOutboundResults = obAllowed ? await fireOwnerOutboundWebhooks(supabase, page.owner_id, bookingPayload) : []
+  // Prefer durable fan-out so transient failures retry per endpoint. The worker
+  // re-checks the owner's plan at delivery time. Inline delivery is retained as
+  // a safe fallback when the durable event cannot be emitted.
+  let outboundQueued = false
+  if (hasInngestEnv()) {
+    try {
+      await inngest.send({
+        name: OUTBOUND_WEBHOOKS_DISPATCH,
+        data: { ownerId: page.owner_id, pageId: page.id, payload: bookingPayload },
+      })
+      outboundQueued = true
+    } catch (error) {
+      console.warn('[Calendly Webhook] Inngest emit failed - falling back to inline dispatch:', error)
+    }
+  }
+
+  let outboundResults: Awaited<ReturnType<typeof firePageOutbounds>> = []
+  let accountOutboundResults: Awaited<ReturnType<typeof fireOwnerOutboundWebhooks>> = []
+  if (!outboundQueued) {
+    const obAllowed = await ownerAllows(supabase, page.owner_id, 'outboundWebhooks')
+    outboundResults = obAllowed ? await firePageOutbounds(pageSecrets?.outbound_webhooks, bookingPayload) : []
+    accountOutboundResults = obAllowed ? await fireOwnerOutboundWebhooks(supabase, page.owner_id, bookingPayload) : []
+  }
 
   return NextResponse.json({
     received: true,
     event: eventType,
     page: page.slug,
     availability_sync: availabilitySync,
+    outboundQueued,
     outbound: outboundResults,
     accountOutbound: accountOutboundResults,
   })
@@ -344,16 +365,10 @@ export async function GET() {
 }
 
 async function firePageOutbounds(outbounds: AgentPage['outbound_webhooks'], payload: OutboundWebhookPayload) {
-  const pageOutbounds = outbounds
-  if (!Array.isArray(pageOutbounds) || pageOutbounds.length === 0) return []
-
   const results = []
-  for (const stored of pageOutbounds) {
-    const endpoint = typeof stored === 'string' ? stored : stored?.url
-    const secret = typeof stored === 'string' ? null : stored?.secret || null
-    if (!endpoint) continue
-    const result = await fireOutboundWebhook(endpoint, secret, payload)
-    results.push({ endpoint, ...result })
+  for (const stored of outboundWebhooksForDelivery(outbounds)) {
+    const result = await fireOutboundWebhook(stored.url, stored.secret, payload)
+    results.push({ endpoint: stored.url, ...result })
   }
 
   return results

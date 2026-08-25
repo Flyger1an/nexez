@@ -16,7 +16,13 @@ import { useState } from 'react'
  * server route authorizes and writes as the page OWNER.
  */
 
-export type OutboundEndpoint = { url: string; secret?: string }
+export type OutboundEndpoint = {
+  url: string
+  /** A raw secret exists only in the unsaved browser draft and is never returned. */
+  secret?: string
+  hasSecret?: boolean
+  persisted?: boolean
+}
 
 export type OutboundTestResult = {
   state: 'testing' | 'success' | 'failure'
@@ -54,8 +60,8 @@ export function OutboundWebhooksPanel({
 
   return (
                   <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="outbound-webhooks-panel">
-                    <div className="text-sm font-medium text-[var(--signal)] mb-2">Booking event webhooks</div>
-                    <p className="text-[10px] text-zinc-400 mb-3">Send booking activity to Zapier, Make, n8n, or your own system. Add a signing secret when you want extra protection.</p>
+                    <div className="text-sm font-medium text-[var(--signal)] mb-2">Zapier-compatible webhooks</div>
+                    <p className="text-[10px] text-zinc-400 mb-3">Send confirmed Calendly bookings and checkout signals to a Zapier Catch Hook, Make, n8n, or your own system. Optional signing secrets are encrypted and never returned.</p>
 
                     {/* Add new endpoint with optional secret */}
                     <div className="space-y-2 mb-3">
@@ -71,7 +77,7 @@ export function OutboundWebhooksPanel({
                           type="button"
                           onClick={() => {
                             if (newOutboundUrl.trim()) {
-                              const newEp: OutboundEndpoint = { url: newOutboundUrl.trim() }
+                              const newEp: OutboundEndpoint = { url: newOutboundUrl.trim(), persisted: false }
                               if (newOutboundSecret.trim()) newEp.secret = newOutboundSecret.trim()
                               setEndpoints(prev => {
                                 const exists = prev.some(e => e.url === newEp.url)
@@ -107,14 +113,14 @@ export function OutboundWebhooksPanel({
                             <div className="flex items-center justify-between font-mono text-[var(--fg-muted)]">
                               <span className="truncate text-[11px]">{ep.url}</span>
                               <div className="flex items-center gap-2">
-                                {ep.secret && (
+                                {(ep.secret || ep.hasSecret) && (
                                   <span className="text-[9px] text-[var(--amber)]" data-testid={`outbound-secret-chip-${i}`}>
                                     secret
                                   </span>
                                 )}
                                 <button
                                   type="button"
-                                  disabled={testResults[ep.url]?.state === 'testing'}
+                                  disabled={!ep.persisted || testResults[ep.url]?.state === 'testing'}
                                   onClick={async () => {
                                     setTestResults((previous) => ({
                                       ...previous,
@@ -126,10 +132,7 @@ export function OutboundWebhooksPanel({
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
     	                                      endpoint: ep.url,
-    	                                      secret: ep.secret || null,
-    	                                      eventType: 'booking.received',
     	                                      pageId,
-    	                                      data: { test_source: 'settings_ui' },
     	                                    }),
                                       })
                                       const data = await res.json()
@@ -199,9 +202,22 @@ export function OutboundWebhooksPanel({
                         setOutboundSaving(true)
                         onMessage('')
                         try {
-    	                      const { error } = await upsertSecrets({ outbound_webhooks: endpoints })
-    	                      onMessage(error ? error.message : `Saved ${endpoints.length} webhook URL${endpoints.length === 1 ? '' : 's'}. They fire automatically on real bookings.`)
-    	                      if (!error) onPersisted(endpoints)
+                          const submitted = endpoints.map(({ url, secret, hasSecret }) => ({
+                            url,
+                            ...(secret ? { secret } : {}),
+                            ...(hasSecret ? { hasSecret: true } : {}),
+                          }))
+                          const { error } = await upsertSecrets({ outbound_webhooks: submitted })
+                          onMessage(error ? error.message : `Saved ${endpoints.length} webhook URL${endpoints.length === 1 ? '' : 's'}. They receive supported booking and checkout signals.`)
+                          if (!error) {
+                            const persisted = endpoints.map(({ url, secret, hasSecret }) => ({
+                              url,
+                              hasSecret: Boolean(secret || hasSecret),
+                              persisted: true,
+                            }))
+                            setEndpoints(persisted)
+                            onPersisted(persisted)
+                          }
                         } catch (e: any) {
                           onMessage('Failed to save: ' + e.message)
                         } finally {
@@ -212,13 +228,13 @@ export function OutboundWebhooksPanel({
                     >
                       {outboundSaving ? 'Saving...' : `Save ${endpoints.length} Webhook URL${endpoints.length === 1 ? '' : 's'}`}
                     </button>
-                    <p className="mt-1 text-[10px] text-zinc-500">Webhook URLs and secrets are stored on this listing. Use "Send Test" to confirm delivery.</p>
+                    <p className="mt-1 text-[10px] text-zinc-500">Save before testing. In Zapier, use Catch Hook for JSON or Catch Raw Hook when you need to inspect the X-Nexez-Signature header.</p>
 
                     {/* Example payloads for Zapier / Make / generic webhooks */}
                     <details className="mt-3 text-[10px] text-zinc-400">
                       <summary className="cursor-pointer hover:text-zinc-200">Example JSON payload</summary>
                       <pre className="mt-2 overflow-auto rounded bg-black/40 p-2 text-[9px] text-[var(--ready)]/90">
-    {`// booking.received (fired on real events)
+    {`// booking.received (confirmed Calendly booking)
     {
       "event": "booking.received",
       "timestamp": "2026-...",
