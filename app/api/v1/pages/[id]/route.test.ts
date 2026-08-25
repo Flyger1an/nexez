@@ -3,10 +3,12 @@ import { createSupabaseMock } from '../../../../../test/supabase-mock'
 
 vi.mock('../../../../../lib/server/api-auth', () => ({ authenticateApiKey: vi.fn() }))
 vi.mock('../../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn() }))
+vi.mock('../../../../../lib/server/plan', () => ({ ownerAllows: vi.fn() }))
 
 import { GET, PATCH } from './route'
 import { authenticateApiKey } from '../../../../../lib/server/api-auth'
 import { createAdminClient } from '../../../../../utils/supabase/admin'
+import { ownerAllows } from '../../../../../lib/server/plan'
 
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) })
 const req = (body?: unknown) =>
@@ -17,7 +19,10 @@ const req = (body?: unknown) =>
   })
 
 describe('/api/v1/pages/[id]', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(ownerAllows).mockResolvedValue(true)
+  })
 
   it('GET → 401 without a valid key', async () => {
     vi.mocked(authenticateApiKey).mockResolvedValue({ ok: false, error: 'x', status: 401 })
@@ -78,5 +83,27 @@ describe('/api/v1/pages/[id]', () => {
     expect(res.status).toBe(409)
     expect(res.headers.get('retry-after')).toBe('1')
     expect(await res.json()).toMatchObject({ code: 'entitlement_allocation_retry', retryable: true })
+  })
+
+  it('PATCH → returns a stable conflict when the listing lost its domain reservation', async () => {
+    vi.mocked(authenticateApiKey).mockResolvedValue({ ok: true, ownerId: 'owner-A', keyId: 'k' })
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((c) => c.op === 'update'
+        ? {
+            data: null,
+            error: {
+              code: '23505',
+              message: 'This listing no longer owns the custom-domain claim.',
+            },
+          }
+        : { data: null, error: null }) as any,
+    )
+
+    const res = await PATCH(req({ custom_domain: 'store.example.com' }), ctx('p1'))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({
+      code: 'custom_domain_claim_lost',
+      error: 'This listing no longer holds the custom-domain reservation.',
+    })
   })
 })

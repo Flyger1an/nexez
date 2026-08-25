@@ -20,6 +20,9 @@ const { userRef, resolveRef, adminRef, providerRef, legacyRef, cnameRef } = vi.h
     ownedPages: [] as any[],
     updates: [] as Array<{ table: string; payload: any; eqs: Record<string, any> }>,
     updateError: null as any,
+    updateNoMatch: false,
+    claim: [{ domain: 'acme.com', claimed_at: '2026-08-01T00:00:00Z', expires_at: '2026-08-15T00:00:00Z', verified_at: null, owned: true, available: false }] as any,
+    claimError: null as any,
   },
   providerRef: {
     configured: false,
@@ -99,8 +102,15 @@ vi.mock('../../../utils/supabase/admin', () => {
       lte: () => builder,
       gt: () => builder,
       returns: () => resolve(),
-      maybeSingle: () =>
-        Promise.resolve({
+      maybeSingle: () => {
+        if (state.op === 'update') {
+          adminRef.updates.push({ table, payload: state.payload, eqs: state.eqs })
+          return Promise.resolve({
+            data: adminRef.updateNoMatch ? null : { id: state.eqs.id || 'page-1' },
+            error: adminRef.updateError,
+          })
+        }
+        return Promise.resolve({
           data:
             table === 'platform_admins'
               ? adminRef.platformAdmin
@@ -108,7 +118,8 @@ vi.mock('../../../utils/supabase/admin', () => {
                 ? null
                 : adminRef.subscription,
           error: null,
-        }),
+        })
+      },
       then: (onFulfilled: any, onRejected: any) => resolve().then(onFulfilled, onRejected),
     }
     return builder
@@ -116,6 +127,7 @@ vi.mock('../../../utils/supabase/admin', () => {
   return {
     hasSupabaseAdminEnv: vi.fn(() => true),
     createAdminClient: vi.fn(() => ({
+      rpc: vi.fn(async () => ({ data: adminRef.claim, error: adminRef.claimError })),
       from: (table: string) => makeBuilder(table, { isOwnedQuery: false, op: 'select', eqs: {} }),
     })),
   }
@@ -187,6 +199,9 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
     adminRef.ownedPages = []
     adminRef.updates = []
     adminRef.updateError = null
+    adminRef.updateNoMatch = false
+    adminRef.claim = [{ domain: 'acme.com', claimed_at: '2026-08-01T00:00:00Z', expires_at: '2026-08-15T00:00:00Z', verified_at: null, owned: true, available: false }]
+    adminRef.claimError = null
     providerRef.configured = false
     providerRef.status = {
       attached: false,
@@ -222,7 +237,47 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
   it('the owner still works (status)', async () => {
     const res = await POST(post({ action: 'status', domain: 'acme.com' }))
     expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({ ok: true, domain: 'acme.com' })
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      domain: 'acme.com',
+      claim: { domain: 'acme.com', owned: true },
+    })
+  })
+
+  it('returns the claim lifecycle without contacting the provider', async () => {
+    providerRef.configured = true
+    const provider = await import('../../../lib/vercel-domains')
+
+    const res = await POST(post({ action: 'claim', domain: 'acme.com', pageId: 'page-1' }))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ claim: { owned: true, expiresAt: '2026-08-15T00:00:00Z' } })
+    expect(provider.getDomainStatus).not.toHaveBeenCalled()
+    expect(provider.addDomainToProject).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when canonical claim status cannot be checked', async () => {
+    adminRef.claimError = { message: 'rpc unavailable' }
+    const res = await POST(post({ action: 'status', domain: 'acme.com', pageId: 'page-1' }))
+    expect(res.status).toBe(503)
+  })
+
+  it('blocks attach and status after another owner reclaims the domain', async () => {
+    adminRef.claim = [{ domain: 'acme.com', claimed_at: '2026-08-16T00:00:00Z', expires_at: '2026-08-30T00:00:00Z', verified_at: null, owned: false, available: false }]
+
+    const res = await POST(post({ action: 'status', domain: 'acme.com', pageId: 'page-1' }))
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'custom_domain_claim_lost', claim: { owned: false } })
+  })
+
+  it('distinguishes a released domain from a claim held by another account', async () => {
+    adminRef.claim = [{ domain: 'acme.com', claimed_at: null, expires_at: null, verified_at: null, owned: false, available: true }]
+
+    const res = await POST(post({ action: 'status', domain: 'acme.com', pageId: 'page-1' }))
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'custom_domain_claim_available', claim: { available: true } })
   })
 
   it('an editor-collaborator now works against the OWNER id', async () => {
@@ -421,6 +476,35 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
         eqs: expect.objectContaining({ id: 'page-1', owner_id: 'owner-1', custom_domain: 'agents.acme.com' }),
       }),
     )
+  })
+
+  it('clears a stale page without detaching the new owner provider configuration', async () => {
+    providerRef.configured = true
+    adminRef.claim = [{ domain: 'agents.acme.com', claimed_at: '2026-08-16T00:00:00Z', expires_at: '2026-08-30T00:00:00Z', verified_at: null, owned: false, available: false }]
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: null }]
+    const provider = await import('../../../lib/vercel-domains')
+
+    const res = await POST(post({ action: 'remove', domain: 'agents.acme.com', pageId: 'page-1' }))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ staleClaimRemoved: true, providerDetached: false })
+    expect(provider.removeDomainFromProject).not.toHaveBeenCalled()
+  })
+
+  it('retains the provider attachment while another listing path uses the domain', async () => {
+    providerRef.configured = true
+    adminRef.domainPages = [
+      { id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: '2026-08-13T00:00:00Z' },
+      { id: 'page-2', custom_domain: 'agents.acme.com', custom_domain_verified: '2026-08-13T00:00:00Z' },
+    ]
+    adminRef.claim = [{ domain: 'agents.acme.com', claimed_at: '2026-08-01T00:00:00Z', expires_at: '2026-08-15T00:00:00Z', verified_at: '2026-08-13T00:00:00Z', owned: true, available: false }]
+    const provider = await import('../../../lib/vercel-domains')
+
+    const res = await POST(post({ action: 'remove', domain: 'agents.acme.com', pageId: 'page-1' }))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ sharedDomainRetained: true, providerDetached: false })
+    expect(provider.removeDomainFromProject).not.toHaveBeenCalled()
   })
 
   it('keeps cleanup available below plan even when managed hosting is not configured', async () => {

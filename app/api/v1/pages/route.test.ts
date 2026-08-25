@@ -3,10 +3,12 @@ import { createSupabaseMock } from '../../../../test/supabase-mock'
 
 vi.mock('../../../../lib/server/api-auth', () => ({ authenticateApiKey: vi.fn() }))
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn() }))
+vi.mock('../../../../lib/server/plan', () => ({ ownerAllows: vi.fn() }))
 
 import { GET, POST } from './route'
 import { authenticateApiKey } from '../../../../lib/server/api-auth'
 import { createAdminClient } from '../../../../utils/supabase/admin'
+import { ownerAllows } from '../../../../lib/server/plan'
 
 const getReq = () =>
   new Request('https://nexez.test/api/v1/pages', { headers: { authorization: 'Bearer nxz_live_x' } })
@@ -18,7 +20,10 @@ const postReq = (body: unknown) =>
   })
 
 describe('/api/v1/pages', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(ownerAllows).mockResolvedValue(true)
+  })
 
   it('GET → 401 without a valid API key', async () => {
     vi.mocked(authenticateApiKey).mockResolvedValue({ ok: false, error: 'no key', status: 401 })
@@ -97,5 +102,27 @@ describe('/api/v1/pages', () => {
     expect(res.status).toBe(409)
     expect(res.headers.get('retry-after')).toBe('1')
     expect(await res.json()).toMatchObject({ code: 'entitlement_allocation_retry', retryable: true })
+  })
+
+  it('POST → returns a stable conflict when another owner is setting up the domain', async () => {
+    vi.mocked(authenticateApiKey).mockResolvedValue({ ok: true, ownerId: 'owner-A', keyId: 'k1' })
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((ctx) => ctx.op === 'insert'
+        ? {
+            data: null,
+            error: {
+              code: '23505',
+              message: 'This custom domain is temporarily reserved while another Nexez account finishes setup.',
+            },
+          }
+        : { data: null, error: null }) as any,
+    )
+
+    const res = await POST(postReq({ name: 'Reserved page', custom_domain: 'store.example.com' }))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({
+      code: 'custom_domain_reserved',
+      error: 'This custom domain is temporarily reserved while another Nexez account finishes setup.',
+    })
   })
 })

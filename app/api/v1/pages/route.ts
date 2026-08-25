@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '../../../../utils/supabase/admin'
 import { authenticateApiKey } from '../../../../lib/server/api-auth'
 import { SERVER_PAGE_SELECT, getBaseUrl, isReservedSlug, normalizeSlug } from '../../../../lib/agent-page'
-import { isPageLimitError, pickWritablePageFields, wantsCustomDomain } from '../../../../lib/api-pages'
+import {
+  getCustomDomainWriteConflict,
+  isPageLimitError,
+  pickWritablePageFields,
+  wantsCustomDomain,
+} from '../../../../lib/api-pages'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { ownerAllows } from '../../../../lib/server/plan'
 import {
@@ -84,6 +89,10 @@ export async function POST(request: Request) {
   if (error) {
     if (isEntitlementAllocationRetry(error)) {
       return NextResponse.json(entitlementAllocationRetryBody, entitlementAllocationRetryInit)
+    }
+    const domainConflict = getCustomDomainWriteConflict(error)
+    if (domainConflict) {
+      return NextResponse.json(domainConflict, { status: 409 })
     }
     if (isPageLimitError(error)) {
       return NextResponse.json(

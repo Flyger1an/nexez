@@ -3,7 +3,13 @@ import { removeManagedCustomDomain } from '../custom-domain-cleanup'
 
 describe('removeManagedCustomDomain', () => {
   it('uses the provider-cleanup action before callers clear a saved hostname', async () => {
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ ok: true, removed: true }), {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      ok: true,
+      removed: true,
+      providerDetached: false,
+      sharedDomainRetained: true,
+      staleClaimRemoved: false,
+    }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
     }))
@@ -12,7 +18,12 @@ describe('removeManagedCustomDomain', () => {
       domain: 'agents.acme.test',
       pageId: 'page-1',
       fetchImpl,
-    })).resolves.toEqual({ ok: true })
+    })).resolves.toEqual({
+      ok: true,
+      providerDetached: false,
+      sharedDomainRetained: true,
+      staleClaimRemoved: false,
+    })
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/custom-domain', expect.objectContaining({
       method: 'POST',

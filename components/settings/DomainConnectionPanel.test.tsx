@@ -22,6 +22,15 @@ function setup(overrides: Partial<React.ComponentProps<typeof DomainConnectionPa
     customDomain: 'agents.acme.com',
     publicUrl: 'https://nexez.app/acme',
     status: STATUS,
+    claim: {
+      domain: 'agents.acme.com',
+      claimedAt: '2099-08-01T00:00:00.000Z',
+      expiresAt: '2099-08-15T00:00:00.000Z',
+      verifiedAt: null,
+      owned: true,
+      available: false,
+    },
+    claimStatusAvailable: true,
     domainVerified: false,
     activationAllowed: true,
     busy: false,
@@ -46,6 +55,8 @@ describe('DomainConnectionPanel', () => {
         customDomain=""
         publicUrl="https://nexez.app/acme"
         status={null}
+        claim={null}
+        claimStatusAvailable
         domainVerified={false}
         activationAllowed
         busy={false}
@@ -94,6 +105,64 @@ describe('DomainConnectionPanel', () => {
     expect(screen.getByText(/It is not serving through Nexez/)).toBeVisible()
     fireEvent.click(screen.getByText('Detach domain'))
     expect(onAction).toHaveBeenCalledWith('remove')
+  })
+
+  it('warns when an unverified setup reservation has expired without fabricating a loss', () => {
+    setup({
+      claim: {
+        domain: 'agents.acme.com',
+        claimedAt: '2020-08-01T00:00:00.000Z',
+        expiresAt: '2020-08-15T00:00:00.000Z',
+        verifiedAt: null,
+        owned: true,
+        available: false,
+      },
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/another merchant can now claim it/i)
+    expect(screen.getByText('Check status')).toBeVisible()
+  })
+
+  it('fails closed when the canonical claim belongs to somebody else', () => {
+    const { onAction } = setup({
+      claim: {
+        domain: 'agents.acme.com',
+        claimedAt: '2020-08-16T00:00:00.000Z',
+        expiresAt: '2020-08-30T00:00:00.000Z',
+        verifiedAt: null,
+        owned: false,
+        available: false,
+      },
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/claimed by another merchant/i)
+    expect(screen.queryByText('Attach & detect DNS')).not.toBeInTheDocument()
+    expect(screen.queryByText('Check status')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Remove stale domain'))
+    expect(onAction).toHaveBeenCalledWith('remove')
+  })
+
+  it('distinguishes a released domain and requires a fresh setup window', () => {
+    const { onAction } = setup({
+      claim: {
+        domain: 'agents.acme.com',
+        claimedAt: null,
+        expiresAt: null,
+        verifiedAt: null,
+        owned: false,
+        available: true,
+      },
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/domain is available/i)
+    expect(screen.queryByText('Attach & detect DNS')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Remove stale domain'))
+    expect(onAction).toHaveBeenCalledWith('remove')
+  })
+
+  it('does not invent reservation timing when the trusted status read is unavailable', () => {
+    setup({ claim: null, claimStatusAvailable: false })
+    expect(screen.getByRole('status')).toHaveTextContent(/timing is temporarily unavailable/i)
   })
 
   it('lists routing records on the apex/TXT path', () => {

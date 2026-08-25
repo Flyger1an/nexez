@@ -25,6 +25,7 @@ import {
   normalizeSlug,
 } from '../../../../lib/agent-page'
 import { normalizeDomainPath } from '../../../../lib/custom-domain'
+import type { CustomDomainClaim } from '../../../../lib/custom-domain-claim'
 import { removeManagedCustomDomain } from '../../../../lib/custom-domain-cleanup'
 import { normalizeBranding } from '../../../../lib/branding'
 import { deploymentChangeAt, summarizeDeployments } from '../../../../lib/deployments'
@@ -99,6 +100,8 @@ export default function PageSettings({ params }: PageProps) {
   const [hideNexezBadge, setHideNexezBadge] = useState(false)
   const [currency, setCurrency] = useState('usd')
   const [domainProvisioning, setDomainProvisioning] = useState(false)
+  const [domainClaim, setDomainClaim] = useState<CustomDomainClaim | null>(null)
+  const [domainClaimStatusAvailable, setDomainClaimStatusAvailable] = useState(false)
   const [domainStatus, setDomainStatus] = useState<
     | null
     | {
@@ -257,10 +260,14 @@ export default function PageSettings({ params }: PageProps) {
 	    const ctx = (await ctxRes.json().catch(() => ({}))) as {
 	      role?: 'owner' | 'editor' | 'viewer'
 	      plan?: typeof ownPlan
+	      customDomainClaim?: CustomDomainClaim | null
+	      customDomainClaimAvailable?: boolean
 	      secrets?: { calendly_webhook_secret: string | null; outbound_webhooks: unknown; domain_verification_token: string | null; calendly_connected?: boolean }
 	    }
 	    if (ctx.plan) setPlan(ctx.plan)
 	    if (ctx.role) setPageRole(ctx.role)
+	    setDomainClaim(ctx.customDomainClaim ?? null)
+	    setDomainClaimStatusAvailable(ctx.customDomainClaimAvailable === true)
 	    const secrets = ctx.secrets
 
 	    const activePage = {
@@ -356,11 +363,11 @@ export default function PageSettings({ params }: PageProps) {
   }
 
   // A2/A3: provider provisioning + live status (Vercel-backed when configured).
-  async function requestDomainRemoval(domain: string): Promise<{ ok: boolean; error?: string }> {
+  async function requestDomainRemoval(domain: string) {
     return removeManagedCustomDomain({ domain, pageId: id })
   }
 
-  async function callDomainAction(action: 'attach' | 'status' | 'remove') {
+  async function callDomainAction(action: 'claim' | 'attach' | 'status' | 'remove') {
     const targetDomain = action === 'remove'
       ? (page?.custom_domain || '').trim()
       : customDomain.trim()
@@ -380,11 +387,21 @@ export default function PageSettings({ params }: PageProps) {
         setDomainPath('/')
         setDomainVerified(false)
         setDomainStatus(null)
+        setDomainClaim(null)
+        setDomainClaimStatusAvailable(true)
         setDomainVerificationToken('')
         setPage((current) => current
           ? { ...current, custom_domain: null, custom_domain_verified: null, domain_path: '/' }
           : current)
-        setMessage('Domain detached from hosting and removed from this listing.')
+        setMessage(
+          result.sharedDomainRetained
+            ? 'Domain removed from this listing. It remains connected for your other listing paths.'
+            : result.staleClaimRemoved
+              ? 'Expired domain reference removed from this listing.'
+              : result.providerDetached
+                ? 'Domain detached from hosting and removed from this listing.'
+                : 'Domain removed from this listing.',
+        )
         return
       }
 
@@ -395,9 +412,18 @@ export default function PageSettings({ params }: PageProps) {
       })
       const data = await res.json()
       if (!res.ok) {
+        if (data.claim !== undefined) {
+          setDomainClaim(data.claim ?? null)
+          setDomainClaimStatusAvailable(true)
+        }
         setMessage(data.error || 'Domain action failed.')
         return
       }
+      if (data.claim !== undefined) {
+        setDomainClaim(data.claim ?? null)
+        setDomainClaimStatusAvailable(true)
+      }
+      if (action === 'claim') return
       setDomainStatus({
         state: data.state,
         label: data.label,
@@ -446,6 +472,10 @@ export default function PageSettings({ params }: PageProps) {
         }),
       })
       const data = await res.json()
+      if (data.claim !== undefined) {
+        setDomainClaim(data.claim ?? null)
+        setDomainClaimStatusAvailable(true)
+      }
 
       if (data.verified) {
         // The server persists verified status and clears the owner-only token.
@@ -532,6 +562,8 @@ export default function PageSettings({ params }: PageProps) {
     if (domainChanged) {
       setDomainVerified(false)
       setDomainStatus(null)
+      setDomainClaim(null)
+      setDomainClaimStatusAvailable(!nextDomain)
       if (!secretError) setDomainVerificationToken('')
     }
     setPage({
@@ -553,7 +585,22 @@ export default function PageSettings({ params }: PageProps) {
           ? calendlyWebhookSecret || null
           : page.calendly_webhook_secret,
 	    })
-    setSaving(false)
+    if (domainChanged && nextDomain) {
+      try {
+        const claimRes = await fetch('/api/custom-domain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'claim', domain: nextDomain, pageId: id }),
+        })
+        const claimData = await claimRes.json().catch(() => ({}))
+        setDomainClaim(claimData.claim ?? null)
+        setDomainClaimStatusAvailable(claimRes.ok)
+      } catch {
+        setDomainClaim(null)
+        setDomainClaimStatusAvailable(false)
+      }
+    }
+	    setSaving(false)
     setMessage(
       secretError
         ? `Listing settings saved, but the private Calendly setting was not saved: ${secretError.message}`
@@ -700,6 +747,9 @@ export default function PageSettings({ params }: PageProps) {
     .split(':')[0]
   const showDomainVerified =
     domainVerified && Boolean(typedCustomDomain) && typedCustomDomain === savedCustomDomain
+  const visibleDomainClaim = typedCustomDomain === savedCustomDomain ? domainClaim : null
+  const visibleDomainClaimStatusAvailable =
+    typedCustomDomain === savedCustomDomain ? domainClaimStatusAvailable : true
   const customDomainActivationAllowed = planAllows(plan, 'customDomain')
   const aiFeaturesAllowed = planAllows(plan, 'aiFeatures')
   const teamCollaborationAllowed = planAllows(plan, 'teamCollaboration')
@@ -1149,6 +1199,8 @@ export default function PageSettings({ params }: PageProps) {
                     customDomain={customDomain}
                     publicUrl={publicUrl}
                     status={domainStatus}
+                    claim={visibleDomainClaim}
+                    claimStatusAvailable={visibleDomainClaimStatusAvailable}
                     domainVerified={showDomainVerified}
                     activationAllowed={customDomainActivationAllowed}
                     busy={domainProvisioning}

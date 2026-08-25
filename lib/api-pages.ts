@@ -56,3 +56,38 @@ export function isPageLimitError(error: { code?: string; message?: string } | nu
   if (!error) return false
   return error.code === '23514' && /published page limit/i.test(error.message ?? '')
 }
+
+export type CustomDomainWriteConflict = {
+  code: 'custom_domain_claimed' | 'custom_domain_reserved' | 'custom_domain_claim_lost'
+  error: string
+}
+
+/**
+ * Convert only canonical custom-domain claim failures into stable API errors.
+ * Other unique violations keep their normal validation response so an
+ * unrelated constraint can never masquerade as a domain lifecycle conflict.
+ */
+export function getCustomDomainWriteConflict(
+  error: { message?: string } | null | undefined,
+): CustomDomainWriteConflict | null {
+  const message = error?.message ?? ''
+  if (/custom domain is already connected to another Nexez account/i.test(message)) {
+    return {
+      code: 'custom_domain_claimed',
+      error: 'This custom domain is already connected to another Nexez account.',
+    }
+  }
+  if (/custom domain is temporarily reserved/i.test(message)) {
+    return {
+      code: 'custom_domain_reserved',
+      error: 'This custom domain is temporarily reserved while another Nexez account finishes setup.',
+    }
+  }
+  if (/listing no longer owns the custom-domain claim/i.test(message)) {
+    return {
+      code: 'custom_domain_claim_lost',
+      error: 'This listing no longer holds the custom-domain reservation.',
+    }
+  }
+  return null
+}
