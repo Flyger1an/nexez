@@ -21,6 +21,8 @@ export type PayoutSnapshot = {
   available: { amountCents: number; currency: string }[]
   pending: { amountCents: number; currency: string }[]
   payouts: PayoutLine[]
+  accountCountry: string | null
+  defaultPayoutCurrency: string | null
 }
 
 /**
@@ -41,9 +43,21 @@ export async function getConnectPayoutSnapshot(connectAccountId: string | null |
   if (!connectAccountId || !process.env.STRIPE_SECRET_KEY) return null
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-    const [balance, payouts] = await Promise.all([
+    return loadConnectPayoutSnapshot(stripe, connectAccountId)
+  } catch {
+    return null
+  }
+}
+
+export async function loadConnectPayoutSnapshot(
+  stripe: Pick<Stripe, 'balance' | 'payouts' | 'accounts'>,
+  connectAccountId: string,
+): Promise<PayoutSnapshot | null> {
+  try {
+    const [balance, payouts, account] = await Promise.all([
       stripe.balance.retrieve({}, { stripeAccount: connectAccountId }),
       stripe.payouts.list({ limit: 8 }, { stripeAccount: connectAccountId }),
+      stripe.accounts.retrieve(connectAccountId).catch(() => null),
     ])
     return {
       available: (balance.available ?? []).map((b) => ({ amountCents: b.amount, currency: b.currency })),
@@ -55,6 +69,8 @@ export async function getConnectPayoutSnapshot(connectAccountId: string | null |
         status: p.status,
         arrivalDate: p.arrival_date ?? null,
       })),
+      accountCountry: account?.country?.trim().toUpperCase() || null,
+      defaultPayoutCurrency: account?.default_currency?.trim().toLowerCase() || null,
     }
   } catch {
     return null

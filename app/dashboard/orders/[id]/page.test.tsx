@@ -11,7 +11,10 @@ const refs = vi.hoisted(() => ({
   load: vi.fn(),
 }))
 
-vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({})),
+  headers: vi.fn(async () => new Headers({ 'accept-language': 'en-US' })),
+}))
 vi.mock('next/navigation', () => ({ notFound: refs.notFound, useRouter: () => ({ refresh: refs.refresh }) }))
 vi.mock('../../../../utils/supabase/server', () => ({
   createClient: () => ({

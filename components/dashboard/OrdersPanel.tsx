@@ -28,7 +28,7 @@ const STATUS_STYLE: Record<string, string> = {
  *  from the Negotiations inbox). Supports FULL or PARTIAL refunds - the amount field
  *  prefills to the refundable remainder; lower it for a partial. A partial keeps the
  *  order open for the rest. Inline confirm - no window.confirm. */
-export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
+export function OrdersPanel({ orders, locale = 'en-US' }: { orders: OrderRow[]; locale?: string }) {
   const [rows, setRows] = useState(orders)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -128,10 +128,10 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
                     )}
                   </td>
                   <td className="px-4 py-3 text-zinc-200">
-                    {formatCurrencyAmount(o.amount_cents, o.currency)}
+                    {formatCurrencyAmount(o.amount_cents, o.currency, locale)}
                     {partiallyRefunded ? (
                       <span className="ml-2 text-xs text-[var(--amber)]">
-                        {formatCurrencyAmount(refunded, o.currency)} refunded
+                        {formatCurrencyAmount(refunded, o.currency, locale)} refunded
                       </span>
                     ) : null}
                   </td>

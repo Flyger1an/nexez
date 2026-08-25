@@ -40,12 +40,13 @@ import {
   getTopOfferStats,
 } from '../../../lib/analytics'
 import { formatCurrencyAmount } from '../../../lib/currency'
+import { formatDisplayDate, resolveDisplayLocale } from '../../../lib/international-operations'
 import { rollupAbResults } from '../../../lib/ab-testing'
 import { AgentNegotiation, summarizeNegotiations } from '../../../lib/negotiations'
 import { getTopQueries, getTopReferrers, getUnservedQueries } from '../../../lib/demand-insights'
 import { CheckoutEvent, getEventActionLabel } from '../../../lib/checkout-events'
 import { createClient } from '../../../utils/supabase/server'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import AnalyticsActions from './AnalyticsActions'
 import { agentRuntimeUrl, appUrl } from '../../../lib/site'
 import { getOwnerPlanId } from '../../../lib/server/plan'
@@ -101,12 +102,12 @@ const trafficOptions: Array<[AgentVisitTrafficFilter, string]> = [
 ]
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
-  const filters = await searchParams
+  const [filters, cookieStore, headerStore] = await Promise.all([searchParams, cookies(), headers()])
+  const locale = resolveDisplayLocale(headerStore.get('accept-language'))
   const selectedTraffic = trafficOptions.some(([value]) => value === filters.traffic)
     ? (filters.traffic as AgentVisitTrafficFilter)
     : 'all'
 
-  const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const {
     data: { user },
@@ -327,7 +328,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const revenueCents = exactRevenueRow?.gmvCents ?? revenueRow?.gmvCents ?? 0
   const refundedCents = exactRevenueRow?.refundedCents ?? revenueRow?.refundedCents ?? 0
   const agentShareCents = exactRevenueRow?.feeCents ?? revenueRow?.nexezFeeCents ?? 0
-  const money = (cents: number) => formatCurrencyAmount(cents, revenueCurrency)
+  const money = (cents: number) => formatCurrencyAmount(cents, revenueCurrency, locale)
   const offerActivity = analyticsRollup
     ? analyticsRollup.topOffers.map((offer) => ({
         name: offer.offerName,
@@ -346,15 +347,15 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const popularService = offerActivity[0]?.name || 'No offer activity yet'
   const dailySeries = analyticsRollup
     ? analyticsRollup.daily.map((point) => ({
-        label: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        dateKey: formatLocalDateKey(new Date(point.date)),
+        label: formatDisplayDate(point.date, locale, { month: 'short', day: 'numeric', year: undefined }),
+        dateKey: formatUtcDateKey(new Date(point.date)),
         total: point.eventSignals + point.visits,
         agentVisits: point.aiVisits,
         discovery: point.discoveryClicks,
         conversions: point.paidOrders,
       }))
     : mergePaidOrdersIntoDailySeries(
-        mergeVisitCountsIntoDailySeries(getDailyEventSeries(filteredEvents, 10), filteredAgentVisits),
+        mergeVisitCountsIntoDailySeries(getDailyEventSeries(filteredEvents, 10, locale), filteredAgentVisits),
         filteredOrders,
       )
   const discoveryActions = getDiscoveryActionStats(filteredEvents)
@@ -781,7 +782,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             </div>
             <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
               <MiniStat label="Scope" value={selectedPage ? 'Single listing' : 'Workspace'} />
-              <MiniStat label="Offers" value={offerCount.toLocaleString()} />
+              <MiniStat label="Offers" value={offerCount.toLocaleString(locale)} />
               <MiniStat label="Readiness" value={`${selectedPageReadiness}%`} />
             </div>
           </div>
@@ -801,14 +802,14 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               Totals include visible legacy history. Verified coverage shows the share captured through replay-protected server ingestion.
             </p>
           </div>
-          <TrustCoverage label="Activity events" trust={eventTrust} />
-          <TrustCoverage label="Traffic visits" trust={visitTrust} />
+          <TrustCoverage label="Activity events" trust={eventTrust} locale={locale} />
+          <TrustCoverage label="Traffic visits" trust={visitTrust} locale={locale} />
         </section>
 
         <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Kpi title="Observed Signals" value={trackedSignals.toLocaleString()} delta={signalsDelta} note={analyticsRollup ? 'Exact total for this filtered window' : 'Recent sample while exact totals are unavailable'} tone="strong" />
-          <Kpi title="AI Agent Visits" value={agentPageVisits.toLocaleString()} delta={agentVisitsDelta} note={`${trafficSplit.human} human/unknown visits`} />
-          <Kpi title="Discovery Clicks" value={discoveryClicks.toLocaleString()} note="Directory + Marketplace clickthroughs" />
+          <Kpi title="Observed Signals" value={trackedSignals.toLocaleString(locale)} delta={signalsDelta} note={analyticsRollup ? 'Exact total for this filtered window' : 'Recent sample while exact totals are unavailable'} tone="strong" />
+          <Kpi title="AI Agent Visits" value={agentPageVisits.toLocaleString(locale)} delta={agentVisitsDelta} note={`${trafficSplit.human} human/unknown visits`} />
+          <Kpi title="Discovery Clicks" value={discoveryClicks.toLocaleString(locale)} note="Directory + Marketplace clickthroughs" />
           <Kpi
             title="Paid Checkout Rate"
             value={conversionRate}
@@ -819,10 +820,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           />
           <Kpi title="Most Active Offer" value={popularService} note={`${offerCount || 0} offers listed`} />
           <Kpi title="Gross Sales" value={money(revenueCents)} delta={revenueDelta} note={`${money(refundedCents)} refunded · ${money(agentShareCents)} recorded fees`} tone="strong" />
-          <Kpi title="Paid Orders" value={(analyticsRollup?.counts.paidOrders ?? filteredOrders.length).toLocaleString()} note={`${channelBreakdown.length} active commerce ${channelBreakdown.length === 1 ? 'channel' : 'channels'}`} />
+          <Kpi title="Paid Orders" value={(analyticsRollup?.counts.paidOrders ?? filteredOrders.length).toLocaleString(locale)} note={`${channelBreakdown.length} active commerce ${channelBreakdown.length === 1 ? 'channel' : 'channels'}`} />
           <Kpi
             title="Negotiations"
-            value={(analyticsRollup?.counts.negotiations ?? negotiationSummary.total).toLocaleString()}
+            value={(analyticsRollup?.counts.negotiations ?? negotiationSummary.total).toLocaleString(locale)}
             note={`${analyticsRollup?.counts.openNegotiations ?? negotiationSummary.open + negotiationSummary.proposed + negotiationSummary.held} open · ${analyticsRollup?.counts.completedNegotiations ?? negotiationSummary.complete} complete`}
             tone={(analyticsRollup?.counts.openNegotiations ?? negotiationSummary.open) > 0 ? 'strong' : undefined}
           />
@@ -1127,7 +1128,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                         <Bot className="size-4 text-[var(--signal)]" />
                         {visit.agent_type}
                       </span>
-                      <span className="mt-1 block text-xs text-zinc-600">{formatEventDate(visit.created_at)}</span>
+                      <span className="mt-1 block text-xs text-zinc-600">{formatEventDate(visit.created_at, locale)}</span>
                     </td>
                     <td className="px-5 py-4 text-zinc-300">
                       <span className="line-clamp-1">{formatVisitQuery(visit)}</span>
@@ -1151,7 +1152,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">
             <h2 className="text-xl font-semibold">Recent Agent Interactions</h2>
             <p className="text-sm text-zinc-500">
-              Latest {Math.min(filteredEvents.length, 10)} of {(analyticsRollup?.counts.events ?? filteredEvents.length).toLocaleString()} matching events
+              Latest {Math.min(filteredEvents.length, 10)} of {(analyticsRollup?.counts.events ?? filteredEvents.length).toLocaleString(locale)} matching events
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -1180,7 +1181,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                     </td>
                     <td className="px-5 py-4 text-zinc-300">
                       {getEventActionLabel(event.event_type)}
-                      <span className="mt-1 block text-xs text-zinc-600">{formatEventDate(event.created_at)}</span>
+                      <span className="mt-1 block text-xs text-zinc-600">{formatEventDate(event.created_at, locale)}</span>
                     </td>
                     <td className="px-5 py-4"><TrustBadge verified={event.trust_level === 'verified_server'} /></td>
                     <td className="px-5 py-4 text-right text-[var(--signal)]">{getSignalLabel(event)}</td>
@@ -1303,9 +1304,11 @@ function AgentTypeList({ rows }: { rows: ReturnType<typeof getAgentTypeBreakdown
 function TrustCoverage({
   label,
   trust,
+  locale,
 }: {
   label: string
   trust: ReturnType<typeof summarizeAnalyticsTrust>
+  locale: string
 }) {
   return (
     <div className="rounded-lg border border-white/10 bg-black/20 p-3">
@@ -1317,7 +1320,7 @@ function TrustCoverage({
         <div className="h-full rounded-full bg-[var(--ready)]" style={{ width: `${trust.verifiedPercent}%` }} />
       </div>
       <p className="mt-2 text-[11px] text-zinc-500">
-        {trust.verified.toLocaleString()} verified · {(trust.legacy + trust.unverified).toLocaleString()} historical/unverified
+        {trust.verified.toLocaleString(locale)} verified · {(trust.legacy + trust.unverified).toLocaleString(locale)} historical/unverified
       </p>
     </div>
   )
@@ -1441,7 +1444,7 @@ function mergeVisitCountsIntoDailySeries(series: ReturnType<typeof getDailyEvent
   const visitCounts = new Map<string, { total: number; ai: number }>()
 
   for (const visit of visits) {
-    const dateKey = formatLocalDateKey(new Date(visit.created_at))
+    const dateKey = formatUtcDateKey(new Date(visit.created_at))
     const current = visitCounts.get(dateKey) ?? { total: 0, ai: 0 }
     current.total += 1
     if (visit.is_ai_agent) current.ai += 1
@@ -1466,17 +1469,14 @@ function mergePaidOrdersIntoDailySeries(
   const byDate = new Map(series.map((point) => [point.dateKey, point]))
   for (const point of series) point.conversions = 0
   for (const order of orders) {
-    const point = byDate.get(formatLocalDateKey(new Date(order.created_at)))
+    const point = byDate.get(formatUtcDateKey(new Date(order.created_at)))
     if (point) point.conversions += 1
   }
   return series
 }
 
-function formatLocalDateKey(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+function formatUtcDateKey(date: Date) {
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : ''
 }
 
 function makeAnalyticsHref(current: AnalyticsSearchParams, overrides: Partial<AnalyticsSearchParams>) {

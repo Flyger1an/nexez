@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeCurrency, toStripeAmount, isZeroDecimalCurrency, formatCurrencyAmount, minorToStripeAmount } from '../currency'
+import { normalizeCurrency, normalizeReportingCurrency, toStripeAmount, isZeroDecimalCurrency, formatCurrencyAmount, minorToStripeAmount, toMajorAmount } from '../currency'
 
 describe('currency', () => {
   it('normalizes to a supported lowercase code, defaulting to usd', () => {
@@ -8,6 +8,20 @@ describe('currency', () => {
     expect(normalizeCurrency('xyz')).toBe('usd') // unsupported → default
     expect(normalizeCurrency(null)).toBe('usd')
     expect(normalizeCurrency('')).toBe('usd')
+  })
+
+  it('preserves authoritative reporting currencies outside the offer picker', () => {
+    expect(normalizeReportingCurrency('KRW')).toBe('krw')
+    expect(normalizeReportingCurrency(' xyz ')).toBe('xyz')
+    expect(normalizeReportingCurrency('US')).toBe('usd')
+    expect(toMajorAmount(5000, 'krw')).toBe(5000)
+    expect(formatCurrencyAmount(5000, 'krw', 'ko-KR')).toContain('5,000')
+  })
+
+  it('uses Stripe backward-compatible two-decimal representation for UGX', () => {
+    expect(toStripeAmount(5, 'ugx')).toBe(500)
+    expect(toMajorAmount(500, 'ugx')).toBe(5)
+    expect(formatCurrencyAmount(500, 'ugx')).toContain('5')
   })
 
   it('multiplies normal currencies by 100 for the Stripe smallest unit', () => {

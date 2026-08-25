@@ -6,7 +6,8 @@
 // HARD RULE: never sum amounts ACROSS currencies - amount_cents is the page's
 // settlement-currency smallest unit (per lib/currency), so cross-currency sums are
 // meaningless. Everything here buckets BY currency.
-import { normalizeCurrency, minorToStripeAmount } from './currency'
+import { normalizeReportingCurrency, minorToStripeAmount } from './currency'
+import { formatDisplayDate } from './international-operations'
 import { calculateApplicationFeeCents } from './stripe-billing'
 
 export type DirectFinanceRow = {
@@ -35,7 +36,7 @@ function isLiveOrder(order: DirectFinanceRow): boolean {
 }
 
 function orderCurrency(order: DirectFinanceRow): string {
-  return normalizeCurrency(order.currency)
+  return normalizeReportingCurrency(order.currency)
 }
 
 /** Amount still attributable to the seller after refunds or an open dispute. */
@@ -62,9 +63,9 @@ function retainedFeeCents(order: DirectFinanceRow, fallbackCommissionPct: number
 }
 
 function dateKey(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 
@@ -120,22 +121,25 @@ export function rollupFinanceByCurrency(orders: DirectFinanceRow[], commissionPc
 export type DailyRevenuePoint = { label: string; dateKey: string; revenueCents: number; orders: number }
 
 /** Per-day GMV series for the trend chart; optionally scoped to one currency. */
-export function getDailyRevenueSeries(orders: DirectFinanceRow[], days = 30, currency?: string): DailyRevenuePoint[] {
-  const now = new Date()
+export function getDailyRevenueSeries(
+  orders: DirectFinanceRow[],
+  days = 30,
+  currency?: string,
+  locale = 'en-US',
+  now = new Date(),
+): DailyRevenuePoint[] {
   const points: DailyRevenuePoint[] = []
   for (let index = days - 1; index >= 0; index -= 1) {
-    const date = new Date(now)
-    date.setHours(0, 0, 0, 0)
-    date.setDate(now.getDate() - index)
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - index))
     points.push({
-      label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      label: formatDisplayDate(date, locale, { month: 'short', day: 'numeric', year: undefined }),
       dateKey: dateKey(date),
       revenueCents: 0,
       orders: 0,
     })
   }
   const byKey = new Map(points.map((point) => [point.dateKey, point]))
-  const want = currency ? normalizeCurrency(currency) : null
+  const want = currency ? normalizeReportingCurrency(currency) : null
   for (const order of orders) {
     if (!isLiveOrder(order)) continue
     if (want && orderCurrency(order) !== want) continue
@@ -153,7 +157,7 @@ export type OfferRevenue = { name: string; pageSlug: string; offerKey: string; r
 /** Top offers ranked by GMV (not event count); optionally scoped to one currency. */
 export function getTopOffersByRevenueCents(orders: DirectFinanceRow[], currency?: string): OfferRevenue[] {
   const map = new Map<string, OfferRevenue>()
-  const want = currency ? normalizeCurrency(currency) : null
+  const want = currency ? normalizeReportingCurrency(currency) : null
   for (const order of orders) {
     if (!isLiveOrder(order) || order.offer_key === 'page') continue
     if (want && orderCurrency(order) !== want) continue
@@ -230,7 +234,7 @@ export function rollupNegotiationsByCurrency(negs: NegotiationFinanceRow[]): Neg
   const map = new Map<string, NegotiationCurrencyRow>()
   for (const n of negs) {
     if (!n.amount_cents || n.stripe_livemode !== true || !AGREED_STATUSES.has(n.status)) continue
-    const currency = normalizeCurrency(n.currency)
+    const currency = normalizeReportingCurrency(n.currency)
     const row =
       map.get(currency) ??
       { currency, agreedCents: 0, deals: 0, heldCents: 0, completeCents: 0, reversedCents: 0 }
@@ -330,7 +334,7 @@ export function buildMarketplaceLedger(
     // Convert the app's major×100 amount to the Stripe smallest unit so it lines up
     // with the (already smallest-unit) application_fee_cents snapshot + the display
     // formatter; otherwise zero-decimal currencies mis-state amount/fee/net.
-    const amountCents = minorToStripeAmount(n.amount_cents, normalizeCurrency(n.currency))
+    const amountCents = minorToStripeAmount(n.amount_cents, normalizeReportingCurrency(n.currency))
     const refundedCents = n.status === 'disputed'
       ? amountCents
       : n.status === 'refunded' && !n.refunded_cents
@@ -354,7 +358,7 @@ export function buildMarketplaceLedger(
       pageSlug: n.slug ?? '',
       buyerLabel: (n.buyer_agent || 'Agent').slice(0, 72),
       amountCents,
-      currency: normalizeCurrency(n.currency),
+      currency: normalizeReportingCurrency(n.currency),
       feeCents,
       netCents: isReversal ? refundedCents : Math.max(0, remainingCents - feeCents),
       status: refundedCents > 0 && refundedCents < amountCents ? 'partial_refund' : n.status,

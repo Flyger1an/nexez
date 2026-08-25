@@ -8,7 +8,10 @@ const refs = vi.hoisted(() => ({
   result: null as null | Record<string, unknown>,
 }))
 
-vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({})),
+  headers: vi.fn(async () => new Headers({ 'accept-language': 'en-US' })),
+}))
 vi.mock('../../../utils/supabase/server', () => ({
   createClient: () => ({
     auth: { getUser: vi.fn(async () => ({ data: { user: refs.user } })) },

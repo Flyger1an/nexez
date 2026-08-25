@@ -1,3 +1,5 @@
+import { normalizeReportingCurrency } from './currency'
+
 export type FinanceCurrencyRow = {
   currency: string
   transactions: number
@@ -94,7 +96,7 @@ function text(value: unknown) {
 }
 
 function currency(value: unknown) {
-  return text(value).trim().toLowerCase() || 'usd'
+  return normalizeReportingCurrency(text(value))
 }
 
 function rows<T>(value: unknown, parse: (row: Record<string, unknown>) => T | null): T[] {
