@@ -114,4 +114,27 @@ describe('GET /[slug]/mcp.json', () => {
       count: 9,
     })
   })
+
+  it('wraps root artifact URLs on a verified custom host that contains nexez', async () => {
+    dbRef.handler = () => ({
+      data: {
+        ...basePage,
+        mcp_enabled: true,
+        custom_domain: 'closure-950d06c.nexez.ai',
+        custom_domain_verified: '2026-08-25T19:16:54Z',
+        domain_path: '/',
+      },
+      error: null,
+    })
+    const customRequest = new Request('https://closure-950d06c.nexez.ai/mcp.json', {
+      headers: { host: 'closure-950d06c.nexez.ai' },
+    })
+
+    const res = await GET(customRequest, ctx('demo'))
+    const body = await res.json()
+
+    expect(body._nexez.nexez_payload.page.url).toBe('https://closure-950d06c.nexez.ai')
+    expect(body.resources[0].uri).toBe('https://closure-950d06c.nexez.ai/agent.json')
+    expect(body.resources[1].uri).toBe('https://closure-950d06c.nexez.ai/llms.txt')
+  })
 })

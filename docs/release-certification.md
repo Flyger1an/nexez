@@ -8,6 +8,8 @@ Release certification entered production on 2026-07-19. The first automated cert
 
 The 2026-08-24 launch-closure audit matched commit `2219f5900f0599f29ed7627e826c99c218bb476c` to production, reported Launch Control at 100, and passed every required release probe. The linked database matched source through Support Operations v2 migration `20260824235405`. Append-only ledger record `a893d501-928a-47ac-8ca6-a2c3893cc13d` preserves the production verdict. Newer certificates supersede this baseline when later revisions reach production.
 
+The 2026-08-25 launch-closure v2 audit supersedes that baseline. Commit `950d06c8564bf50ad05f5a3ac082e9aeb03113c3` matched production deployment `dpl_7AXvS1UnsPhHid9pL4o6uECBe8LD`, Launch Control reported 100, and all 13 required release probes passed. The linked database matched source through custom-domain lifecycle migration `20260825173952`. Workflow run `32882918279` wrote append-only ledger record `525d7f03-87a2-49cb-a9c6-2cec045b287c`. Local Commerce certification additionally passed its optional Stripe Price catalog check, producing 7/7 without creating a charge, session, negotiation, refund, payout, or price mutation.
+
 ## What runs
 
 The `Release Certification` workflow starts after the main `CI` workflow completes for a trusted push to `main`. It records a red release when source CI failed instead of silently ignoring a production candidate. It:

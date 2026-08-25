@@ -43,17 +43,22 @@ export function buildAgentStorefrontRef(handle: string, baseUrl = getBaseUrl()):
 export function buildAgentPagePayload(
   page: AgentPage,
   baseUrl = getBaseUrl(),
-  opts: { negotiationAllowed?: boolean; storefront?: AgentStorefrontRef | null; reviewSummary?: ReviewSummary | null } = {},
+  opts: {
+    negotiationAllowed?: boolean
+    storefront?: AgentStorefrontRef | null
+    reviewSummary?: ReviewSummary | null
+    onCustomHost?: boolean
+  } = {},
 ) {
   const negotiationAllowed = opts.negotiationAllowed === true
   const dp = normalizeDomainPath((page as any).domain_path)
   const platformBase = getBaseUrl()
   const identityBase = baseUrl
-  const isCustomRootOrSub = dp !== '/' || !identityBase.includes('nexez.')
-  const publicUrl = buildPublicPageUrl(page.slug, identityBase, isCustomRootOrSub)
-  const agentJsonUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('agent.json', page.slug, isCustomRootOrSub, dp))
-  const llmsUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('llms.txt', page.slug, isCustomRootOrSub, dp))
-  const openApiUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('openapi.json', page.slug, isCustomRootOrSub, dp))
+  const onCustomHost = opts.onCustomHost === true
+  const publicUrl = buildPublicPageUrl(page.slug, identityBase, onCustomHost)
+  const agentJsonUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('agent.json', page.slug, onCustomHost, dp))
+  const llmsUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('llms.txt', page.slug, onCustomHost, dp))
+  const openApiUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('openapi.json', page.slug, onCustomHost, dp))
   const checkoutOffers = getCheckoutOffers(page)
   const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer, identityBase, platformBase, negotiationAllowed))
   const ratingSummary = publicRatingSummary(opts.reviewSummary)
@@ -100,7 +105,7 @@ export function buildAgentPagePayload(
       page.contact_email ? 'Use contact_email for human review or custom requests.' : 'Use the public page for seller context.',
       'Quote the source page URL when summarizing this offer for a buyer.',
     ],
-    plain_text: buildPlainText(page, offers, identityBase, opts.storefront, opts.reviewSummary),
+    plain_text: buildPlainText(page, offers, identityBase, onCustomHost, opts.storefront, opts.reviewSummary),
     ...(opts.storefront ? { storefront: opts.storefront } : {}),
     certification: getCertification(page),
   }
@@ -186,6 +191,7 @@ function buildPlainText(
   page: AgentPage,
   offers: ReturnType<typeof buildOfferPayload>[],
   identityBase: string,
+  onCustomHost: boolean,
   storefront?: AgentStorefrontRef | null,
   reviewSummary?: ReviewSummary | null,
 ) {
@@ -193,9 +199,8 @@ function buildPlainText(
     ? ' | Consumer/local services supported (duration, mobile, travelFee, serviceArea)'
     : ''
   const dp = normalizeDomainPath((page as any).domain_path)
-  const isCustomRootOrSub = dp !== '/' || !identityBase.includes('nexez.')
-  const pageUrl = buildPublicPageUrl(page.slug, identityBase, isCustomRootOrSub)
-  const agentJson = absoluteRuntimeUrl(identityBase, agentArtifactHref('agent.json', page.slug, isCustomRootOrSub, dp))
+  const pageUrl = buildPublicPageUrl(page.slug, identityBase, onCustomHost)
+  const agentJson = absoluteRuntimeUrl(identityBase, agentArtifactHref('agent.json', page.slug, onCustomHost, dp))
 
   return [
     `Name: ${page.name}`,
