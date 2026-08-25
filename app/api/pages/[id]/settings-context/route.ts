@@ -8,6 +8,7 @@ import { getPageIntegrationConnections } from '../../../../../lib/server/integra
 import { agenticProgramFlags, resolveOwnerSettlementReadiness } from '../../../../../lib/server/agentic-commerce-eligibility'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 import { outboundWebhooksForClient } from '../../../../../lib/server/outbound-webhook-config'
+import { getCustomDomainClaim } from '../../../../../lib/server/custom-domain-claim'
 
 /**
  * Settings context for the page editor's Settings screen, collaborator-aware. Returns
@@ -62,6 +63,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       ownerId: user.id,
       plan,
       contextLimited: true,
+      customDomainClaim: null,
+      customDomainClaimAvailable: false,
       integrations: [],
       secrets: {
         calendly_webhook_secret: secrets?.calendly_webhook_secret ?? null,
@@ -80,7 +83,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   if (!access) return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
 
   const admin = createAdminClient()
-  const [plan, { data: secrets }, integrations, settlementReadiness] = await Promise.all([
+  const [plan, { data: secrets }, integrations, settlementReadiness, claimResult] = await Promise.all([
     getOwnerPlanId(admin, access.ownerId),
     admin
       .from('page_secrets')
@@ -95,12 +98,15 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     // Settlement input for the agentic-commerce (ChatGPT/Google) status card - the client
     // combines these with the listing's published state via agenticCommerceStatus().
     resolveOwnerSettlementReadiness(admin, access.ownerId),
+    getCustomDomainClaim(admin, access.pageId),
   ])
 
   return NextResponse.json({
     role: access.role,
     ownerId: access.ownerId,
     plan, // the OWNER's effective plan - drives the UI gates for owner + editor alike
+    customDomainClaim: claimResult.error ? null : claimResult.claim,
+    customDomainClaimAvailable: !claimResult.error,
     integrations,
     // The inputs the "Sell through ChatGPT & Google" card reads: Connect readiness
     // and each surface's program flag (ChatGPT/Google enroll

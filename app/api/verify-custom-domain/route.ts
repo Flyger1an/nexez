@@ -8,6 +8,7 @@ import { requirePageAccess } from '../../../lib/server/require-page-access'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { findDoubledRecordMessage } from '../../../lib/server/doubled-txt-probe'
 import { getDomainStatus, isVercelDomainConfigured } from '../../../lib/vercel-domains'
+import { getCustomDomainClaim } from '../../../lib/server/custom-domain-claim'
 import {
   entitlementAllocationRetryBody,
   entitlementAllocationRetryInit,
@@ -122,6 +123,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Save this domain on a page you own before verifying it.' }, { status: 403 })
   }
 
+  const claimResult = await getCustomDomainClaim(admin, access.pageId)
+  if (claimResult.error) {
+    return NextResponse.json(
+      { error: 'Custom-domain claim status is temporarily unavailable.' },
+      { status: 503 },
+    )
+  }
+  if (!claimResult.claim?.owned) {
+    const claimAvailable = claimResult.claim?.available === true
+    return NextResponse.json(
+      {
+        error: claimAvailable
+          ? 'This listing no longer holds a reservation, but the domain is available. Remove it, then add it again.'
+          : 'This domain is no longer reserved for this listing. Remove it or enter a different domain.',
+        code: claimAvailable ? 'custom_domain_claim_available' : 'custom_domain_claim_lost',
+        claim: claimResult.claim,
+      },
+      { status: 409 },
+    )
+  }
+
   const { data: verifiedDomains } = await admin
     .from('pages')
     .select('custom_domain')
@@ -195,15 +217,27 @@ export async function POST(request: NextRequest) {
 
     if (matched) {
       const verifiedAt = new Date().toISOString()
-      const { error: verifyError } = await admin
+      const { data: verifiedPage, error: verifyError } = await admin
         .from('pages')
         .update({ custom_domain_verified: verifiedAt })
         .eq('id', page.id)
         .eq('owner_id', access.ownerId)
         .eq('custom_domain', domain)
+        .select('id')
+        .maybeSingle<{ id: string }>()
 
       if (verifyError) {
         if (isEntitlementAllocationRetry(verifyError)) return allocationRetryResponse()
+        if (verifyError.code === '23505' && /custom[- ]domain/i.test(verifyError.message)) {
+          return NextResponse.json(
+            {
+              error: 'This domain is no longer reserved for this listing. Refresh before trying again.',
+              code: 'custom_domain_claim_lost',
+              claim: { ...claimResult.claim, owned: false },
+            },
+            { status: 409 },
+          )
+        }
         if (verifyError.code === '23514' || /custom domain limit/i.test(verifyError.message)) {
           return NextResponse.json(
             { error: 'Your custom-domain limit was reached. Refresh your plan and try again.', code: 'plan_limit_reached', upgrade: quotaRaceUpgrade },
@@ -211,6 +245,16 @@ export async function POST(request: NextRequest) {
           )
         }
         return NextResponse.json({ error: 'DNS verified, but saving verification failed.' }, { status: 500 })
+      }
+      if (!verifiedPage) {
+        return NextResponse.json(
+          {
+            error: 'This domain is no longer reserved for this listing. Refresh before trying again.',
+            code: 'custom_domain_claim_lost',
+            claim: { ...claimResult.claim, owned: false },
+          },
+          { status: 409 },
+        )
       }
 
       await admin
@@ -224,6 +268,7 @@ export async function POST(request: NextRequest) {
         domain,
         verifyHost,
         verifiedAt,
+        claim: { ...claimResult.claim, verifiedAt, owned: true },
         message: 'DNS verification successful. Your domain is now verified.',
       })
     } else {

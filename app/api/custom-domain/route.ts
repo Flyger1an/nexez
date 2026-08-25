@@ -13,6 +13,7 @@ import { getBillingPlan, getFeatureUpgradeDecision, getLimitUpgradeDecision, get
 import { requirePageAccess } from '../../../lib/server/require-page-access'
 import { hasLegacyCustomDomainTxt } from '../../../lib/server/doubled-txt-probe'
 import { hasExpectedCname } from '../../../lib/server/cname-probe'
+import { getCustomDomainClaim } from '../../../lib/server/custom-domain-claim'
 import {
   entitlementAllocationRetryBody,
   entitlementAllocationRetryInit,
@@ -28,7 +29,7 @@ function allocationRetryResponse() {
 /**
  * A2 - Custom domain provisioning (owner OR editor-collaborator).
  *
- * POST { action: 'attach' | 'status' | 'remove', domain, pageId? }
+ * POST { action: 'claim' | 'attach' | 'status' | 'remove', domain, pageId? }
  * - Resolves the page that uses this domain (service-role, by custom_domain) and
  *   authorizes the caller as the page OWNER or a non-revoked EDITOR invitee via
  *   resolvePageAccess. A collaborator inherits the page OWNER's plan + acts on the
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   const action = body.action || 'status'
-  if (action !== 'attach' && action !== 'status' && action !== 'remove') {
+  if (action !== 'claim' && action !== 'attach' && action !== 'status' && action !== 'remove') {
     return NextResponse.json({ error: 'Unsupported domain action' }, { status: 400 })
   }
   const domain = normalizeDomain(body.domain || '')
@@ -95,6 +96,34 @@ export async function POST(request: Request) {
   })
   if (!gate.ok) return gate.response
   const { access, admin } = gate
+  const claimResult = await getCustomDomainClaim(admin, access.pageId)
+  if (claimResult.error) {
+    return NextResponse.json(
+      { error: 'Custom-domain claim status is temporarily unavailable.' },
+      { status: 503 },
+    )
+  }
+  let claim = claimResult.claim
+  const claimAvailable = claim?.available === true
+  const claimLost = !claim?.owned && !claimAvailable
+  const claimInactive = claimLost || claimAvailable
+
+  if (action === 'claim') {
+    return NextResponse.json({ ok: true, domain, claim })
+  }
+
+  if (claimInactive && action !== 'remove') {
+    return NextResponse.json(
+      {
+        error: claimAvailable
+          ? 'This listing no longer holds a reservation, but the domain is available. Remove it, then add it again.'
+          : 'This domain is no longer reserved for this listing. Remove it or enter a different domain.',
+        code: claimAvailable ? 'custom_domain_claim_available' : 'custom_domain_claim_lost',
+        claim,
+      },
+      { status: 409 },
+    )
+  }
   let quotaRaceUpgrade: string | null = null
   let allocationChecked = false
 
@@ -158,7 +187,27 @@ export async function POST(request: Request) {
   const providerConfigured = isVercelDomainConfigured()
 
   if (action === 'remove') {
-    const removed = providerConfigured ? await removeDomainFromProject(domain) : { ok: true }
+    const { data: ownerDomainPages, error: ownerDomainPagesError } = await admin
+      .from('pages')
+      .select('id')
+      .eq('owner_id', access.ownerId)
+      .eq('custom_domain', domain)
+      .returns<Array<{ id: string }>>()
+    if (ownerDomainPagesError) {
+      return NextResponse.json(
+        { error: 'Could not confirm whether this domain is used by another listing.' },
+        { status: 500 },
+      )
+    }
+
+    const sharedDomainRetained = !claimInactive && (ownerDomainPages?.length ?? 0) > 1
+    const shouldDetachProvider = !claimInactive && !sharedDomainRetained && providerConfigured
+    // A stale page must never detach the provider configuration now controlled
+    // by the canonical owner. A domain shared by another listing also remains
+    // attached until the owner removes its final listing path.
+    const removed = !shouldDetachProvider
+      ? { ok: true }
+      : await removeDomainFromProject(domain)
     if (!removed.ok) {
       return NextResponse.json(
         { error: removed.error || 'The managed domain could not be detached.' },
@@ -183,7 +232,15 @@ export async function POST(request: Request) {
         { status: 500 },
       )
     }
-    return NextResponse.json({ ok: true, removed: true, providerConfigured })
+    return NextResponse.json({
+      ok: true,
+      removed: true,
+      providerConfigured,
+      providerDetached: shouldDetachProvider,
+      sharedDomainRetained,
+      staleClaimRemoved: claimInactive,
+      claim: null,
+    })
   }
 
   let ownershipVerified = Boolean(page.custom_domain_verified)
@@ -218,15 +275,27 @@ export async function POST(request: Request) {
     if (allocationError) return allocationError
 
     verifiedAt = new Date().toISOString()
-    const { error: verifyError } = await admin
+    const { data: verifiedPage, error: verifyError } = await admin
       .from('pages')
       .update({ custom_domain_verified: verifiedAt })
       .eq('id', access.pageId)
       .eq('owner_id', access.ownerId)
       .eq('custom_domain', domain)
+      .select('id')
+      .maybeSingle<{ id: string }>()
 
     if (verifyError) {
       if (isEntitlementAllocationRetry(verifyError)) return allocationRetryResponse()
+      if (verifyError.code === '23505' && /custom[- ]domain/i.test(verifyError.message)) {
+        return NextResponse.json(
+          {
+            error: 'This domain is no longer reserved for this listing. Refresh before trying again.',
+            code: 'custom_domain_claim_lost',
+            claim: claim ? { ...claim, owned: false } : null,
+          },
+          { status: 409 },
+        )
+      }
       if (verifyError.code === '23514' || /custom[- ]domain limit/i.test(verifyError.message)) {
         return NextResponse.json(
           {
@@ -239,6 +308,16 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ error: 'Domain routing is verified, but saving verification failed.' }, { status: 500 })
     }
+    if (!verifiedPage) {
+      return NextResponse.json(
+        {
+          error: 'This domain is no longer reserved for this listing. Refresh before trying again.',
+          code: 'custom_domain_claim_lost',
+          claim: claim ? { ...claim, owned: false } : null,
+        },
+        { status: 409 },
+      )
+    }
 
     await admin
       .from('page_secrets')
@@ -247,6 +326,7 @@ export async function POST(request: Request) {
       .eq('owner_id', access.ownerId)
 
     ownershipVerified = true
+    claim = claim ? { ...claim, verifiedAt, owned: true } : claim
   }
 
   const legacyTxtBlocksCname =
@@ -274,6 +354,7 @@ export async function POST(request: Request) {
     providerConfigured,
     ownershipVerified,
     verifiedAt,
+    claim,
     verificationMethod: status.verificationMethod,
     legacyTxtBlocksCname,
     provider: providerConfigured ? { ...status, cnameConfigured } : null,

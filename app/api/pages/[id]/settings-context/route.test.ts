@@ -8,6 +8,7 @@ const refs = vi.hoisted(() => ({
   ownedPage: { id: 'p1', owner_id: 'editor-2' } as any,
   ownerSecrets: { calendly_webhook_secret: 'owner-cs', outbound_webhooks: [], domain_verification_token: 'owner-tok', website_verification_token: 'web-tok' } as any,
   secrets: { calendly_webhook_secret: 'cs', outbound_webhooks: [{ url: 'u' }], domain_verification_token: 'tok', calendly_pat_encrypted: 'v1.enc.crypt.tag' } as any,
+  claim: [{ domain: 'agents.acme.com', claimed_at: '2026-08-01T00:00:00Z', expires_at: '2026-08-15T00:00:00Z', verified_at: null, owned: true, available: false }] as any,
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
@@ -30,6 +31,7 @@ vi.mock('../../../../../lib/server/plan', () => ({ getOwnerPlanId: vi.fn(async (
 vi.mock('../../../../../utils/supabase/admin', () => ({
   hasSupabaseAdminEnv: vi.fn(() => refs.adminEnv),
   createAdminClient: vi.fn(() => ({
+    rpc: async () => ({ data: refs.claim, error: null }),
     from: (table: string) => {
       const query: any = {
         select: () => query,
@@ -57,6 +59,7 @@ describe('GET /api/pages/[id]/settings-context', () => {
     refs.adminEnv = true
     refs.ownedPage = { id: 'p1', owner_id: 'editor-2' }
     refs.secrets = { calendly_webhook_secret: 'cs', outbound_webhooks: [{ url: 'u' }], domain_verification_token: 'tok', calendly_pat_encrypted: 'v1.enc.crypt.tag' }
+    refs.claim = [{ domain: 'agents.acme.com', claimed_at: '2026-08-01T00:00:00Z', expires_at: '2026-08-15T00:00:00Z', verified_at: null, owned: true, available: false }]
   })
 
   it('401 when not authenticated', async () => {
@@ -84,6 +87,15 @@ describe('GET /api/pages/[id]/settings-context', () => {
       role: 'editor',
       ownerId: 'owner-1',
       plan: 'enterprise', // the OWNER's plan, not the editor's
+      customDomainClaim: {
+        domain: 'agents.acme.com',
+        claimedAt: '2026-08-01T00:00:00Z',
+        expiresAt: '2026-08-15T00:00:00Z',
+        verifiedAt: null,
+        owned: true,
+        available: false,
+      },
+      customDomainClaimAvailable: true,
       secrets: {
         calendly_webhook_secret: 'cs',
         outbound_webhooks: [{ url: 'https://hooks.example.com/a', hasSecret: true }],
@@ -110,6 +122,8 @@ describe('GET /api/pages/[id]/settings-context', () => {
       ownerId: 'editor-2',
       plan: 'enterprise',
       contextLimited: true,
+      customDomainClaim: null,
+      customDomainClaimAvailable: false,
       integrations: [],
       secrets: {
         calendly_webhook_secret: 'owner-cs',

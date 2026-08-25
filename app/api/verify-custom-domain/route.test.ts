@@ -4,6 +4,10 @@ const { serverUserRef, adminRef, adminUpdates, accessRef, providerRef } = vi.hoi
   serverUserRef: { user: { id: 'user_1', email: 'owner@acme.com' } as any },
   adminRef: {
     handler: (_ctx: any): { data: any; error: any } => ({ data: null, error: null }),
+    claimOwned: true,
+    claimAvailable: false,
+    claimError: null as any,
+    updateNoMatch: false,
   },
   adminUpdates: [] as Array<{ table: string; payload: any; eqs: Record<string, any> }>,
   // resolvePageAccess result. Default: the caller IS the owner of page_1.
@@ -70,6 +74,21 @@ function mockOwnerPage(
 ) {
   adminUpdates.length = 0
   adminRef.handler = (ctx) => {
+    if (ctx.table === 'rpc:nz_custom_domain_claim_status') {
+      return {
+        data: adminRef.claimError
+          ? null
+          : [{
+              domain,
+              claimed_at: '2026-08-01T00:00:00Z',
+              expires_at: '2026-08-15T00:00:00Z',
+              verified_at: null,
+              owned: adminRef.claimOwned,
+              available: adminRef.claimAvailable,
+            }],
+        error: adminRef.claimError,
+      }
+    }
     // Plan gate now reads billing through the admin client, scoped to the owner.
     if (ctx.table === 'billing_subscriptions') {
       return { data: { plan_id: planId, status: 'active' }, error: null }
@@ -98,7 +117,10 @@ function mockOwnerPage(
 
     if (ctx.op === 'update') {
       adminUpdates.push({ table: ctx.table, payload: ctx.payload, eqs: ctx.eqs })
-      return { data: null, error: null }
+      return {
+        data: ctx.table === 'pages' && !adminRef.updateNoMatch ? { id: 'page_1' } : null,
+        error: null,
+      }
     }
 
     return { data: null, error: null }
@@ -112,12 +134,53 @@ describe('POST /api/verify-custom-domain', () => {
     accessRef.value = { pageId: 'page_1', ownerId: 'owner_1', role: 'owner' }
     providerRef.configured = false
     providerRef.status = { verificationMethod: 'unknown' }
+    adminRef.claimOwned = true
+    adminRef.claimAvailable = false
+    adminRef.claimError = null
+    adminRef.updateNoMatch = false
     mockOwnerPage()
   })
 
   it('400 when customDomain or pageId is missing', async () => {
     expect((await POST(post({}))).status).toBe(400)
     expect((await POST(post({ customDomain: 'agents.acme.com' }))).status).toBe(400)
+  })
+
+  it('fails closed when canonical claim status is unavailable', async () => {
+    adminRef.claimError = { message: 'rpc unavailable' }
+    mockOwnerPage()
+    const res = await POST(post({
+      pageId: 'page_1',
+      customDomain: 'agents.acme.com',
+      token: 'nexez-verify-abc123',
+    }))
+    expect(res.status).toBe(503)
+  })
+
+  it('does not check DNS after another owner reclaims the domain', async () => {
+    adminRef.claimOwned = false
+    mockOwnerPage()
+    const res = await POST(post({
+      pageId: 'page_1',
+      customDomain: 'agents.acme.com',
+      token: 'nexez-verify-abc123',
+    }))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'custom_domain_claim_lost', claim: { owned: false } })
+    expect(dns.resolveTxt).not.toHaveBeenCalled()
+  })
+
+  it('distinguishes a released domain from another merchant claim', async () => {
+    adminRef.claimOwned = false
+    adminRef.claimAvailable = true
+    mockOwnerPage()
+    const res = await POST(post({
+      pageId: 'page_1',
+      customDomain: 'agents.acme.com',
+      token: 'nexez-verify-abc123',
+    }))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'custom_domain_claim_available', claim: { available: true } })
   })
 
   it('verified:true when the TXT record exactly matches the saved token', async () => {
@@ -128,7 +191,11 @@ describe('POST /api/verify-custom-domain', () => {
       token: 'nexez-verify-abc123',
     }))).json()
 
-    expect(body).toMatchObject({ verified: true, domain: 'agents.acme.com' })
+    expect(body).toMatchObject({
+      verified: true,
+      domain: 'agents.acme.com',
+      claim: { owned: true, verifiedAt: expect.any(String) },
+    })
     // Writes are scoped to the resolved OWNER id (owner_1), not the caller (user_1).
     expect(adminUpdates).toEqual(
       expect.arrayContaining([
@@ -162,6 +229,21 @@ describe('POST /api/verify-custom-domain', () => {
     expect(res.status).toBe(409)
     expect(res.headers.get('retry-after')).toBe('1')
     expect(await res.json()).toMatchObject({ code: 'entitlement_allocation_retry', retryable: true })
+  })
+
+  it('does not report verification when the page write no longer matches', async () => {
+    adminRef.updateNoMatch = true
+    mockOwnerPage()
+    setTxt([['nexez-verify-abc123']])
+
+    const res = await POST(post({
+      pageId: 'page_1',
+      customDomain: 'agents.acme.com',
+      token: 'nexez-verify-abc123',
+    }))
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'custom_domain_claim_lost' })
   })
 
   it('rejects the conflicting TXT flow when Vercel identifies a CNAME subdomain', async () => {

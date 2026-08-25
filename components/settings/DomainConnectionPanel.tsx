@@ -1,6 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import {
+  formatCustomDomainClaimExpiry,
+  getCustomDomainClaimState,
+  type CustomDomainClaim,
+} from '../../lib/custom-domain-claim'
 
 /**
  * A3 connection wizard: attach the domain to the hosting provider, watch the
@@ -30,6 +35,8 @@ export function DomainConnectionPanel({
   customDomain,
   publicUrl,
   status,
+  claim,
+  claimStatusAvailable,
   domainVerified,
   activationAllowed,
   busy,
@@ -41,6 +48,9 @@ export function DomainConnectionPanel({
   /** Crawlability target when no custom domain is set yet. */
   publicUrl: string
   status: DomainConnectionStatus | null
+  claim: CustomDomainClaim | null
+  /** False only when the trusted claim-status read failed or is unavailable locally. */
+  claimStatusAvailable: boolean
   /** Verified AND the proof belongs to the currently typed domain (page-derived). */
   domainVerified: boolean
   /** Current owner plan can actively route a custom domain. Cleanup stays open when false. */
@@ -85,6 +95,11 @@ export function DomainConnectionPanel({
 
   if (!customDomain) return null
 
+  const claimState = domainVerified ? 'verified' : getCustomDomainClaimState(claim)
+  const claimLost = claimState === 'lost'
+  const claimAvailable = claimState === 'available'
+  const claimInactive = claimLost || claimAvailable
+
   return (
     <div
       role={attachIsNext ? 'group' : undefined}
@@ -103,7 +118,7 @@ export function DomainConnectionPanel({
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-zinc-200">Connection & SSL</p>
         <div className="flex gap-2">
-          {activationAllowed ? (
+          {activationAllowed && !claimInactive ? (
             <button
               type="button"
               disabled={busy}
@@ -117,21 +132,23 @@ export function DomainConnectionPanel({
               {busy ? 'Working…' : 'Attach & detect DNS'}
             </button>
           ) : null}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onAction('status')}
-            className="rounded border border-white/20 px-2.5 py-1 text-[11px] text-zinc-200 hover:bg-white/5 disabled:opacity-50"
-          >
-            Check status
-          </button>
+          {!claimInactive ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onAction('status')}
+              className="rounded border border-white/20 px-2.5 py-1 text-[11px] text-zinc-200 hover:bg-white/5 disabled:opacity-50"
+            >
+              Check status
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={busy}
             onClick={() => onAction('remove')}
             className="rounded border border-[var(--amber)]/30 px-2.5 py-1 text-[11px] text-[var(--amber)] hover:bg-[var(--amber)]/10 disabled:opacity-50"
           >
-            Detach domain
+            {claimInactive ? 'Remove stale domain' : 'Detach domain'}
           </button>
         </div>
       </div>
@@ -142,8 +159,32 @@ export function DomainConnectionPanel({
         </p>
       ) : null}
 
+      {claimState === 'reserved' && claim?.expiresAt ? (
+        <p role="status" className="mt-2 rounded border border-[var(--ready)]/30 bg-[var(--ready)]/10 p-2 text-[11px] text-[var(--ready)]">
+          Reserved for this account until {formatCustomDomainClaimExpiry(claim.expiresAt)} while you finish DNS setup.
+        </p>
+      ) : claimState === 'expired' && claim?.expiresAt ? (
+        <p role="alert" className="mt-2 rounded border border-[var(--amber)]/40 bg-[var(--amber)]/10 p-2 text-[11px] text-[var(--amber)]">
+          Your setup window ended on {formatCustomDomainClaimExpiry(claim.expiresAt)}. This domain is not live and another merchant can now claim it. Finish verification now, or detach it.
+        </p>
+      ) : claimLost ? (
+        <p role="alert" className="mt-2 rounded border border-red-400/40 bg-red-400/10 p-2 text-[11px] text-red-200">
+          This domain was claimed by another merchant after your setup window ended. It is not serving this listing. Remove it or enter a different domain.
+        </p>
+      ) : claimAvailable ? (
+        <p role="alert" className="mt-2 rounded border border-[var(--amber)]/40 bg-[var(--amber)]/10 p-2 text-[11px] text-[var(--amber)]">
+          This listing no longer holds a reservation, but the domain is available. Remove it, then add it again to start a new setup window.
+        </p>
+      ) : !domainVerified && !claimStatusAvailable ? (
+        <p role="status" className="mt-2 rounded border border-white/15 bg-white/[0.04] p-2 text-[11px] text-zinc-400">
+          Reservation timing is temporarily unavailable. DNS setup and routing checks remain unchanged.
+        </p>
+      ) : null}
+
       {(() => {
-        const currentState = !activationAllowed && domainVerified
+        const currentState = claimInactive
+          ? 'error'
+          : !activationAllowed && domainVerified
           ? 'paused_plan'
           : status?.state ?? (domainVerified ? 'verifying' : 'pending_dns')
         const steps = [
