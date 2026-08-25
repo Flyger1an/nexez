@@ -11,6 +11,7 @@ describe('official MCP Registry manifest', () => {
       websiteUrl: 'https://nexez.ai/agents',
       remotes: [{ type: 'streamable-http', url: 'https://nexez.app/mcp' }],
     })
+    expect(manifest.description.length).toBeLessThanOrEqual(100)
     expect(manifest.packages).toBeUndefined()
   })
 })
