@@ -1,0 +1,25 @@
+{
+  "protocol": "ucp-google-pay",
+  "version": "2026-01-23",
+  "source": "https://developers.google.com/pay/api/universal-commerce-protocol/google-pay-payment-handler",
+  "handler": {
+    "name": "com.google.pay",
+    "id": "8c9202bd-63cc-4241-8d24-d57ce69ea31c"
+  },
+  "request": {
+    "payment": {
+      "instruments": [
+        {
+          "id": "pm_1234567890abc",
+          "handler_id": "8c9202bd-63cc-4241-8d24-d57ce69ea31c",
+          "type": "card",
+          "selected": true,
+          "credential": {
+            "type": "PAYMENT_GATEWAY",
+            "token": "{\"signature\":\"fixture\",\"protocolVersion\":\"ECv2\"}"
+          }
+        }
+      ]
+    }
+  }
+}

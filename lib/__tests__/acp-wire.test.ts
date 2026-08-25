@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   parseAcpLineItems,
   parseAcpBuyer,
-  parseAcpPaymentToken,
+  parseAcpPaymentCredential,
   toAcpStatus,
   toAcpCheckoutSession,
   acpError,
@@ -65,17 +65,42 @@ describe('parseAcpBuyer', () => {
   })
 })
 
-describe('parseAcpPaymentToken', () => {
-  it('extracts the credential from the standard + flatter shapes', () => {
-    expect(parseAcpPaymentToken({ instrument: { credential: 'vt_123' } })).toBe('vt_123')
-    expect(parseAcpPaymentToken({ token: '  vt_456  ' })).toBe('vt_456')
-    expect(parseAcpPaymentToken({ credential: 'vt_789' })).toBe('vt_789')
+describe('parseAcpPaymentCredential', () => {
+  it('parses the current typed SPT credential and preserves its handler id', () => {
+    expect(parseAcpPaymentCredential({
+      handler_id: 'card_tokenized',
+      instrument: { type: 'card', credential: { type: 'spt', token: 'spt_123' } },
+    })).toEqual({
+      ok: true,
+      payment: { kind: 'shared_payment_token', token: 'spt_123', handlerId: 'card_tokenized' },
+    })
   })
-  it('returns null when absent/blank/non-string', () => {
-    expect(parseAcpPaymentToken({})).toBeNull()
-    expect(parseAcpPaymentToken({ instrument: { credential: '' } })).toBeNull()
-    expect(parseAcpPaymentToken({ token: 123 })).toBeNull()
-    expect(parseAcpPaymentToken(null)).toBeNull()
+
+  it('accepts older bare SPT and vaulted-token shapes without accepting a test PaymentMethod', () => {
+    expect(parseAcpPaymentCredential({ instrument: { credential: 'vt_123' } })).toEqual({
+      ok: true,
+      payment: { kind: 'shared_payment_token', token: 'vt_123' },
+    })
+    expect(parseAcpPaymentCredential({ token: '  spt_456  ' })).toEqual({
+      ok: true,
+      payment: { kind: 'shared_payment_token', token: 'spt_456' },
+    })
+    const rawMethod = parseAcpPaymentCredential({ instrument: { credential: 'pm_card_visa' } })
+    expect(rawMethod.ok).toBe(false)
+    if (!rawMethod.ok) expect(rawMethod.error.code).toBe('invalid_payment_credential')
+  })
+
+  it('rejects missing, blank, and unsupported typed credentials', () => {
+    for (const input of [{}, { instrument: { credential: '' } }, { token: 123 }, null]) {
+      const result = parseAcpPaymentCredential(input)
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.code).toBe('missing_payment')
+    }
+    const wrongType = parseAcpPaymentCredential({
+      instrument: { credential: { type: 'network_token', token: 'spt_123' } },
+    })
+    expect(wrongType.ok).toBe(false)
+    if (!wrongType.ok) expect(wrongType.error.code).toBe('unsupported_payment_credential')
   })
 })
 

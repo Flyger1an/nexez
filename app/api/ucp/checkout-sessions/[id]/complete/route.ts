@@ -21,7 +21,8 @@ import {
 } from '../../../../../../lib/server/checkout-session-store'
 import { persistCommerceOrder } from '../../../../../../lib/server/commerce-order'
 import { verifyUcpRequest } from '../../../../../../lib/ucp/auth'
-import { parseUcpBuyer, parseUcpPaymentToken, toUcpCheckoutSession, ucpError, type UcpOrderRef } from '../../../../../../lib/ucp/wire'
+import { parseUcpBuyer, parseUcpPaymentCredential, toUcpCheckoutSession, ucpError, type UcpOrderRef } from '../../../../../../lib/ucp/wire'
+import { ucpGooglePayHandlerId } from '../../../../../../lib/ucp/constants'
 import { ucpJson, loadUcpPage, loadUcpPageName } from '../../../../../../lib/server/ucp-session'
 
 /**
@@ -70,10 +71,12 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     return ucpJson(ucpError('invalid_json', 'Request body must be valid JSON.'), 400)
   }
 
-  const paymentToken = parseUcpPaymentToken(body.payment)
-  if (!paymentToken) {
-    return ucpJson(ucpError('missing_payment', 'payment with a Google Pay credential is required.', 'payment'), 400)
+  const paymentHandlerId = ucpGooglePayHandlerId()
+  if (!paymentHandlerId) {
+    return ucpJson(ucpError('payment_handler_unconfigured', 'Google Pay checkout is not configured.', undefined, 'processing_error'), 503)
   }
+  const parsedPayment = parseUcpPaymentCredential(body.payment, paymentHandlerId)
+  if (!parsedPayment.ok) return ucpJson(parsedPayment.error, 400)
 
   const page = await loadUcpPage(row.slug)
   if (!page) {
@@ -108,7 +111,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     return ucpJson(ucpError(context.code, context.message, undefined, 'processing_error'), context.code === 'paused' ? 409 : 402)
   }
 
-  const settled = await settleSessionToPaymentIntent(session, { token: paymentToken, kind: 'google_pay' }, context.context)
+  const settled = await settleSessionToPaymentIntent(session, parsedPayment.payment, context.context)
   if (!settled.ok) {
     // Not a decline: the credential itself is one we cannot charge. 400 so the agent
     // retries with a different instrument instead of re-presenting the same one.
@@ -142,6 +145,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     commissionSource: context.context.commissionSource,
     livemode: settled.livemode,
     buyer: completed.buyer,
+    credentialKind: parsedPayment.payment.kind,
+    paymentHandlerId: parsedPayment.payment.handlerId,
   })
 
   const order: UcpOrderRef = {

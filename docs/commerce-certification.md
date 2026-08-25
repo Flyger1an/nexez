@@ -14,6 +14,11 @@ Commerce certification is the release gate for Nexez money paths. Configuration 
 
 It does not create a charge, Checkout Session, subscription, negotiation, refund, or payout. The checkout dry run keeps its normal telemetry event so repeated certification remains observable.
 
+`npm run certify:protocol-adapters` is the separate, non-money-moving ACP/UCP
+adapter gate. It replays versioned credential fixtures and the protected complete
+routes, including auth, handler, malformed credential, settlement mapping, and
+idempotent replay cases. It does not prove a real delegated credential.
+
 The automated gate also does not call the reservable-resource dry run. That route acquires a real, expiring hold before it issues buyer approval, so it belongs in the deliberate owner-run lifecycle below. Staged-settlement dry runs do not persist an agreement, but they remain paired with the owner-run staged lifecycle so the exact obligation sequence is verified together.
 
 ## Certification account
@@ -52,13 +57,13 @@ These checks can move real funds unless they are explicitly labeled sandbox-only
 
 ### Current evidence (2026-07-18)
 
-- **Certified in Stripe test mode:** ACP and UCP create, update, complete, create replay, and completion replay. Each channel produced exactly one completed session and one paid `$1` order with `stripe_livemode = false`.
+- **Historical Stripe test evidence:** ACP and UCP create, update, complete, create replay, and completion replay each produced one paid `$1` sandbox order. Those runs used Stripe test PaymentMethods and do not prove an ACP SPT or UCP Google Pay gateway credential.
 - **Certified in Stripe test mode:** a Product default-Price replacement from `$1.00` to `$1.25`, one linked-offer `stripe_price_sync` audit, exact webhook replay deduplication, and isolation from a parallel non-default `$9.99` Price.
 - **Certified in Stripe live mode:** paid-plan subscription, webhook entitlement sync, Customer Portal access, and cancel-at-period-end reconciliation.
 - **Certified in Stripe live mode:** partial then full refund of a proven low-value direct order, including refundable remainder and fee reversal.
 - **Certified in Stripe live mode:** a fresh low-value negotiation agreement through funding and terminal reconciliation.
 
-Sandbox protocol orders prove adapter conformance only. They may satisfy the optional ACP/UCP Launch Control gate, but they must never contribute to live order counts, GMV, revenue, fees, refunds, or seller Finance totals. Price-sync certification requires both a catalog webhook ledger row and a linked-offer audit row; either one alone is incomplete proof.
+Sandbox protocol order counts prove only that an internal lifecycle reached the shared order ledger. Those counts alone never satisfy the ACP/UCP delegated-payment Launch Control gate and must never contribute to live order counts, GMV, revenue, fees, refunds, or seller Finance totals. Launch Control promotes a channel only after successful settlement appends token-free credential evidence to that order. Price-sync certification requires both a catalog webhook ledger row and a linked-offer audit row; either one alone is incomplete proof.
 
 ### 1. Subscription billing
 
@@ -123,13 +128,28 @@ Launch Control promotes only durable database evidence. Retain separate inbox ev
 5. Redeliver the same event and confirm the webhook ledger prevents a duplicate application.
 6. Create a parallel non-default Price and confirm Nexez does not overwrite the linked offer.
 
-### 6. ACP and UCP (certified in test mode)
+### 6. ACP and UCP
 
-1. Create one ACP and one UCP checkout session with distinct idempotency keys.
-2. Replay the create and confirm the original session returns.
-3. Update and complete the session with a delegated payment token in the safe test environment.
-4. Confirm each durable order carries the correct `acp` or `ucp` channel, seller ownership, and `stripe_livemode = false` provenance.
-5. Replay completion and confirm no duplicate order.
+First run `npm run certify:protocol-adapters`. A failure blocks the adapter release,
+but a pass does not authorize a payment.
+
+For ACP, after enrollment and wire-version confirmation:
+
+1. Create one low-value session with a unique idempotency key.
+2. Replay create and confirm the original session returns.
+3. Complete with a real enrolled SPT or approved vaulted token. Do not use a raw
+   Stripe test PaymentMethod through the public ACP credential field.
+4. Confirm the seller Connect charge, application fee, durable ACP order, receipt,
+   notification, and order portal.
+5. Confirm the order timeline contains one `protocol_credential_confirmed` event
+   with `credentialKind = 'shared_payment_token'` and no token value.
+6. Replay completion and confirm no duplicate order, charge, or credential event.
+
+For UCP, do not run a payment smoke test until the standard profile, declared Google
+Pay handler, gateway-processing path, and enrolled response contract exist. After
+those gates pass, repeat the same low-value create and completion replay test using
+Google's enrolled test environment, then confirm its token-free event reports
+`credentialKind = 'google_pay'`.
 
 ### 7. Reservable resource lifecycle
 

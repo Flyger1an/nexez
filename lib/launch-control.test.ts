@@ -6,6 +6,7 @@ import {
   buildOperationalChecks,
   deriveDirectOrderLifecycleEvidence,
   deriveAdvancedCommerceEvidence,
+  deriveProtocolCredentialEvidence,
   isSettledProtocolOrder,
   isStripeCatalogSyncEvent,
   summarizeLaunchChecks,
@@ -34,6 +35,31 @@ describe('protocol settlement evidence', () => {
     expect(isSettledProtocolOrder({ channel: 'ucp', status: 'pending', stripe_livemode: false })).toBe(false)
     expect(isSettledProtocolOrder({ channel: 'acp', status: 'paid', stripe_livemode: null })).toBe(false)
     expect(isSettledProtocolOrder({ channel: 'agent_checkout', status: 'paid', stripe_livemode: true })).toBe(false)
+  })
+
+  it('requires a channel-matched append-only credential event and counts each order once', () => {
+    const orders = [
+      { id: 'acp-1', channel: 'acp', status: 'paid', stripe_livemode: false },
+      { id: 'ucp-1', channel: 'ucp', status: 'paid', stripe_livemode: true },
+      { id: 'pending', channel: 'acp', status: 'pending', stripe_livemode: false },
+    ]
+    const result = deriveProtocolCredentialEvidence({
+      orders,
+      events: [
+        { order_id: 'acp-1', event_type: 'protocol_credential_confirmed', metadata: { credentialKind: 'shared_payment_token' } },
+        { order_id: 'acp-1', event_type: 'protocol_credential_confirmed', metadata: { credentialKind: 'shared_payment_token' } },
+        { order_id: 'ucp-1', event_type: 'protocol_credential_confirmed', metadata: { credentialKind: 'google_pay' } },
+        { order_id: 'pending', event_type: 'protocol_credential_confirmed', metadata: { credentialKind: 'shared_payment_token' } },
+      ],
+    })
+    expect(result).toEqual({ acpDelegatedPayments: 1, ucpDelegatedPayments: 1 })
+  })
+
+  it('rejects a credential event whose kind does not match the order channel', () => {
+    expect(deriveProtocolCredentialEvidence({
+      orders: [{ id: 'acp-1', channel: 'acp', status: 'paid', stripe_livemode: false }],
+      events: [{ order_id: 'acp-1', event_type: 'protocol_credential_confirmed', metadata: { credentialKind: 'google_pay' } }],
+    })).toEqual({ acpDelegatedPayments: 0, ucpDelegatedPayments: 0 })
   })
 })
 
@@ -82,8 +108,12 @@ function metrics(overrides: Partial<LaunchMetrics> = {}): LaunchMetrics {
     directOperationalLifecycles: 1,
     protocolOrders: 1,
     sandboxProtocolOrders: 0,
-    acpProtocolOrders: 1,
-    ucpProtocolOrders: 1,
+    acpLiveProtocolOrders: 1,
+    ucpLiveProtocolOrders: 0,
+    acpSandboxProtocolOrders: 0,
+    ucpSandboxProtocolOrders: 0,
+    acpDelegatedPayments: 0,
+    ucpDelegatedPayments: 0,
     negotiations: 4,
     pendingNegotiationDecisions: 0,
     staleNegotiationDecisions: 0,
@@ -494,27 +524,31 @@ describe('Commerce certification and summary', () => {
     expect(checks.find((check) => check.id === 'cert-escrow')?.status).toBe('attention')
   })
 
-  it('accepts a Stripe-proven sandbox order for the optional protocol lifecycle gate only', () => {
+  it('does not treat sandbox order rows as delegated-payment proof', () => {
     const configChecks = buildConfigurationChecks(configuration())
     const checks = buildCertificationChecks(metrics({
       directOrders: 0,
       directPaymentLifecycles: 0,
       protocolOrders: 0,
       sandboxProtocolOrders: 1,
-      acpProtocolOrders: 1,
-      ucpProtocolOrders: 1,
+      acpLiveProtocolOrders: 0,
+      ucpLiveProtocolOrders: 0,
+      acpSandboxProtocolOrders: 1,
+      ucpSandboxProtocolOrders: 1,
     }), sources(), configChecks)
-    expect(checks.find((check) => check.id === 'cert-protocol')?.status).toBe('ready')
+    expect(checks.find((check) => check.id === 'cert-protocol')?.status).toBe('attention')
     expect(checks.find((check) => check.id === 'cert-direct-checkout')?.status).toBe('attention')
   })
 
-  it('requires proof from both protocol channels', () => {
+  it('keeps a single-channel sandbox history at attention', () => {
     const configChecks = buildConfigurationChecks(configuration())
     const checks = buildCertificationChecks(metrics({
       protocolOrders: 0,
       sandboxProtocolOrders: 1,
-      acpProtocolOrders: 1,
-      ucpProtocolOrders: 0,
+      acpLiveProtocolOrders: 0,
+      ucpLiveProtocolOrders: 0,
+      acpSandboxProtocolOrders: 1,
+      ucpSandboxProtocolOrders: 0,
     }), sources(), configChecks)
     expect(checks.find((check) => check.id === 'cert-protocol')?.status).toBe('attention')
   })

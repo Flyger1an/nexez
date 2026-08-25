@@ -29,9 +29,22 @@ export function verifyAcpRequest(request: Request, rawBody: string): AcpAuthResu
   if (!auth.ok) {
     return { ok: false, status: auth.status, error: acpError('unauthorized', auth.reason, undefined, 'authentication_error') }
   }
+  const requestedVersion = request.headers.get('api-version')
+  if (requestedVersion && requestedVersion !== ACP_API_VERSION) {
+    return {
+      ok: false,
+      status: 400,
+      error: acpError(
+        'unsupported_api_version',
+        `This endpoint supports API-Version ${ACP_API_VERSION}.`,
+        undefined,
+        'invalid_request',
+      ),
+    }
+  }
   return {
     ok: true,
     idempotencyKey: readIdempotencyKey(request),
-    apiVersion: request.headers.get('api-version') || ACP_API_VERSION,
+    apiVersion: ACP_API_VERSION,
   }
 }

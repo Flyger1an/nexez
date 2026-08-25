@@ -55,7 +55,13 @@ function req(body: unknown, headers: Record<string, string> = {}) {
   })
 }
 const ctx = { params: Promise.resolve({ id: 'sess_1' }) }
-const PAYMENT = { buyer: { email: 'b@x.com', name: 'Dana' }, payment_data: { instrument: { credential: 'spt_123' } } }
+const PAYMENT = {
+  buyer: { email: 'b@x.com', name: 'Dana' },
+  payment_data: {
+    handler_id: 'card_tokenized',
+    instrument: { type: 'card', credential: { type: 'spt', token: 'spt_123' } },
+  },
+}
 
 describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
   beforeEach(() => {
@@ -69,9 +75,10 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
   afterEach(() => vi.unstubAllEnvs())
 
   function readySessionDb(over: Record<string, any> = {}, page: Record<string, any> = PAGE) {
-    let order: any = { access_token_encrypted: encryptForTest('tok123') }
+    let order: any = { id: 'order-1', access_token_encrypted: encryptForTest('tok123') }
     let sessionUpdate: any
     let orderUpsert: any
+    let credentialEvent: any
     createAdminClient.mockReturnValue(
       adminMock((c) => {
         if (c.table === 'checkout_sessions' && c.op === 'select') return { data: { ...ROW, ...over } }
@@ -85,10 +92,19 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
           return { error: null }
         }
         if (c.table === 'checkout_orders' && c.op === 'select') return { data: order }
+        if (c.table === 'checkout_order_events' && c.op === 'insert') {
+          credentialEvent = c.payload
+          return { error: null }
+        }
         return { data: null }
       }),
     )
-    return { getSessionUpdate: () => sessionUpdate, getOrderUpsert: () => orderUpsert, setOrder: (o: any) => (order = o) }
+    return {
+      getSessionUpdate: () => sessionUpdate,
+      getOrderUpsert: () => orderUpsert,
+      getCredentialEvent: () => credentialEvent,
+      setOrder: (o: any) => (order = o),
+    }
   }
 
   it('settles the session and returns CheckoutSessionWithOrder (200)', async () => {
@@ -102,12 +118,18 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
     // Charged via the shared bridge with the delegated token.
     expect(settleSessionToPaymentIntent).toHaveBeenCalledTimes(1)
     const [passedSession, payment, context] = settleSessionToPaymentIntent.mock.calls[0]
-    expect(payment).toEqual({ token: 'spt_123', kind: 'shared_payment_token' })
+    expect(payment).toEqual({ token: 'spt_123', kind: 'shared_payment_token', handlerId: 'card_tokenized' })
     expect(context.connectAccountId).toBe('acct_seller')
     expect(passedSession.buyer).toMatchObject({ email: 'b@x.com' })
     // Session marked completed + PI linked; durable order persisted under 'acp'.
     expect(spy.getSessionUpdate()).toMatchObject({ status: 'completed', stripe_payment_intent_id: 'pi_1', stripe_livemode: false })
     expect(spy.getOrderUpsert()).toMatchObject({ channel: 'acp', stripe_payment_intent_id: 'pi_1', amount_cents: 120000, application_fee_cents: 10800, commission_bps: 900, commission_percent: 9, plan_id_at_purchase: 'free', commission_source: 'plan_default', stripe_livemode: false, status: 'paid' })
+    expect(spy.getCredentialEvent()).toMatchObject({
+      order_id: 'order-1',
+      event_type: 'protocol_credential_confirmed',
+      source: 'system',
+      metadata: { channel: 'acp', credentialKind: 'shared_payment_token', handlerId: 'card_tokenized' },
+    })
   })
 
   it('400 when payment_data is missing', async () => {
@@ -115,6 +137,14 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
     const res = await COMPLETE(req({ buyer: { email: 'b@x.com' } }), ctx)
     expect(res.status).toBe(400)
     expect((await res.json()).code).toBe('missing_payment')
+    expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
+  })
+
+  it('400 when a raw Stripe test PaymentMethod is passed as an ACP credential', async () => {
+    readySessionDb()
+    const res = await COMPLETE(req({ payment_data: { instrument: { credential: 'pm_card_visa' } } }), ctx)
+    expect(res.status).toBe(400)
+    expect((await res.json()).code).toBe('invalid_payment_credential')
     expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
   })
 
@@ -163,6 +193,15 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
   it('401 without the shared secret', async () => {
     vi.stubEnv('ACP_SHARED_SECRET', '')
     expect((await COMPLETE(req(PAYMENT), ctx)).status).toBe(401)
+  })
+
+  it('400 on an API version this adapter does not implement', async () => {
+    readySessionDb()
+    const res = await COMPLETE(req(PAYMENT, { 'api-version': '2026-04-17' }), ctx)
+    expect(res.status).toBe(400)
+    expect(res.headers.get('api-version')).toBe('2025-09-12')
+    expect((await res.json()).code).toBe('unsupported_api_version')
+    expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
   })
 
   // The settlement-time re-price reflects live offers, so a merchant editing their

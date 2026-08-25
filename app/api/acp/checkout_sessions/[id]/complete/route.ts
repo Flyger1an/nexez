@@ -22,7 +22,7 @@ import {
 import { persistCommerceOrder } from '../../../../../../lib/server/commerce-order'
 import { verifyAcpRequest } from '../../../../../../lib/acp/auth'
 import { ACP_API_VERSION } from '../../../../../../lib/acp/constants'
-import { parseAcpBuyer, parseAcpPaymentToken, toAcpCheckoutSession, acpError, type AcpOrderRef } from '../../../../../../lib/acp/wire'
+import { parseAcpBuyer, parseAcpPaymentCredential, toAcpCheckoutSession, acpError, type AcpOrderRef } from '../../../../../../lib/acp/wire'
 import { acpJson, loadAcpPage, loadAcpPageName } from '../../../../../../lib/server/acp-session'
 
 /**
@@ -74,10 +74,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     return acpJson(acpError('invalid_json', 'Request body must be valid JSON.'), 400, apiVersion)
   }
 
-  const paymentToken = parseAcpPaymentToken(body.payment_data)
-  if (!paymentToken) {
-    return acpJson(acpError('missing_payment', 'payment_data with a payment credential is required.', '$.payment_data'), 400, apiVersion)
-  }
+  const parsedPayment = parseAcpPaymentCredential(body.payment_data)
+  if (!parsedPayment.ok) return acpJson(parsedPayment.error, 400, apiVersion)
 
   const page = await loadAcpPage(row.slug)
   if (!page) {
@@ -118,7 +116,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     return acpJson(acpError(context.code, context.message, undefined, 'processing_error'), context.code === 'paused' ? 409 : 402, apiVersion)
   }
 
-  const settled = await settleSessionToPaymentIntent(session, { token: paymentToken, kind: 'shared_payment_token' }, context.context)
+  const settled = await settleSessionToPaymentIntent(session, parsedPayment.payment, context.context)
   if (!settled.ok) {
     // A credential we cannot charge is the agent's request problem, not a decline:
     // 400/invalid_request tells it to retry with a different instrument, where
@@ -158,6 +156,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     commissionSource: context.context.commissionSource,
     livemode: settled.livemode,
     buyer: completed.buyer,
+    credentialKind: parsedPayment.payment.kind,
+    paymentHandlerId: parsedPayment.payment.handlerId,
   })
 
   const order: AcpOrderRef = {

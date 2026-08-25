@@ -29,6 +29,9 @@ export type CommerceOrderInput = {
   commissionSource: import('./plan').CommissionResolution['source']
   livemode: boolean
   buyer: SessionBuyer | null
+  /** Non-secret protocol proof. The delegated token itself is never persisted. */
+  credentialKind: 'shared_payment_token' | 'google_pay'
+  paymentHandlerId?: string
 }
 
 /** Upsert the protocol order (keyed on the PaymentIntent) and return the buyer-portal
@@ -81,8 +84,26 @@ export async function persistCommerceOrder(admin: Pick<SupabaseClient, 'from'>, 
   // freshly minted value would hand the caller a token that does not open anything.
   const { data } = await admin
     .from('checkout_orders')
-    .select('access_token_encrypted')
+    .select('id,access_token_encrypted')
     .eq('stripe_payment_intent_id', input.paymentIntentId)
-    .maybeSingle<{ access_token_encrypted: string | null }>()
+    .maybeSingle<{ id: string; access_token_encrypted: string | null }>()
+
+  if (data?.id) {
+    const { error: evidenceError } = await admin.from('checkout_order_events').insert({
+      order_id: data.id,
+      owner_id: input.ownerId,
+      event_type: 'protocol_credential_confirmed',
+      source: 'system',
+      idempotency_key: `protocol:credential:${input.credentialKind}`,
+      metadata: {
+        channel: input.channel,
+        credentialKind: input.credentialKind,
+        ...(input.paymentHandlerId ? { handlerId: input.paymentHandlerId } : {}),
+      },
+    })
+    if (evidenceError) {
+      console.warn(`[${input.channel}] protocol credential evidence insert failed:`, evidenceError.message)
+    }
+  }
   return recoverBearerToken({ encrypted: data?.access_token_encrypted })
 }

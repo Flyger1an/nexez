@@ -1,178 +1,156 @@
-# Agentic-Commerce Enrollment Checklist (ACP + UCP go-live)
+# Agentic-Commerce Enrollment Checklist
 
-Nexez ships **both** agentic-commerce protocols - OpenAI's ACP and Google's UCP -
-fully built over one shared money core. Both are **live but dormant**: the product
-**feeds are public** (for discovery/indexing) and the **checkout endpoints fail
-closed with 401** until you complete each program's enrollment and set its secret.
+Nexez has dormant adapters for OpenAI's Agentic Commerce Protocol (ACP) and
+Google's Universal Commerce Protocol (UCP). Both use the same provider-neutral
+checkout core and seller-as-merchant-of-record settlement rules. Discovery feeds
+are public. Checkout is not advertised until the related enrollment and payment
+requirements are complete.
 
-This doc is the owner-side checklist to flip them live. Nothing here is a code
-change (except the small A4 build in ACP Step 4) - it's account setup, credentials,
-and env vars.
+This document separates adapter compatibility, sandbox lifecycle evidence, and a
+real delegated payment. They are not interchangeable.
 
----
+## Current posture
 
-## What's already live (no action needed)
-
-| Surface | URL | State |
+| Surface | URL | Current state |
 |---|---|---|
-| ACP product feed | `https://nexez.app/acp/feed.json` | ✅ public, live |
-| ACP checkout sessions | `https://nexez.app/api/acp/checkout_sessions` (+ `/{id}`, `/{id}/complete`, `/{id}/cancel`) | 🔒 401 until `ACP_SHARED_SECRET` set |
-| UCP product feed | `https://nexez.app/ucp/feed.json` | ✅ public, live |
-| UCP checkout sessions | `https://nexez.app/api/ucp/checkout-sessions` (+ `/{id}`, `/{id}/complete`, `/{id}/cancel`) | 🔒 401 until `UCP_SHARED_SECRET` set |
-| Capability manifest | `https://nexez.app/.well-known/nexez.json` → `agentic_commerce` block | ✅ advertises both; `checkout_status: "search_only"` |
+| ACP product feed | `https://nexez.app/acp/feed.json` | Public, search only by default |
+| ACP checkout | `https://nexez.app/api/acp/checkout_sessions` | Fails closed until `ACP_SHARED_SECRET` is set |
+| UCP product feed | `https://nexez.app/ucp/feed.json` | Public, search only by default |
+| UCP checkout | `https://nexez.app/api/ucp/checkout-sessions` | Fails closed until `UCP_SHARED_SECRET` is set |
+| Nexez capability manifest | `https://nexez.app/.well-known/nexez.json` | Reports checkout as search only unless explicitly enabled |
 
-Everything up to and including `/complete` is proven against **Stripe test
-PaymentMethods** - the only unproven line is the final delegated-token swap, gated on
-the Stripe question below.
+The settlement bridge has three typed branches:
 
----
+- Stripe test PaymentMethods beginning with `pm_` are accepted only by internal
+  sandbox certification code.
+- ACP Shared Payment Tokens beginning with `spt_` or `vt_` use Stripe's
+  `payment_method_data[shared_payment_granted_token]` preview parameter.
+- UCP Google Pay credentials are rejected before Stripe because Nexez does not yet
+  have a declared handler and verified gateway-processing path.
 
-## ✅ STEP 0: RESOLVED (Stripe confirmed 2026-07-25): SPT composes with Connect + app fee
+The public ACP completion route rejects a `pm_` stand-in. It accepts ACP's typed
+`{ "type": "spt", "token": "spt_..." }` credential and older bare SPT or
+vaulted-token shapes. The public UCP completion route requires exactly one selected
+instrument, an exact handler-instance match, and a `PAYMENT_GATEWAY` credential.
 
-**Stripe's answer:** *Yes*, a Shared Payment Token can be the payment credential on a
-**direct charge on a connected account with `application_fee_amount`**. The full amount
-lands on the connected account's balance, the `application_fee_amount` is pulled to the
-platform, and Stripe fees come off the connected account, i.e. exactly Nexez's
-seller-as-merchant-of-record model. No architectural change; the per-seller Connect
-commission model is confirmed to work for ACP.
+## Automated adapter gate
 
-**⚠️ One implementation nuance the answer surfaced, reconcile before the real-token
-smoke test (ACP Step 6).** Stripe passes the SPT via
-`payment_method_data[shared_payment_granted_token]=<token>`, **not** as
-`payment_method=<token>`. The settlement bridge currently sends
-`payment_method: payment.token` and ignores `payment.kind`
-([lib/commerce/settlement-bridge.ts](../lib/commerce/settlement-bridge.ts) ~L70). This
-is correct for the Stripe **test PaymentMethod** (`pm_…`) the path was proven against,
-but a real SPT needs the `payment_method_data[shared_payment_granted_token]` shape,
-so branch on `payment.kind === 'shared_payment_token'`. Pin the exact token prefix
-(`vt_` vs `spt_`) and param name to what **OpenAI actually issues at enrollment** before
-making the change; it's a small, isolated branch (the `kind` discriminator is already
-threaded through). Do NOT flip `ACP_CHECKOUT_ENABLED=true` for real tokens until this
-line is proven with a live `/complete`.
+Run:
 
-<details><summary>Original Step 0 question (kept for reference)</summary>
+```bash
+npm run certify:protocol-adapters
+```
 
-Nexez's money model is **Stripe Connect with the seller as merchant-of-record**: a
-direct charge on the seller's connected account, with the platform commission taken
-as `application_fee_amount`. ACP settles by charging a **Shared Payment Token**
-(`vt_…`) as the PaymentIntent's `payment_method`. It is **unconfirmed** whether SPT
-composes with a Connect direct charge + application fee. Ask your Stripe contact,
-verbatim:
+This command verifies:
 
-> For OpenAI Instant Checkout (Agentic Commerce Protocol), we are Stripe Connect with
-> the **seller as merchant-of-record** - a **direct charge on the seller's connected
-> account** with our platform commission as `application_fee_amount`.
-> 1. Can a **Shared Payment Token (`vt_…`)** be used as `payment_method` on a
->    PaymentIntent that is a **direct charge on a connected account** (`{ stripeAccount }`)
->    **with `application_fee_amount`**? Or does SPT only support first-party charges on
->    the platform account?
-> 2. Must the SPT allowance's `merchant_id` equal the **connected account** or the
->    **platform account**?
-> 3. Is there a Stripe **capability / enablement** required for SPT + Connect?
+- source-linked ACP 2026-04-17 and Google Pay 2026-01-23 credential fixtures;
+- typed credential dispatch and prefix validation;
+- ACP API-version refusal, route auth, replay behavior, and settlement mapping;
+- UCP handler matching, ambiguous-instrument rejection, route auth, replay
+  behavior, and the explicit unsupported gateway outcome.
 
-**If yes** → the settlement bridge accepts the token generically
-(`settleSessionToPaymentIntent(session, { token, kind: 'shared_payment_token' }, ctx)`);
-the only change is mapping an SPT `kind` to `payment_method_data[shared_payment_granted_token]`
-instead of `payment_method` (see the nuance note above).
-**If SPT is platform-account-only** → the per-seller Connect commission model may not
-compose for ACP; escalate before enrolling (the shared core is unaffected - only the
-ACP charge shape would need a decision).
+It does not call production, create a Stripe object, or prove that OpenAI or Google
+has issued a usable delegated credential.
 
-</details>
+## ACP enrollment
 
----
+### Compatibility limit
 
-## ACP (OpenAI Instant Checkout) - go-live
+Nexez currently emits its pinned `API-Version` contract, `2025-09-12`. The latest
+ACP release reviewed by this code is `2026-04-17`, and its typed SPT request fixture
+is covered. Nexez does not claim the full 2026-04-17 response contract. The auth
+boundary rejects any requested API version other than the pinned one.
 
-1. **Enroll.** Instant Checkout is an OpenAI **approved-partner** program (not
-   self-serve). Apply; provide OpenAI the feed URL (`/acp/feed.json`) and the
-   checkout base (`/api/acp/checkout_sessions`). OpenAI issues you a **shared Bearer
-   key** (OpenAI → merchant) and a **request-signing secret**, and gives you their
-   **order-status webhook URL + HMAC secret**.
+Confirm with OpenAI which wire version enrollment requires. If it requires
+2026-04-17, migrate the complete response and capability shapes before enabling
+checkout. Parsing the latest credential shape is necessary but is not full protocol
+conformance.
 
-2. **Set env vars** (Vercel → project → Environment Variables, Production):
-   - `ACP_SHARED_SECRET` = the OpenAI-issued Bearer key. *(This alone lifts the 401.)*
-   - `ACP_CHECKOUT_ENABLED` = `true`. *(Flips feed items to `is_eligible_checkout` +
-     `checkout_status: "live"` in the manifest.)*
+### Enrollment and configuration
 
-3. **Subscribe the Stripe Connect webhook to `payment_intent.succeeded`.** SF3
-   persists the durable `checkout_orders` row from `payment_intent.succeeded` on the
-   **connected account**. In the Stripe Dashboard, on the **connected-accounts**
-   webhook endpoint (the one whose secret is `STRIPE_WEBHOOK_SECRET_CONNECT`), ensure
-   `payment_intent.succeeded` is in the subscribed events. (Refunds/disputes already
-   match by PaymentIntent id, so those inherit for free.)
+1. Complete OpenAI partner enrollment.
+2. Provide `/acp/feed.json` and `/api/acp/checkout_sessions` as the feed and
+   checkout base.
+3. Obtain the inbound Bearer credential and order-status webhook values.
+4. Confirm the exact API version and request-signature requirements supplied at
+   enrollment. The current inbound gate verifies Bearer auth. Do not assume a
+   signature format before OpenAI supplies it.
+5. Set `ACP_SHARED_SECRET` only after the inbound contract is confirmed.
+6. Set `ACP_ORDER_WEBHOOK_URL` and `ACP_ORDER_WEBHOOK_SECRET` after confirming the
+   exact signature header and encoding.
+7. Confirm the connected-account Stripe webhook subscribes to
+   `payment_intent.succeeded`.
+8. Leave `ACP_CHECKOUT_ENABLED` unset until the owner smoke test passes.
 
-4. **Order-status webhook (A4 - already built, dormant).** Set the two env vars from
-   Step 1 and it turns on:
-   - `ACP_ORDER_WEBHOOK_URL` = OpenAI's order-webhook URL.
-   - `ACP_ORDER_WEBHOOK_SECRET` = the signing secret.
-   It emits `order_updated` (base64-HMAC-signed) from the Stripe webhook's refund/
-   dispute path so ACP order status (refunds, disputes) stays in sync with OpenAI.
-   Dormant + best-effort without those vars. *(Confirm OpenAI's exact signature header
-   name/encoding at enrollment - the default is a base64 HMAC-SHA256 of the body; a
-   1-line change if theirs differs.)*
+### Owner-run ACP smoke test
 
-5. **Confirm SPT** (Step 0). If platform-only, resolve the Connect question first.
+This is a deliberate payment test. Do not automate it against live money.
 
-6. **Smoke test (real).** With a Stripe **test** PaymentMethod as a stand-in for the
-   `vt_` token: `POST /api/acp/checkout_sessions` with the Bearer → 201; `/{id}/complete`
-   with the test PM → a real (test-mode) charge on a connected account + a
-   `checkout_orders` row + a buyer receipt. Then repeat with a real `vt_` once SPT is
-   confirmed. Clean up test data.
+1. Use an enrolled certification seller with Connect charges and payouts enabled.
+2. Create a low-value ACP session with a unique idempotency key.
+3. Replay create and confirm the original session is returned.
+4. Complete with a real OpenAI-issued `spt_` or approved `vt_` credential, never a
+   `pm_` stand-in.
+5. Confirm one direct charge on the seller's connected account and the expected
+   `application_fee_amount`.
+6. Confirm one durable `checkout_orders` row with `channel = 'acp'`, correct seller
+   ownership, correct amount, and Stripe environment provenance.
+7. Replay completion and confirm no second charge or order.
+8. Confirm the buyer receipt, seller notification, order portal, refund path, and
+   outbound ACP order update.
+9. Retain Stripe event IDs and the enrollment version as release evidence.
+10. Only then set `ACP_CHECKOUT_ENABLED=true`.
 
----
+## UCP enrollment
 
-## UCP (Google Universal Commerce Protocol) - go-live
+UCP is less mature in Nexez than ACP. Keep UCP checkout disabled until every item
+below is complete.
 
-1. **Enroll.** Create a **Google Merchant Center** account, submit the product feed
-   (`/ucp/feed.json`), then join the **UCP waitlist** and get Google's approval. Obtain
-   the **M2M access-token** validation details and **Google Pay** credentials.
+1. Complete Google Merchant Center and UCP enrollment.
+2. Add the standard `/.well-known/ucp` profile.
+3. Declare the `com.google.pay` payment handler in the profile and every checkout
+   response, using the enrolled instance ID.
+4. Configure `UCP_GOOGLE_PAY_HANDLER_ID` to that exact instance ID.
+5. Configure Google Pay for the chosen payment gateway and prove how the opaque
+   `PAYMENT_GATEWAY` payload becomes a charge on the seller's Connect account.
+6. Implement that gateway branch without decoding, replacing, or treating the
+   payload as a Stripe PaymentMethod ID.
+7. Add the standard UCP response envelope, status lifecycle, capabilities, links,
+   and payment-handler declarations for the enrolled UCP version.
+8. Add AP2 mandate verification if the enrolled flow requires autonomous
+   completion.
+9. Set `UCP_SHARED_SECRET` after Google's inbound auth contract is known.
+10. Run the adapter gate and a deliberate owner test with the enrolled Google Pay
+    test environment.
+11. Leave `UCP_CHECKOUT_ENABLED` unset until handler, gateway, replay, order, and
+    notification evidence all pass.
 
-2. **Set env vars:**
-   - `UCP_SHARED_SECRET` = the M2M Bearer Google presents. *(Lifts the 401.)*
-   - `UCP_CHECKOUT_ENABLED` = `true`.
+## Environment reference
 
-3. **AP2 mandate verification (deferred layer).** v1 settles the Google Pay token
-   through the same Stripe bridge (`kind: 'google_pay'`); the AP2 mandate JWT
-   (ECDSA verifiable-credential) verification needs Google's signing keys - wire it as
-   a defense-in-depth check once Google provides the keys/JWKS. (Ping me to add.)
+| Variable | Effect |
+|---|---|
+| `ACP_SHARED_SECRET` | Enables ACP Bearer authentication |
+| `ACP_CHECKOUT_ENABLED=true` | Advertises ACP checkout eligibility |
+| `ACP_ORDER_WEBHOOK_URL` | Enables outbound ACP order updates |
+| `ACP_ORDER_WEBHOOK_SECRET` | Signs outbound ACP order updates |
+| `UCP_SHARED_SECRET` | Enables UCP Bearer authentication |
+| `UCP_GOOGLE_PAY_HANDLER_ID` | Binds an inbound instrument to Nexez's declared Google Pay handler |
+| `UCP_CHECKOUT_ENABLED=true` | Advertises UCP checkout eligibility |
+| `STRIPE_WEBHOOK_SECRET_CONNECT` | Verifies seller-account Stripe events |
+| `STRIPE_SECRET_KEY` | Performs settlement in the configured Stripe mode |
+| `SUPABASE_SERVICE_ROLE_KEY` | Persists sessions and orders through the server boundary |
 
-4. **Stripe webhook** - same `payment_intent.succeeded` subscription as ACP Step 3
-   (already done if you completed ACP). UCP orders persist with `channel: 'ucp'`.
+## Fail-safe behavior
 
-5. **Smoke test** - same shape as ACP Step 6 against `/api/ucp/checkout-sessions`
-   (UCP uses **PUT** for update, and payment arrives at
-   `payment.instruments[].credential.token`).
-
----
-
-## Env-var quick reference
-
-| Var | Where | Effect |
-|---|---|---|
-| `ACP_SHARED_SECRET` | Vercel prod | Lifts ACP 401 (verifies OpenAI's Bearer) |
-| `ACP_CHECKOUT_ENABLED` = `true` | Vercel prod | Feed `is_eligible_checkout` + manifest `checkout_status: live` |
-| `ACP_ORDER_WEBHOOK_URL` | Vercel prod | Turns on A4 (merchant→OpenAI order_updated on refund/dispute) |
-| `ACP_ORDER_WEBHOOK_SECRET` | Vercel prod | Signs the A4 order webhook (base64 HMAC) |
-| `UCP_SHARED_SECRET` | Vercel prod | Lifts UCP 401 (verifies Google's M2M Bearer) |
-| `UCP_CHECKOUT_ENABLED` = `true` | Vercel prod | UCP feed/manifest checkout-eligible |
-| `STRIPE_WEBHOOK_SECRET_CONNECT` | Vercel prod (**already set**) | Connect webhook - just **add** `payment_intent.succeeded` to its subscribed events |
-| `STRIPE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Vercel prod (**already set**) | Required for settlement + session persistence |
-
-Order of operations: **confirm SPT (Step 0) → enroll → set the shared secret (endpoint
-goes live, still search_only in the feed) → subscribe the webhook event → smoke-test
-with a test PM → flip `*_CHECKOUT_ENABLED=true` → repeat with the real delegated token.**
-
----
-
-## How it fails safe
-
-- No secret set → every checkout endpoint returns `401 inbound_auth_not_configured`. No
-  unauthenticated charge surface exists.
-- `*_CHECKOUT_ENABLED` unset/false → feeds advertise `is_eligible_search` only; the
-  manifest reads `checkout_status: "search_only"`.
-- A paused seller (expired trial) → `resolveSettlementContext` blocks the charge
-  (`409`/`402`) before any money moves.
-- Every settlement is idempotent (Stripe key `{acp,ucp}_settle_<session_id>` + a unique
-  index on the PaymentIntent) - a replayed `/complete` returns the original order, never
-  a second charge.
+- No protocol secret means every checkout request fails authentication.
+- A missing UCP handler ID returns a configuration error before settlement.
+- A mismatched UCP handler, ambiguous instrument, wrong credential type, or blank
+  token returns a request error before settlement.
+- A raw `pm_` credential at the ACP public boundary is rejected.
+- An ACP version other than the pinned version is rejected instead of echoed.
+- A paused seller or seller without charge and payout readiness cannot settle.
+- Create and completion retries use stable idempotency keys.
+- Launch Control never treats sandbox protocol order counts alone as delegated-payment
+  proof. It promotes only an append-only `protocol_credential_confirmed` order event
+  written after successful settlement. The event stores credential kind and handler
+  ID, not the credential token.

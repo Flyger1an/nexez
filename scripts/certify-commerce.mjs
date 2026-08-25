@@ -204,7 +204,9 @@ function printManualChecks() {
   console.log('4. Refund: partially refund the same order, verify the remainder, then finish the refund and verify fee reversal plus buyer/seller notices.')
   console.log('5. Negotiation: propose, approve, fund, capture, reconcile, and confirm buyer/seller notifications.')
   console.log('6. Price sync: update a certification Price and verify exactly one listing update plus audit event.')
-  console.log('7. Protocol checkout: complete one ACP and one UCP session, replay each request, and verify one order per idempotency key.')
-  console.log('8. Reservable resource: expire one unpurchased hold, settle one fresh hold, and verify the live order, committed hold, and reservation linkage.')
-  console.log('9. Staged settlement: approve and pay each obligation separately, then verify every live order link and the completed agreement.')
+  console.log('7. Protocol adapters: run npm run certify:protocol-adapters. This moves no money and does not prove a delegated credential.')
+  console.log('8. ACP delegated payment: after enrollment, complete one low-value SPT checkout, replay create and complete, and verify one durable order and charge.')
+  console.log('9. UCP delegated payment: keep checkout disabled until the declared Google Pay handler and gateway processing path are certified, then run the same deliberate replay test.')
+  console.log('10. Reservable resource: expire one unpurchased hold, settle one fresh hold, and verify the live order, committed hold, and reservation linkage.')
+  console.log('11. Staged settlement: approve and pay each obligation separately, then verify every live order link and the completed agreement.')
 }

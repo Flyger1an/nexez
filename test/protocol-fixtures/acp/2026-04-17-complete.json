@@ -1,0 +1,22 @@
+{
+  "protocol": "acp",
+  "version": "2026-04-17",
+  "source": "https://github.com/agentic-commerce-protocol/agentic-commerce-protocol/blob/main/examples/2026-04-17/examples.agentic_checkout.json",
+  "request": {
+    "buyer": {
+      "first_name": "John",
+      "last_name": "Smith",
+      "email": "johnsmith@mail.com"
+    },
+    "payment_data": {
+      "handler_id": "card_tokenized",
+      "instrument": {
+        "type": "card",
+        "credential": {
+          "type": "spt",
+          "token": "spt_123"
+        }
+      }
+    }
+  }
+}

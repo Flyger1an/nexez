@@ -74,8 +74,14 @@ type CredentialParams =
 function resolveCredentialParams(payment: DelegatedPayment): CredentialParams {
   switch (payment.kind) {
     case 'payment_method':
+      if (!payment.token.startsWith('pm_')) {
+        return invalidCredential('A sandbox payment method must be a Stripe PaymentMethod id beginning with pm_.')
+      }
       return { ok: true, params: { payment_method: payment.token, off_session: true } }
     case 'shared_payment_token':
+      if (!payment.token.startsWith('spt_') && !payment.token.startsWith('vt_')) {
+        return invalidCredential('An ACP delegated credential must be a Stripe token beginning with spt_ or vt_.')
+      }
       return {
         ok: true,
         // Double cast through `unknown` on purpose: SDK 22.2.0 types
@@ -88,6 +94,9 @@ function resolveCredentialParams(payment: DelegatedPayment): CredentialParams {
         apiVersion: SHARED_PAYMENT_PREVIEW_VERSION,
       }
     case 'google_pay':
+      if (payment.credentialType !== 'PAYMENT_GATEWAY' || !payment.handlerId.trim() || !payment.token.trim()) {
+        return invalidCredential('The Google Pay credential is incomplete or does not match the declared payment handler.')
+      }
       return {
         ok: false,
         error: {
@@ -106,6 +115,13 @@ function resolveCredentialParams(payment: DelegatedPayment): CredentialParams {
           message: `Unrecognized payment credential kind: ${String((payment as DelegatedPayment).kind)}.`,
         },
       }
+  }
+}
+
+function invalidCredential(message: string): CredentialParams {
+  return {
+    ok: false,
+    error: { ok: false, code: 'unsupported_credential', message },
   }
 }
 
