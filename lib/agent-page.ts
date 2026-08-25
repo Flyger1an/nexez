@@ -67,6 +67,10 @@ export const SERVER_PAGE_SELECT = [
 
 export const OWNER_PAGE_SELECT = [
   SERVER_PAGE_SELECT,
+  'commerce_template_id',
+  'commerce_template_version',
+  'commerce_template_adopted_at',
+  'commerce_template_source',
   'simulations',
   'team_collaboration',
   'versions',
@@ -267,6 +271,10 @@ export function resolvePreferredContact(
 export type AgentPage = {
   id: string
   owner_id?: string | null
+  commerce_template_id?: string | null
+  commerce_template_version?: number | null
+  commerce_template_adopted_at?: string | null
+  commerce_template_source?: 'owner_selected_intake' | null
   name: string
   slug: string
   description: string | null

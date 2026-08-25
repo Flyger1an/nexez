@@ -8,6 +8,7 @@ import { getOwnerEntitlements } from '../../../lib/server/plan'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { getPageIntegrationConnections } from '../../../lib/server/integration-connections'
 import { outboundWebhooksForClient } from '../../../lib/server/outbound-webhook-config'
+import { commerceTemplateLineageSummary } from '../../../lib/commerce-template-lineage'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -112,6 +113,7 @@ export default async function EditAgentPage({ params }: PageProps) {
 
   const initial: EditorInitial = {
     page,
+    commerceTemplateLineage: commerceTemplateLineageSummary(page),
     recentCalendlyBookings: calendlyRes.data ?? [],
     recentOutboundFires: outboundRes.data ?? [],
     trustEvents: trustRes.data ?? [],

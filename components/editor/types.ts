@@ -1,4 +1,5 @@
 import { AgentPage, OfferItem } from '../../lib/agent-page'
+import type { CommerceTemplateLineageSummary } from '../../lib/commerce-template-lineage'
 
 /** Checkout/event rows the editor surfaces (loosely typed, as in the original). */
 export type EditorEvent = any
@@ -6,6 +7,7 @@ export type EditorEvent = any
 /** Initial editor data fetched server-side and handed to the client island. */
 export type EditorInitial = {
   page: AgentPage
+  commerceTemplateLineage: CommerceTemplateLineageSummary | null
   recentCalendlyBookings: EditorEvent[]
   recentOutboundFires: EditorEvent[]
   trustEvents: EditorEvent[]

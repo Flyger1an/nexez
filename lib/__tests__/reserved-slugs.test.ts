@@ -57,4 +57,22 @@ describe('buildDuplicatePayload slug minting', () => {
     expect(buildDuplicatePayload(page, 'owner-1', []).slug).toBe('learn-copy')
     expect(buildDuplicatePayload(page, 'owner-1', ['learn-copy']).slug).toBe('learn-copy-2')
   })
+
+  it('does not copy Commerce Template lineage into a new listing', () => {
+    const page = {
+      name: 'Party Hire',
+      slug: 'party-hire',
+      commerce_template_id: 'events.party-rentals',
+      commerce_template_version: 1,
+      commerce_template_adopted_at: '2026-08-25T22:30:00.000Z',
+      commerce_template_source: 'owner_selected_intake',
+    } as AgentPage
+
+    const duplicate = buildDuplicatePayload(page, 'owner-1', [])
+
+    expect(duplicate).not.toHaveProperty('commerce_template_id')
+    expect(duplicate).not.toHaveProperty('commerce_template_version')
+    expect(duplicate).not.toHaveProperty('commerce_template_adopted_at')
+    expect(duplicate).not.toHaveProperty('commerce_template_source')
+  })
 })
