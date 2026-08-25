@@ -4,14 +4,13 @@ import { useState } from 'react'
 import { createClient } from '../../utils/supabase/client'
 
 /**
- * Availability editor: keep a human-readable note alongside optional,
- * deterministic sample windows that agents can read. The current product flow
- * does not store Google OAuth credentials, so a calendar ID is only a stable
- * seed for sample generation - it is not a live calendar connection.
+ * Availability editor: keep a human-readable note alongside optional live
+ * Google Calendar free/busy windows that agents can read. OAuth credentials
+ * stay encrypted server-side and this component only receives open windows.
  *
  * `calendarId` and `note` stay OWNED BY THE PAGE, with their setters passed
  * through, because loadPage seeds both from the listing row when it fetches.
- * The in-flight save flag is local, and so is sample generation.
+ * The in-flight save flag is local.
  */
 
 /**
@@ -34,7 +33,7 @@ export function AvailabilityPanel({
 }: {
   /** Absent until the listing exists; generation no-ops without it. */
   pageId: string | undefined
-  /** Premium sample-window generation is gated. Manual notes remain core. */
+  /** Premium live-calendar sync is gated. Manual notes remain core. */
   integrationsAllowed: boolean
   calendarId: string
   setCalendarId: (value: string) => void
@@ -51,24 +50,24 @@ export function AvailabilityPanel({
     <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="availability-panel">
       <div className="text-sm font-medium text-[var(--ready)] mb-2">Availability</div>
       <p className="text-[10px] text-zinc-400 mb-3">
-        Save a manual availability note on every plan. Pro and above can generate sample windows for agents. This does
-        not connect to or read your Google Calendar.
+        Save a manual availability note on every plan. Pro and above can connect Google Calendar in Integrations, then
+        sync live free/busy windows here. Nexez reads busy times, not event titles or descriptions.
       </p>
 
       <div className="space-y-2 mb-3">
         <label className="block text-[11px] text-zinc-400">
-          Calendar ID (sample seed)
+          Google Calendar ID
           <input
             type="text"
             value={calendarId}
             onChange={(e) => setCalendarId(e.target.value)}
             disabled={!integrationsAllowed}
-            placeholder="Calendar ID (e.g. yourname@gmail.com or abc123@group.calendar.google.com)"
+            placeholder="primary, yourname@gmail.com, or a shared calendar ID"
             className="mt-1 w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
             data-testid="google-calendar-id-input"
           />
           {!integrationsAllowed ? (
-            <span className="mt-1 block text-[10px] text-[var(--amber)]">Sample-window generation requires Pro. A saved Calendar ID is retained, but generation is paused.</span>
+            <span className="mt-1 block text-[10px] text-[var(--amber)]">Live Google Calendar sync requires Pro. A saved Calendar ID is retained, but sync is paused.</span>
           ) : null}
         </label>
         <label className="block text-[11px] text-zinc-400">
@@ -104,7 +103,7 @@ export function AvailabilityPanel({
                 body: JSON.stringify({ calendarId: trimmedCalendarId, pageId }),
               })
               const data = await res.json()
-              if (!res.ok) throw new Error(data?.error || 'Sample generation failed')
+              if (!res.ok) throw new Error(data?.error || 'Google Calendar sync failed')
               generatedAvailability = data.availability
               finalNote = data.next_available || data.availability?.summary_note || finalNote
 
@@ -139,12 +138,12 @@ export function AvailabilityPanel({
 
             const windowCount = generatedAvailability?.windows?.length || 0
             const successMsg = trimmedCalendarId
-              ? `Sample availability generated • ${windowCount} ${windowCount === 1 ? 'window' : 'windows'} • No Google Calendar connection was created.`
+              ? `Live Google availability synced • ${windowCount} ${windowCount === 1 ? 'window' : 'windows'}.`
               : 'Availability saved. Visible on the public listing and in agent data.'
 
             onMessage(error || !savedAvailability ? error?.message || 'Availability was not saved.' : successMsg)
           } catch (e: any) {
-            onMessage('Failed to generate availability: ' + e.message)
+            onMessage('Failed to sync availability: ' + e.message)
           } finally {
             setAvailabilitySaving(false)
           }
@@ -152,9 +151,9 @@ export function AvailabilityPanel({
         className="mt-1 w-full rounded-lg border border-[var(--ready)]/40 px-4 py-1.5 text-sm text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-60"
         data-testid="availability-save-button"
       >
-        {availabilitySaving ? 'Saving...' : hasCalendarId ? 'Generate Sample Availability' : 'Save Manual Availability'}
+        {availabilitySaving ? 'Saving...' : hasCalendarId ? 'Sync Google availability' : 'Save Manual Availability'}
       </button>
-      <p className="mt-1 text-[10px] text-zinc-500">Sample windows are deterministic and are not read from or synced with Google Calendar. Saved notes and generated windows appear for agents immediately.</p>
+      <p className="mt-1 text-[10px] text-zinc-500">Use primary for your main calendar. Saved notes and synced free/busy windows appear for agents immediately.</p>
     </div>
   )
 }

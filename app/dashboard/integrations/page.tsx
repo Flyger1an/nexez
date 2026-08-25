@@ -65,11 +65,33 @@ const integrations = [
   {
     id: 'google-calendar',
     name: 'Google Calendar',
-    description: 'Generate sample availability windows in a listing. This does not connect to or sync Google Calendar.',
-    status: 'Sample only',
+    description: 'Connect with OAuth and sync live free/busy windows without reading event titles or descriptions.',
+    status: 'Available',
     action: 'Open listings',
     href: '/dashboard',
     icon: Calendar,
+    accent: 'blue',
+    requiresIntegrations: true,
+  },
+  {
+    id: 'woocommerce',
+    name: 'WooCommerce',
+    description: 'Authorize read-only catalog, inventory, and order access from your WooCommerce store.',
+    status: 'Available',
+    action: 'Open listings',
+    href: '/dashboard',
+    icon: ShoppingCart,
+    accent: 'purple',
+    requiresIntegrations: true,
+  },
+  {
+    id: 'servicem8',
+    name: 'ServiceM8',
+    description: 'Import active job templates and verify live job access for home-service operations.',
+    status: 'Available',
+    action: 'Open listings',
+    href: '/dashboard',
+    icon: Workflow,
     accent: 'blue',
     requiresIntegrations: true,
   },
@@ -230,7 +252,7 @@ export default function IntegrationsPage() {
           ...int,
           status: 'Connected',
           description: `Connected • Last import ${fmtTime(row?.last_event_at ?? stripeConnection!.lastImport)}`,
-          action: 'Manage in Tools',
+          action: ['google-calendar', 'woocommerce', 'servicem8'].includes(int.id) ? 'Open listings' : 'Manage in Tools',
         }
       }
     }
@@ -247,8 +269,9 @@ export default function IntegrationsPage() {
       }
     }
 
-    if (int.id === 'square' || int.id === 'acuity') {
-      const row = dbStatus[int.id]
+    if (int.id === 'square' || int.id === 'acuity' || int.id === 'google-calendar' || int.id === 'woocommerce' || int.id === 'servicem8') {
+      const provider = int.id === 'google-calendar' ? 'google_calendar' : int.id
+      const row = dbStatus[provider]
       if (row) {
         return {
           ...int,
@@ -304,7 +327,9 @@ export default function IntegrationsPage() {
                 <div className="flex justify-between gap-3"><span>Shopify App Store</span><span className="text-right text-[var(--ready)]">Every plan</span></div>
                 <div className="flex justify-between gap-3"><span>Shopify Admin API</span><span className="text-right text-[var(--ready)]">Manual import &amp; re-sync</span></div>
                 <div className="flex justify-between gap-3"><span>Square / Acuity</span><span className="text-right text-[var(--ready)]">Catalog &amp; scheduling</span></div>
-                <div className="flex justify-between gap-3"><span>Google Calendar</span><span className="text-right text-[var(--ready)]">Sample windows (not connected)</span></div>
+                <div className="flex justify-between gap-3"><span>Google Calendar</span><span className="text-right text-[var(--ready)]">Live free/busy via OAuth</span></div>
+                <div className="flex justify-between gap-3"><span>WooCommerce</span><span className="text-right text-[var(--ready)]">Catalog, inventory &amp; orders</span></div>
+                <div className="flex justify-between gap-3"><span>ServiceM8</span><span className="text-right text-[var(--ready)]">Job templates &amp; active jobs</span></div>
                 <div className="flex justify-between gap-3"><span>Zapier / Make</span><span className="text-right text-[var(--ready)]">Outbound on every booking</span></div>
               </div>
               <div className="mt-3 pt-2 border-t border-[var(--signal)]/30 text-[var(--signal)] text-[10px]">

@@ -10,7 +10,7 @@ const content = marketingPages.integrations
 // Distinct from content.description, which is on-page hero copy.
 const metaTitle = 'Integrations - Stripe, Calendly, Shopify & more'
 const metaDescription =
-  'Connect Stripe, Shopify, Square, Calendly, and Acuity. Import CSV and websites, and generate clearly labeled Google Calendar availability samples.'
+  'Connect Stripe, Shopify, Square, WooCommerce, ServiceM8, Calendly, Acuity, and Google Calendar with scoped, reviewable integrations.'
 
 export const metadata: Metadata = {
   title: metaTitle,

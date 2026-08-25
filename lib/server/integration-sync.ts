@@ -2,6 +2,13 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { importIntegrationOffers, type IntegrationIngestInput } from './integration-importers'
 import { getCalendlyPat, getShopifyCreds, getSquareCreds, getAcuityCreds, integrationCredentialsConfigured } from './page-integration-credentials'
+import {
+  getUsableConnectorCredential,
+  isManagedConnectorProvider,
+  recordMerchantConnectorSync,
+  type OAuthCredential,
+  type WooCommerceCredential,
+} from './merchant-connectors'
 import { fetchCalendlyEventTypeAvailability } from './calendly-write'
 import { applyEventTypeAvailability, buildCalendlyNextAvailable, calendlyEventTypeRefs } from '../calendly-availability'
 import { mergeProviderOffersAcrossColumns } from '../integration-merge'
@@ -19,13 +26,20 @@ const HORIZON_DAYS = 7
 // the token". All are per-seller token providers whose creds live encrypted in
 // page_secrets. (Stripe is excluded: it's platform-key + Connect, and its prices
 // already auto-sync via webhook - there's no per-seller catalog token to store.)
-export type SyncProvider = 'calendly' | 'shopify' | 'square' | 'acuity'
-export const SYNCABLE_PROVIDERS: readonly SyncProvider[] = ['calendly', 'shopify', 'square', 'acuity']
+export type SyncProvider = 'calendly' | 'shopify' | 'square' | 'acuity' | 'woocommerce' | 'servicem8'
+export const SYNCABLE_PROVIDERS: readonly SyncProvider[] = ['calendly', 'shopify', 'square', 'acuity', 'woocommerce', 'servicem8']
 export function isSyncProvider(p: string): p is SyncProvider {
   return (SYNCABLE_PROVIDERS as readonly string[]).includes(p)
 }
 
-const PROVIDER_LABEL: Record<SyncProvider, string> = { calendly: 'Calendly', shopify: 'Shopify', square: 'Square', acuity: 'Acuity' }
+const PROVIDER_LABEL: Record<SyncProvider, string> = {
+  calendly: 'Calendly',
+  shopify: 'Shopify',
+  square: 'Square',
+  acuity: 'Acuity',
+  woocommerce: 'WooCommerce',
+  servicem8: 'ServiceM8',
+}
 
 export type SyncResult =
   | { ok: true; provider: SyncProvider; imported: number; windows: number; availabilitySynced: boolean; note: string | null }
@@ -34,6 +48,7 @@ export type SyncResult =
 /** Build the import input from the page's STORED credentials, or null if the
  *  provider isn't connected for this page. Never takes a token from the caller. */
 async function resolveStoredInput(
+  admin: SupabaseClient,
   provider: SyncProvider,
   pageId: string,
   options: SyncOptions = {},
@@ -50,8 +65,18 @@ async function resolveStoredInput(
     return creds ? { provider: 'shopify', shop: creds.shop, accessToken: creds.token, limit: 250 } : null
   }
   if (provider === 'square') {
+    const managed = await getUsableConnectorCredential(admin, pageId, 'square')
+    if (managed.ok) return { provider: 'square', accessToken: (managed.credential as OAuthCredential).accessToken }
     const creds = await getSquareCreds(pageId)
     return creds ? { provider: 'square', accessToken: creds.accessToken } : null
+  }
+  if (provider === 'woocommerce') {
+    const managed = await getUsableConnectorCredential(admin, pageId, 'woocommerce')
+    return managed.ok ? { provider: 'woocommerce', credentials: managed.credential as WooCommerceCredential } : null
+  }
+  if (provider === 'servicem8') {
+    const managed = await getUsableConnectorCredential(admin, pageId, 'servicem8')
+    return managed.ok ? { provider: 'servicem8', accessToken: (managed.credential as OAuthCredential).accessToken } : null
   }
   const creds = await getAcuityCreds(pageId)
   return creds ? { provider: 'acuity', userId: creds.userId, apiKey: creds.apiKey } : null
@@ -110,13 +135,18 @@ export async function syncPageIntegration(
       return { ok: false, status: 409, error: 'The Shopify listing connection changed before sync started.' }
     }
   }
-  const input = await resolveStoredInput(provider, pageId, options)
+  const input = await resolveStoredInput(admin, provider, pageId, options)
   if (!input) {
     return { ok: false, status: 400, error: `Connect ${PROVIDER_LABEL[provider]} in Settings before syncing.` }
   }
 
   const imported = await importIntegrationOffers(input)
-  if (!imported.ok) return { ok: false, status: 502, error: imported.error }
+  if (!imported.ok) {
+    if (isManagedConnectorProvider(provider)) {
+      await recordMerchantConnectorSync(admin, pageId, provider, { ok: false, error: imported.error })
+    }
+    return { ok: false, status: 502, error: imported.error }
+  }
 
   const { data: page } = await admin
     .from('pages')
@@ -216,6 +246,13 @@ export async function syncPageIntegration(
   // Advance the Calendly rotation cursor so the background cron doesn't immediately re-run it.
   if (provider === 'calendly') {
     await admin.from('page_secrets').update({ calendly_synced_at: nowIso }).eq('page_id', pageId)
+  }
+
+  if (isManagedConnectorProvider(provider)) {
+    await recordMerchantConnectorSync(admin, pageId, provider, {
+      ok: true,
+      metadata: imported.connectionMetadata,
+    })
   }
 
   captureEvent('integration.manual_sync', { provider, slug: page.slug, imported: imported.offers.length, windows: windows.length })

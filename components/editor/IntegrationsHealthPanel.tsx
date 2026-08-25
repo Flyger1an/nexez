@@ -129,7 +129,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
         )}
         {googleCalendarId && (
           <div className="flex items-center gap-2 rounded border border-[var(--ready)]/30 bg-[var(--ready)]/5 px-2 py-1 text-[var(--ready)]">
-            Availability sample {premiumActive ? '· configured' : '· generation paused by plan'} <span className="text-[10px] text-[var(--fg-muted)]">({googleCalendarId.includes('@') ? googleCalendarId.split('@')[0] + '...' : googleCalendarId.slice(0, 10) + '...'})</span>
+            Google availability {premiumActive ? '· configured' : '· sync paused by plan'} <span className="text-[10px] text-[var(--fg-muted)]">({googleCalendarId.includes('@') ? googleCalendarId.split('@')[0] + '...' : googleCalendarId.slice(0, 10) + '...'})</span>
           </div>
         )}
       </div>
@@ -139,7 +139,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
           : 'Connected premium providers are retained after downgrade, but new imports and automation are paused. The installed Shopify app remains active on every plan.'}{' '}
         Connect, disconnect, and manage every integration in <a href={`/dashboard/${id}/settings`} className="underline">Settings → Integrations</a>.
       </p>
-      <div className="mt-2 text-[10px] text-[var(--ready)]">Webhooks and sample availability are managed in Settings.</div>
+      <div className="mt-2 text-[10px] text-[var(--ready)]">Webhooks and live Google availability are managed in Settings.</div>
       <div className="mt-1 text-[10px] text-[var(--fg-muted)]">Last sync times appear in the badges.</div>
     </div>
   )

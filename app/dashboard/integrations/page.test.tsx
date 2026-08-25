@@ -57,7 +57,7 @@ describe('dashboard integration allocation', () => {
       '/dashboard/shopify',
     )
 
-    for (const name of ['Stripe catalog', 'Calendly', 'Shopify Admin import', 'Square', 'Acuity Scheduling']) {
+    for (const name of ['Stripe catalog', 'Calendly', 'Shopify Admin import', 'Square', 'Acuity Scheduling', 'Google Calendar', 'WooCommerce', 'ServiceM8']) {
       expect(card(name).getByText('Pro')).toBeVisible()
       expect(card(name).getByRole('link', { name: 'Upgrade to connect' })).toBeVisible()
     }
@@ -68,12 +68,12 @@ describe('dashboard integration allocation', () => {
     render(<IntegrationsPage />)
 
     await waitFor(() => expect(card('Stripe payouts').getByText('Setup required')).toBeVisible())
-    for (const name of ['Stripe catalog', 'Calendly', 'Shopify Admin import', 'Square', 'Acuity Scheduling']) {
+    for (const name of ['Stripe catalog', 'Calendly', 'Shopify Admin import', 'Square', 'Acuity Scheduling', 'Google Calendar', 'WooCommerce', 'ServiceM8']) {
       expect(card(name).queryByText('Pro')).not.toBeInTheDocument()
       expect(card(name).queryByRole('link', { name: 'Upgrade to connect' })).not.toBeInTheDocument()
     }
-    expect(card('Google Calendar').getByText('Sample only')).toBeVisible()
-    expect(card('Google Calendar').getByText(/does not connect to or sync Google Calendar/i)).toBeVisible()
+    expect(card('Google Calendar').getByText('Available')).toBeVisible()
+    expect(card('Google Calendar').getByText(/connect with OAuth.*live free\/busy/i)).toBeVisible()
     expect(card('Google Calendar').getByRole('link', { name: 'Open listings' })).toHaveAttribute('href', '/dashboard')
   })
 

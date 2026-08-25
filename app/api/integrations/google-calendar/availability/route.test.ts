@@ -1,98 +1,130 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { createSupabaseMock } from '../../../../../test/supabase-mock'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
-vi.mock('../../../../../utils/supabase/server', () => ({ createClient: vi.fn() }))
-vi.mock('../../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(() => ({ admin: true })) }))
+const { gateRef, connectionRef } = vi.hoisted(() => ({
+  gateRef: {
+    value: {
+      ok: true,
+      user: { id: 'user-1' },
+      access: { pageId: 'page-1', ownerId: 'owner-1' },
+      admin: { from: vi.fn() },
+    } as any,
+  },
+  connectionRef: {
+    value: {
+      ok: true,
+      credential: { accessToken: 'google-access', refreshToken: 'refresh', tokenType: 'Bearer', expiresAt: null },
+      row: {},
+    } as any,
+  },
+}))
+
+vi.mock('../../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => null) }))
+vi.mock('../../../../../lib/server/require-page-access', () => ({ requirePageAccess: vi.fn(async () => gateRef.value) }))
 vi.mock('../../../../../lib/server/plan', () => ({ ownerAllows: vi.fn(async () => true) }))
-vi.mock('../../../../../lib/server/page-access', () => ({
-  resolveFeatureOwner: vi.fn(async ({ userId, pageId }: { userId: string; pageId?: string }) => ({
-    ok: true,
-    ownerId: pageId ? 'page-owner-1' : userId,
-    pageId: pageId ?? null,
-    scoped: Boolean(pageId),
-    role: pageId ? 'editor' : 'owner',
-  })),
+vi.mock('../../../../../lib/server/merchant-connectors', () => ({
+  getUsableConnectorCredential: vi.fn(async () => connectionRef.value),
+  recordMerchantConnectorSync: vi.fn(async () => undefined),
 }))
 
 import { GET, POST } from './route'
-import { createClient } from '../../../../../utils/supabase/server'
 import { ownerAllows } from '../../../../../lib/server/plan'
-import { resolveFeatureOwner } from '../../../../../lib/server/page-access'
+import { requirePageAccess } from '../../../../../lib/server/require-page-access'
+import { getUsableConnectorCredential } from '../../../../../lib/server/merchant-connectors'
 
-const post = (body: unknown) =>
-  new Request('https://nexez.test/api/integrations/google-calendar/availability', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  }) as any
-
-function authed(user: { id: string } | null = { id: 'owner-1' }) {
-  vi.mocked(createClient).mockReturnValue(createSupabaseMock(() => ({ data: null }), { user }) as any)
-}
+const post = (body: unknown, raw = false) => new Request('https://nexez.test/api/integrations/google-calendar/availability', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: raw ? String(body) : JSON.stringify(body),
+})
 
 describe('Google Calendar availability route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubGlobal('fetch', vi.fn())
+    gateRef.value = {
+      ok: true,
+      user: { id: 'user-1' },
+      access: { pageId: 'page-1', ownerId: 'owner-1' },
+      admin: { from: vi.fn() },
+    }
+    connectionRef.value = {
+      ok: true,
+      credential: { accessToken: 'google-access', refreshToken: 'refresh', tokenType: 'Bearer', expiresAt: null },
+      row: {},
+    }
     vi.mocked(ownerAllows).mockResolvedValue(true)
   })
 
-  it('401 when unauthenticated (no anonymous token relay)', async () => {
-    authed(null)
-    expect((await POST(post({ calendarId: 'e2e-calendar@example.com' }))).status).toBe(401)
+  it('rejects invalid JSON before any provider call', async () => {
+    const response = await POST(post('{', true))
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Invalid JSON' })
   })
 
-  it('requires a calendar id', async () => {
-    authed()
-    const res = await POST(post({}))
-    expect(res.status).toBe(400)
-    expect(await res.json()).toMatchObject({ error: 'calendarId is required' })
+  it('requires a listing so stored credentials cannot be crossed between pages', async () => {
+    const response = await POST(post({ calendarId: 'primary' }))
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'pageId is required' })
+    expect(requirePageAccess).not.toHaveBeenCalled()
   })
 
-  it('returns deterministic agent-readable windows without OAuth', async () => {
-    authed()
-    const res = await POST(post({ calendarId: 'e2e-calendar@example.com' }))
-    expect(res.status).toBe(200)
-
-    const body = await res.json()
-    expect(body.success).toBe(true)
-    expect(body.connected).toBe(false)
-    expect(body.availability.source).toBe('google_calendar_stub')
-    expect(body.availability.calendar_id).toBe('e2e-calendar@example.com')
-    expect(body.availability.windows.length).toBeGreaterThan(0)
-    expect(body.availability.generated_at).toBeTypeOf('string')
-    expect(body.availability.last_synced).toBeUndefined()
-    expect(body.next_available).toContain('Sample open slots:')
-    expect(body.next_available).toContain('not synced with Google Calendar')
-    expect(body.note).toContain('No Google Calendar connection was created')
+  it('propagates the page access authentication boundary', async () => {
+    gateRef.value = { ok: false, response: Response.json({ error: 'Not authenticated' }, { status: 401 }) }
+    const response = await POST(post({ pageId: 'page-1', calendarId: 'primary' }))
+    expect(response.status).toBe(401)
+    expect(getUsableConnectorCredential).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['sample', { calendarId: 'e2e-calendar@example.com' }],
-    ['live-token', { calendarId: 'e2e-calendar@example.com', accessToken: 'tok' }],
-  ])('402 when the %s path is used without the integrations entitlement', async (_label, body) => {
-    authed()
+  it('gates live calendar reads on the effective listing owner plan', async () => {
     vi.mocked(ownerAllows).mockResolvedValue(false)
-    const res = await POST(post(body))
-    expect(res.status).toBe(402)
+    const response = await POST(post({ pageId: 'page-1', calendarId: 'primary' }))
+    expect(response.status).toBe(402)
+    expect(ownerAllows).toHaveBeenCalledWith(gateRef.value.admin, 'owner-1', 'integrations')
   })
 
-  it('gates a page-scoped request on the effective page owner', async () => {
-    authed()
-    const res = await POST(post({ calendarId: 'e2e-calendar@example.com', pageId: 'page-1' }))
-    expect(res.status).toBe(200)
-    expect(resolveFeatureOwner).toHaveBeenCalledWith(expect.objectContaining({
-      pageId: 'page-1',
-      userId: 'owner-1',
-    }))
-    expect(ownerAllows).toHaveBeenCalledWith(expect.objectContaining({ admin: true }), 'page-owner-1', 'integrations')
+  it('requires an encrypted stored OAuth connection and never accepts a caller token', async () => {
+    connectionRef.value = { ok: false, error: 'Connect Google Calendar in Settings before syncing.' }
+    const response = await POST(post({ pageId: 'page-1', calendarId: 'primary', accessToken: 'attacker-token' }))
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: 'Connect Google Calendar in Settings before syncing.' })
+    expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('documents the live-token path without calling it a stub', async () => {
+  it('reads live free/busy with the stored token and returns agent-readable windows', async () => {
+    const fetchMock = vi.fn(async (_input: string, init?: RequestInit) => new Response(JSON.stringify({
+      calendars: {
+        primary: {
+          busy: [{ start: '2026-08-24T15:00:00.000Z', end: '2026-08-24T16:00:00.000Z' }],
+        },
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await POST(post({ pageId: 'page-1', calendarId: 'primary' }))
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body).toMatchObject({ success: true, connected: true, availability: { source: 'google_calendar', calendar_id: 'primary' } })
+    expect(body.availability.last_synced).toBeTypeOf('string')
+    expect(body.next_available).not.toMatch(/sample|not synced/i)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://www.googleapis.com/calendar/v3/freeBusy')
+    expect(init?.headers).toMatchObject({ Authorization: 'Bearer google-access' })
+    expect(JSON.parse(String(init?.body))).toMatchObject({ items: [{ id: 'primary' }] })
+  })
+
+  it('does not turn an inaccessible calendar into fabricated availability', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      calendars: { 'missing@example.com': { errors: [{ reason: 'notFound' }], busy: [] } },
+    }), { status: 200, headers: { 'content-type': 'application/json' } })))
+    const response = await POST(post({ pageId: 'page-1', calendarId: 'missing@example.com' }))
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ error: expect.stringContaining('calendar ID') })
+  })
+
+  it('documents OAuth and the narrow free/busy scope without a sample path', async () => {
     const body = await (await GET()).json()
-    expect(body.note).toContain('Add accessToken for live Google Calendar free/busy')
-    expect(body.message).toContain('deterministic sample availability windows')
-    expect(body.note).toContain('no calendar connection is made')
-    expect(body.note).not.toMatch(/Phase 3 stub/i)
+    expect(body.message).toContain('Connect Google Calendar with OAuth')
+    expect(body.scope).toBe('https://www.googleapis.com/auth/calendar.freebusy')
+    expect(JSON.stringify(body)).not.toMatch(/sample|accessToken/i)
   })
 })

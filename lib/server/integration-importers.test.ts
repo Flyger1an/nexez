@@ -227,14 +227,16 @@ describe('importShopifyOffers', () => {
 
 describe('importIntegrationOffers (intake dispatcher - real offers or error, never sample)', () => {
   it('square: a live catalog maps to offers', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({ objects: [{ id: 'x' }] })))
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL) => String(input).includes('/v2/catalog/list')
+      ? jsonResponse({ objects: [{ id: 'x' }] })
+      : jsonResponse({}, false, 403)))
     const r = await importIntegrationOffers({ provider: 'square', accessToken: 't' })
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.offers[0].name).toBe('Square Item')
   })
 
   it('square: an unreachable catalog is an error (no sample fallback)', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({}, false, 401)))
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, false, 401)))
     const r = await importIntegrationOffers({ provider: 'square', accessToken: 't' })
     expect(r).toMatchObject({ ok: false, status: 502 })
   })
