@@ -10,6 +10,7 @@ describe('getAdminGovernanceSnapshot', () => {
       if (table === 'seller_growth_campaign_admin_events') return { data: [{ id: 4, action: 'pause', reason: 'Investigating conversion quality', actor_id: 'admin-1', created_at: '2026-08-12T00:00:00.000Z' }] }
       if (table === 'marketplace_curation_events') return { data: [{ id: 5, page_id: 'page-12345678', from_status: 'candidate', to_status: 'certified', reason: 'Quality bar met', actor_id: 'admin-2', created_at: '2026-08-13T00:00:00.000Z' }] }
       if (table === 'release_certifications') return { data: [{ id: 'release-1', status: 'failed', commit_sha: 'abcdef1234567890', launch_score: 92, required_failed_count: 1, triggered_by: 'ci@nexez.ai', completed_at: '2026-08-14T00:00:00.000Z' }] }
+      if (table === 'launch_decisions') return { data: [{ id: 9, decision: 'go', reason: 'Approved for launch.', operator_id: 'admin-1', operator_email: 'admin-1@nexez.ai', production_revision: 'abcdef1234567890', launch_score: 100, required_blocker_count: 0, created_at: '2026-08-16T00:00:00.000Z' }] }
       if (table === 'pages_public') return { data: [{ id: 'page-12345678', name: 'Acme Agent' }] }
       return { data: [] }
     }) as ReturnType<typeof createSupabaseMock> & {
@@ -34,18 +35,24 @@ describe('getAdminGovernanceSnapshot', () => {
       note: 'Launch lead',
       createdAt: '2026-08-10T00:00:00.000Z',
     }])
-    expect(result.events.map((event) => event.id)).toEqual(['access:grant-1', 'release:release-1', 'marketplace:5', 'growth:4'])
-    expect(result.events[0]).toMatchObject({
+    expect(result.events.map((event) => event.id)).toEqual(['launch:9', 'access:grant-1', 'release:release-1', 'marketplace:5', 'growth:4'])
+    expect(result.events[1]).toMatchObject({
       title: 'Platform-admin access granted',
       detail: 'Access granted to admin-2@nexez.ai · Support lead',
       actorEmail: 'admin-1@nexez.ai',
       href: '/admin/audit',
     })
-    expect(result.events[2]).toMatchObject({
+    expect(result.events[3]).toMatchObject({
       title: 'Marketplace listing certified',
       detail: 'Acme Agent · candidate → certified · Quality bar met',
       actorEmail: 'admin-2@nexez.ai',
       href: '/admin/launch#marketplace-curation',
+    })
+    expect(result.events[0]).toMatchObject({
+      title: 'Launch go recorded',
+      actorEmail: 'admin-1@nexez.ai',
+      tone: 'ready',
+      href: '/admin/launch#launch-decision-heading',
     })
     expect(JSON.stringify(result)).not.toContain('secret')
   })
@@ -57,6 +64,7 @@ describe('getAdminGovernanceSnapshot', () => {
       if (table === 'seller_growth_campaign_admin_events') return { data: null, error: new Error('growth unavailable') }
       if (table === 'marketplace_curation_events') return { data: [] }
       if (table === 'release_certifications') return { data: [{ id: 'release-1', status: 'passed', commit_sha: 'abc', launch_score: 100, required_failed_count: 0, triggered_by: null, completed_at: '2026-08-14T00:00:00.000Z' }] }
+      if (table === 'launch_decisions') return { data: [] }
       return { data: [] }
     }) as ReturnType<typeof createSupabaseMock> & {
       auth: ReturnType<typeof createSupabaseMock>['auth'] & {

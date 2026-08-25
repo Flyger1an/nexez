@@ -23,6 +23,8 @@ import { MarketplaceCurationPanel } from './MarketplaceCurationPanel'
 import { CommerceDemandPanel } from './CommerceDemandPanel'
 import type { CommerceDemandSnapshot } from '../../lib/commerce-demand'
 import type { CommerceSupplyWorkflowSnapshot } from '../../lib/commerce-supply-workflow'
+import type { LaunchDecisionEvidence, LaunchDecisionRecord } from '../../lib/launch-decision'
+import { LaunchDecisionPanel } from '../admin/LaunchDecisionPanel'
 
 const STATUS_STYLE: Record<LaunchStatus, { label: string; className: string; Icon: typeof CheckCircle2 }> = {
   ready: {
@@ -53,12 +55,18 @@ export function LaunchControlDashboard({
   marketplaceCuration,
   commerceDemand,
   commerceSupplyWorkflow,
+  launchDecisions,
+  launchDecisionEvidence,
+  initialLaunchDecisionToken,
 }: {
   snapshot: LaunchControlSnapshot
   releases: ReleaseCertificationRecord[]
   marketplaceCuration: MarketplaceCurationQueue
   commerceDemand: CommerceDemandSnapshot
   commerceSupplyWorkflow: CommerceSupplyWorkflowSnapshot
+  launchDecisions: LaunchDecisionRecord[]
+  launchDecisionEvidence: LaunchDecisionEvidence
+  initialLaunchDecisionToken: string
 }) {
   const headline = snapshot.summary.status === 'ready'
     ? 'Launch systems are ready'
@@ -124,6 +132,34 @@ export function LaunchControlDashboard({
             status={workerRollup(snapshot.operations)}
           />
         </section>
+
+        <LaunchDecisionPanel
+          goEligible={launchDecisionEvidence.goEligible}
+          productionRevision={launchDecisionEvidence.deployment.revision}
+          certificateStatus={!launchDecisionEvidence.certificate
+            ? 'Unavailable'
+            : launchDecisionEvidence.certificate.status === 'passed'
+                && launchDecisionEvidence.certificate.launchStatus === 'ready'
+                && launchDecisionEvidence.certificate.requiredFailedCount === 0
+              ? 'Passed'
+              : 'Not passed'}
+          blockers={launchDecisionEvidence.blockers.map((blocker) => ({
+            id: `${blocker.area}:${blocker.id}`,
+            label: blocker.label,
+          }))}
+          decisions={launchDecisions.map((decision) => ({
+            id: decision.id,
+            decision: decision.decision,
+            reason: decision.reason,
+            operatorEmail: decision.operatorEmail,
+            productionRevision: decision.productionRevision,
+            createdAt: decision.createdAt,
+          }))}
+          initialToken={initialLaunchDecisionToken}
+          snapshotGeneratedAt={snapshot.generatedAt}
+          launchScore={snapshot.summary.score}
+          incidentCount={snapshot.incidents.length}
+        />
 
         <MarketplaceCurationPanel queue={marketplaceCuration} />
 

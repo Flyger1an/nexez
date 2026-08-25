@@ -61,6 +61,18 @@ type ReleaseRow = {
   completed_at: string
 }
 
+type LaunchDecisionRow = {
+  id: number | string
+  decision: 'go' | 'hold'
+  reason: string
+  operator_id: string | null
+  operator_email: string
+  production_revision: string | null
+  launch_score: number
+  required_blocker_count: number
+  created_at: string
+}
+
 const MAX_EVENTS_PER_SOURCE = 50
 const MAX_ACTOR_LOOKUPS = 40
 
@@ -76,7 +88,7 @@ export async function getAdminGovernanceSnapshot(
   }
 
   const admin = client ?? createAdminClient()
-  const [operatorsResult, accessResult, growthResult, marketplaceResult, releasesResult] = await Promise.all([
+  const [operatorsResult, accessResult, growthResult, marketplaceResult, releasesResult, decisionsResult] = await Promise.all([
     admin
       .from('platform_admins')
       .select('user_id, note, created_at')
@@ -106,6 +118,12 @@ export async function getAdminGovernanceSnapshot(
       .order('completed_at', { ascending: false })
       .limit(25)
       .returns<ReleaseRow[]>(),
+    admin
+      .from('launch_decisions')
+      .select('id, decision, reason, operator_id, operator_email, production_revision, launch_score, required_blocker_count, created_at')
+      .order('created_at', { ascending: false })
+      .limit(25)
+      .returns<LaunchDecisionRow[]>(),
   ])
 
   const warnings: string[] = []
@@ -114,12 +132,14 @@ export async function getAdminGovernanceSnapshot(
   if (growthResult.error) warnings.push('Growth operator history is unavailable.')
   if (marketplaceResult.error) warnings.push('Marketplace operator history is unavailable.')
   if (releasesResult.error) warnings.push('Release certification history is unavailable.')
+  if (decisionsResult.error) warnings.push('Launch decision history is unavailable.')
 
   const operatorRows = operatorsResult.data ?? []
   const accessRows = accessResult.data ?? []
   const growthRows = growthResult.data ?? []
   const marketplaceRows = marketplaceResult.data ?? []
   const releaseRows = releasesResult.data ?? []
+  const decisionRows = decisionsResult.data ?? []
   const pageIds = [...new Set(marketplaceRows.map((row) => row.page_id))]
   const pageResult = pageIds.length
     ? await admin.from('pages_public').select('id, name').in('id', pageIds).returns<PageNameRow[]>()
@@ -132,6 +152,7 @@ export async function getAdminGovernanceSnapshot(
     ...accessRows.flatMap((row) => [row.actor_id, row.target_user_id]),
     ...growthRows.map((row) => row.actor_id),
     ...marketplaceRows.map((row) => row.actor_id),
+    ...decisionRows.map((row) => row.operator_id),
   ].filter((value): value is string => Boolean(value)))].slice(0, MAX_ACTOR_LOOKUPS)
 
   const actorEntries = await Promise.all(actorIds.map(async (userId) => {
@@ -188,6 +209,17 @@ export async function getAdminGovernanceSnapshot(
       createdAt: row.completed_at,
       tone: row.status === 'passed' ? 'ready' : 'blocked',
       href: '/admin/launch#release-certificates-heading',
+    })),
+    ...decisionRows.map((row): AdminAuditEvent => ({
+      id: `launch:${row.id}`,
+      source: 'launch',
+      title: row.decision === 'go' ? 'Launch go recorded' : 'Launch hold recorded',
+      detail: `${row.production_revision?.slice(0, 12) ?? 'Revision unavailable'} · Launch Control ${Number(row.launch_score)}% · ${Number(row.required_blocker_count)} required blockers · ${row.reason}`,
+      actorId: row.operator_id,
+      actorEmail: row.operator_email,
+      createdAt: row.created_at,
+      tone: row.decision === 'go' ? 'ready' : 'attention',
+      href: '/admin/launch#launch-decision-heading',
     })),
   ]
 
