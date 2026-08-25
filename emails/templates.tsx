@@ -187,6 +187,43 @@ export function SupportTicketEmail(p: {
   )
 }
 
+export function SupportReplyEmail(p: {
+  subject: string
+  replyBody: string
+  requestUrl: string
+}) {
+  return (
+    <BrandedEmail preview={`Nexez Support replied to “${p.subject}”.`} category="Support operations">
+      <EmailEyebrow>Support request</EmailEyebrow>
+      <StatusBadge tone="positive">Reply received</StatusBadge>
+      <EmailHeading>Support replied</EmailHeading>
+      <Lead>We replied to your request, <strong>{p.subject}</strong>.</Lead>
+      <InfoRows rows={[["Message", p.replyBody]]} />
+      <PrimaryButton href={p.requestUrl}>Open your request</PrimaryButton>
+      <FinePrint>Reply in your support request to keep the full conversation together.</FinePrint>
+    </BrandedEmail>
+  )
+}
+
+export function SupportRequesterReplyEmail(p: {
+  requesterEmail: string
+  subject: string
+  replyBody: string
+  adminUrl: string
+}) {
+  return (
+    <BrandedEmail preview={`${p.requesterEmail} replied to “${p.subject}”.`} category="Support operations">
+      <EmailEyebrow>Support inbox</EmailEyebrow>
+      <StatusBadge tone="caution">Requester replied</StatusBadge>
+      <EmailHeading>New support reply</EmailHeading>
+      <Lead><strong>{p.requesterEmail}</strong> added a reply to <strong>{p.subject}</strong>.</Lead>
+      <InfoRows rows={[["Message", p.replyBody]]} />
+      <PrimaryButton href={p.adminUrl}>Open support request</PrimaryButton>
+      <Notice>The request is stored in the admin desk even if this inbox notification is delayed.</Notice>
+    </BrandedEmail>
+  )
+}
+
 export function OrderLookupEmail(p: { lead: string; count: number; findUrl: string }) {
   return (
     <BrandedEmail preview="Your secure Nexez order link" category="Buyer order">

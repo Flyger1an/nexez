@@ -4,6 +4,8 @@ import {
   buildMoneyEventEmail,
   buildNegotiationEmail,
   buildSellerGrowthInviteEmail,
+  buildSupportReplyEmail,
+  buildSupportRequesterReplyEmail,
   hasEmailEnv,
   sendEmail,
 } from '../email'
@@ -122,5 +124,33 @@ describe('buildSellerGrowthInviteEmail', () => {
     expect(mail.text).toContain('for six months at no subscription cost')
     expect(mail.html.replaceAll('<!-- -->', '')).toContain('for six months')
     expect(`${mail.subject}\n${mail.text}\n${mail.html}`).not.toMatch(/180 days|Launch year|promotional year/i)
+  })
+})
+
+describe('support conversation emails', () => {
+  it('renders an operator reply with a requester-safe portal link', async () => {
+    const mail = await buildSupportReplyEmail({
+      ticketId: '12345678-0000-4000-8000-000000000001',
+      ticketSubject: 'Checkout incident',
+      replyBody: 'We found the issue and are checking the payment path now.',
+      requestUrl: 'https://app.nexez.ai/support/requests/12345678-0000-4000-8000-000000000001',
+    })
+
+    expect(mail.subject).toBe('Re: Checkout incident [12345678]')
+    expect(mail.text).toContain('We found the issue')
+    expect(mail.html).toContain('https://app.nexez.ai/support/requests/12345678-0000-4000-8000-000000000001')
+  })
+
+  it('renders a requester reply notification for the protected admin desk', async () => {
+    const mail = await buildSupportRequesterReplyEmail({
+      requesterEmail: 'owner@example.com',
+      ticketSubject: 'Checkout incident',
+      replyBody: 'The issue still happens after I sign in again.',
+      adminUrl: 'https://admin.nexez.ai/admin/support/12345678-0000-4000-8000-000000000001',
+    })
+
+    expect(mail.subject).toBe('[Support reply] Checkout incident')
+    expect(mail.text).toContain('owner@example.com replied')
+    expect(mail.html).toContain('https://admin.nexez.ai/admin/support/12345678-0000-4000-8000-000000000001')
   })
 })

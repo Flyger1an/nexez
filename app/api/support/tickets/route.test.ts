@@ -94,6 +94,7 @@ describe('/api/support/tickets service entitlement', () => {
         priorityRouting: true,
         upgradePlanId: null,
       },
+      tickets: [],
     })
   })
 

@@ -10,6 +10,8 @@ import {
   BuyerReceiptEmail,
   BuyerStatusEmail,
   BuyerRequestEmail,
+  SupportReplyEmail,
+  SupportRequesterReplyEmail,
   SupportTicketEmail,
   OrderLookupEmail,
   TeamInviteEmail,
@@ -147,6 +149,55 @@ export async function buildSupportTicketEmail(opts: {
       requesterEmail={opts.requesterEmail}
       subject={opts.subject}
       rows={rows}
+      adminUrl={opts.adminUrl}
+    />,
+    text,
+  )
+  return { subject, html, text }
+}
+
+export async function buildSupportReplyEmail(opts: {
+  ticketId: string
+  ticketSubject: string
+  replyBody: string
+  requestUrl: string
+}): Promise<Built> {
+  const subject = `Re: ${opts.ticketSubject} [${opts.ticketId.slice(0, 8)}]`
+  const text = textBody(
+    `Nexez Support replied to “${opts.ticketSubject}”.`,
+    [['Message', opts.replyBody]],
+    'Open your support request',
+    opts.requestUrl,
+  )
+  const html = await renderHtml(
+    <SupportReplyEmail
+      subject={opts.ticketSubject}
+      replyBody={opts.replyBody}
+      requestUrl={opts.requestUrl}
+    />,
+    text,
+  )
+  return { subject, html, text }
+}
+
+export async function buildSupportRequesterReplyEmail(opts: {
+  requesterEmail: string
+  ticketSubject: string
+  replyBody: string
+  adminUrl: string
+}): Promise<Built> {
+  const subject = `[Support reply] ${opts.ticketSubject}`
+  const text = textBody(
+    `${opts.requesterEmail} replied to “${opts.ticketSubject}”.`,
+    [['Message', opts.replyBody]],
+    'Open support request',
+    opts.adminUrl,
+  )
+  const html = await renderHtml(
+    <SupportRequesterReplyEmail
+      requesterEmail={opts.requesterEmail}
+      subject={opts.ticketSubject}
+      replyBody={opts.replyBody}
       adminUrl={opts.adminUrl}
     />,
     text,

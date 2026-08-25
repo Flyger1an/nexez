@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   sendEmail: vi.fn(),
   buildSupportTicketEmail: vi.fn(),
+  buildSupportRequesterReplyEmail: vi.fn(),
   ticketUpdate: vi.fn(),
   eventInsert: vi.fn(),
   captureError: vi.fn(),
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../email', () => ({
   hasEmailEnv: () => true,
   buildSupportTicketEmail: mocks.buildSupportTicketEmail,
+  buildSupportRequesterReplyEmail: mocks.buildSupportRequesterReplyEmail,
   sendEmail: mocks.sendEmail,
 }))
 vi.mock('../observability', () => ({ captureError: mocks.captureError }))
@@ -30,7 +32,11 @@ vi.mock('../../utils/supabase/admin', () => ({
   }),
 }))
 
-import { deliverSupportTicketNotification, NEXEZ_SUPPORT_INBOX } from './support-email'
+import {
+  deliverSupportRequesterReplyNotification,
+  deliverSupportTicketNotification,
+  NEXEZ_SUPPORT_INBOX,
+} from './support-email'
 
 const ticket = {
   id: 'ticket-1',
@@ -51,6 +57,11 @@ describe('support ticket email delivery', () => {
       subject: '[Support urgent] Checkout incident',
       html: '<p>Ticket</p>',
       text: 'Ticket',
+    })
+    mocks.buildSupportRequesterReplyEmail.mockResolvedValue({
+      subject: '[Support reply] Checkout incident',
+      html: '<p>Reply</p>',
+      text: 'Reply',
     })
     mocks.ticketUpdate.mockResolvedValue({ error: null })
     mocks.eventInsert.mockResolvedValue({ error: null })
@@ -93,5 +104,28 @@ describe('support ticket email delivery', () => {
       notified_at: null,
     }), 'id', 'ticket-1')
     expect(mocks.eventInsert).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'email_failed' }))
+  })
+
+  it('notifies the support inbox when a requester replies in the portal', async () => {
+    mocks.sendEmail.mockResolvedValue({ ok: true, id: 'email-reply-1' })
+
+    await expect(deliverSupportRequesterReplyNotification({
+      ticketId: 'ticket-1',
+      messageId: 'message-1',
+      requesterEmail: 'owner@example.com',
+      ticketSubject: 'Checkout incident',
+      replyBody: 'The issue still happens.',
+    })).resolves.toEqual({ status: 'sent', emailId: 'email-reply-1' })
+
+    expect(mocks.sendEmail).toHaveBeenCalledWith(expect.objectContaining({
+      to: NEXEZ_SUPPORT_INBOX,
+      replyTo: 'owner@example.com',
+      idempotencyKey: 'support-requester-reply/message-1',
+    }))
+    expect(mocks.eventInsert).toHaveBeenCalledWith(expect.objectContaining({
+      ticket_id: 'ticket-1',
+      event_type: 'email_sent',
+      metadata: expect.objectContaining({ kind: 'requester_reply', message_id: 'message-1' }),
+    }))
   })
 })

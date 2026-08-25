@@ -6,9 +6,14 @@ import {
   Clock3,
   Inbox,
   MailCheck,
+  UserRoundCheck,
 } from 'lucide-react'
 import { requirePlatformAdmin } from '../../../lib/server/admin-access'
-import { getAdminSupportQueue, type AdminSupportTicket } from '../../../lib/server/support-operations'
+import {
+  getAdminSupportOperators,
+  getAdminSupportQueue,
+  type AdminSupportTicket,
+} from '../../../lib/server/support-operations'
 
 const STATUS_LABEL: Record<AdminSupportTicket['status'], string> = {
   open: 'Open',
@@ -20,7 +25,11 @@ const STATUS_LABEL: Record<AdminSupportTicket['status'], string> = {
 
 export default async function AdminSupportPage() {
   await requirePlatformAdmin('/admin/support')
-  const tickets = await getAdminSupportQueue()
+  const [tickets, operators] = await Promise.all([
+    getAdminSupportQueue(),
+    getAdminSupportOperators(),
+  ])
+  const operatorLabels = new Map(operators.map((operator) => [operator.id, operator.label]))
   const active = tickets.filter((ticket) => !['resolved', 'closed'].includes(ticket.status))
   const urgent = active.filter((ticket) => ticket.priority === 'urgent')
   const failedDelivery = tickets.filter((ticket) => ticket.notificationStatus !== 'sent')
@@ -50,7 +59,7 @@ export default async function AdminSupportPage() {
           </div>
           {tickets.length ? (
             <div className="divide-y divide-border">
-              {tickets.map((ticket) => <TicketRow key={ticket.id} ticket={ticket} />)}
+              {tickets.map((ticket) => <TicketRow key={ticket.id} ticket={ticket} operatorLabels={operatorLabels} />)}
             </div>
           ) : (
             <div className="flex min-h-44 items-center gap-3 px-5 py-6"><CheckCircle2 className="size-5 text-[var(--ready)]" /><div><p className="text-sm font-medium">No support requests yet</p><p className="mt-1 text-xs text-[var(--fg-muted)]">New persisted requests will appear here immediately.</p></div></div>
@@ -61,10 +70,10 @@ export default async function AdminSupportPage() {
   )
 }
 
-function TicketRow({ ticket }: { ticket: AdminSupportTicket }) {
+function TicketRow({ ticket, operatorLabels }: { ticket: AdminSupportTicket; operatorLabels: Map<string, string> }) {
   const active = !['resolved', 'closed'].includes(ticket.status)
   return (
-    <Link href={`/admin/support/${ticket.id}`} className="grid gap-3 px-4 py-4 transition hover:bg-white/[0.04] lg:grid-cols-[minmax(0,1.3fr)_minmax(180px,.7fr)_auto] lg:items-center">
+    <Link href={`/admin/support/${ticket.id}`} className="grid gap-3 px-4 py-4 transition hover:bg-white/[0.04] lg:grid-cols-[minmax(0,1.2fr)_minmax(220px,.8fr)_minmax(190px,.7fr)_auto] lg:items-center">
       <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-2"><span className="truncate text-sm font-medium">{ticket.subject}</span>{ticket.priority === 'urgent' ? <span className="rounded-full border border-red-400/30 bg-red-400/10 px-2 py-0.5 text-[10px] text-red-300">Urgent</span> : null}</span>
         <span className="mt-1 block truncate text-xs text-[var(--fg-muted)]">{ticket.requesterEmail ?? 'Requester email unavailable'} · {ticket.pageName ?? 'Workspace'}</span>
@@ -72,6 +81,10 @@ function TicketRow({ ticket }: { ticket: AdminSupportTicket }) {
       <span className="flex flex-wrap items-center gap-2 text-[10px]">
         <span className={`rounded-full border px-2 py-1 ${active ? 'border-[var(--amber)]/25 bg-[var(--amber)]/10 text-[var(--amber)]' : 'border-[var(--ready)]/25 bg-[var(--ready)]/10 text-[var(--ready)]'}`}>{STATUS_LABEL[ticket.status]}</span>
         <span className={`rounded-full border px-2 py-1 ${ticket.notificationStatus === 'sent' ? 'border-[var(--ready)]/25 text-[var(--ready)]' : 'border-red-400/30 text-red-300'}`}>{ticket.notificationStatus === 'sent' ? 'Inbox sent' : 'Email needs review'}</span>
+      </span>
+      <span className="space-y-1 text-xs text-[var(--fg-muted)]">
+        <span className="flex items-center gap-1.5"><UserRoundCheck className="size-3.5" />{ticket.assignedTo ? operatorLabels.get(ticket.assignedTo) ?? 'Assigned operator' : 'Unassigned'}</span>
+        <span className="block text-[10px] text-[var(--fg-muted-2)]">{ticket.firstRespondedAt ? `First response ${formatElapsed(ticket.createdAt, ticket.firstRespondedAt)}` : 'Awaiting first response'}</span>
       </span>
       <span className="flex items-center justify-between gap-3 lg:justify-end"><time className="text-[10px] text-[var(--fg-muted-2)]">{formatDate(ticket.createdAt)}</time><ArrowRight className="size-3.5 text-[var(--fg-muted-2)]" /></span>
     </Link>
@@ -85,4 +98,10 @@ function SummaryCard({ icon: Icon, label, value, detail, tone = 'neutral' }: { i
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+function formatElapsed(start: string, end: string) {
+  const minutes = Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60_000))
+  if (minutes < 60) return `in ${minutes}m`
+  return `in ${Math.round(minutes / 60)}h`
 }

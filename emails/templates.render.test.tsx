@@ -46,6 +46,8 @@ describe('transactional email preview fixtures', () => {
       'account-stripe-connected',
       'merchant-stale-listing',
       'support-new-ticket',
+      'support-operator-reply',
+      'support-requester-reply',
     ]))
   })
 })

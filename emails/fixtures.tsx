@@ -11,6 +11,8 @@ import {
   PromotionExpiryEmail,
   SellerGrowthInviteEmail,
   StaleListingEmail,
+  SupportReplyEmail,
+  SupportRequesterReplyEmail,
   SupportTicketEmail,
   StripeConnectedEmail,
   TeamInviteEmail,
@@ -47,6 +49,18 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     ]} adminUrl="https://admin.nexez.ai/admin/support/ticket_123" />,
     expectedCta: 'https://admin.nexez.ai/admin/support/ticket_123',
     expectedState: 'Response needed',
+  },
+  {
+    id: 'support-operator-reply',
+    element: <SupportReplyEmail subject="Checkout incident" replyBody="We found the issue and are checking the payment path now." requestUrl={`${APP}/support/requests/ticket_123`} />,
+    expectedCta: `${APP}/support/requests/ticket_123`,
+    expectedState: 'Reply received',
+  },
+  {
+    id: 'support-requester-reply',
+    element: <SupportRequesterReplyEmail requesterEmail="owner@example.com" subject="Checkout incident" replyBody="The issue still happens after I sign in again." adminUrl="https://admin.nexez.ai/admin/support/ticket_123" />,
+    expectedCta: 'https://admin.nexez.ai/admin/support/ticket_123',
+    expectedState: 'Requester replied',
   },
   {
     id: 'merchant-booking',

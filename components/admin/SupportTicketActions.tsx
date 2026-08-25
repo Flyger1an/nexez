@@ -11,7 +11,6 @@ import {
 const STATUS_OPTIONS: Array<{ value: SupportStatus; label: string }> = [
   { value: 'open', label: 'Open' },
   { value: 'in_review', label: 'In review' },
-  { value: 'waiting_on_user', label: 'Waiting on requester' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'closed', label: 'Closed' },
 ]
@@ -31,6 +30,7 @@ export function SupportTicketActions({ ticketId, status }: { ticketId: string; s
           defaultValue={status}
           className="mt-2 h-11 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-[var(--signal)]"
         >
+          {status === 'waiting_on_user' ? <option value="waiting_on_user">Waiting on requester (reply sent)</option> : null}
           {STATUS_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
