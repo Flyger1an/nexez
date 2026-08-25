@@ -6,6 +6,8 @@ Release certification turns the production readiness snapshot into an exact, dur
 
 Release certification entered production on 2026-07-19. The first automated certificate matched commit `92fe53587d91d57f98637c05596eca4fdb5e57ad` to the running revision, reported Launch Control at 100, and passed all 32 required checks with zero failures. The append-only ledger record is `433c2d3d-2186-41a8-ad66-24221d137c89`.
 
+The 2026-08-24 launch-closure audit matched commit `2219f5900f0599f29ed7627e826c99c218bb476c` to production, reported Launch Control at 100, and passed every required release probe. The linked database matched source through Support Operations v2 migration `20260824235405`. Append-only ledger record `a893d501-928a-47ac-8ca6-a2c3893cc13d` preserves the production verdict. Newer certificates supersede this baseline when later revisions reach production.
+
 ## What runs
 
 The `Release Certification` workflow starts after the main `CI` workflow completes for a trusted push to `main`. It records a red release when source CI failed instead of silently ignoring a production candidate. It:
@@ -13,12 +15,13 @@ The `Release Certification` workflow starts after the main `CI` workflow complet
 1. checks out the exact CI commit and verifies the source-gate conclusion;
 2. waits for production machine health to report that same Git SHA;
 3. verifies `nexez.ai`, `app.nexez.ai`, `admin.nexez.ai`, and `nexez.app` on their canonical roles;
-4. verifies a public certification storefront plus its `agent.json`, `llms.txt`, and OpenAPI artifacts;
-5. verifies the global MCP, OpenAPI, `llms.txt`, and agent index;
-6. runs `npm run certify:commerce`, which never moves money;
-7. posts the redacted evidence to the production certification endpoint;
-8. attaches a fresh, authoritative Launch Control snapshot and inserts one append-only database row;
-9. uploads `release-certification.json` as a 90-day workflow artifact and fails the workflow when the verdict is red.
+4. verifies that the support hub renders while anonymous requester history, request detail, and reply attempts fail closed;
+5. verifies a public certification storefront plus its `agent.json`, `llms.txt`, and OpenAPI artifacts;
+6. verifies the global MCP, OpenAPI, `llms.txt`, and agent index;
+7. runs `npm run certify:commerce`, which never moves money;
+8. posts the redacted evidence to the production certification endpoint;
+9. attaches a fresh, authoritative Launch Control snapshot and inserts one append-only database row;
+10. uploads `release-certification.json` as a 90-day workflow artifact and fails the workflow when the verdict is red.
 
 The workflow never trusts a submitted green flag by itself. The server independently checks the running environment, deployed revision, required Launch Control checks, and submitted probe results.
 
@@ -78,6 +81,7 @@ A release is red when any of these is true:
 - source CI is not proven successful;
 - production does not serve the expected Git revision within ten minutes;
 - any canonical host or required artifact fails;
+- requester support history, detail, or reply access does not reject an anonymous request;
 - the non-money-moving commerce gauntlet fails;
 - any required Launch Control check is `attention`, `blocked`, or `unknown`;
 - the evidence cannot be written durably.
