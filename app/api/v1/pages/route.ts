@@ -9,6 +9,12 @@ import {
   wantsCustomDomain,
 } from '../../../../lib/api-pages'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import {
+  publicIdentifierDatabaseMessage,
+  publicIdentifierSuggestions,
+  publicIdentifierWithSuffix,
+  validatePublicIdentifier,
+} from '../../../../lib/public-identifier'
 import { ownerAllows } from '../../../../lib/server/plan'
 import {
   entitlementAllocationRetryBody,
@@ -17,15 +23,18 @@ import {
 } from '../../../../lib/entitlement-allocation-error'
 
 async function uniqueSlug(admin: ReturnType<typeof createAdminClient>, base: string): Promise<string> {
-  const root = normalizeSlug(base) || 'page'
+  const normalized = normalizeSlug(base)
+  const root = validatePublicIdentifier(normalized).ok
+    ? normalized
+    : publicIdentifierSuggestions(normalized)[0] || 'new-listing'
   for (let i = 0; i < 50; i++) {
-    const candidate = i === 0 ? root : `${root}-${i + 1}`
+    const candidate = i === 0 ? root : publicIdentifierWithSuffix(root, i + 1)
     // Reserved platform routes count as taken (a shadowed slug is unreachable).
     if (isReservedSlug(candidate)) continue
     const { data } = await admin.from('pages').select('id').eq('slug', candidate).maybeSingle()
     if (!data) return candidate
   }
-  return `${root}-${Date.now().toString(36)}`
+  return publicIdentifierWithSuffix(root, Date.now().toString(36))
 }
 
 export async function GET(request: Request) {
@@ -99,6 +108,10 @@ export async function POST(request: Request) {
         { error: `${error.message} Upgrade your plan, or create this as a draft (is_published: false).` },
         { status: 402 },
       )
+    }
+    const identifierError = publicIdentifierDatabaseMessage(error)
+    if (identifierError) {
+      return NextResponse.json({ error: identifierError }, { status: error.code === '23505' ? 409 : 400 })
     }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }

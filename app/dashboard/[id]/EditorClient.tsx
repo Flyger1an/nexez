@@ -247,7 +247,15 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                     </div>
                   ) : null}
 
-                  <button type="submit" disabled={e.saving} className="btn-primary min-h-12 w-full px-5 py-3 disabled:opacity-60">
+                  <button
+                    type="submit"
+                    disabled={
+                      e.saving
+                      || !e.slugValidation.ok
+                      || e.slugAvailability.result?.available === false
+                    }
+                    className="btn-primary min-h-12 w-full px-5 py-3 disabled:opacity-60"
+                  >
                     {e.saving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
                     {e.saving ? 'Saving…' : 'Save changes'}
                   </button>

@@ -4,6 +4,7 @@ import { getRequestBaseUrl } from '../../../lib/agent-page'
 import { buildListingAiCatalog, type ArdDomainListing } from '../../../lib/ard-catalog'
 import { hostLookupCandidates, normalizeHost } from '../../../lib/custom-domain'
 import { supabase } from '../../../lib/supabase'
+import { renamedPageArtifactRedirect } from '../../../lib/server/public-identifier'
 
 /**
  * Per-listing ARD catalog: GET /<slug>/ai-catalog.json
@@ -49,6 +50,10 @@ export async function GET(
     .eq('is_published', true)
     .maybeSingle<CatalogRow>()
 
+  if (!anchor) {
+    const redirect = await renamedPageArtifactRedirect(request, slug)
+    if (redirect) return redirect
+  }
   if (!anchor || !anchor.mcp_enabled) {
     return NextResponse.json(
       { error: 'No ARD catalog for this listing (not found, unpublished, or MCP disabled)' },

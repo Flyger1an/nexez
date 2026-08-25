@@ -6,6 +6,7 @@ import { safeJsonScript } from '../../../lib/safe-json'
 import { verificationMetaTag, websiteHostOf } from '../../../lib/website-verification'
 import { captureEvent } from '../../../lib/observability'
 import { supabase } from '../../../lib/supabase'
+import { renamedPageArtifactRedirect } from '../../../lib/server/public-identifier'
 
 /**
  * Public embed manifest for a listing: `GET /<slug>/embed.json`.
@@ -32,6 +33,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     .single<AgentPage>()
 
   if (!page) {
+    const redirect = await renamedPageArtifactRedirect(request, slug)
+    if (redirect) return redirect
     return Response.json({ error: 'Not found' }, { status: 404, headers: ARTIFACT_CORS_HEADERS })
   }
 

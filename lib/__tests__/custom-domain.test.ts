@@ -11,6 +11,7 @@ import {
   normalizeDomainPath,
   normalizeHost,
   resolveDomainPath,
+  validateDomainPath,
 } from '../custom-domain'
 
 describe('normalizeHost', () => {
@@ -120,6 +121,14 @@ describe('normalizeDomainPath', () => {
     expect(normalizeDomainPath('')).toBe('/')
     expect(normalizeDomainPath(null)).toBe('/')
     expect(normalizeDomainPath('/')).toBe('/')
+  })
+
+  it('limits merchant domain paths to root or one clean segment', () => {
+    expect(validateDomainPath('/')).toEqual({ ok: true, value: '/' })
+    expect(validateDomainPath('/pricing')).toEqual({ ok: true, value: '/pricing' })
+    expect(validateDomainPath('/abcd')).toMatchObject({ ok: false })
+    expect(validateDomainPath('/nested/path')).toMatchObject({ ok: false })
+    expect(validateDomainPath('/.well-known')).toMatchObject({ ok: false })
   })
 })
 

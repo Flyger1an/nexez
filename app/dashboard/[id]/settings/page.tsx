@@ -24,7 +24,7 @@ import {
   getCertification,
   normalizeSlug,
 } from '../../../../lib/agent-page'
-import { normalizeDomainPath } from '../../../../lib/custom-domain'
+import { normalizeDomainPath, validateDomainPath } from '../../../../lib/custom-domain'
 import type { CustomDomainClaim } from '../../../../lib/custom-domain-claim'
 import { removeManagedCustomDomain } from '../../../../lib/custom-domain-cleanup'
 import { normalizeBranding } from '../../../../lib/branding'
@@ -57,6 +57,14 @@ import {
 import { SurfaceHeader, surfaceActionClass } from '../../../../components/dashboard/SurfacePrimitives'
 import { mutateTeamApproval } from '../../../../lib/team-approval-client'
 import { agentMemoryCopy } from '../../../../lib/agent-memory-copy'
+import {
+  publicIdentifierDatabaseMessage,
+  validatePublicIdentifier,
+} from '../../../../lib/public-identifier'
+import {
+  PublicIdentifierFeedback,
+  usePublicIdentifierAvailability,
+} from '../../../../components/public-identifier/PublicIdentifierFeedback'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -202,6 +210,14 @@ export default function PageSettings({ params }: PageProps) {
   }, [loading, page])
 
   const cleanSlug = normalizeSlug(slug || name)
+  const slugValidation = validatePublicIdentifier(cleanSlug, { current: page?.slug })
+  const slugAvailability = usePublicIdentifierAvailability({
+    namespace: 'page_slug',
+    value: cleanSlug,
+    subjectId: id,
+    enabled: Boolean(page && id && slugValidation.ok),
+  })
+  const domainPathValidation = validateDomainPath(domainPath)
   const publicUrl = `${getBaseUrl()}/${cleanSlug || page?.slug || ''}`
   const agentJsonUrl = `${getBaseUrl()}${getAgentJsonPath(cleanSlug || page?.slug || '')}`
   const searchUrl = `${getBaseUrl()}/api/agent-search?q=${encodeURIComponent(name || page?.name || 'service')}`
@@ -497,6 +513,19 @@ export default function PageSettings({ params }: PageProps) {
     event.preventDefault()
     if (!page) return
 
+    if (!slugValidation.ok) {
+      setMessage(slugValidation.message)
+      return
+    }
+    if (slugAvailability.result?.available === false) {
+      setMessage(slugAvailability.result.message)
+      return
+    }
+    if (!domainPathValidation.ok) {
+      setMessage(domainPathValidation.message)
+      return
+    }
+
     setSaving(true)
     setMessage('')
 
@@ -546,7 +575,8 @@ export default function PageSettings({ params }: PageProps) {
 
     if (error || !savedRow) {
       setSaving(false)
-      setMessage(`Settings could not be saved: ${error?.message || 'the listing was not updated'}.`)
+      const identifierError = publicIdentifierDatabaseMessage(error)
+      setMessage(identifierError || `Settings could not be saved: ${error?.message || 'the listing was not updated'}.`)
       return
     }
 
@@ -905,8 +935,14 @@ export default function PageSettings({ params }: PageProps) {
                 <Field label="Listing name">
                   <input id="listing-name" value={name} onChange={(event) => setName(event.target.value)} className={inputClass} required />
                 </Field>
-                <Field label="Slug">
+                <Field label="Public listing name">
                   <input id="listing-slug" value={slug} onChange={(event) => setSlug(normalizeSlug(event.target.value))} className={inputClass} required />
+                  <PublicIdentifierFeedback
+                    checking={slugAvailability.checking}
+                    result={slugAvailability.result}
+                    localMessage={slugValidation.ok ? null : slugValidation.message}
+                    onSuggestion={setSlug}
+                  />
                 </Field>
               </div>
 
@@ -983,7 +1019,11 @@ export default function PageSettings({ params }: PageProps) {
 
               <button
                 type="submit"
-                disabled={saving}
+                disabled={
+                  saving
+                  || !slugValidation.ok
+                  || slugAvailability.result?.available === false
+                }
                 className="btn-primary w-full px-5 py-3 disabled:opacity-60"
               >
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
@@ -1100,6 +1140,9 @@ export default function PageSettings({ params }: PageProps) {
                       e.g. “/” or “/pricing” - host several listings on one domain.
                     </span>
                   </div>
+                  {!domainPathValidation.ok ? (
+                    <p className="mt-1 text-xs text-[var(--amber)]">{domainPathValidation.message}</p>
+                  ) : null}
 
                   {domainStatus?.verificationMethod === 'cname' && domainStatus.routingRecords.length ? (
                     <div

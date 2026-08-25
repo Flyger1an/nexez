@@ -8,6 +8,7 @@ import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visib
 import { loadReviewSummaryForSlug } from '../../../lib/server/reviews'
 import { loadStorefrontHandleForSlug } from '../../../lib/server/storefront'
 import { supabase } from '../../../lib/supabase'
+import { renamedPageArtifactRedirect } from '../../../lib/server/public-identifier'
 
 type RouteProps = {
   params: Promise<{ slug: string }>
@@ -23,6 +24,8 @@ export async function GET(request: Request, { params }: RouteProps) {
     .single<AgentPage>()
 
   if (!page) {
+    const redirect = await renamedPageArtifactRedirect(request, slug)
+    if (redirect) return redirect
     notFound()
   }
 

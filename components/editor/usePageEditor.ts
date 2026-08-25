@@ -24,6 +24,11 @@ import { mutateTeamApproval } from '../../lib/team-approval-client'
 import { mergeOfferCollectionPreservingConfiguration } from '../../lib/configured-offer'
 import { createClient } from '../../utils/supabase/client'
 import {
+  publicIdentifierDatabaseMessage,
+  validatePublicIdentifier,
+} from '../../lib/public-identifier'
+import { usePublicIdentifierAvailability } from '../public-identifier/PublicIdentifierFeedback'
+import {
   EditorEvent,
   EditorInitial,
   IntegrationStatus,
@@ -81,6 +86,13 @@ export function usePageEditor(initial: EditorInitial) {
   const [servicesOffers, setServicesOffers] = useState<OfferItem[]>((initial.page.services ?? []) as OfferItem[])
   const [productsOffers, setProductsOffers] = useState<OfferItem[]>((initial.page.products ?? []) as OfferItem[])
   const [isPublished, setIsPublished] = useState(initial.page.is_published)
+  const slugValidation = validatePublicIdentifier(slug, { current: page.slug })
+  const slugAvailability = usePublicIdentifierAvailability({
+    namespace: 'page_slug',
+    value: slug,
+    subjectId: id,
+    enabled: slugValidation.ok,
+  })
 
   const [pendingReanalysis, setPendingReanalysis] = useState<PendingReanalysis | null>(null)
   const [restoredVersion, setRestoredVersion] = useState<any>(null)
@@ -482,6 +494,14 @@ export function usePageEditor(initial: EditorInitial) {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (!page) return
+    if (!slugValidation.ok) {
+      setMessage(slugValidation.message)
+      return
+    }
+    if (slugAvailability.result?.available === false) {
+      setMessage(slugAvailability.result.message)
+      return
+    }
     setSaving(true)
     setMessage('')
     const supabase = createClient()
@@ -501,7 +521,7 @@ export function usePageEditor(initial: EditorInitial) {
     }
     setSaving(false)
     if (error) {
-      setMessage(publishErrorMessage(error))
+      setMessage(publicIdentifierDatabaseMessage(error) || publishErrorMessage(error))
     } else {
       setMessage('Saved. Version snapshot created.')
     }
@@ -685,6 +705,8 @@ export function usePageEditor(initial: EditorInitial) {
     setName,
     slug,
     setSlug,
+    slugValidation,
+    slugAvailability,
     description,
     setDescription,
     websiteUrl,

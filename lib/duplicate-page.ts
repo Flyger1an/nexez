@@ -1,4 +1,5 @@
 import { AgentPage, isReservedSlug, normalizeSlug } from './agent-page'
+import { publicIdentifierWithSuffix } from './public-identifier'
 
 // Builds a `pages` insert payload that clones a page's CONTENT into a new
 // unpublished draft. Identity / publishing / domain fields are intentionally
@@ -12,7 +13,7 @@ export function buildDuplicatePayload(page: AgentPage, ownerId: string, existing
   let i = 2
   // Reserved platform routes count as taken (a shadowed slug is unreachable).
   while (taken.has(slug) || isReservedSlug(slug)) {
-    slug = `${base}-${i}`
+    slug = publicIdentifierWithSuffix(base, i)
     i++
   }
 

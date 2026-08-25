@@ -5,6 +5,7 @@ import { withOfferConfigurationOpenApi } from '../../../lib/agent-offer-configur
 import { getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../../lib/custom-domain'
 import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
 import { supabase } from '../../../lib/supabase'
+import { renamedPageArtifactRedirect } from '../../../lib/server/public-identifier'
 
 /**
  * Per-page OpenAPI spec scoped to a single published page. Served at
@@ -23,6 +24,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     .single<AgentPage>()
 
   if (!page) {
+    const redirect = await renamedPageArtifactRedirect(request, slug)
+    if (redirect) return redirect
     return Response.json({ error: 'Not found' }, { status: 404 })
   }
 

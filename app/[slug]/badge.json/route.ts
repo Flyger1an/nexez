@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getCertification, getTrustScore } from '../../../lib/agent-page'
 import { supabase } from '../../../lib/supabase'
+import { renamedPageArtifactRedirect } from '../../../lib/server/public-identifier'
 
 /**
  * Machine-readable Agent-Ready badge verification at /<slug>/badge.json.
  * A third party (or the embedding site) fetches this to confirm the badge is
  * authentic and current: issuer, live readiness/trust, verified status.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const { data: page } = await supabase
     .from('pages_public')
@@ -19,6 +20,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   const base = getBaseUrl()
 
   if (!page) {
+    const redirect = await renamedPageArtifactRedirect(request, slug)
+    if (redirect) return redirect
     return NextResponse.json(
       { issuer: 'nexez', slug, verified: false, valid: false, reason: 'No published page for this slug.' },
       { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } },
