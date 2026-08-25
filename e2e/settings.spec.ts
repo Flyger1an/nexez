@@ -498,6 +498,22 @@ test.describe('page settings', () => {
       releaseSuccessResponse = () => resolve()
     })
 
+    // This spec owns the UI state contract. Persistence authorization and
+    // encryption are covered by the page-secrets route tests, so keep the
+    // visual assertion independent from the shared remote E2E fixture.
+    await page.route('**/api/pages/*/secrets', async (route) => {
+      const body = route.request().postDataJSON() as { outbound_webhooks?: unknown }
+      if (!Array.isArray(body.outbound_webhooks)) {
+        await route.continue()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      })
+    })
+
     await page.route('**/api/test-outbound', async (route) => {
       const body = route.request().postDataJSON() as { endpoint?: string }
       const failed = body.endpoint?.includes('failure')
@@ -539,7 +555,9 @@ test.describe('page settings', () => {
     await expect(summary).toContainText(/webhooks? configured/)
     await panel.getByRole('button', { name: /Save 1 Webhook URL/i }).click()
 
-    await successRow.getByRole('button', { name: 'Send Test' }).click()
+    const successTestButton = successRow.getByRole('button', { name: 'Send Test' })
+    await expect(successTestButton).toBeEnabled()
+    await successTestButton.click()
     const successResult = successRow.getByTestId('outbound-test-result')
     await expect(successResult).toHaveAttribute('data-state', 'testing')
     await expect(successResult).toHaveClass(/text-\[var\(--fg-muted\)\]/)
@@ -559,7 +577,9 @@ test.describe('page settings', () => {
     await addButton.click()
     const failureRow = panel.getByTestId('outbound-webhook-row').filter({ hasText: failureUrl })
     await panel.getByRole('button', { name: /Save 1 Webhook URL/i }).click()
-    await failureRow.getByRole('button', { name: 'Send Test' }).click()
+    const failureTestButton = failureRow.getByRole('button', { name: 'Send Test' })
+    await expect(failureTestButton).toBeEnabled()
+    await failureTestButton.click()
     const failureResult = failureRow.getByRole('alert')
     await expect(failureResult).toHaveAttribute('data-state', 'failure')
     await expect(failureResult).toHaveClass(/text-\[var\(--danger\)\]/)
