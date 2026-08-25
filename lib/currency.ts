@@ -39,8 +39,12 @@ const SUPPORTED_CODES = new Set(SUPPORTED_CURRENCIES.map((c) => c.code))
 // by 100x, so it's the load-bearing piece of multi-currency.
 export const ZERO_DECIMAL_CURRENCIES = new Set([
   'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga',
-  'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf',
+  'pyg', 'rwf', 'vnd', 'vuv', 'xaf', 'xof', 'xpf',
 ])
+
+// Stripe's backwards-compatible UGX API representation still uses two decimal
+// places with a required 00 fraction, so it must not use the general zero-decimal
+// divisor when displaying or converting authoritative Stripe amounts.
 
 export const DEFAULT_CURRENCY = 'usd'
 
@@ -48,6 +52,15 @@ export const DEFAULT_CURRENCY = 'usd'
 export function normalizeCurrency(value: string | null | undefined): string {
   const code = (value || '').trim().toLowerCase()
   return SUPPORTED_CODES.has(code) ? code : DEFAULT_CURRENCY
+}
+
+/** Normalize a currency already recorded by Stripe or another authoritative money
+ * source. Reporting must preserve structurally valid ISO-style codes even when the
+ * offer editor does not yet allow merchants to select them. Falling an unfamiliar
+ * settled currency back to USD would silently relabel money. */
+export function normalizeReportingCurrency(value: string | null | undefined): string {
+  const code = (value || '').trim().toLowerCase()
+  return /^[a-z]{3}$/.test(code) ? code : DEFAULT_CURRENCY
 }
 
 export function isZeroDecimalCurrency(currency: string): boolean {
@@ -66,7 +79,7 @@ export function toStripeAmount(amount: number, currency: string): number {
 
 /** Convert a Stripe smallest-unit amount back to the human (major) amount. */
 export function toMajorAmount(smallestUnitAmount: number, currency: string): number {
-  return isZeroDecimalCurrency(normalizeCurrency(currency)) ? smallestUnitAmount : smallestUnitAmount / 100
+  return isZeroDecimalCurrency(normalizeReportingCurrency(currency)) ? smallestUnitAmount : smallestUnitAmount / 100
 }
 
 /**
@@ -85,12 +98,13 @@ export function minorToStripeAmount(minorUnits: number, currency: string | null 
   return toStripeAmount(minorUnits / 100, currency ?? '')
 }
 
-/** Format a smallest-unit amount + currency for display (locale-aware). */
-export function formatCurrencyAmount(smallestUnitAmount: number, currency: string): string {
-  const code = normalizeCurrency(currency)
+/** Format a smallest-unit amount and its authoritative currency for display. The
+ * optional locale should come from the request or a saved merchant preference. */
+export function formatCurrencyAmount(smallestUnitAmount: number, currency: string, locale = 'en-US'): string {
+  const code = normalizeReportingCurrency(currency)
   const major = isZeroDecimalCurrency(code) ? smallestUnitAmount : smallestUnitAmount / 100
   try {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: code.toUpperCase(),
       maximumFractionDigits: isZeroDecimalCurrency(code) ? 0 : Number.isInteger(major) ? 0 : 2,
@@ -99,4 +113,3 @@ export function formatCurrencyAmount(smallestUnitAmount: number, currency: strin
     return `${major} ${code.toUpperCase()}`
   }
 }
-

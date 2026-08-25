@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Loader2, MessageSquareWarning, RotateCcw } from 'lucide-react'
+import { formatDisplayDate } from '../../lib/international-operations'
 
 export type BuyerRequestRow = {
   id: string
@@ -36,7 +37,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 /** Buyer-filed refund requests / problem reports (from the order portal). The seller
  *  refunds from the matching order/deal workflow; here they triage the request itself. */
-export function BuyerRequestsPanel({ requests }: { requests: BuyerRequestRow[] }) {
+export function BuyerRequestsPanel({ requests, locale = 'en-US' }: { requests: BuyerRequestRow[]; locale?: string }) {
   const [rows, setRows] = useState(requests)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -86,7 +87,7 @@ export function BuyerRequestsPanel({ requests }: { requests: BuyerRequestRow[] }
                     {KIND_LABEL[r.kind] || r.kind}
                   </span>
                   {r.slug ? <span className="text-xs text-[var(--fg-muted-2)]">/{r.slug}</span> : null}
-                  <span className="text-xs text-zinc-600">· {new Date(r.created_at).toLocaleDateString()}</span>
+                  <span className="text-xs text-zinc-600">· {formatDisplayDate(r.created_at, locale)}</span>
                 </div>
                 <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${STATUS_STYLE[r.status] || 'border-[var(--bd-15)] text-[var(--fg-muted)]'}`}>
                   {STATUS_LABEL[r.status] || r.status}

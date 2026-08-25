@@ -76,6 +76,15 @@ describe('rollupFinanceByCurrency', () => {
     expect(rows.find((r) => r.currency === 'jpy')!.gmvCents).toBe(1000)
     expect(rows.find((r) => r.currency === 'usd')!.gmvCents).toBe(5000)
   })
+
+  it('never folds an authoritative recorded currency into USD reporting', () => {
+    const rows = rollupFinanceByCurrency([
+      order({ amount_cents: 5000, currency: 'usd' }),
+      order({ amount_cents: 7000, currency: 'krw' }),
+    ], 6)
+    expect(rows.find((row) => row.currency === 'usd')?.gmvCents).toBe(5000)
+    expect(rows.find((row) => row.currency === 'krw')?.gmvCents).toBe(7000)
+  })
 })
 
 describe('getTopOffersByRevenueCents', () => {
@@ -223,5 +232,15 @@ describe('getDailyRevenueSeries + getCurrencyOptions', () => {
   it('lists currencies dominant-first', () => {
     const orders = [order({ amount_cents: 1000, currency: 'usd' }), order({ amount_cents: 9000, currency: 'gbp' })]
     expect(getCurrencyOptions(orders)).toEqual(['gbp', 'usd'])
+  })
+
+  it('uses UTC day boundaries and locale-aware labels', () => {
+    const now = new Date('2026-08-26T00:30:00.000Z')
+    const series = getDailyRevenueSeries([
+      order({ created_at: '2026-08-25T23:30:00.000Z', amount_cents: 5000 }),
+    ], 2, 'usd', 'en-GB', now)
+    expect(series.map((point) => point.dateKey)).toEqual(['2026-08-25', '2026-08-26'])
+    expect(series[0]).toMatchObject({ label: '25 Aug', revenueCents: 5000 })
+    expect(series[1]).toMatchObject({ label: '26 Aug', revenueCents: 0 })
   })
 })

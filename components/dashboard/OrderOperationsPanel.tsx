@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, CheckCircle2, Loader2, PackageCheck, RefreshCcw } from 'lucide-react'
 import { formatCurrencyAmount, toMajorAmount, toStripeAmount } from '../../lib/currency'
+import { formatDisplayDateTime } from '../../lib/international-operations'
 import {
   fulfillmentCapability,
   fulfillmentDescription,
@@ -50,11 +51,13 @@ export function OrderOperationsPanel({
   fulfillment: initialFulfillment,
   requests: initialRequests,
   stagedObligationKind,
+  locale = 'en-US',
 }: {
   order: OperationsOrder
   fulfillment: OperationsFulfillment
   requests: OperationsRequest[]
   stagedObligationKind?: string | null
+  locale?: string
 }) {
   const router = useRouter()
   const [order, setOrder] = useState(initialOrder)
@@ -128,7 +131,7 @@ export function OrderOperationsPanel({
     }
     setConfirmation({
       amount,
-      amountLabel: formatCurrencyAmount(smallestUnitAmount, order.currency),
+      amountLabel: formatCurrencyAmount(smallestUnitAmount, order.currency, locale),
       requestId,
     })
   }
@@ -247,7 +250,7 @@ export function OrderOperationsPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="flex items-center gap-2 text-sm font-semibold text-[var(--fg)]"><RefreshCcw className="size-4 text-[var(--settings-emphasis)]" aria-hidden="true" /> Refund</p>
-              <p className="mt-2 text-sm text-[var(--fg-muted)]">{formatCurrencyAmount(refundAccess.remainingCents, order.currency)} remains refundable.</p>
+              <p className="mt-2 text-sm text-[var(--fg-muted)]">{formatCurrencyAmount(refundAccess.remainingCents, order.currency, locale)} remains refundable.</p>
             </div>
           </div>
           <p className="mt-3 text-xs leading-5 text-[var(--fg-muted-2)]">{refundConsequence(order.channel)}</p>
@@ -304,7 +307,7 @@ export function OrderOperationsPanel({
                     <span className="rounded-full border border-[var(--line-soft)] px-2.5 py-1 text-xs text-[var(--fg-muted)]">{REQUEST_STATUS_LABEL[request.status] || request.status}</span>
                   </div>
                   {request.message ? <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--fg-muted)]">{request.message}</p> : null}
-                  <p className="mt-3 text-xs text-[var(--fg-muted-2)]">Filed {formatOperationDate(request.createdAt)}{request.buyerEmail ? ` by ${request.buyerEmail}` : ''}</p>
+                  <p className="mt-3 text-xs text-[var(--fg-muted-2)]">Filed {formatDisplayDateTime(request.createdAt, locale)}{request.buyerEmail ? ` by ${request.buyerEmail}` : ''}</p>
                   {!closed ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {request.status === 'open' ? <button type="button" disabled={busy !== ''} onClick={() => updateRequest(request.id, 'acknowledged')} className="min-h-10 rounded-[var(--radius)] border border-[var(--line-soft)] px-3 py-2 text-xs text-[var(--fg)] hover:bg-[var(--fill-2)] disabled:opacity-45">{requestBusy ? 'Updating...' : 'Mark reviewing'}</button> : null}
@@ -321,16 +324,4 @@ export function OrderOperationsPanel({
       ) : null}
     </section>
   )
-}
-
-function formatOperationDate(value: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'UTC',
-    timeZoneName: 'short',
-  }).format(new Date(value))
 }

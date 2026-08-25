@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import {
   Wallet,
   Lock,
@@ -32,7 +32,13 @@ import {
   type NegotiationCurrencyRow,
   type LedgerEntry,
 } from '../../../lib/finance-analytics'
-import { formatCurrencyAmount, normalizeCurrency } from '../../../lib/currency'
+import { formatCurrencyAmount, normalizeReportingCurrency } from '../../../lib/currency'
+import {
+  buildInternationalOperationsSummary,
+  formatDisplayDate,
+  formatDisplayDateTime,
+  resolveDisplayLocale,
+} from '../../../lib/international-operations'
 import { EmptyState, type EmptyStateCta } from '../../../components/EmptyState'
 import { OrdersPanel, type OrderRow } from '../../../components/dashboard/OrdersPanel'
 import { BuyerRequestsPanel, type BuyerRequestRow } from '../../../components/dashboard/BuyerRequestsPanel'
@@ -46,6 +52,7 @@ import { RevenueChart } from './RevenueChart'
 import { DataLoadNotice } from '../../../components/dashboard/DataLoadNotice'
 import { loadFinanceRollup, type FinanceRollup } from '../../../lib/finance-report'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { InternationalOperationsCard } from './InternationalOperationsCard'
 
 type FinanceProps = {
   searchParams: Promise<{ range?: string; from?: string; to?: string; currency?: string }>
@@ -68,8 +75,8 @@ const EMPTY_NEG: NegotiationCurrencyRow = {
 }
 
 export default async function FinancePage({ searchParams }: FinanceProps) {
-  const filters = await searchParams
-  const cookieStore = await cookies()
+  const [filters, cookieStore, headerStore] = await Promise.all([searchParams, cookies(), headers()])
+  const locale = resolveDisplayLocale(headerStore.get('accept-language'))
   const supabase = createClient(cookieStore)
   const {
     data: { user },
@@ -180,7 +187,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   const directCurrencies = report?.currencies.map((row) => row.currency) ?? getCurrencyOptions(ordersInWindow)
   const escrowCurrencies = report?.escrow.map((row) => row.currency) ?? rollupNegotiationsByCurrency(negRows).map((row) => row.currency)
   const currencyOptions = [...directCurrencies, ...escrowCurrencies.filter((currency) => !directCurrencies.includes(currency))]
-  const requested = filters.currency ? normalizeCurrency(filters.currency) : null
+  const requested = filters.currency ? normalizeReportingCurrency(filters.currency) : null
   const selectedCurrency = requested && currencyOptions.includes(requested) ? requested : currencyOptions[0] ?? 'usd'
   const sel =
     byCurrency.find((r) => r.currency === selectedCurrency) ??
@@ -241,8 +248,8 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   // Trend window: a readable recent span keyed off the selected range.
   const seriesDays = range === '7d' || range === '1d' || range === 'today' ? 7 : 30
   const trend = report
-    ? financeDailySeries(report, seriesDays, selectedCurrency)
-    : getDailyRevenueSeries(ordersInWindow, seriesDays, selectedCurrency)
+    ? financeDailySeries(report, seriesDays, selectedCurrency, locale)
+    : getDailyRevenueSeries(ordersInWindow, seriesDays, selectedCurrency, locale)
   const topOffers = report
     ? report.topOffers.filter((offer) => offer.currency === selectedCurrency).slice(0, 6).map((offer) => ({
         name: offer.offerName,
@@ -253,7 +260,14 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
       }))
     : getTopOffersByRevenueCents(ordersInWindow, selectedCurrency).slice(0, 6)
   const ledger = buildMarketplaceLedger(ordersInWindow, negInWindow, commissionPct, 25)
-  const money = (cents: number) => formatCurrencyAmount(cents, selectedCurrency)
+  const displayMoney = (cents: number, currency: string) => formatCurrencyAmount(cents, currency, locale)
+  const money = (cents: number) => displayMoney(cents, selectedCurrency)
+  const international = buildInternationalOperationsSummary({
+    settlementCurrencies: currencyOptions,
+    accountCountry: payouts?.accountCountry,
+    defaultPayoutCurrency: payouts?.defaultPayoutCurrency,
+    locale,
+  })
 
   const href = (next: { range?: string; currency?: string }) => {
     const params = new URLSearchParams()
@@ -479,7 +493,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               )}
             </div>
             {hasRevenue ? (
-              <RevenueChart data={trend} currency={selectedCurrency} />
+              <RevenueChart data={trend} currency={selectedCurrency} locale={locale} />
             ) : hasNegWindow || hasEscrowActivity ? (
               <p className="rounded-xl border border-dashed border-[var(--bd-10)] p-8 text-center text-sm text-zinc-500">
                 No direct checkout sales in this date range. Your negotiated deal activity is shown above.
@@ -511,7 +525,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                   </thead>
                   <tbody>
                     {ledger.map((e) => (
-                      <LedgerRow key={e.id} entry={e} />
+                      <LedgerRow key={e.id} entry={e} locale={locale} />
                     ))}
                   </tbody>
                 </table>
@@ -523,10 +537,10 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
           )}
 
           {/* Buyer-filed refund requests / problem reports from the order portal */}
-          <BuyerRequestsPanel requests={buyerRequests} />
+          <BuyerRequestsPanel requests={buyerRequests} locale={locale} />
 
           {/* Direct-checkout orders with in-app refund */}
-          <OrdersPanel orders={orders as OrderRow[]} />
+          <OrdersPanel orders={orders as OrderRow[]} locale={locale} />
 
           {/* Payouts + top offers */}
           <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
@@ -554,18 +568,18 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--ready)]/25 bg-[var(--ready)]/[0.06] px-3 py-2.5">
                       <span className="text-xs uppercase tracking-widest text-[var(--ready)]">Next expected payout</span>
                       <span className="text-sm font-semibold">
-                        {formatCurrencyAmount(nextPayout.amountCents, nextPayout.currency)}
+                        {displayMoney(nextPayout.amountCents, nextPayout.currency)}
                         {nextPayout.arrivalDate ? (
                           <span className="ml-2 font-normal text-[var(--fg-muted)]">
-                            ~{new Date(nextPayout.arrivalDate * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            ~{formatDisplayDate(nextPayout.arrivalDate * 1000, locale, { month: 'short', day: 'numeric', year: undefined })}
                           </span>
                         ) : null}
                       </span>
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">
-                    <Balance label="Available" lines={payouts.available} />
-                    <Balance label="Pending" lines={payouts.pending} />
+                    <Balance label="Available" lines={payouts.available} locale={locale} />
+                    <Balance label="Pending" lines={payouts.pending} locale={locale} />
                   </div>
                   <div className="border-t border-[var(--bd-10)] pt-3">
                     <p className="mb-2 text-xs uppercase tracking-widest text-zinc-500">Recent payouts</p>
@@ -573,9 +587,9 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                       <ul className="space-y-1.5 text-sm">
                         {payouts.payouts.slice(0, 5).map((p) => (
                           <li key={p.id} className="flex items-center justify-between gap-3">
-                            <span className="text-zinc-300">{formatCurrencyAmount(p.amountCents, p.currency)}</span>
+                            <span className="text-zinc-300">{displayMoney(p.amountCents, p.currency)}</span>
                             <span className="flex items-center gap-2 text-xs text-zinc-500">
-                              {p.arrivalDate ? new Date(p.arrivalDate * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-'}
+                              {p.arrivalDate ? formatDisplayDate(p.arrivalDate * 1000, locale, { month: 'short', day: 'numeric', year: undefined }) : '-'}
                               <PayoutStatus status={p.status} />
                             </span>
                           </li>
@@ -639,9 +653,9 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                     {byCurrency.map((r) => (
                       <tr key={r.currency} className={`border-t border-[var(--bd-10)] ${r.currency === selectedCurrency ? 'text-white' : 'text-zinc-300'}`}>
                         <td className="py-2.5 font-medium uppercase">{r.currency}</td>
-                        <td className="py-2.5 text-right">{formatCurrencyAmount(r.gmvCents, r.currency)}</td>
-                        <td className="py-2.5 text-right text-[var(--fg-muted)]">{formatCurrencyAmount(r.nexezFeeCents, r.currency)}</td>
-                        <td className="py-2.5 text-right text-[var(--ready)]">{formatCurrencyAmount(r.netCents, r.currency)}</td>
+                        <td className="py-2.5 text-right">{displayMoney(r.gmvCents, r.currency)}</td>
+                        <td className="py-2.5 text-right text-[var(--fg-muted)]">{displayMoney(r.nexezFeeCents, r.currency)}</td>
+                        <td className="py-2.5 text-right text-[var(--ready)]">{displayMoney(r.netCents, r.currency)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -650,6 +664,8 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               </div>
             </GlassCard>
           )}
+
+          <InternationalOperationsCard summary={international} />
 
           {/* Your subscription (cost, separated from earnings) */}
           <GlassCard className="mt-6 p-6">
@@ -679,7 +695,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   )
 }
 
-function financeDailySeries(report: FinanceRollup, days: number, currency: string) {
+function financeDailySeries(report: FinanceRollup, days: number, currency: string, locale: string) {
   const values = new Map(
     report.daily
       .filter((row) => row.currency === currency)
@@ -691,7 +707,7 @@ function financeDailySeries(report: FinanceRollup, days: number, currency: strin
     const dateKey = date.toISOString().slice(0, 10)
     const row = values.get(dateKey)
     return {
-      label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }),
+      label: formatDisplayDate(date, locale, { month: 'short', day: 'numeric', year: undefined }),
       dateKey,
       revenueCents: row?.grossCents ?? 0,
       orders: row?.transactions ?? 0,
@@ -834,13 +850,12 @@ const LEDGER_TONE: Record<'open' | 'progress' | 'success' | 'muted', string> = {
   muted: 'bg-white/10 text-zinc-300',
 }
 
-function LedgerRow({ entry }: { entry: LedgerEntry }) {
+function LedgerRow({ entry, locale }: { entry: LedgerEntry; locale: string }) {
   const when = entry.timestamp ? new Date(entry.timestamp) : null
   return (
     <tr className="border-b border-[var(--bd-05)] last:border-b-0 hover:bg-[var(--ov-03)]">
       <td className="py-2.5 pr-3 text-xs text-[var(--fg-muted)] whitespace-nowrap">
-        {when ? when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-'}
-        {when ? <span className="ml-1 text-zinc-600">{when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> : null}
+        {when ? formatDisplayDateTime(when, locale) : '-'}
       </td>
       <td className="py-2.5 pr-3">
         <p className="max-w-[200px] truncate font-medium">{entry.offerName}</p>
@@ -862,26 +877,26 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
         <span className="block max-w-[160px] truncate">{entry.buyerLabel}</span>
       </td>
       <td className="py-2.5 pl-3 text-right whitespace-nowrap">
-        {formatCurrencyAmount(entry.amountCents, entry.currency)}
+        {formatCurrencyAmount(entry.amountCents, entry.currency, locale)}
         <span className="ml-1 text-[10px] uppercase text-zinc-600">{entry.currency}</span>
       </td>
-      <td className="py-2.5 pl-3 text-right text-zinc-500 whitespace-nowrap">{formatCurrencyAmount(entry.feeCents, entry.currency)}</td>
+      <td className="py-2.5 pl-3 text-right text-zinc-500 whitespace-nowrap">{formatCurrencyAmount(entry.feeCents, entry.currency, locale)}</td>
       <td className={`py-2.5 pl-3 text-right font-medium whitespace-nowrap ${entry.isReversal ? 'text-[var(--amber)]' : 'text-[var(--ready)]'}`}>
         {entry.isReversal && entry.channel === 'negotiated' ? '−' : ''}
-        {formatCurrencyAmount(entry.netCents, entry.currency)}
+        {formatCurrencyAmount(entry.netCents, entry.currency, locale)}
       </td>
     </tr>
   )
 }
 
-function Balance({ label, lines }: { label: string; lines: { amountCents: number; currency: string }[] }) {
+function Balance({ label, lines, locale }: { label: string; lines: { amountCents: number; currency: string }[]; locale: string }) {
   return (
     <div className="rounded-lg border border-[var(--bd-10)] bg-black/20 p-3">
       <p className="text-xs uppercase tracking-widest text-zinc-500">{label}</p>
       {lines.length ? (
         lines.map((l) => (
           <p key={l.currency} className="mt-1 text-lg font-semibold">
-            {formatCurrencyAmount(l.amountCents, l.currency)}
+            {formatCurrencyAmount(l.amountCents, l.currency, locale)}
           </p>
         ))
       ) : (

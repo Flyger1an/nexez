@@ -74,6 +74,17 @@ describe('analytics discovery events', () => {
     expect(totals.conversions).toBe(0)
   })
 
+  it('groups daily activity by UTC and formats labels for the viewer locale', () => {
+    const event = {
+      ...discoveryEvent,
+      created_at: '2026-01-01T00:30:00.000Z',
+    }
+    const series = getDailyEventSeries([event], 2, 'en-GB', new Date('2026-01-01T12:00:00.000Z'))
+
+    expect(series.map((point) => point.dateKey)).toEqual(['2025-12-31', '2026-01-01'])
+    expect(series[1]).toMatchObject({ label: '1 Jan', total: 1, discovery: 1 })
+  })
+
   it('identifies likely agent user agents and tracks page visits separately from offer stats', () => {
     const pageView: CheckoutEvent = {
       ...discoveryEvent,

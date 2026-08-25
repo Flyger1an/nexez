@@ -1,6 +1,7 @@
 import { AgentPage, getReadinessScore } from './agent-page'
 import { isLikelyAgentUserAgent as detectLikelyAgentUserAgent } from './agent-detection'
 import { CheckoutEvent, CheckoutEventType } from './checkout-events'
+import { formatDisplayDate, formatDisplayDateTime } from './international-operations'
 
 export const conversionEventTypes: CheckoutEventType[] = ['provider_redirect', 'stripe_session_created']
 
@@ -156,18 +157,20 @@ export function getPipelineCents(events: CheckoutEvent[], currency: string = get
   }, 0)
 }
 
-export function getDailyEventSeries(events: CheckoutEvent[], days = 10): DailyEventPoint[] {
-  const now = new Date()
+export function getDailyEventSeries(
+  events: CheckoutEvent[],
+  days = 10,
+  locale = 'en-US',
+  now = new Date(),
+): DailyEventPoint[] {
   const points: DailyEventPoint[] = []
 
   for (let index = days - 1; index >= 0; index -= 1) {
-    const date = new Date(now)
-    date.setHours(0, 0, 0, 0)
-    date.setDate(now.getDate() - index)
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - index))
 
     points.push({
-      label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      dateKey: formatLocalDateKey(date),
+      label: formatDisplayDate(date, locale, { month: 'short', day: 'numeric', year: undefined }),
+      dateKey: formatUtcDateKey(date),
       total: 0,
       agentVisits: 0,
       discovery: 0,
@@ -178,7 +181,7 @@ export function getDailyEventSeries(events: CheckoutEvent[], days = 10): DailyEv
   const pointsByDate = new Map(points.map((point) => [point.dateKey, point]))
 
   for (const event of events) {
-    const dateKey = formatLocalDateKey(new Date(event.created_at))
+    const dateKey = formatUtcDateKey(new Date(event.created_at))
     const point = pointsByDate.get(dateKey)
 
     if (!point) continue
@@ -198,11 +201,8 @@ export function getDailyEventSeries(events: CheckoutEvent[], days = 10): DailyEv
   return points
 }
 
-function formatLocalDateKey(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+function formatUtcDateKey(date: Date) {
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : ''
 }
 
 export function getTopOfferStats(events: CheckoutEvent[]) {
@@ -282,25 +282,19 @@ export function getSignalLabel(event: CheckoutEvent) {
   return 'Config'
 }
 
-export function formatEventDate(value: string) {
+export function formatEventDate(value: string, locale = 'en-US') {
   const date = new Date(value)
 
   if (Number.isNaN(date.getTime())) return 'Recently'
-
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  return formatDisplayDateTime(date, locale)
 }
 
 /**
  * Dominant settlement currency across the revenue events (from metadata.currency,
  * recorded by the checkout route), defaulting to usd. Lets the dashboard format
  * revenue in the workspace's actual currency - correct, incl. zero-decimal, for a
- * single-currency workspace (the common case). Mixed-currency totals are summed in
- * smallest units and only approximate; a full per-currency breakdown is a follow-up.
+ * single-currency workspace (the common case). Mixed-currency money remains scoped
+ * to the selected currency and is never combined into one amount.
  */
 export function getRevenueCurrency(events: CheckoutEvent[]): string {
   const counts = new Map<string, number>()

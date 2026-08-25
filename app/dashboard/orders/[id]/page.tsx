@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import {
   ArrowLeft,
@@ -22,6 +22,7 @@ import { DataLoadNotice } from '../../../../components/dashboard/DataLoadNotice'
 import { OrderOperationsPanel } from '../../../../components/dashboard/OrderOperationsPanel'
 import { SurfaceHeader } from '../../../../components/dashboard/SurfacePrimitives'
 import { formatCurrencyAmount } from '../../../../lib/currency'
+import { formatDisplayDate, formatDisplayDateTime, resolveDisplayLocale } from '../../../../lib/international-operations'
 import { describeOrderActivity } from '../../../../lib/order-operations'
 import {
   getOrderChannelLabel,
@@ -41,7 +42,8 @@ type OrderDetailPageProps = {
 }
 
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
-  const [{ id }, cookieStore] = await Promise.all([params, cookies()])
+  const [{ id }, cookieStore, headerStore] = await Promise.all([params, cookies(), headers()])
+  const locale = resolveDisplayLocale(headerStore.get('accept-language'))
   const supabase = createClient(cookieStore)
   const {
     data: { user },
@@ -74,7 +76,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           eyebrow={`Order #${shortOrderReference(order.id)}`}
           icon={PackageCheck}
           title={order.offer_name || 'Order details'}
-          description={`Placed ${formatDateTime(order.created_at)} through ${getOrderChannelLabel(order.channel)}. Review the payment, customer, and fulfillment details below.`}
+          description={`Placed ${formatDisplayDateTime(order.created_at, locale)} through ${getOrderChannelLabel(order.channel)}. Review the payment, customer, and fulfillment details below.`}
           actions={(
             <>
               {order.slug ? (
@@ -100,10 +102,10 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         <DataLoadNotice issues={detail.issues} />
 
         <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Order totals">
-          <MoneyCard label="Gross sales" value={formatCurrencyAmount(economics.grossCents, order.currency)} detail="Customer payment" icon={ReceiptText} />
-          <MoneyCard label="Refunded" value={formatCurrencyAmount(economics.refundedCents, order.currency)} detail={economics.refundedCents ? 'Refunded or disputed' : 'No refunds or disputes'} icon={RefreshCcw} tone={economics.refundedCents ? 'attention' : undefined} />
-          <MoneyCard label="Nexez fee" value={formatCurrencyAmount(economics.retainedFeeCents, order.currency)} detail={feeDetail(order)} icon={BadgeDollarSign} />
-          <MoneyCard label="Net to you" value={formatCurrencyAmount(economics.netCents, order.currency)} detail="After recorded refunds and fees" icon={CircleDollarSign} tone="ready" />
+          <MoneyCard label="Gross sales" value={formatCurrencyAmount(economics.grossCents, order.currency, locale)} detail="Customer payment" icon={ReceiptText} />
+          <MoneyCard label="Refunded" value={formatCurrencyAmount(economics.refundedCents, order.currency, locale)} detail={economics.refundedCents ? 'Refunded or disputed' : 'No refunds or disputes'} icon={RefreshCcw} tone={economics.refundedCents ? 'attention' : undefined} />
+          <MoneyCard label="Nexez fee" value={formatCurrencyAmount(economics.retainedFeeCents, order.currency, locale)} detail={feeDetail(order)} icon={BadgeDollarSign} />
+          <MoneyCard label="Net to you" value={formatCurrencyAmount(economics.netCents, order.currency, locale)} detail="After recorded refunds and fees" icon={CircleDollarSign} tone="ready" />
         </section>
 
         <div className="mt-6">
@@ -131,6 +133,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               createdAt: request.created_at,
             }))}
             stagedObligationKind={currentStagedObligation?.kind}
+            locale={locale}
           />
         </div>
 
@@ -141,6 +144,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 order={order}
                 agreement={detail.stagedAgreement}
                 obligations={detail.stagedObligations}
+                locale={locale}
               />
             ) : null}
 
@@ -148,8 +152,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               <SectionCard icon={CalendarClock} title="Recurring agreement" eyebrow="Subscription details">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Detail label="Agreement state" value={humanize(detail.serviceAgreement.status)} />
-                  <Detail label="Per period" value={formatCurrencyAmount(detail.serviceAgreement.amount_per_period_cents, detail.serviceAgreement.currency)} />
-                  <Detail label="Current period" value={dateRange(detail.serviceAgreement.current_period_start, detail.serviceAgreement.current_period_end)} />
+                  <Detail label="Per period" value={formatCurrencyAmount(detail.serviceAgreement.amount_per_period_cents, detail.serviceAgreement.currency, locale)} />
+                  <Detail label="Current period" value={dateRange(detail.serviceAgreement.current_period_start, detail.serviceAgreement.current_period_end, locale)} />
                   <Detail label="Renewal" value={detail.serviceAgreement.cancel_at_period_end ? 'Cancels after this period' : 'Active renewal'} />
                 </div>
               </SectionCard>
@@ -159,7 +163,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               <SectionCard icon={FileCheck2} title="Reserved resource" eyebrow="Reservation details">
                 <div className="grid gap-4 sm:grid-cols-3">
                   <Detail label="Reservation state" value={humanize(detail.resourceReservation.status)} />
-                  <Detail label="Committed" value={formatDateTime(detail.resourceReservation.committed_at)} />
+                  <Detail label="Committed" value={formatDisplayDateTime(detail.resourceReservation.committed_at, locale)} />
                   <Detail label="Allocation records" value={Array.isArray(detail.resourceReservation.allocation_snapshot) ? String(detail.resourceReservation.allocation_snapshot.length) : 'Recorded'} />
                 </div>
               </SectionCard>
@@ -174,7 +178,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                       <TimelineItem
                         key={event.id}
                         title={activity.title}
-                        detail={`${activity.detail} ${formatDateTime(event.created_at)} · ${humanize(event.source)}`}
+                        detail={`${activity.detail} ${formatDisplayDateTime(event.created_at, locale)} · ${humanize(event.source)}`}
                         complete={activity.tone === 'ready'}
                         attention={activity.tone === 'attention'}
                         last={index === detail.events.length - 1}
@@ -194,7 +198,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                     </div>
                     {review.title ? <h3 className="mt-3 font-medium text-[var(--fg)]">{review.title}</h3> : null}
                     {review.body ? <p className="mt-2 text-sm leading-6 text-[var(--fg-muted)]">{review.body}</p> : null}
-                    <p className="mt-3 text-xs text-[var(--fg-muted-2)]">{humanize(review.status)} · {formatDateTime(review.created_at)}</p>
+                    <p className="mt-3 text-xs text-[var(--fg-muted-2)]">{humanize(review.status)} · {formatDisplayDateTime(review.created_at, locale)}</p>
                   </article>
                 ))}
               </SectionCard>
@@ -217,7 +221,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 <Detail label="Offer key" value={order.offer_key || 'Not recorded'} mono />
                 <Detail label="Listing" value={order.slug ? `/${order.slug}` : 'Listing unavailable'} mono={Boolean(order.slug)} />
                 <Detail label="Order source" value={getOrderChannelLabel(order.channel)} />
-                {order.service_period_start || order.service_period_end ? <Detail label="Service period" value={dateRange(order.service_period_start, order.service_period_end)} /> : null}
+                {order.service_period_start || order.service_period_end ? <Detail label="Service period" value={dateRange(order.service_period_start, order.service_period_end, locale)} /> : null}
               </dl>
             </SectionCard>
 
@@ -243,10 +247,12 @@ function StagedAgreementCard({
   order,
   agreement,
   obligations,
+  locale,
 }: {
   order: DashboardOrder
   agreement: NonNullable<Awaited<ReturnType<typeof loadDashboardOrderDetail>>>['stagedAgreement']
   obligations: StagedSettlementObligation[]
+  locale: string
 }) {
   if (!agreement) return null
   return (
@@ -254,7 +260,7 @@ function StagedAgreementCard({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm text-[var(--fg-muted)]">Agreement total</p>
-          <p className="mt-1 text-2xl font-semibold text-[var(--fg)]">{formatCurrencyAmount(agreement.total_amount_cents, agreement.currency)}</p>
+          <p className="mt-1 text-2xl font-semibold text-[var(--fg)]">{formatCurrencyAmount(agreement.total_amount_cents, agreement.currency, locale)}</p>
         </div>
         <span className="rounded-full border border-[var(--line-soft)] bg-[var(--fill-1)] px-3 py-1.5 text-xs font-medium text-[var(--fg-muted)]">{humanize(agreement.status)}</span>
       </div>
@@ -272,7 +278,7 @@ function StagedAgreementCard({
               </div>
               <div className="mt-4 flex items-end justify-between gap-3">
                 <span className="text-sm text-[var(--fg-muted)]">{humanize(obligation.status)}</span>
-                <span className="font-medium text-[var(--fg)]">{formatCurrencyAmount(obligation.amount_cents, agreement.currency)}</span>
+                <span className="font-medium text-[var(--fg)]">{formatCurrencyAmount(obligation.amount_cents, agreement.currency, locale)}</span>
               </div>
             </li>
           )
@@ -367,13 +373,9 @@ function safeReference(value: string | null) {
   return value.length <= 20 ? value : `${value.slice(0, 8)}…${value.slice(-10)}`
 }
 
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
-}
-
-function dateRange(start: string | null, end: string | null) {
+function dateRange(start: string | null, end: string | null, locale: string) {
   if (!start && !end) return 'Not recorded'
-  const format = (value: string) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const format = (value: string) => formatDisplayDate(value, locale)
   if (!start) return `Ends ${format(end!)}`
   if (!end) return `Starts ${format(start)}`
   return `${format(start)} to ${format(end)}`

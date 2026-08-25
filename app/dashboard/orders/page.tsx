@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import { SurfaceHeader } from '../../../components/dashboard/SurfacePrimitives'
 import { DataLoadNotice } from '../../../components/dashboard/DataLoadNotice'
 import { EmptyState } from '../../../components/EmptyState'
 import { formatCurrencyAmount } from '../../../lib/currency'
+import { formatDisplayDate, resolveDisplayLocale } from '../../../lib/international-operations'
 import {
   getOrderChannelLabel,
   getOrderDisplayStatus,
@@ -50,7 +51,8 @@ type OrdersPageProps = {
 }
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
-  const [cookieStore, rawFilters] = await Promise.all([cookies(), searchParams])
+  const [cookieStore, headerStore, rawFilters] = await Promise.all([cookies(), headers(), searchParams])
+  const locale = resolveDisplayLocale(headerStore.get('accept-language'))
   const supabase = createClient(cookieStore)
   const {
     data: { user },
@@ -114,13 +116,13 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {result.orders.map((order) => <OrderTableRow key={order.id} order={order} />)}
+                  {result.orders.map((order) => <OrderTableRow key={order.id} order={order} locale={locale} />)}
                 </tbody>
               </table>
             </div>
 
             <div className="divide-y divide-[var(--line-soft)] md:hidden">
-              {result.orders.map((order) => <OrderMobileCard key={order.id} order={order} />)}
+              {result.orders.map((order) => <OrderMobileCard key={order.id} order={order} locale={locale} />)}
             </div>
           </section>
         ) : (
@@ -210,7 +212,7 @@ function FilterSelect({
   )
 }
 
-function OrderTableRow({ order }: { order: DashboardOrder }) {
+function OrderTableRow({ order, locale }: { order: DashboardOrder; locale: string }) {
   const economics = getOrderEconomics(order)
   return (
     <tr className="border-b border-[var(--line-soft)] last:border-0 hover:bg-[var(--fill-1)]">
@@ -218,7 +220,7 @@ function OrderTableRow({ order }: { order: DashboardOrder }) {
         <Link href={`/dashboard/orders/${order.id}`} className="font-medium text-[var(--fg)] hover:text-[var(--settings-emphasis)]">
           {order.offer_name || 'Order'}
         </Link>
-        <p className="mt-1 font-mono text-[11px] text-[var(--fg-muted-2)]">#{shortOrderReference(order.id)} · {formatDate(order.created_at)}</p>
+        <p className="mt-1 font-mono text-[11px] text-[var(--fg-muted-2)]">#{shortOrderReference(order.id)} · {formatDisplayDate(order.created_at, locale)}</p>
       </td>
       <td className="px-5 py-4">
         <p className="max-w-[220px] truncate text-[var(--fg)]">{order.buyer_name || order.buyer_email || 'Customer details unavailable'}</p>
@@ -229,8 +231,8 @@ function OrderTableRow({ order }: { order: DashboardOrder }) {
         <ModeLabel value={order.stripe_livemode} />
       </td>
       <td className="px-5 py-4"><OrderStatus order={order} /></td>
-      <td className="px-5 py-4 text-right font-medium text-[var(--fg)]">{formatCurrencyAmount(economics.grossCents, order.currency)}</td>
-      <td className="px-5 py-4 text-right text-[var(--ready)]">{formatCurrencyAmount(economics.netCents, order.currency)}</td>
+      <td className="px-5 py-4 text-right font-medium text-[var(--fg)]">{formatCurrencyAmount(economics.grossCents, order.currency, locale)}</td>
+      <td className="px-5 py-4 text-right text-[var(--ready)]">{formatCurrencyAmount(economics.netCents, order.currency, locale)}</td>
       <td className="px-5 py-4 text-right">
         <Link href={`/dashboard/orders/${order.id}`} aria-label={`Open order ${shortOrderReference(order.id)}`} className="inline-flex size-9 items-center justify-center rounded-full border border-[var(--line-soft)] text-[var(--fg-muted)] hover:border-[var(--settings-focus)] hover:text-[var(--fg)]">
           <ArrowRight className="size-4" aria-hidden="true" />
@@ -240,14 +242,14 @@ function OrderTableRow({ order }: { order: DashboardOrder }) {
   )
 }
 
-function OrderMobileCard({ order }: { order: DashboardOrder }) {
+function OrderMobileCard({ order, locale }: { order: DashboardOrder; locale: string }) {
   const economics = getOrderEconomics(order)
   return (
     <Link href={`/dashboard/orders/${order.id}`} className="block p-5 hover:bg-[var(--fill-1)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-medium text-[var(--fg)]">{order.offer_name || 'Order'}</p>
-          <p className="mt-1 font-mono text-[11px] text-[var(--fg-muted-2)]">#{shortOrderReference(order.id)} · {formatDate(order.created_at)}</p>
+          <p className="mt-1 font-mono text-[11px] text-[var(--fg-muted-2)]">#{shortOrderReference(order.id)} · {formatDisplayDate(order.created_at, locale)}</p>
         </div>
         <OrderStatus order={order} />
       </div>
@@ -258,8 +260,8 @@ function OrderMobileCard({ order }: { order: DashboardOrder }) {
           <ModeLabel value={order.stripe_livemode} />
         </span>
         <div className="text-right">
-          <p className="font-medium text-[var(--fg)]">{formatCurrencyAmount(economics.grossCents, order.currency)}</p>
-          <p className="text-xs text-[var(--ready)]">{formatCurrencyAmount(economics.netCents, order.currency)} net</p>
+          <p className="font-medium text-[var(--fg)]">{formatCurrencyAmount(economics.grossCents, order.currency, locale)}</p>
+          <p className="text-xs text-[var(--ready)]">{formatCurrencyAmount(economics.netCents, order.currency, locale)} net</p>
         </div>
       </div>
     </Link>
@@ -325,8 +327,4 @@ function ordersHref(filters: DashboardOrderFilters, page: number) {
   if (page > 1) params.set('page', String(page))
   const query = params.toString()
   return `/dashboard/orders${query ? `?${query}` : ''}`
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }

@@ -5,8 +5,16 @@ import { MeasuredChartFrame } from '../analytics/MeasuredChartFrame'
 import { formatCurrencyAmount } from '../../../lib/currency'
 
 /** Daily GMV trend for the selected settlement currency. Money axis + tooltip. */
-export function RevenueChart({ data, currency }: { data: { label: string; revenueCents: number }[]; currency: string }) {
-  const fmt = (v: number) => formatCurrencyAmount(Math.round(Number(v) || 0), currency)
+export function RevenueChart({
+  data,
+  currency,
+  locale,
+}: {
+  data: { label: string; revenueCents: number }[]
+  currency: string
+  locale: string
+}) {
+  const fmt = (v: number) => formatCurrencyAmount(Math.round(Number(v) || 0), currency, locale)
   return (
     <MeasuredChartFrame className="h-64">
       {({ width, height }) => (
