@@ -121,6 +121,29 @@ describe('GET /[slug]/agent.json', () => {
     expect(body.plain_text).toContain('Verified rating: 4.9/5 from 7 purchase reviews')
   })
 
+  it('advertises root artifact URLs on a verified custom host that contains nexez', async () => {
+    dbRef.handler = () => ({
+      data: {
+        ...demoPage,
+        custom_domain: 'closure-950d06c.nexez.ai',
+        custom_domain_verified: '2026-08-25T19:16:54Z',
+        domain_path: '/',
+      },
+      error: null,
+    })
+    const customRequest = new Request('https://closure-950d06c.nexez.ai/agent.json', {
+      headers: { host: 'closure-950d06c.nexez.ai' },
+    })
+
+    const res = await GET(customRequest, ctx('demo'))
+    const body = await res.json()
+
+    expect(body.page.url).toBe('https://closure-950d06c.nexez.ai')
+    expect(body.page.agent_json_url).toBe('https://closure-950d06c.nexez.ai/agent.json')
+    expect(body.page.llms_url).toBe('https://closure-950d06c.nexez.ai/llms.txt')
+    expect(body.page.openapi_url).toBe('https://closure-950d06c.nexez.ai/openapi.json')
+  })
+
   it('calls notFound() for a missing/unpublished page', async () => {
     dbRef.handler = () => ({ data: null, error: { message: 'none' } })
     await expect(GET(req(), ctx('missing'))).rejects.toThrow('NEXT_NOT_FOUND')

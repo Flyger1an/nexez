@@ -34,10 +34,12 @@ export async function GET(request: Request, { params }: RouteProps) {
   // is arriving on it (for brand-correct identity in the agent contract), falling
   // back to the hardened canonical base otherwise (prevents arbitrary XFH reflection).
   let baseForPayload = getRequestBaseUrl(request)
+  let onCustomHost = false
   if (page.custom_domain && page.custom_domain_verified) {
     const reqHost = (request.headers.get('host') || '').split(':')[0]
     if (reqHost === page.custom_domain || reqHost === `www.${page.custom_domain}`) {
       baseForPayload = `https://${page.custom_domain}${page.domain_path || ''}`.replace(/\/$/, '')
+      onCustomHost = true
     }
   }
 
@@ -50,6 +52,7 @@ export async function GET(request: Request, { params }: RouteProps) {
     negotiationAllowed,
     storefront: storefrontHandle ? buildAgentStorefrontRef(storefrontHandle) : null,
     reviewSummary,
+    onCustomHost,
   })
   return Response.json(payload, {
     headers: {

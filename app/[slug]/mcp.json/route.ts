@@ -58,10 +58,12 @@ export async function GET(
 
   // Prefer verified custom domain base when request host matches, else hardened canonical (prevents arbitrary reflection).
   let base = getRequestBaseUrl(request)
+  let onCustomHost = false
   if (page.custom_domain && page.custom_domain_verified) {
     const reqHost = (request.headers.get('host') || '').split(':')[0]
     if (reqHost === page.custom_domain || reqHost === `www.${page.custom_domain}`) {
       base = `https://${page.custom_domain}${page.domain_path || ''}`.replace(/\/$/, '')
+      onCustomHost = true
     }
   }
   const negotiationAllowed = await resolveNegotiationAllowed(page)
@@ -73,6 +75,7 @@ export async function GET(
     negotiationAllowed,
     storefront: storefrontHandle ? buildAgentStorefrontRef(storefrontHandle) : null,
     reviewSummary,
+    onCustomHost,
   })
 
   // Host-correct, already resolved by buildAgentPagePayload for both the brand

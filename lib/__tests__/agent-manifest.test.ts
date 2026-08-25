@@ -30,6 +30,31 @@ describe('buildAgentPagePayload', () => {
     expect(urlPayload.plain_text).toContain('Agent JSON: https://nexez.app/acme/agent.json')
   })
 
+  it('keeps verified custom-host identity at the domain root even when the hostname contains nexez', () => {
+    const urlPayload = buildAgentPagePayload(
+      { ...page, domain_path: '/' } as unknown as AgentPage,
+      'https://closure-950d06c.nexez.ai',
+      { onCustomHost: true },
+    ) as any
+
+    expect(urlPayload.page.url).toBe('https://closure-950d06c.nexez.ai')
+    expect(urlPayload.page.agent_json_url).toBe('https://closure-950d06c.nexez.ai/agent.json')
+    expect(urlPayload.page.llms_url).toBe('https://closure-950d06c.nexez.ai/llms.txt')
+    expect(urlPayload.page.openapi_url).toBe('https://closure-950d06c.nexez.ai/openapi.json')
+    expect(urlPayload.plain_text).toContain('URL: https://closure-950d06c.nexez.ai')
+    expect(urlPayload.plain_text).toContain('Agent JSON: https://closure-950d06c.nexez.ai/agent.json')
+  })
+
+  it('does not infer a custom host from a saved domain path alone', () => {
+    const urlPayload = buildAgentPagePayload(
+      { ...page, domain_path: '/pricing' } as unknown as AgentPage,
+      'https://nexez.app',
+    ) as any
+
+    expect(urlPayload.page.url).toBe('https://nexez.app/acme')
+    expect(urlPayload.page.agent_json_url).toBe('https://nexez.app/acme/agent.json')
+  })
+
   it('surfaces a resolved preferred-contact block (derived) on the page', () => {
     // fixture has only website_url → derived channel is website
     expect(payload.page.contact).toEqual({ preferred: 'website', value: 'https://acme.com', channels: ['website'] })
