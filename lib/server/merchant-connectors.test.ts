@@ -197,6 +197,50 @@ describe('merchant connector foundation', () => {
     })
   })
 
+  it('fails closed when a renewed credential cannot be persisted', async () => {
+    const row = {
+      page_id: 'page-1',
+      owner_id: 'owner-1',
+      provider: 'servicem8',
+      credential_encrypted: encryptSecret(JSON.stringify({
+        accessToken: 'old-access',
+        refreshToken: 'old-refresh',
+        tokenType: 'Bearer',
+        expiresAt: '2026-01-01T00:00:00.000Z',
+      }))!,
+      status: 'connected',
+      external_account_id: null,
+      granted_scopes: ['read_jobs'],
+      capabilities: ['jobs'],
+      expires_at: '2026-01-01T00:00:00.000Z',
+      last_synced_at: null,
+      last_error: null,
+      metadata: {},
+      updated_at: '2026-01-01T00:00:00.000Z',
+    }
+    const admin = {
+      from: () => ({
+        select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row }) }) }) }),
+        update: (values: Record<string, unknown>) => ({
+          eq: () => ({
+            eq: async () => ({ error: values.credential_encrypted ? new Error('write unavailable') : null }),
+          }),
+        }),
+      }),
+    } as any
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({
+      access_token: 'new-access',
+      refresh_token: 'new-refresh',
+      expires_in: 3600,
+    })))
+
+    const result = await getUsableConnectorCredential(admin, 'page-1', 'servicem8')
+
+    expect(result).toMatchObject({ ok: false })
+    if (result.ok) return
+    expect(result.error).toMatch(/renewed access but could not save it/i)
+  })
+
   it('refreshes Square inside the required seven-day cadence instead of waiting for expiry', async () => {
     const expiringInTwentyDays = new Date(Date.now() + 20 * 24 * 60 * 60_000).toISOString()
     const row = {
@@ -324,11 +368,53 @@ describe('merchant connector foundation', () => {
     const [url, init] = fetchMock.mock.calls[0]!
     expect(String(url)).toBe('https://acuityscheduling.com/oauth2/disconnect')
     expect(init?.redirect).toBe('error')
+    expect(init?.signal).toBeInstanceOf(AbortSignal)
     const body = new URLSearchParams(String(init?.body))
     expect(Object.fromEntries(body)).toEqual({
       access_token: 'acuity-access',
       client_id: 'acuity-client',
       client_secret: 'acuity-secret',
     })
+  })
+
+  it('revokes an expired Google connection with the stored refresh token without refreshing first', async () => {
+    const credential = {
+      accessToken: 'expired-google-access',
+      refreshToken: 'google-refresh',
+      tokenType: 'Bearer',
+      expiresAt: new Date(Date.now() - 60_000).toISOString(),
+    }
+    const row = {
+      page_id: 'page-1', owner_id: 'owner-1', provider: 'google_calendar',
+      credential_encrypted: encryptSecret(JSON.stringify(credential))!, status: 'connected',
+      external_account_id: null, granted_scopes: [], capabilities: [], expires_at: credential.expiresAt,
+      last_synced_at: null, last_error: null, metadata: {}, updated_at: new Date().toISOString(),
+    }
+    const admin = {
+      from: (table: string) => {
+        if (table === 'user_integrations') {
+          return { delete: () => ({ eq: () => ({ eq: async () => ({ error: null }) }) }) }
+        }
+        return {
+          select: () => {
+            const query: any = {
+              eq: () => query,
+              maybeSingle: async () => ({ data: row }),
+              limit: async () => ({ data: [] }),
+            }
+            return query
+          },
+          delete: () => ({ eq: () => ({ eq: async () => ({ error: null }) }) }),
+        }
+      },
+    } as any
+    const fetchMock = vi.fn(async (_input: string | URL, _init?: RequestInit) => Response.json({ success: true }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await disconnectMerchantConnector(admin, 'page-1', 'owner-1', 'google_calendar')).toEqual({ ok: true })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(String(url)).toBe('https://oauth2.googleapis.com/revoke')
+    expect(new URLSearchParams(String(init?.body)).get('token')).toBe('google-refresh')
   })
 })

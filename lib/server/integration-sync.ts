@@ -98,6 +98,9 @@ export type SyncOptions = {
   /** Seller-triggered installed-app retries clear retained queue/attention
    * state; a claimed worker keeps ownership of clearing its own queue row. */
   clearShopifyCatalogSyncState?: boolean
+  /** Operational source for telemetry. Manual is the default for existing
+   * callers and seller-triggered retries. */
+  trigger?: 'manual' | 'oauth_callback' | 'background'
 }
 
 /**
@@ -145,12 +148,16 @@ export async function syncPageIntegration(
     return { ok: false, status: 400, error: `Connect ${PROVIDER_LABEL[provider]} in Settings before syncing.` }
   }
 
+  const fail = async (status: number, error: string): Promise<SyncResult> => {
+    if (isManagedConnectorProvider(provider)) {
+      await recordMerchantConnectorSync(admin, pageId, provider, { ok: false, error })
+    }
+    return { ok: false, status, error }
+  }
+
   const imported = await importIntegrationOffers(input)
   if (!imported.ok) {
-    if (isManagedConnectorProvider(provider)) {
-      await recordMerchantConnectorSync(admin, pageId, provider, { ok: false, error: imported.error })
-    }
-    return { ok: false, status: 502, error: imported.error }
+    return fail(502, imported.error)
   }
 
   const { data: page } = await admin
@@ -158,7 +165,7 @@ export async function syncPageIntegration(
     .select('id, slug, services, products, next_available, updated_at')
     .eq('id', pageId)
     .maybeSingle<{ id: string; slug: string; services: OfferItem[] | null; products: OfferItem[] | null; next_available: string | null; updated_at: string }>()
-  if (!page) return { ok: false, status: 404, error: 'Page not found.' }
+  if (!page) return fail(404, 'Page not found.')
 
   // Column-aware merge: update a provider offer wherever it already lives
   // (services OR products) and never duplicate across columns - the webhook/cron
@@ -226,13 +233,13 @@ export async function syncPageIntegration(
         clearCatalogSyncState: options.clearShopifyCatalogSyncState ?? false,
       })
     } catch {
-      return { ok: false, status: 500, error: 'Could not save the synced Shopify catalog.' }
+      return fail(500, 'Could not save the synced Shopify catalog.')
     }
     if (commit === 'mapping_stale') {
-      return { ok: false, status: 409, error: 'The Shopify listing connection changed during sync. Retry from the currently linked listing.' }
+      return fail(409, 'The Shopify listing connection changed during sync. Retry from the currently linked listing.')
     }
     if (commit === 'page_conflict') {
-      return { ok: false, status: 409, error: 'This page changed during the sync. Nexez will retry with the latest version.' }
+      return fail(409, 'This page changed during the sync. Nexez will retry with the latest version.')
     }
   } else {
     const { data: written, error: writeErr } = await admin
@@ -242,9 +249,9 @@ export async function syncPageIntegration(
       .eq('updated_at', page.updated_at)
       .select('id')
       .maybeSingle<{ id: string }>()
-    if (writeErr) return { ok: false, status: 500, error: 'Could not save the synced offers.' }
+    if (writeErr) return fail(500, 'Could not save the synced offers.')
     if (!written) {
-      return { ok: false, status: 409, error: 'This page changed during the sync. Nexez will retry with the latest version.' }
+      return fail(409, 'This page changed during the sync. Nexez will retry with the latest version.')
     }
   }
 
@@ -260,6 +267,12 @@ export async function syncPageIntegration(
     })
   }
 
-  captureEvent('integration.manual_sync', { provider, slug: page.slug, imported: imported.offers.length, windows: windows.length })
+  captureEvent('integration.manual_sync', {
+    provider,
+    slug: page.slug,
+    imported: imported.offers.length,
+    windows: windows.length,
+    trigger: options.trigger ?? 'manual',
+  })
   return { ok: true, provider, imported: imported.offers.length, windows: windows.length, availabilitySynced, note: imported.note }
 }
