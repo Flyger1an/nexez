@@ -106,6 +106,7 @@ select
   coalesce(page.created_at, statement_timestamp()),
   statement_timestamp()
 from public.pages as page
+where page.slug is not null
 on conflict (namespace, identifier) do update
 set kind = excluded.kind,
     owner_id = excluded.owner_id,
@@ -243,6 +244,23 @@ security definer
 set search_path = ''
 as $$
 begin
+  if new.slug is null then
+    if new.is_published is true then
+      raise exception 'public_identifier_required' using errcode = '23514';
+    end if;
+
+    if tg_op = 'UPDATE' and old.slug is not null then
+      update private.public_identifier_claims
+      set kind = 'reserved',
+          subject_id = null,
+          updated_at = statement_timestamp()
+      where namespace = 'page_slug'
+        and owner_id is not distinct from old.owner_id
+        and subject_id = old.id;
+    end if;
+    return new;
+  end if;
+
   if tg_op = 'UPDATE' and new.slug is not distinct from old.slug then
     return new;
   end if;
@@ -272,7 +290,7 @@ revoke all on function private.nz_enforce_page_slug_identifier()
 
 drop trigger if exists trg_01_enforce_page_slug_identifier on public.pages;
 create trigger trg_01_enforce_page_slug_identifier
-  before insert or update of slug on public.pages
+  before insert or update of slug, is_published on public.pages
   for each row execute function private.nz_enforce_page_slug_identifier();
 
 create or replace function private.nz_reserve_page_identifiers_on_delete()
@@ -371,9 +389,17 @@ alter table public.pages drop constraint if exists pages_slug_format;
 alter table public.pages
   add constraint pages_slug_format
   check (
-    slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'
-    and char_length(slug) between 1 and 63
+    slug is null
+    or (
+      slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      and char_length(slug) between 1 and 63
+    )
   );
+
+alter table public.pages drop constraint if exists pages_published_slug_required;
+alter table public.pages
+  add constraint pages_published_slug_required
+  check (is_published is not true or slug is not null);
 
 alter table public.storefronts drop constraint if exists storefronts_handle_format;
 alter table public.storefronts

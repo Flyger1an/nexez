@@ -53,6 +53,10 @@ describe('public identifier policy', () => {
 
   it('does not mislabel an unrelated database conflict as a public-name collision', () => {
     expect(publicIdentifierDatabaseMessage({
+      code: '23514',
+      message: 'public_identifier_required',
+    })).toBe('Choose a public name before publishing.')
+    expect(publicIdentifierDatabaseMessage({
       code: '23505',
       message: 'duplicate key value violates unique constraint "pages_slug_key"',
     })).toBe('That public name is already taken. Try another.')
@@ -72,5 +76,15 @@ describe('database reservation drift guard', () => {
     const seed = migration.match(/select unnest\(array\[([\s\S]*?)\]::text\[\]\)/)?.[1] ?? ''
     const seeded = new Set([...seed.matchAll(/'([^']+)'/g)].map((match) => match[1]))
     expect(seeded).toEqual(RESERVED_PUBLIC_IDENTIFIERS)
+  })
+
+  it('preserves unnamed drafts without weakening published listing identity', () => {
+    const migration = readFileSync(
+      join(__dirname, '../../supabase/migrations/20260825200808_secure_public_identifiers.sql'),
+      'utf8',
+    )
+    expect(migration).toMatch(/from public\.pages as page\s+where page\.slug is not null\s+on conflict/i)
+    expect(migration).toContain("raise exception 'public_identifier_required'")
+    expect(migration).toMatch(/pages_published_slug_required[\s\S]*is_published is not true or slug is not null/i)
   })
 })

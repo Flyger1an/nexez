@@ -125,6 +125,7 @@ export function publicIdentifierWithSuffix(base: string, suffix: string | number
 
 export function publicIdentifierDatabaseMessage(error: { message?: string; code?: string } | null | undefined): string | null {
   const message = error?.message ?? ''
+  if (/public_identifier_required/i.test(message)) return 'Choose a public name before publishing.'
   if (/public_identifier_too_short/i.test(message)) return 'Use at least 5 characters.'
   if (/public_identifier_too_long/i.test(message)) return 'Use no more than 63 characters.'
   if (/public_identifier_invalid_format/i.test(message)) return 'Use lowercase letters, numbers, and single hyphens only.'
