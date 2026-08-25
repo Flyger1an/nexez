@@ -7,7 +7,9 @@ describe('buildMcpServerCard', () => {
     const card = buildMcpServerCard()
     expect(card.endpoint).toMatch(/\/mcp$/)
     expect(card.transport).toBe('streamable-http')
+    expect(card.protocol_version).toBe('2026-07-28')
     expect(card.capabilities.tools).toBe(true)
+    expect(card.capabilities.resources).toBe(true)
     // The card must agree with the artifacts agents already use.
     expect(card.links.catalog).toMatch(/\/\.well-known\/mcp\.json$/)
     expect(card.links.manifest).toMatch(/\/\.well-known\/agent\.json$/)

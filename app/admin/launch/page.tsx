@@ -11,15 +11,17 @@ import { getCommerceDemandSnapshot } from '../../../lib/server/commerce-demand'
 import { getCommerceSupplyWorkflowSnapshot } from '../../../lib/server/commerce-supply-workflow'
 import { getLaunchDecisionHistory } from '../../../lib/server/launch-decision'
 import { buildLaunchDecisionEvidence } from '../../../lib/launch-decision'
+import { getMcpDemandSnapshot } from '../../../lib/server/mcp-demand'
 
 export default async function AdminLaunchPage() {
   await requirePlatformAdmin('/admin/launch')
-  const [snapshot, releases, launchDecisions, marketplaceCuration, commerceDemand] = await Promise.all([
+  const [snapshot, releases, launchDecisions, marketplaceCuration, commerceDemand, mcpDemand] = await Promise.all([
     getLaunchControlSnapshot(),
     getReleaseCertificationHistory(25),
     getLaunchDecisionHistory(),
     getMarketplaceCurationQueue(),
     getCommerceDemandSnapshot(),
+    getMcpDemandSnapshot(),
   ])
   const commerceSupplyWorkflow = await getCommerceSupplyWorkflowSnapshot(
     commerceDemand,
@@ -38,6 +40,7 @@ export default async function AdminLaunchPage() {
       marketplaceCuration={marketplaceCuration}
       commerceDemand={commerceDemand}
       commerceSupplyWorkflow={commerceSupplyWorkflow}
+      mcpDemand={mcpDemand}
       launchDecisions={launchDecisions}
       launchDecisionEvidence={launchDecisionEvidence}
       initialLaunchDecisionToken={randomUUID()}

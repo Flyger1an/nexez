@@ -23,6 +23,8 @@ Nexez gives businesses a clean, structured, AI-readable page for products and se
 - OpenAPI: https://nexez.app/openapi.json
 - Capabilities manifest: https://nexez.app/.well-known/nexez.json
 - MCP discovery catalog: https://nexez.app/.well-known/mcp.json
+- Platform MCP endpoint: https://nexez.app/mcp
+- Official MCP Registry manifest: `server.json` (`ai.nexez/commerce`)
 - Search API template: https://nexez.app/api/agent-search?q={query}
 - Support: https://nexez.ai/support
 
@@ -107,6 +109,7 @@ npm run smoke:agent-access
 
 ## Submission Targets
 
+- Official MCP Registry.
 - MCP directory/catalog maintainers.
 - OpenAPI/action catalog communities.
 - Agent tool registries and autonomous-agent marketplaces.
@@ -125,3 +128,31 @@ npm run smoke:agent-access
 - Include one test prompt and one safe approval policy in every submission.
 - Link to `https://nexez.ai/agents` as the human start page.
 - Link to `https://nexez.app/llms.txt` as the machine start page.
+
+## Official MCP Registry Release
+
+The codebase is ready for domain-authenticated publication as `ai.nexez/commerce`. Publication is an owner release step after the branch is merged, the migration is applied, and production is deployed. Do not describe the server as Registry-published until the live Registry API returns the exact name, version, and remote URL.
+
+1. Generate an Ed25519 key pair on the owner-controlled machine. Never commit the private key.
+2. Store the Base64 public key as `MCP_REGISTRY_PUBLIC_KEY` in the marketing production environment and redeploy.
+3. Confirm `https://nexez.ai/.well-known/mcp-registry-auth` returns `v=MCPv1; k=ed25519; p=...` as plain text.
+4. Confirm a current `server/discover` request to `https://nexez.app/mcp` returns protocol `2026-07-28` with tools and resources.
+5. Authenticate with the official publisher:
+
+```bash
+mcp-publisher login http --domain nexez.ai --private-key "$PRIVATE_KEY"
+```
+
+6. Publish the checked-in manifest:
+
+```bash
+mcp-publisher publish
+```
+
+7. Verify the exact live record:
+
+```bash
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=ai.nexez/commerce"
+```
+
+Launch Control treats Registry publication, endpoint health, MCP requests, ready handoffs, attributed commerce records, and live-money records as separate evidence. A Registry listing does not prove demand or conversion.

@@ -25,6 +25,8 @@ import type { CommerceDemandSnapshot } from '../../lib/commerce-demand'
 import type { CommerceSupplyWorkflowSnapshot } from '../../lib/commerce-supply-workflow'
 import type { LaunchDecisionEvidence, LaunchDecisionRecord } from '../../lib/launch-decision'
 import { LaunchDecisionPanel } from '../admin/LaunchDecisionPanel'
+import { McpDistributionPanel } from './McpDistributionPanel'
+import type { McpDemandSnapshot } from '../../lib/mcp-demand'
 
 const STATUS_STYLE: Record<LaunchStatus, { label: string; className: string; Icon: typeof CheckCircle2 }> = {
   ready: {
@@ -55,6 +57,7 @@ export function LaunchControlDashboard({
   marketplaceCuration,
   commerceDemand,
   commerceSupplyWorkflow,
+  mcpDemand,
   launchDecisions,
   launchDecisionEvidence,
   initialLaunchDecisionToken,
@@ -64,6 +67,7 @@ export function LaunchControlDashboard({
   marketplaceCuration: MarketplaceCurationQueue
   commerceDemand: CommerceDemandSnapshot
   commerceSupplyWorkflow: CommerceSupplyWorkflowSnapshot
+  mcpDemand: McpDemandSnapshot
   launchDecisions: LaunchDecisionRecord[]
   launchDecisionEvidence: LaunchDecisionEvidence
   initialLaunchDecisionToken: string
@@ -164,6 +168,8 @@ export function LaunchControlDashboard({
         <MarketplaceCurationPanel queue={marketplaceCuration} />
 
         <CommerceDemandPanel snapshot={commerceDemand} supplyWorkflow={commerceSupplyWorkflow} />
+
+        <McpDistributionPanel snapshot={mcpDemand} />
 
         <section className="border-t border-border py-8" aria-labelledby="release-certificates-heading">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

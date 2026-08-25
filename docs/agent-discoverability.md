@@ -18,8 +18,10 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
    - Keep side-effecting tools optional and approval-gated.
 
 3. MCP-native discovery
-   - Current surface: global `/.well-known/mcp.json`, per-page `/{slug}/mcp.json`, and JSON-RPC `/{slug}/mcp`.
-   - Next step: submit/list Nexez endpoints in MCP directories and agent tool catalogs where appropriate.
+   - Current surface: current stateless platform MCP at `/mcp`, global `/.well-known/mcp.json`, per-page `/{slug}/mcp.json`, and legacy-compatible JSON-RPC endpoints.
+   - Current contract: platform `server/discover`, tools, and resources support MCP `2026-07-28`; existing initialize clients remain supported without weakening the current header checks.
+   - Safety: public tools search and inspect published data or perform dry-run validation. A validated checkout or negotiation returns an exact buyer-approval handoff, but Nexez does not submit it automatically.
+   - Distribution: `server.json` is ready for domain-authenticated publication as `ai.nexez/commerce`. The live official Registry publication remains an owner release step and must be verified from the Registry API before it is claimed.
 
 4. OpenAPI/action catalogs
    - Current surface: `/openapi.json`.
@@ -74,5 +76,5 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 1. Keep the public `/agents` access page and machine-readable metadata in sync with published OpenClaw versions.
 2. Keep the published `@nexez/agent-sdk` install path visible in `/agents`, `/llms.txt`, OpenAPI, MCP, and capabilities manifests.
 3. Keep the published `nexez-agent-sdk` PyPI install path visible in `/agents`, `/llms.txt`, OpenAPI, MCP, and capabilities manifests.
-4. Expand MCP/OpenAPI directory submissions.
+4. Publish and verify `ai.nexez/commerce` in the official MCP Registry, then expand MCP/OpenAPI directory submissions.
 5. Add more agent workflow examples for checkout, negotiation, status polling, and buyer-facing approval UI patterns.

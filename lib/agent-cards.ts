@@ -1,4 +1,5 @@
 import { buildPlatformAgentManifest } from './platform-agent-manifest'
+import { MCP_PROTOCOL_VERSION } from './mcp-transport'
 import { agentRuntimeUrl, marketingUrl } from './site'
 
 /**
@@ -18,11 +19,12 @@ export function buildMcpServerCard() {
     name: 'Nexez',
     title: 'Nexez Agent Commerce MCP Server',
     description:
-      'MCP server for agent commerce on Nexez: discover structured business offers, compare and negotiate, and route checkout and booking intent.',
+      'Find Nexez sellers, inspect published offers, and validate checkout or negotiation before a buyer-approved handoff.',
     endpoint: agentRuntimeUrl('/mcp'),
     transport: 'streamable-http',
+    protocol_version: MCP_PROTOCOL_VERSION,
     authentication: { required: false },
-    capabilities: { tools: true, resources: false, prompts: false },
+    capabilities: { tools: true, resources: true, prompts: false },
     links: {
       catalog: agentRuntimeUrl('/.well-known/mcp.json'),
       manifest: agentRuntimeUrl('/.well-known/agent.json'),
