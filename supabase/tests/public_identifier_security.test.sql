@@ -1,7 +1,7 @@
 begin;
 set local search_path = public, extensions;
 
-select plan(28);
+select plan(35);
 
 select ok(
   to_regclass('private.public_identifier_claims') is not null,
@@ -57,6 +57,59 @@ values
   ('d0000000-0000-4000-8000-000000000001', 'pro', 'active', 'legacy'),
   ('d0000000-0000-4000-8000-000000000002', 'pro', 'active', 'legacy'),
   ('d0000000-0000-4000-8000-000000000003', 'pro', 'active', 'legacy');
+
+select lives_ok(
+  $$insert into public.pages (id, owner_id, name, slug, is_published) values
+    ('d1000000-0000-4000-8000-000000000004', 'd0000000-0000-4000-8000-000000000001', 'Unnamed draft', null, false)$$,
+  'an unpublished draft can remain unnamed'
+);
+select is(
+  (
+    select count(*)
+    from private.public_identifier_claims
+    where namespace = 'page_slug'
+      and subject_id = 'd1000000-0000-4000-8000-000000000004'
+  ),
+  0::bigint,
+  'an unnamed draft does not create an empty identifier claim'
+);
+select throws_ok(
+  $$update public.pages set is_published = true
+    where id = 'd1000000-0000-4000-8000-000000000004'$$,
+  '23514',
+  'public_identifier_required',
+  'an unnamed draft cannot be published'
+);
+select lives_ok(
+  $$update public.pages set slug = 'named-draft-listing'
+    where id = 'd1000000-0000-4000-8000-000000000004'$$,
+  'assigning a valid public name to a draft succeeds'
+);
+select is(
+  (
+    select kind
+    from private.public_identifier_claims
+    where namespace = 'page_slug'
+      and identifier = 'named-draft-listing'
+  ),
+  'current',
+  'assigning a draft name claims it atomically'
+);
+select lives_ok(
+  $$update public.pages set slug = null
+    where id = 'd1000000-0000-4000-8000-000000000004'$$,
+  'an unpublished listing can return to an unnamed draft'
+);
+select is(
+  (
+    select kind
+    from private.public_identifier_claims
+    where namespace = 'page_slug'
+      and identifier = 'named-draft-listing'
+  ),
+  'reserved',
+  'clearing a draft name retires its former public identity'
+);
 
 select throws_ok(
   $$insert into public.pages (owner_id, name, slug) values
@@ -228,13 +281,13 @@ insert into public.storefronts (id, owner_id, handle, display_name)
 values (
   'd2000000-0000-4000-8000-000000000003',
   'd0000000-0000-4000-8000-000000000003',
-  'a',
+  'b',
   'Legacy shop'
 );
 insert into private.public_identifier_claims (namespace, identifier, kind, owner_id, subject_id)
 values (
   'storefront_handle',
-  'a',
+  'b',
   'current',
   'd0000000-0000-4000-8000-000000000003',
   'd2000000-0000-4000-8000-000000000003'
@@ -247,7 +300,7 @@ select lives_ok(
   'an unchanged grandfathered short handle does not block ordinary edits'
 );
 select throws_ok(
-  $$update public.storefronts set handle = 'b'
+  $$update public.storefronts set handle = 'c'
     where id = 'd2000000-0000-4000-8000-000000000003'$$,
   '23514',
   'public_identifier_too_short',
@@ -258,7 +311,7 @@ select is(
     select reason
     from public.nz_public_identifier_availability(
       'storefront_handle',
-      'a',
+      'b',
       'd0000000-0000-4000-8000-000000000003',
       'd2000000-0000-4000-8000-000000000003'
     )
