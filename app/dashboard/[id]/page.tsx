@@ -8,7 +8,10 @@ import { getOwnerEntitlements } from '../../../lib/server/plan'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { getPageIntegrationConnections } from '../../../lib/server/integration-connections'
 import { outboundWebhooksForClient } from '../../../lib/server/outbound-webhook-config'
-import { commerceTemplateLineageSummary } from '../../../lib/commerce-template-lineage'
+import {
+  commerceTemplateLineageSummary,
+  type PageWithCommerceTemplateLineage,
+} from '../../../lib/commerce-template-lineage'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -73,7 +76,15 @@ export default async function EditAgentPage({ params }: PageProps) {
       ? createAdminClient()
       : null
 
-  const [secretsRes, calendlyRes, outboundRes, trustRes, ownerEntitlements, integrationConnections] = await Promise.all([
+  const [
+    secretsRes,
+    calendlyRes,
+    outboundRes,
+    trustRes,
+    ownerEntitlements,
+    integrationConnections,
+    lineageRes,
+  ] = await Promise.all([
     supabase.from('page_secrets').select('outbound_webhooks').eq('page_id', id).maybeSingle(),
     supabase
       .from('checkout_events')
@@ -99,6 +110,14 @@ export default async function EditAgentPage({ params }: PageProps) {
       ? getOwnerEntitlements(entitlementClient, data.owner_id as string)
       : Promise.resolve(null),
     getPageIntegrationConnections(id, data.owner_id as string),
+    // Keep this optional follow-up separate from OWNER_PAGE_SELECT so the app
+    // remains deployable before the additive migration reaches production.
+    // A missing column or unreadable row fails closed to no guidance.
+    supabase
+      .from('pages')
+      .select('commerce_template_id, commerce_template_version, commerce_template_adopted_at, commerce_template_source')
+      .eq('id', id)
+      .maybeSingle<PageWithCommerceTemplateLineage>(),
   ])
 
   const page = {
@@ -113,7 +132,9 @@ export default async function EditAgentPage({ params }: PageProps) {
 
   const initial: EditorInitial = {
     page,
-    commerceTemplateLineage: commerceTemplateLineageSummary(page),
+    commerceTemplateLineage: lineageRes.data
+      ? commerceTemplateLineageSummary(lineageRes.data)
+      : null,
     recentCalendlyBookings: calendlyRes.data ?? [],
     recentOutboundFires: outboundRes.data ?? [],
     trustEvents: trustRes.data ?? [],

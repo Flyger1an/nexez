@@ -67,10 +67,6 @@ export const SERVER_PAGE_SELECT = [
 
 export const OWNER_PAGE_SELECT = [
   SERVER_PAGE_SELECT,
-  'commerce_template_id',
-  'commerce_template_version',
-  'commerce_template_adopted_at',
-  'commerce_template_source',
   'simulations',
   'team_collaboration',
   'versions',

@@ -20,7 +20,7 @@ export type CommerceTemplateLineageSummary = {
   referenceAvailable: boolean
 }
 
-type PageWithCommerceTemplateLineage = Pick<
+export type PageWithCommerceTemplateLineage = Pick<
   AgentPage,
   | 'commerce_template_id'
   | 'commerce_template_version'
