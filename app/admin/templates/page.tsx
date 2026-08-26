@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import {
   Activity,
   AlertTriangle,
@@ -17,6 +18,7 @@ import {
   Users,
 } from 'lucide-react'
 import { requirePlatformAdmin } from '../../../lib/server/admin-access'
+import { getCommerceTemplateReviewReport } from '../../../lib/server/commerce-template-reviews'
 import {
   getCommerceTemplateOpportunitySnapshot,
   type CommerceTemplateOpportunitySnapshot,
@@ -37,6 +39,16 @@ import type {
   CommerceTemplateActivationStatus,
   CommerceTemplateOutsideSupplyRelationship,
 } from '../../../lib/commerce-template-activation'
+import {
+  commerceTemplateReviewDecisionLabel,
+  commerceTemplateReviewReasonLabel,
+  type CommerceTemplateReviewEvidence,
+  type CommerceTemplateReviewReport,
+} from '../../../lib/commerce-template-reviews'
+import {
+  CommerceTemplateReviewDesk,
+  type CommerceTemplateReviewDeskItem,
+} from '../../../components/admin/CommerceTemplateReviewDesk'
 import { agentRuntimeUrl } from '../../../lib/site'
 
 const RAIL_LABELS: Array<[keyof CommerceTemplateRailCounts, string]> = [
@@ -49,8 +61,12 @@ const RAIL_LABELS: Array<[keyof CommerceTemplateRailCounts, string]> = [
 
 export default async function AdminTemplateOutcomesPage() {
   await requirePlatformAdmin('/admin/templates')
-  const snapshot = await getCommerceTemplateOpportunitySnapshot()
+  const [snapshot, reviewReport] = await Promise.all([
+    getCommerceTemplateOpportunitySnapshot(),
+    getCommerceTemplateReviewReport(),
+  ])
   const outcomes = snapshot.outcomes
+  const reviewItems = buildReviewDeskItems(snapshot.rows, reviewReport)
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-background">
@@ -68,6 +84,11 @@ export default async function AdminTemplateOutcomesPage() {
         {snapshot.warnings.length ? <Warnings warnings={snapshot.warnings} /> : null}
         <OpportunitySummary snapshot={snapshot} />
         <OpportunityMap snapshot={snapshot} />
+        <CommerceTemplateReviewDesk
+          available={reviewReport.available}
+          truncated={reviewReport.truncated}
+          items={reviewItems}
+        />
         <ActivationQueue report={snapshot.activation} />
 
         <section className="mt-8 border-t border-border pt-7" aria-labelledby="template-results-heading">
@@ -168,9 +189,15 @@ function ActivationGroup({ group }: { group: CommerceTemplateActivationGroup }) 
             <h3 className="truncate text-base font-semibold">{group.title}</h3>
             <p className="mt-1 truncate font-mono text-[11px] text-[var(--fg-muted-2)]">{group.templateId}@{group.templateVersion}</p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2 text-[10px] text-[var(--fg-muted)]">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 text-[10px] text-[var(--fg-muted)]">
             <span className="rounded-full border border-border px-2 py-1">{group.summary.listings} using guide</span>
             <span className="rounded-full border border-border px-2 py-1">{group.summary.published} published</span>
+            <a
+              href={`#${templateReviewAnchor(group.templateId, group.templateVersion)}`}
+              className="rounded-full border border-[var(--signal)]/30 px-2 py-1 text-[var(--signal)] transition hover:bg-[var(--signal)]/10"
+            >
+              Review guide
+            </a>
           </div>
         </div>
       </header>
@@ -308,9 +335,18 @@ function OpportunityCard({ row }: { row: CommerceTemplateOpportunityRow }) {
           <h3 className="mt-1 truncate text-base font-semibold">{row.title}</h3>
           <p className="mt-1 truncate font-mono text-[11px] text-[var(--fg-muted-2)]">{row.templateId}@{row.templateVersion}</p>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-current/25 px-2.5 py-1 text-xs font-medium">
-          {row.actionLabel}<ArrowRight className="size-3" aria-hidden="true" />
-        </span>
+        {row.action === 'review-template' ? (
+          <a
+            href={`#${templateReviewAnchor(row.templateId, row.templateVersion)}`}
+            className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-current/25 px-2.5 py-1 text-xs font-medium transition hover:bg-white/[0.06]"
+          >
+            {row.actionLabel}<ArrowRight className="size-3" aria-hidden="true" />
+          </a>
+        ) : (
+          <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-current/25 px-2.5 py-1 text-xs font-medium">
+            {row.actionLabel}<ArrowRight className="size-3" aria-hidden="true" />
+          </span>
+        )}
       </header>
       <p className="mt-4 text-sm leading-6 text-[var(--fg-muted)]">{row.reason}</p>
       <dl className="mt-5 grid gap-3 border-t border-current/10 pt-4 sm:grid-cols-2">
@@ -600,4 +636,71 @@ function readinessComparison(value: number | null): string {
 function railSummary(rails: CommerceTemplateRailCounts): string {
   const parts = RAIL_LABELS.flatMap(([key, label]) => rails[key] ? [`${label} ${rails[key]}`] : [])
   return parts.length ? parts.join(' · ') : 'No live checkout payments'
+}
+
+function buildReviewDeskItems(
+  rows: CommerceTemplateOpportunityRow[],
+  report: CommerceTemplateReviewReport,
+): CommerceTemplateReviewDeskItem[] {
+  return rows.map((row) => {
+    const cases = report.cases.filter((review) => (
+      review.templateId === row.templateId && review.templateVersion === row.templateVersion
+    ))
+    const active = cases.find((review) => review.status === 'open') ?? null
+    const evidence = active?.opened.evidence
+    return {
+      templateId: row.templateId,
+      templateVersion: row.templateVersion,
+      title: row.title,
+      recommendationLabel: row.actionLabel,
+      performanceReviewReady: row.action === 'review-template',
+      openToken: randomUUID(),
+      decisionToken: randomUUID(),
+      activeReview: active && evidence ? {
+        reviewId: active.reviewId,
+        reason: active.reviewReason,
+        reasonLabel: commerceTemplateReviewReasonLabel(active.reviewReason),
+        rationale: active.opened.rationale,
+        openedAt: active.opened.createdAt,
+        evidenceGeneratedAt: evidence.generatedAt,
+        evidenceActionLabel: evidence.recommendation.label,
+        performanceReviewReady: evidence.recommendation.performanceReviewReady,
+        missingSources: unavailableReviewSources(evidence.sources),
+        checkoutValue: evidence.checkout.available ? `${evidence.checkout.orders ?? 0} orders` : 'Unavailable',
+        negotiatedValue: evidence.negotiated.available ? `${evidence.negotiated.deals ?? 0} deals` : 'Unavailable',
+      } : null,
+      history: cases
+        .flatMap((review) => {
+          const decision = review.decision
+          if (!decision?.decision) return []
+          return [{
+            reviewId: review.reviewId,
+            reasonLabel: commerceTemplateReviewReasonLabel(review.reviewReason),
+            decision: decision.decision,
+            decisionLabel: commerceTemplateReviewDecisionLabel(decision.decision),
+            rationale: decision.rationale,
+            decidedAt: decision.createdAt,
+          }]
+        })
+        .slice(0, 3),
+    }
+  })
+}
+
+function unavailableReviewSources(
+  sources: CommerceTemplateReviewEvidence['sources'],
+): string[] {
+  const labels: Array<[keyof typeof sources, string]> = [
+    ['demand', 'buyer interest'],
+    ['supply', 'certified supply'],
+    ['listings', 'guide use'],
+    ['benchmark', 'comparison readiness'],
+    ['checkout', 'live checkout'],
+    ['negotiated', 'negotiated commerce'],
+  ]
+  return labels.flatMap(([key, label]) => sources[key] ? [] : [label])
+}
+
+function templateReviewAnchor(templateId: string, templateVersion: number): string {
+  return `review-${templateId.replace(/[^a-z0-9]+/g, '-')}-${templateVersion}`
 }
