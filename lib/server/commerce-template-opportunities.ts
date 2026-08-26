@@ -5,6 +5,10 @@ import {
   type CommerceTemplateOpportunityReport,
   type CommerceTemplateOpportunitySources,
 } from '../commerce-template-opportunities'
+import {
+  buildCommerceTemplateActivationReport,
+  type CommerceTemplateActivationReport,
+} from '../commerce-template-activation'
 import { commerceTemplates } from '../commerce-templates/registry'
 import { getCommerceDemandSnapshot } from './commerce-demand'
 import { getMarketplaceCurationQueue } from './marketplace-curation'
@@ -15,6 +19,7 @@ export type CommerceTemplateOpportunitySnapshot = CommerceTemplateOpportunityRep
   generatedAt: string
   demandSince: string
   outcomes: Awaited<ReturnType<typeof getCommerceTemplateOutcomeSnapshot>>
+  activation: CommerceTemplateActivationReport
   sources: CommerceTemplateOpportunitySources & {
     demand: boolean
     demandTruncated: boolean
@@ -43,12 +48,21 @@ export async function getCommerceTemplateOpportunitySnapshot(): Promise<Commerce
     outcomes,
     sources,
   })
+  const activation = buildCommerceTemplateActivationReport({
+    templates: commerceTemplates,
+    listings: outcomes.lineageListings,
+    listingsAvailable: outcomes.sources.listings.available,
+    listingsTruncated: outcomes.sources.listings.truncated,
+    marketplace,
+    supply,
+  })
 
   return {
     ...report,
     generatedAt: new Date().toISOString(),
     demandSince: demand.since,
     outcomes,
+    activation,
     sources: {
       ...sources,
       demand: demand.available,

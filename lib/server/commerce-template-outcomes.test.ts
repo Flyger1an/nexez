@@ -75,10 +75,20 @@ describe('server Commerce Template outcomes', () => {
   })
 
   it('loads private lineage and live outcomes through the service client', async () => {
-    await expect(getCommerceTemplateOutcomeSnapshot()).resolves.toMatchObject({
+    const snapshot = await getCommerceTemplateOutcomeSnapshot()
+    expect(snapshot).toMatchObject({
       available: true,
       cohortStartedAt: '2026-08-25T12:00:00.000Z',
       summary: { listings: 1, checkoutOrders: 1, negotiatedDeals: 1 },
+      lineageListings: [{
+        id: 'page-1',
+        name: 'Party Rentals',
+        slug: 'party-page-1',
+        isPublished: true,
+        templateId: 'events.party-rentals',
+        templateVersion: 1,
+        source: 'owner_selected_intake',
+      }],
       templates: [{ title: 'Party Rentals' }],
       sources: {
         listings: { available: true },
@@ -87,6 +97,8 @@ describe('server Commerce Template outcomes', () => {
         negotiated: { available: true },
       },
     })
+    expect(snapshot.lineageListings[0]).not.toHaveProperty('contact_email')
+    expect(snapshot.lineageListings[0]).not.toHaveProperty('owner_id')
     const templateQuery = refs.operations.find((operation) => (
       operation.table === 'pages' && operation.eqs.commerce_template_source === 'owner_selected_intake'
     ))
@@ -116,6 +128,7 @@ describe('server Commerce Template outcomes', () => {
     refs.hasAdmin = false
     await expect(getCommerceTemplateOutcomeSnapshot()).resolves.toMatchObject({
       available: false,
+      lineageListings: [],
       sources: {
         listings: { available: false },
         benchmark: { available: false },

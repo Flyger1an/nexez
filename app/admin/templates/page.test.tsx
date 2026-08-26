@@ -25,6 +25,10 @@ describe('AdminTemplateOutcomesPage', () => {
     expect(requireAdmin.mock.invocationCallOrder[0]).toBeLessThan(getSnapshot.mock.invocationCallOrder[0])
     expect(screen.getByRole('heading', { name: 'What to improve next' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Next moves' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Merchant launch queue' })).toBeInTheDocument()
+    expect(screen.getByText('Party Co.')).toBeInTheDocument()
+    expect(screen.getAllByText('Exact certified supply').length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: /Open listing/ })).toHaveAttribute('href', 'https://nexez.test/party-co')
     expect(screen.getByText('Recruit an exact merchant')).toBeInTheDocument()
     expect(screen.getByText(/Buyer interest is category-level/)).toBeInTheDocument()
     expect(screen.getByText(/There is no combined opportunity score/)).toBeInTheDocument()
@@ -48,6 +52,38 @@ describe('AdminTemplateOutcomesPage', () => {
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
     expect(screen.getByText('Checkout unavailable')).toBeInTheDocument()
     expect(screen.getByText(/Checkout values are not shown as zero/)).toBeInTheDocument()
+  })
+
+  it('fails the merchant queue closed when private guide history is unavailable', async () => {
+    const snapshot = opportunitySnapshot()
+    snapshot.activation = {
+      ...snapshot.activation,
+      available: false,
+      sources: {
+        ...snapshot.activation.sources,
+        listings: { available: false, truncated: false },
+      },
+      summary: {
+        ...snapshot.activation.summary,
+        listings: null,
+        needsPublishing: null,
+        published: null,
+        certifiedOnGuide: null,
+        certifiedOutsideGuide: null,
+        outsideActiveGuides: null,
+      },
+      groups: snapshot.activation.groups.map((group) => ({
+        ...group,
+        listings: [],
+        certifiedOutsideVersion: null,
+      })),
+    }
+    getSnapshot.mockResolvedValueOnce(snapshot)
+
+    render(await AdminTemplateOutcomesPage())
+
+    expect(screen.getByRole('heading', { name: 'Merchant launch data is unavailable' })).toBeInTheDocument()
+    expect(screen.queryByText('Party Co.')).not.toBeInTheDocument()
   })
 })
 
@@ -95,6 +131,50 @@ function opportunitySnapshot(): CommerceTemplateOpportunitySnapshot {
       },
       negotiated: { available: true, deals: 1, listings: 1 },
     }],
+    activation: {
+      available: true,
+      sources: {
+        listings: { available: true, truncated: false },
+        marketplace: true,
+        supply: true,
+      },
+      summary: {
+        activeGuides: 1,
+        listings: 1,
+        needsPublishing: 0,
+        published: 1,
+        certifiedOnGuide: 1,
+        certifiedOutsideGuide: 0,
+        outsideActiveGuides: 0,
+      },
+      groups: [{
+        templateId: 'events.party-rentals',
+        templateVersion: 1,
+        title: 'Party Rentals',
+        listings: [{
+          id: 'page-1',
+          name: 'Party Co.',
+          slug: 'party-co',
+          isPublished: true,
+          readiness: 86,
+          templateId: 'events.party-rentals',
+          templateVersion: 1,
+          adoptedAt: '2026-08-25T11:00:00.000Z',
+          source: 'owner_selected_intake',
+          status: 'exact-certified-supply',
+          marketplaceStatus: 'certified',
+          nextAction: 'Keep the listing current and monitor results',
+        }],
+        certifiedOutsideVersion: [],
+        summary: {
+          listings: 1,
+          needsPublishing: 0,
+          published: 1,
+          marketplaceReview: 0,
+          certifiedOnVersion: 1,
+        },
+      }],
+    },
     outcomes,
   }
 }
@@ -105,6 +185,17 @@ function outcomeSnapshot(): CommerceTemplateOutcomeSnapshot {
     generatedAt: '2026-08-25T12:00:00.000Z',
     cohortStartedAt: '2026-08-25T11:00:00.000Z',
     warnings: [],
+    lineageListings: [{
+      id: 'page-1',
+      name: 'Party Co.',
+      slug: 'party-co',
+      isPublished: true,
+      readiness: 86,
+      templateId: 'events.party-rentals',
+      templateVersion: 1,
+      adoptedAt: '2026-08-25T11:00:00.000Z',
+      source: 'owner_selected_intake',
+    }],
     sources: {
       listings: { available: true, truncated: false },
       benchmark: { available: true, truncated: false },

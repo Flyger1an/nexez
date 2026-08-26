@@ -6,9 +6,12 @@ import {
   BadgeCheck,
   CheckCircle2,
   CircleDashed,
+  ExternalLink,
   FileCheck2,
   Gauge,
   HandCoins,
+  ListChecks,
+  Rocket,
   ShoppingBag,
   Store,
   Users,
@@ -27,6 +30,14 @@ import {
   type CommerceTemplateOpportunityTone,
 } from '../../../lib/commerce-template-opportunities'
 import type { CommerceTemplateRailCounts } from '../../../lib/commerce-template-outcomes'
+import type {
+  CommerceTemplateActivationGroup,
+  CommerceTemplateActivationReport,
+  CommerceTemplateActivationRow,
+  CommerceTemplateActivationStatus,
+  CommerceTemplateOutsideSupplyRelationship,
+} from '../../../lib/commerce-template-activation'
+import { agentRuntimeUrl } from '../../../lib/site'
 
 const RAIL_LABELS: Array<[keyof CommerceTemplateRailCounts, string]> = [
   ['hosted_checkout', 'Hosted'],
@@ -57,6 +68,7 @@ export default async function AdminTemplateOutcomesPage() {
         {snapshot.warnings.length ? <Warnings warnings={snapshot.warnings} /> : null}
         <OpportunitySummary snapshot={snapshot} />
         <OpportunityMap snapshot={snapshot} />
+        <ActivationQueue report={snapshot.activation} />
 
         <section className="mt-8 border-t border-border pt-7" aria-labelledby="template-results-heading">
           <div className="mb-1">
@@ -82,6 +94,177 @@ export default async function AdminTemplateOutcomesPage() {
       </div>
     </main>
   )
+}
+
+function ActivationQueue({ report }: { report: CommerceTemplateActivationReport }) {
+  return (
+    <section className="mt-8 border-t border-border pt-7" aria-labelledby="template-activation-heading">
+      <div className="flex max-w-3xl gap-3">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-white/[0.04]">
+          <Rocket className="size-4 text-[var(--signal)]" />
+        </div>
+        <div>
+          <h2 id="template-activation-heading" className="text-xl font-semibold tracking-tight">Merchant launch queue</h2>
+          <p className="mt-1 text-sm leading-6 text-[var(--fg-muted)]">
+            See which listings use each guide, what needs attention, and which exact certified merchants sit outside that guide.
+          </p>
+        </div>
+      </div>
+
+      {!report.available ? (
+        <section className="mt-5 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/8 px-5 py-8 text-center">
+          <AlertTriangle className="mx-auto size-6 text-[var(--amber)]" />
+          <h3 className="mt-3 text-base font-semibold">Merchant launch data is unavailable</h3>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[var(--fg-muted)]">
+            Private guide history could not be read. Refresh before helping a merchant launch.
+          </p>
+        </section>
+      ) : (
+        <>
+          <section aria-label="Merchant activation summary" className="grid gap-3 py-6 sm:grid-cols-2 xl:grid-cols-5">
+            <MetricCard icon={ListChecks} label="Using an active guide" value={displayCount(report.summary.listings)} detail={`Across ${report.summary.activeGuides} active guides`} />
+            <MetricCard icon={Rocket} label="Need publishing" value={displayCount(report.summary.needsPublishing)} detail="Seller action required" />
+            <MetricCard icon={Store} label="Published" value={displayCount(report.summary.published)} detail="Guide use only, not certification" />
+            <MetricCard icon={BadgeCheck} label="Exact certified supply" value={displayCount(report.summary.certifiedOnGuide)} detail="Uses the exact guide version" />
+            <MetricCard icon={Users} label="Certified outside guide" value={displayCount(report.summary.certifiedOutsideGuide)} detail="Kept separate from guide use" />
+          </section>
+          <ActivationSourceNotes report={report} />
+          <div className="grid gap-4 xl:grid-cols-2">
+            {report.groups.map((group) => <ActivationGroup key={`${group.templateId}@${group.templateVersion}`} group={group} />)}
+          </div>
+          {report.summary.outsideActiveGuides ? (
+            <p className="mt-4 text-xs leading-5 text-[var(--fg-muted-2)]">
+              {report.summary.outsideActiveGuides} recorded {report.summary.outsideActiveGuides === 1 ? 'listing uses' : 'listings use'} a guide version that is not active. Those listings remain outside this launch queue.
+            </p>
+          ) : null}
+        </>
+      )}
+    </section>
+  )
+}
+
+function ActivationSourceNotes({ report }: { report: CommerceTemplateActivationReport }) {
+  const notes = [
+    report.sources.listings.truncated ? 'The listing limit was reached, so this queue is incomplete.' : null,
+    !report.sources.marketplace ? 'Marketplace review status is unavailable.' : null,
+    !report.sources.supply ? 'Exact certification status is unavailable.' : null,
+  ].filter((note): note is string => Boolean(note))
+  if (!notes.length) return null
+
+  return (
+    <div className="mb-4 flex gap-3 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.05] px-4 py-3">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--amber)]" />
+      <p className="text-xs leading-5 text-[var(--fg-muted)]">{notes.join(' ')}</p>
+    </div>
+  )
+}
+
+function ActivationGroup({ group }: { group: CommerceTemplateActivationGroup }) {
+  return (
+    <article className="overflow-hidden rounded-lg border border-border bg-white/[0.025]">
+      <header className="border-b border-border px-4 py-4 sm:px-5">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-semibold">{group.title}</h3>
+            <p className="mt-1 truncate font-mono text-[11px] text-[var(--fg-muted-2)]">{group.templateId}@{group.templateVersion}</p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2 text-[10px] text-[var(--fg-muted)]">
+            <span className="rounded-full border border-border px-2 py-1">{group.summary.listings} using guide</span>
+            <span className="rounded-full border border-border px-2 py-1">{group.summary.published} published</span>
+          </div>
+        </div>
+      </header>
+
+      {group.listings.length ? (
+        <div className="divide-y divide-border">
+          {group.listings.map((listing) => <ActivationListing key={listing.id} listing={listing} />)}
+        </div>
+      ) : (
+        <div className="px-5 py-7 text-center">
+          <CircleDashed className="mx-auto size-5 text-[var(--fg-muted-2)]" />
+          <p className="mt-2 text-sm font-medium">No listings use this guide yet</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">Guide use starts only after a merchant selects it during setup.</p>
+        </div>
+      )}
+
+      {group.certifiedOutsideVersion === null ? (
+        <div className="border-t border-border px-4 py-3 text-xs text-[var(--fg-muted)] sm:px-5">Exact certified supply is unavailable.</div>
+      ) : group.certifiedOutsideVersion.length ? (
+        <div className="border-t border-border bg-black/15 px-4 py-4 sm:px-5">
+          <h4 className="text-xs font-medium">Exact certified merchants outside this guide</h4>
+          <div className="mt-3 space-y-2">
+            {group.certifiedOutsideVersion.map((listing) => (
+              <div key={listing.pageId} className="flex flex-col justify-between gap-2 rounded-md border border-border bg-white/[0.025] px-3 py-2.5 sm:flex-row sm:items-center">
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-medium">{listing.pageName}</span>
+                  <span className="mt-0.5 block truncate text-[11px] text-[var(--fg-muted)]">{outsideSupplyLabel(listing.relationship)} · {listing.offerName}</span>
+                </span>
+                <a href={agentRuntimeUrl(`/${encodeURIComponent(listing.pageSlug)}`)} target="_blank" rel="noreferrer" className="inline-flex min-h-8 shrink-0 items-center gap-1.5 self-start rounded-md border border-border px-2.5 text-[11px] text-[var(--fg-soft)] transition hover:bg-white/[0.06] hover:text-foreground sm:self-auto">
+                  Open listing <ExternalLink className="size-3" />
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </article>
+  )
+}
+
+function ActivationListing({ listing }: { listing: CommerceTemplateActivationRow }) {
+  const launchControl = listing.status === 'needs-marketplace-review' || listing.status === 'discovery-excluded'
+  return (
+    <div className="px-4 py-4 sm:px-5">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-medium">{listing.name}</p>
+            <ActivationStatus status={listing.status} />
+          </div>
+          <p className="mt-1 truncate font-mono text-[11px] text-[var(--fg-muted-2)]">/{listing.slug} · {listing.readiness}% ready</p>
+          <p className="mt-2 text-xs leading-5 text-[var(--fg-muted)]">{listing.nextAction}</p>
+        </div>
+        {listing.isPublished ? (
+          <a
+            href={launchControl ? '/admin/launch#marketplace-curation' : agentRuntimeUrl(`/${encodeURIComponent(listing.slug)}`)}
+            target={launchControl ? undefined : '_blank'}
+            rel={launchControl ? undefined : 'noreferrer'}
+            className="inline-flex min-h-8 shrink-0 items-center gap-1.5 self-start rounded-md border border-border px-2.5 text-[11px] text-[var(--fg-soft)] transition hover:bg-white/[0.06] hover:text-foreground"
+          >
+            {launchControl ? 'Open Launch Control' : 'Open listing'} <ExternalLink className="size-3" />
+          </a>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function ActivationStatus({ status }: { status: CommerceTemplateActivationStatus }) {
+  const labels: Record<CommerceTemplateActivationStatus, string> = {
+    'needs-publishing': 'Needs publishing',
+    'needs-marketplace-review': 'Needs review',
+    published: 'Published',
+    'discovery-excluded': 'Discovery excluded',
+    'exact-certified-supply': 'Exact certified supply',
+  }
+  const styles: Record<CommerceTemplateActivationStatus, string> = {
+    'needs-publishing': 'border-[var(--signal)]/30 bg-[var(--signal)]/10 text-[var(--signal)]',
+    'needs-marketplace-review': 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]',
+    published: 'border-border bg-white/[0.035] text-[var(--fg-soft)]',
+    'discovery-excluded': 'border-red-400/30 bg-red-400/10 text-red-300',
+    'exact-certified-supply': 'border-[var(--ready)]/30 bg-[var(--ready)]/10 text-[var(--ready)]',
+  }
+  return <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${styles[status]}`}>{labels[status]}</span>
+}
+
+function outsideSupplyLabel(relationship: CommerceTemplateOutsideSupplyRelationship): string {
+  if (relationship === 'different-version') return 'Uses another version'
+  if (relationship === 'different-guide') return 'Uses a different guide'
+  return 'No recorded guide'
+}
+
+function displayCount(value: number | null): string {
+  return value == null ? 'Unavailable' : value.toLocaleString()
 }
 
 function OpportunitySummary({ snapshot }: { snapshot: CommerceTemplateOpportunitySnapshot }) {

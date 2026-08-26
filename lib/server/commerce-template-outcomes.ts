@@ -8,7 +8,9 @@ import {
   type CommerceTemplateOutcomeListing,
   type CommerceTemplateOutcomeReport,
 } from '../commerce-template-outcomes'
+import type { CommerceTemplateActivationListing } from '../commerce-template-activation'
 import { commerceTemplates } from '../commerce-templates/registry'
+import { getReadinessScore } from '../agent-page'
 import { captureError } from '../observability'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 
@@ -65,6 +67,7 @@ export type CommerceTemplateOutcomeSnapshot = CommerceTemplateOutcomeReport & {
   available: boolean
   generatedAt: string
   cohortStartedAt: string | null
+  lineageListings: CommerceTemplateActivationListing[]
   sources: {
     listings: CommerceTemplateOutcomeSource
     benchmark: CommerceTemplateOutcomeSource
@@ -85,6 +88,7 @@ function emptySnapshot(generatedAt: string): CommerceTemplateOutcomeSnapshot {
     available: false,
     generatedAt,
     cohortStartedAt: null,
+    lineageListings: [],
     sources: {
       listings: { available: false, truncated: false },
       benchmark: { available: false, truncated: false },
@@ -235,6 +239,17 @@ export async function getCommerceTemplateOutcomeSnapshot(): Promise<CommerceTemp
     available: true,
     generatedAt,
     cohortStartedAt,
+    lineageListings: templateListings.map((listing) => ({
+      id: listing.id,
+      name: listing.name?.trim() || 'Untitled listing',
+      slug: listing.slug?.trim() || listing.id,
+      isPublished: listing.is_published,
+      readiness: getReadinessScore(listing),
+      templateId: listing.commerce_template_id ?? null,
+      templateVersion: listing.commerce_template_version ?? null,
+      adoptedAt: listing.commerce_template_adopted_at ?? null,
+      source: listing.commerce_template_source ?? null,
+    })),
     sources: {
       listings: { available: true, truncated: templateTruncated },
       benchmark: { available: benchmarkAvailable, truncated: unattributedTruncated },
