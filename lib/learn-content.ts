@@ -71,8 +71,10 @@ import { aiSearchLocalBusinesses } from './learn-articles/ai-search-local-busine
 import { chatgptInstantCheckoutRetired } from './learn-articles/chatgpt-instant-checkout-retired'
 import { whichAiCrawlersToAllow } from './learn-articles/which-ai-crawlers-to-allow'
 import { howAiAgentsPay } from './learn-articles/how-ai-agents-pay'
+import { productFeedsForAiAgents } from './learn-articles/product-feeds-for-ai-agents'
 
 export const learnArticles: LearnArticle[] = [
+  productFeedsForAiAgents,
   howAiAgentsPay,
   whichAiCrawlersToAllow,
   chatgptInstantCheckoutRetired,
