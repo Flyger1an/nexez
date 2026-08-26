@@ -1,18 +1,31 @@
 import {
+  Activity,
   AlertTriangle,
+  ArrowRight,
   BarChart3,
+  BadgeCheck,
   CheckCircle2,
   CircleDashed,
   FileCheck2,
   Gauge,
   HandCoins,
   ShoppingBag,
+  Store,
+  Users,
 } from 'lucide-react'
 import { requirePlatformAdmin } from '../../../lib/server/admin-access'
 import {
-  getCommerceTemplateOutcomeSnapshot,
-  type CommerceTemplateOutcomeSnapshot,
-} from '../../../lib/server/commerce-template-outcomes'
+  getCommerceTemplateOpportunitySnapshot,
+  type CommerceTemplateOpportunitySnapshot,
+} from '../../../lib/server/commerce-template-opportunities'
+import type { CommerceTemplateOutcomeSnapshot } from '../../../lib/server/commerce-template-outcomes'
+import {
+  COMMERCE_TEMPLATE_REVIEW_MIN_LISTINGS,
+  COMMERCE_TEMPLATE_REVIEW_MIN_PUBLISHED,
+  COMMERCE_TEMPLATE_REVIEW_READINESS_GAP,
+  type CommerceTemplateOpportunityRow,
+  type CommerceTemplateOpportunityTone,
+} from '../../../lib/commerce-template-opportunities'
 import type { CommerceTemplateRailCounts } from '../../../lib/commerce-template-outcomes'
 
 const RAIL_LABELS: Array<[keyof CommerceTemplateRailCounts, string]> = [
@@ -25,7 +38,8 @@ const RAIL_LABELS: Array<[keyof CommerceTemplateRailCounts, string]> = [
 
 export default async function AdminTemplateOutcomesPage() {
   await requirePlatformAdmin('/admin/templates')
-  const snapshot = await getCommerceTemplateOutcomeSnapshot()
+  const snapshot = await getCommerceTemplateOpportunitySnapshot()
+  const outcomes = snapshot.outcomes
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-background">
@@ -34,28 +48,122 @@ export default async function AdminTemplateOutcomesPage() {
           <div className="flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
             <BarChart3 className="size-4" /> Commerce Templates
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Template outcomes</h1>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">What to improve next</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
-            See which setup guides are associated with published listings, stronger current readiness, and completed commerce. This report observes results. It does not change a template or merchant listing.
+            Connect buyer interest, certified merchants, template use, and completed commerce. Every next move names the evidence behind it. Nothing here changes a template or merchant listing.
           </p>
         </header>
 
-        {!snapshot.available ? (
-          <UnavailableState />
-        ) : (
-          <>
-            {snapshot.warnings.length ? <Warnings warnings={snapshot.warnings} /> : null}
-            <Summary snapshot={snapshot} />
-            <TemplateTable snapshot={snapshot} />
-            <Methodology snapshot={snapshot} />
-          </>
-        )}
+        {snapshot.warnings.length ? <Warnings warnings={snapshot.warnings} /> : null}
+        <OpportunitySummary snapshot={snapshot} />
+        <OpportunityMap snapshot={snapshot} />
+
+        <section className="mt-8 border-t border-border pt-7" aria-labelledby="template-results-heading">
+          <div className="mb-1">
+            <h2 id="template-results-heading" className="text-xl font-semibold tracking-tight">Observed results</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
+              Listing and commerce results stay attached to the exact template version a merchant selected.
+            </p>
+          </div>
+          {!outcomes.available ? (
+            <UnavailableState />
+          ) : (
+            <>
+              <Summary snapshot={outcomes} />
+              <TemplateTable snapshot={outcomes} />
+              <Methodology snapshot={outcomes} />
+            </>
+          )}
+        </section>
 
         <footer className="mt-8 border-t border-border pt-5 text-xs text-[var(--fg-muted-2)]">
           Snapshot generated {new Date(snapshot.generatedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC.
         </footer>
       </div>
     </main>
+  )
+}
+
+function OpportunitySummary({ snapshot }: { snapshot: CommerceTemplateOpportunitySnapshot }) {
+  return (
+    <section aria-label="Template priority summary" className="grid gap-3 py-6 sm:grid-cols-2 xl:grid-cols-5">
+      <MetricCard icon={AlertTriangle} label="Needs action" value={snapshot.summary.needsAction.toLocaleString()} detail={`Across ${snapshot.summary.templates} active guides`} />
+      <MetricCard icon={Store} label="Recruit merchants" value={snapshot.summary.recruit.toLocaleString()} detail="No exact certified supply" />
+      <MetricCard icon={Users} label="Help merchants launch" value={snapshot.summary.activate.toLocaleString()} detail="Adoption or publishing work" />
+      <MetricCard icon={BadgeCheck} label="Review guides" value={snapshot.summary.review.toLocaleString()} detail="Evidence floor reached" />
+      <MetricCard icon={Activity} label="Monitoring" value={snapshot.summary.monitoring.toLocaleString()} detail="Gathering or watching evidence" />
+    </section>
+  )
+}
+
+function OpportunityMap({ snapshot }: { snapshot: CommerceTemplateOpportunitySnapshot }) {
+  return (
+    <section aria-labelledby="template-opportunity-heading">
+      <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+        <div>
+          <h2 id="template-opportunity-heading" className="text-lg font-semibold tracking-tight">Next moves</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
+            Ordered by the action required, then by observed unresolved requests. There is no combined opportunity score.
+          </p>
+        </div>
+        <p className="text-xs text-[var(--fg-muted-2)]">Buyer interest since {formatDate(snapshot.demandSince)}</p>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {snapshot.rows.map((row) => <OpportunityCard key={`${row.templateId}@${row.templateVersion}`} row={row} />)}
+      </div>
+      <DecisionRules />
+    </section>
+  )
+}
+
+function OpportunityCard({ row }: { row: CommerceTemplateOpportunityRow }) {
+  return (
+    <article className={`rounded-lg border p-5 ${toneClasses(row.tone)}`}>
+      <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+        <div className="min-w-0">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--fg-muted-2)]">Priority {row.rank}</span>
+          <h3 className="mt-1 truncate text-base font-semibold">{row.title}</h3>
+          <p className="mt-1 truncate font-mono text-[11px] text-[var(--fg-muted-2)]">{row.templateId}@{row.templateVersion}</p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-current/25 px-2.5 py-1 text-xs font-medium">
+          {row.actionLabel}<ArrowRight className="size-3" aria-hidden="true" />
+        </span>
+      </header>
+      <p className="mt-4 text-sm leading-6 text-[var(--fg-muted)]">{row.reason}</p>
+      <dl className="mt-5 grid gap-3 border-t border-current/10 pt-4 sm:grid-cols-2">
+        <Evidence label="Buyer interest" {...demandEvidence(row)} />
+        <Evidence label="Certified merchants" {...supplyEvidence(row)} />
+        <Evidence label="Template use" {...adoptionEvidence(row)} />
+        <Evidence label="Completed commerce" {...commerceEvidence(row)} />
+      </dl>
+      <p className="mt-4 text-[11px] leading-5 text-[var(--fg-muted-2)]">
+        Buyer interest is category-level. Template use, readiness, and commerce results are exact to version {row.templateVersion}.
+      </p>
+    </article>
+  )
+}
+
+function Evidence({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="min-w-0 rounded-md bg-black/15 px-3 py-2.5">
+      <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--fg-muted-2)]">{label}</dt>
+      <dd className="mt-1 font-mono text-sm font-medium">{value}</dd>
+      <dd className="mt-1 truncate text-[11px] text-[var(--fg-muted)]">{detail}</dd>
+    </div>
+  )
+}
+
+function DecisionRules() {
+  return (
+    <section className="mt-5 rounded-lg border border-border bg-white/[0.02] p-5" aria-labelledby="decision-rules-heading">
+      <div className="flex items-center gap-2"><CheckCircle2 className="size-4 text-[var(--ready)]" /><h3 id="decision-rules-heading" className="text-sm font-semibold">Decision rules</h3></div>
+      <ul className="mt-3 grid gap-2 text-xs leading-5 text-[var(--fg-muted)] lg:grid-cols-2">
+        <li>Recruitment requires a verified lack of exact certified supply. Category coverage does not prove availability, location, price, or request-level fit.</li>
+        <li>Template review waits for at least {COMMERCE_TEMPLATE_REVIEW_MIN_LISTINGS} listings and {COMMERCE_TEMPLATE_REVIEW_MIN_PUBLISHED} published listings on the exact version.</li>
+        <li>A review appears only when current readiness trails comparable listings by at least {Math.abs(COMMERCE_TEMPLATE_REVIEW_READINESS_GAP)} points.</li>
+        <li>Checkout and negotiated deals remain separate. Missing evidence is unavailable, never zero.</li>
+      </ul>
+    </section>
   )
 }
 
@@ -241,6 +349,63 @@ function formatRate(value: number | null): string {
 
 function formatPercent(value: number | null): string {
   return value == null ? 'Not enough data' : `${value}%`
+}
+
+function formatDate(value: string): string {
+  return new Date(value).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' })
+}
+
+function toneClasses(tone: CommerceTemplateOpportunityTone): string {
+  if (tone === 'attention') return 'border-[var(--signal)]/35 bg-[var(--signal)]/[0.055]'
+  if (tone === 'watch') return 'border-[var(--amber)]/30 bg-[var(--amber)]/[0.045]'
+  return 'border-[var(--ready)]/25 bg-[var(--ready)]/[0.035]'
+}
+
+function demandEvidence(row: CommerceTemplateOpportunityRow): { value: string; detail: string } {
+  if (!row.demand.available) return { value: 'Unavailable', detail: 'No demand value inferred' }
+  const observed = row.demand.observed ?? 0
+  const unresolved = row.demand.unresolved ?? 0
+  return {
+    value: `${row.demand.truncated ? 'At least ' : ''}${unresolved} unresolved`,
+    detail: `${observed} ${observed === 1 ? 'request' : 'requests'} in the current window`,
+  }
+}
+
+function supplyEvidence(row: CommerceTemplateOpportunityRow): { value: string; detail: string } {
+  if (!row.supply.available) return { value: 'Unavailable', detail: 'No supply value inferred' }
+  const count = row.supply.certifiedListings ?? 0
+  return {
+    value: `${count} certified`,
+    detail: count === 1 ? 'Exact category listing' : 'Exact category listings',
+  }
+}
+
+function adoptionEvidence(row: CommerceTemplateOpportunityRow): { value: string; detail: string } {
+  if (!row.adoption.available) return { value: 'Unavailable', detail: 'No adoption value inferred' }
+  const listings = row.adoption.listings ?? 0
+  const published = row.adoption.publishedListings ?? 0
+  return {
+    value: `${published} of ${listings} published`,
+    detail: row.adoption.averageReadiness == null
+      ? 'No readiness result yet'
+      : `${formatPercent(row.adoption.averageReadiness)} current readiness`,
+  }
+}
+
+function commerceEvidence(row: CommerceTemplateOpportunityRow): { value: string; detail: string } {
+  if (!row.checkout.available && !row.negotiated.available) {
+    return { value: 'Unavailable', detail: 'No commerce value inferred' }
+  }
+  if (!row.checkout.available) {
+    return { value: 'Checkout unavailable', detail: `${row.negotiated.deals ?? 0} negotiated deals` }
+  }
+  if (!row.negotiated.available) {
+    return { value: 'Deals unavailable', detail: `${row.checkout.orders ?? 0} checkout orders` }
+  }
+  return {
+    value: `${row.checkout.orders ?? 0} checkout · ${row.negotiated.deals ?? 0} negotiated`,
+    detail: 'Kept separate by commerce rail',
+  }
 }
 
 function readinessComparison(value: number | null): string {
