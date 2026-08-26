@@ -1,63 +1,143 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '../../../test/dom'
+import type { CommerceTemplateOpportunitySnapshot } from '../../../lib/server/commerce-template-opportunities'
+import type { CommerceTemplateOutcomeSnapshot } from '../../../lib/server/commerce-template-outcomes'
 
 const requireAdmin = vi.hoisted(() => vi.fn(async () => ({ id: 'admin-1' })))
-const getSnapshot = vi.hoisted(() => vi.fn(async (): Promise<import('../../../lib/server/commerce-template-outcomes').CommerceTemplateOutcomeSnapshot> => ({
-  available: true,
-  generatedAt: '2026-08-25T12:00:00.000Z',
-  cohortStartedAt: '2026-08-25T11:00:00.000Z',
-  warnings: [],
-  sources: {
-    listings: { available: true, truncated: false },
-    benchmark: { available: true, truncated: false },
-    checkout: { available: true, truncated: false },
-    negotiated: { available: true, truncated: false },
-  },
-  summary: {
-    templateVersions: 1, listings: 2, publishedListings: 1, publishedRate: 50,
-    averageReadiness: 86, checkoutOrders: 1, checkoutListings: 1,
-    negotiatedDeals: 1, negotiatedListings: 1,
-  },
-  noTemplateBenchmark: { listings: 3, publishedListings: 1, publishedRate: 33.3, averageReadiness: 70 },
-  templates: [{
-    templateId: 'events.party-rentals', templateVersion: 1, title: 'Party Rentals',
-    listings: 2, publishedListings: 1, publishedRate: 50, averageReadiness: 86,
-    readinessVsNoTemplate: 16, checkout: {
-      orders: 1, listings: 1,
-      rails: { hosted_checkout: 0, protocol_checkout: 1, recurring_service: 0, staged_settlement: 0, resource_reservation: 0 },
-    },
-    negotiated: { deals: 1, listings: 1 },
-  }],
-})))
+const getSnapshot = vi.hoisted(() => vi.fn())
 
 vi.mock('../../../lib/server/admin-access', () => ({ requirePlatformAdmin: requireAdmin }))
-vi.mock('../../../lib/server/commerce-template-outcomes', () => ({ getCommerceTemplateOutcomeSnapshot: getSnapshot }))
+vi.mock('../../../lib/server/commerce-template-opportunities', () => ({ getCommerceTemplateOpportunitySnapshot: getSnapshot }))
 
 import AdminTemplateOutcomesPage from './page'
 
 describe('AdminTemplateOutcomesPage', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getSnapshot.mockResolvedValue(opportunitySnapshot())
+  })
 
-  it('authorizes before rendering separate, non-causal template outcomes', async () => {
+  it('authorizes before rendering evidence-bound next moves and exact-version outcomes', async () => {
     render(await AdminTemplateOutcomesPage())
+
     expect(requireAdmin).toHaveBeenCalledWith('/admin/templates')
     expect(requireAdmin.mock.invocationCallOrder[0]).toBeLessThan(getSnapshot.mock.invocationCallOrder[0])
-    expect(screen.getByRole('heading', { name: 'Template outcomes' })).toBeInTheDocument()
-    expect(screen.getByText('Party Rentals')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'What to improve next' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Next moves' })).toBeInTheDocument()
+    expect(screen.getByText('Recruit an exact merchant')).toBeInTheDocument()
+    expect(screen.getByText(/Buyer interest is category-level/)).toBeInTheDocument()
+    expect(screen.getByText(/There is no combined opportunity score/)).toBeInTheDocument()
+    expect(screen.getAllByText('Party Rentals').length).toBeGreaterThan(0)
     expect(screen.getByText('+16 points vs no recorded template')).toBeInTheDocument()
     expect(screen.getByText('Agent protocols 1')).toBeInTheDocument()
     expect(screen.getByText(/directional cohort results/i)).toBeInTheDocument()
   })
 
   it('does not render false checkout zeros when that source is unavailable', async () => {
-    getSnapshot.mockResolvedValueOnce({
-      ...(await getSnapshot()),
-      warnings: ['Live checkout outcomes are unavailable. Checkout values are not shown as zero.'],
-      sources: { ...(await getSnapshot()).sources, checkout: { available: false, truncated: false } },
-    })
+    const snapshot = opportunitySnapshot()
+    snapshot.sources.checkout = false
+    snapshot.warnings = ['Live checkout outcomes are unavailable. Checkout values are not shown as zero.']
+    snapshot.rows[0].checkout = { available: false, orders: null, listings: null, rails: null }
+    snapshot.outcomes.sources.checkout = { available: false, truncated: false }
+    snapshot.outcomes.warnings = [...snapshot.warnings]
+    getSnapshot.mockResolvedValueOnce(snapshot)
+
     render(await AdminTemplateOutcomesPage())
+
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
+    expect(screen.getByText('Checkout unavailable')).toBeInTheDocument()
     expect(screen.getByText(/Checkout values are not shown as zero/)).toBeInTheDocument()
   })
 })
+
+function opportunitySnapshot(): CommerceTemplateOpportunitySnapshot {
+  const outcomes = outcomeSnapshot()
+  return {
+    generatedAt: '2026-08-25T12:00:00.000Z',
+    demandSince: '2026-07-26T12:00:00.000Z',
+    warnings: [],
+    sources: {
+      demand: true,
+      demandTruncated: false,
+      supply: true,
+      listings: true,
+      benchmark: true,
+      checkout: true,
+      negotiated: true,
+    },
+    summary: { templates: 1, needsAction: 1, recruit: 1, activate: 0, review: 0, monitoring: 0 },
+    rows: [{
+      rank: 1,
+      templateId: 'events.party-rentals',
+      templateVersion: 1,
+      title: 'Party Rentals',
+      domain: 'events-hospitality',
+      action: 'recruit-exact-supply',
+      actionLabel: 'Recruit an exact merchant',
+      reason: '4 recent requests reached related or reference-only results, and no exact certified merchant is published.',
+      tone: 'attention',
+      demand: { available: true, truncated: false, observed: 4, unresolved: 4 },
+      supply: { available: true, certifiedListings: 0 },
+      adoption: {
+        available: true,
+        listings: 2,
+        publishedListings: 1,
+        publishedRate: 50,
+        averageReadiness: 86,
+        readinessVsNoTemplate: 16,
+      },
+      checkout: {
+        available: true,
+        orders: 1,
+        listings: 1,
+        rails: { hosted_checkout: 0, protocol_checkout: 1, recurring_service: 0, staged_settlement: 0, resource_reservation: 0 },
+      },
+      negotiated: { available: true, deals: 1, listings: 1 },
+    }],
+    outcomes,
+  }
+}
+
+function outcomeSnapshot(): CommerceTemplateOutcomeSnapshot {
+  return {
+    available: true,
+    generatedAt: '2026-08-25T12:00:00.000Z',
+    cohortStartedAt: '2026-08-25T11:00:00.000Z',
+    warnings: [],
+    sources: {
+      listings: { available: true, truncated: false },
+      benchmark: { available: true, truncated: false },
+      checkout: { available: true, truncated: false },
+      negotiated: { available: true, truncated: false },
+    },
+    summary: {
+      templateVersions: 1,
+      listings: 2,
+      publishedListings: 1,
+      publishedRate: 50,
+      averageReadiness: 86,
+      checkoutOrders: 1,
+      checkoutListings: 1,
+      negotiatedDeals: 1,
+      negotiatedListings: 1,
+    },
+    noTemplateBenchmark: { listings: 3, publishedListings: 1, publishedRate: 33.3, averageReadiness: 70 },
+    templates: [{
+      templateId: 'events.party-rentals',
+      templateVersion: 1,
+      title: 'Party Rentals',
+      listings: 2,
+      publishedListings: 1,
+      publishedRate: 50,
+      averageReadiness: 86,
+      readinessVsNoTemplate: 16,
+      checkout: {
+        orders: 1,
+        listings: 1,
+        rails: { hosted_checkout: 0, protocol_checkout: 1, recurring_service: 0, staged_settlement: 0, resource_reservation: 0 },
+      },
+      negotiated: { deals: 1, listings: 1 },
+    }],
+  }
+}
