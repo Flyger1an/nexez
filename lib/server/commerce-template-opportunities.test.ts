@@ -48,6 +48,19 @@ describe('server Commerce Template opportunity snapshot', () => {
       negotiated: { deals: 1 },
     })
     expect(snapshot.outcomes).toBe(refs.outcomes)
+    expect(snapshot.activation).toMatchObject({
+      available: true,
+      summary: {
+        listings: 1,
+        published: 1,
+        certifiedOnGuide: 1,
+        certifiedOutsideGuide: 0,
+      },
+    })
+    expect(snapshot.activation.groups.find((group) => group.templateId === 'events.party-rentals')).toMatchObject({
+      templateId: 'events.party-rentals',
+      listings: [{ id: 'page-1', status: 'exact-certified-supply' }],
+    })
     expect(snapshot.warnings).toEqual([])
   })
 
@@ -173,6 +186,17 @@ function outcomes(): CommerceTemplateOutcomeSnapshot {
     generatedAt: '2026-08-25T12:00:00.000Z',
     cohortStartedAt: '2026-08-25T10:00:00.000Z',
     warnings: [],
+    lineageListings: [{
+      id: 'page-1',
+      name: 'Party Co.',
+      slug: 'party-co',
+      isPublished: true,
+      readiness: 85,
+      templateId: 'events.party-rentals',
+      templateVersion: 1,
+      adoptedAt: '2026-08-25T10:00:00.000Z',
+      source: 'owner_selected_intake',
+    }],
     sources: {
       listings: { available: true, truncated: false },
       benchmark: { available: true, truncated: false },
