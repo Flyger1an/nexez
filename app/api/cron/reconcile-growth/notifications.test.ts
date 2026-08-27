@@ -27,7 +27,8 @@ vi.mock('../../../../lib/server/system-email', () => ({
   sendOnceSystemEmail: refs.sendOnceSystemEmail,
 }))
 
-import { GET, describeGrantDuration } from './route'
+import { describeGrantDuration } from '../../../../lib/growth-duration'
+import { GET } from './route'
 
 const HOUR = 3_600_000
 const cronRequest = () => new Request(
