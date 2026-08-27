@@ -3,6 +3,7 @@ import { createClient } from '../../../utils/supabase/server'
 import { cookies } from 'next/headers'
 import { safeNextPath } from '../../../lib/safe-redirect'
 import { sendOnceSystemEmail } from '../../../lib/server/system-email'
+import { markScanLeadsConverted } from '../../../lib/server/scan-lead'
 import { buildWelcomeEmail } from '../../../lib/email'
 import { ensureBillingSeeded, hasBillingAccount, isSelectablePlan } from '../../../lib/server/trial'
 import { isPlatformAdmin } from '../../../lib/server/plan'
@@ -76,6 +77,10 @@ export async function GET(request: Request) {
       const ownerId = user.id
       after(async () => {
         await sendOnceSystemEmail({ ownerId, kind: 'welcome', to, build: () => buildWelcomeEmail({ name, createUrl }) })
+        // Close the loop on the public scanner: an address that asked for a scan
+        // result before it had an account has now converted. Email is the only
+        // link between the two, and it is the same address on both sides.
+        await markScanLeadsConverted(ownerId, to)
       })
     }
 

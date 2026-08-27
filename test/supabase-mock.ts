@@ -58,6 +58,7 @@ export function createSupabaseMock(handler: QueryHandler, opts: SupabaseMockOpti
       neq: (k: string, v: any) => (ctx.calls.push(['neq', k, v]), builder),
       in: (k: string, v: any) => (ctx.calls.push(['in', k, v]), builder),
       or: (f: string) => (ctx.calls.push(['or', f]), builder),
+      like: (k: string, v: any) => (ctx.calls.push(['like', k, v]), builder),
       ilike: (k: string, v: any) => (ctx.calls.push(['ilike', k, v]), builder),
       is: (k: string, v: any) => (ctx.calls.push(['is', k, v]), builder),
       not: (k: string, op: string, v: any) => (ctx.calls.push(['not', k, op, v]), builder),
