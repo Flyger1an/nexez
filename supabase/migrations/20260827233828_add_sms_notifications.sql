@@ -3,6 +3,33 @@
 -- seller-only and sends only the fixed “new negotiation needs review” template
 -- to a verified, explicitly opted-in account number.
 
+-- The public carrier-review page is platform-owned. Reserve it in both public
+-- identifier namespaces so a listing or storefront can never shadow the route.
+do $$
+begin
+  if exists (
+    select 1 from public.pages where lower(btrim(slug)) = 'sms-notifications'
+  ) then
+    raise exception 'An existing listing slug conflicts with the SMS notification route.';
+  end if;
+  if exists (
+    select 1 from public.storefronts where lower(btrim(handle)) = 'sms-notifications'
+  ) then
+    raise exception 'An existing storefront handle conflicts with the SMS notification route.';
+  end if;
+end;
+$$;
+
+insert into private.public_identifier_claims (namespace, identifier, kind)
+values
+  ('page_slug', 'sms-notifications', 'system'),
+  ('storefront_handle', 'sms-notifications', 'system')
+on conflict (namespace, identifier) do update
+set kind = 'system',
+    owner_id = null,
+    subject_id = null,
+    updated_at = statement_timestamp();
+
 create table if not exists public.user_sms_destinations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -107,9 +134,9 @@ alter table public.user_sms_destinations enable row level security;
 alter table public.sms_subscriptions enable row level security;
 alter table public.sms_notification_events enable row level security;
 
-revoke all on public.user_sms_destinations from anon, authenticated;
-revoke all on public.sms_subscriptions from anon, authenticated;
-revoke all on public.sms_notification_events from anon, authenticated;
+revoke all on public.user_sms_destinations from public, anon, authenticated;
+revoke all on public.sms_subscriptions from public, anon, authenticated;
+revoke all on public.sms_notification_events from public, anon, authenticated;
 
 grant select, insert, update, delete on public.user_sms_destinations to service_role;
 grant select, insert, update, delete on public.sms_subscriptions to service_role;

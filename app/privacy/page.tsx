@@ -73,7 +73,7 @@ const sections: { heading: string; body: ReactNode[] }[] = [
     heading: '7. SMS Notifications',
     body: [
       <>
-        Nexez offers optional transactional SMS alerts for seller negotiations and authorization requests. To subscribe, you enter a mobile number in account settings, actively select an unchecked consent box, and verify that number. Message frequency varies with your activity. Message and data rates may apply. Reply <strong>STOP</strong> to opt out or <strong>HELP</strong> for help.
+        Nexez offers optional transactional SMS alerts when a new seller negotiation needs review. To subscribe, you enter a mobile number in account settings, actively select an unchecked consent box, and verify that number. Message frequency varies with your activity. Message and data rates may apply. Reply <strong>STOP</strong> to opt out or <strong>HELP</strong> for help.
       </>,
       <>
         Consent is not a condition of purchase. Mobile information and SMS opt-in consent are not shared with third parties or affiliates for their marketing or promotional purposes. For support, visit <a href="https://nexez.ai/support" className="text-[var(--signal)] hover:underline">https://nexez.ai/support</a>.

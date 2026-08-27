@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -69,12 +69,20 @@ describe('public identifier policy', () => {
 
 describe('database reservation drift guard', () => {
   it('seeds every shared reserved identifier in the identifier migration', () => {
-    const migration = readFileSync(
-      join(__dirname, '../../supabase/migrations/20260825200808_secure_public_identifiers.sql'),
-      'utf8',
-    )
+    const migrationsDirectory = join(__dirname, '../../supabase/migrations')
+    const migration = readFileSync(join(migrationsDirectory, '20260825200808_secure_public_identifiers.sql'), 'utf8')
     const seed = migration.match(/select unnest\(array\[([\s\S]*?)\]::text\[\]\)/)?.[1] ?? ''
     const seeded = new Set([...seed.matchAll(/'([^']+)'/g)].map((match) => match[1]))
+
+    // New product routes are reserved in their own forward-only migrations.
+    // Fold those explicit system claims into the drift check without rewriting
+    // an applied migration.
+    for (const file of readdirSync(migrationsDirectory).filter((name) => name.endsWith('.sql'))) {
+      const sql = readFileSync(join(migrationsDirectory, file), 'utf8')
+      for (const match of sql.matchAll(/\('(?:page_slug|storefront_handle)',\s*'([^']+)',\s*'system'\)/g)) {
+        seeded.add(match[1])
+      }
+    }
     expect(seeded).toEqual(RESERVED_PUBLIC_IDENTIFIERS)
   })
 

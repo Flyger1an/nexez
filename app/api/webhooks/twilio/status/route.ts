@@ -4,48 +4,24 @@ import {
   hasValidTwilioWebhookSignature,
   invalidSignatureResponse,
   isTwilioWebhookConfigured,
+  mapTwilioMessageStatus,
   malformedRequestResponse,
   readTwilioFormParams,
+  type SmsNotificationStatus,
   statusCallbackEventId,
   unavailableResponse,
 } from '../_shared'
 
 export const runtime = 'nodejs'
 
-type SmsNotificationStatus = 'accepted' | 'sent' | 'delivered' | 'undelivered' | 'failed'
-
 const MESSAGE_SID = /^SM[a-f0-9]{32}$/i
-
-/**
- * Twilio can emit intermediate states such as queued and sending. Nexez only
- * persists the durable delivery states used by the outbox, with queued/sending
- * both meaning Twilio accepted responsibility for the message.
- */
-export function mapTwilioMessageStatus(value: string | undefined): SmsNotificationStatus | null {
-  switch (value?.trim().toLowerCase()) {
-    case 'queued':
-    case 'sending':
-    case 'accepted':
-      return 'accepted'
-    case 'sent':
-      return 'sent'
-    case 'delivered':
-      return 'delivered'
-    case 'undelivered':
-      return 'undelivered'
-    case 'failed':
-      return 'failed'
-    default:
-      return null
-  }
-}
 
 function messageSidOf(params: Record<string, string>): string | null {
   const sid = params.MessageSid ?? params.SmsSid
   return sid && MESSAGE_SID.test(sid) ? sid : null
 }
 
-/** Persist only a short, safe provider code — never Twilio's raw error text. */
+/** Persist only a short, safe provider code, never Twilio's raw error text. */
 function errorCodeOf(value: string | undefined, status: SmsNotificationStatus): string | null {
   if (status !== 'failed' && status !== 'undelivered') return null
   const code = value?.trim() ?? ''

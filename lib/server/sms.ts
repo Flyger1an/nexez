@@ -6,7 +6,7 @@ import twilio from 'twilio'
 // can mock this module as a single boundary, while the SDK details remain here.
 
 // E.164 permits up to 15 digits; Nexez rejects implausibly short values too so
-// database and request validation use the exact same 8–15 digit boundary.
+// database and request validation use the exact same 8 to 15 digit boundary.
 const E164_PHONE_NUMBER = /^\+[1-9]\d{7,14}$/
 const VERIFY_CODE = /^[A-Za-z0-9]{4,10}$/
 const SMS_EVENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i

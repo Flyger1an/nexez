@@ -43,6 +43,7 @@ const MARKETING_PREFIXES = [
   '/privacy',
   '/scan',
   '/security',
+  '/sms-notifications',
   '/terms',
   '/design',
   '/discovery',

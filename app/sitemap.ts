@@ -55,6 +55,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       entry('/leaderboard', 0.6, 'daily'),
       entry('/simulator', 0.5, 'weekly'),
       entry('/support', 0.4, 'monthly'),
+      entry('/sms-notifications', 0.3, 'monthly'),
       entry('/privacy', 0.2, 'monthly'),
       entry('/terms', 0.2, 'monthly'),
     ]

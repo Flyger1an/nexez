@@ -10,16 +10,13 @@ import {
 } from '@/lib/server/sms'
 import { createAdminClient, hasSupabaseAdminEnv } from '@/utils/supabase/admin'
 import { suppressPendingSmsNotifications } from '@/lib/server/sms-notifications'
+import { SMS_CONSENT_VERSION } from '@/lib/sms-consent'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 const SMS_TOPIC = 'seller_negotiation'
-// This identifies the exact, account-settings disclosure in the UI. Update it
-// deliberately whenever that disclosure changes so an audit can distinguish
-// prior consent from the revised terms.
-const SMS_CONSENT_VERSION = '2026-08-transactional-sms-v1'
 const SMS_RATE_LIMIT_SECRET_MIN_LENGTH = 32
 
 type SmsDestinationRow = {

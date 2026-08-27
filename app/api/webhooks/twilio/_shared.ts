@@ -7,6 +7,27 @@ import {
 } from '@/lib/server/sms'
 
 export type TwilioFormParams = Record<string, string>
+export type SmsNotificationStatus = 'accepted' | 'sent' | 'delivered' | 'undelivered' | 'failed'
+
+/** Normalize Twilio's transient and terminal states to the durable outbox states. */
+export function mapTwilioMessageStatus(value: string | undefined): SmsNotificationStatus | null {
+  switch (value?.trim().toLowerCase()) {
+    case 'queued':
+    case 'sending':
+    case 'accepted':
+      return 'accepted'
+    case 'sent':
+      return 'sent'
+    case 'delivered':
+      return 'delivered'
+    case 'undelivered':
+      return 'undelivered'
+    case 'failed':
+      return 'failed'
+    default:
+      return null
+  }
+}
 
 /**
  * Twilio signs every form field, so parse the request exactly once and pass the

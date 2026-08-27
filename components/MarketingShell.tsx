@@ -209,6 +209,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
             ['Compare', '/compare'],
             ['Enterprise', '/enterprise'],
             ['Privacy', '/privacy'],
+            ['SMS notifications', '/sms-notifications'],
             ['Terms', '/terms'],
           ]}
         />

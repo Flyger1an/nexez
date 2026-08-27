@@ -22,7 +22,8 @@ vi.mock('@/lib/server/sms', () => ({
 }))
 vi.mock('@/utils/supabase/admin', () => ({ createAdminClient, hasSupabaseAdminEnv }))
 
-import { POST, mapTwilioMessageStatus } from './route'
+import { mapTwilioMessageStatus } from '../_shared'
+import { POST } from './route'
 
 const MESSAGE_SID = `SM${'a'.repeat(32)}`
 

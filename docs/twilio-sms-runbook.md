@@ -63,7 +63,7 @@ variants for any Twilio value.
 Do **not** set `TWILIO_WEBHOOK_BASE_URL`, `TWILIO_STATUS_CALLBACK_URL`, or
 `TWILIO_INBOUND_WEBHOOK_URL`. Nexez fails closed if any legacy callback override
 is present, because callbacks must resolve directly to the canonical runtime
-host—not `app.nexez.ai`, `nexez.ai`, `www.nexez.app`, a preview, or a custom
+host, not `app.nexez.ai`, `nexez.ai`, `www.nexez.app`, a preview, or a custom
 domain.
 
 ```text
@@ -83,7 +83,7 @@ Do these steps only after the code, migration, policy copy, and shared rate
 limit are ready. Creating a number, service, API key, or A2P campaign is a
 persistent, potentially billed action.
 
-1. Create a Messaging Service named **Nexez Transactional SMS – Production**.
+1. Create a Messaging Service named **Nexez Transactional SMS - Production**.
 2. Purchase one SMS-capable US local number and attach it to that Service. A
    local 10-digit long code is subject to US A2P 10DLC registration for
    application-to-person traffic.
@@ -158,7 +158,7 @@ Nexie SMS authorization is not part of this release. A future implementation
 needs a separate buyer-consent topic, server-only atomic approval/outbox
 creation, an eligibility recheck for `PENDING` approval state, account
 export/deletion handling, and an authenticated live pending-approval resume
-screen. Even then, SMS must remain a generic notification—not an approval
+screen. Even then, SMS must remain a generic notification, not an approval
 token, reply command, magic link, or execution channel.
 
 ## Incident response
@@ -170,7 +170,7 @@ token, reply command, magic link, or execution channel.
   opted out and its active destination revoked. Keep the account opted out;
   do not reactivate it from an inbound START reply.
 - If a webhook signature fails, do not relax validation or IP-allowlist it.
-  Confirm the exact HTTPS URL—including the event query parameter for status
-  callbacks—matches Twilio's signed request. Twilio signs the full URL and all
+  Confirm the exact HTTPS URL, including the event query parameter for status
+  callbacks, matches Twilio's signed request. Twilio signs the full URL and all
   request parameters; Nexez uses Twilio's SDK validator accordingly. See
   Twilio's [webhook security guide](https://www.twilio.com/docs/usage/webhooks/webhooks-security).

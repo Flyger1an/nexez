@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { BellRing, CheckCircle2, Loader2, MessageSquareText, ShieldCheck, XCircle } from 'lucide-react'
+import {
+  SMS_CONSENT_CORE_COPY,
+  SMS_PUBLIC_DISCLOSURE_PATH,
+} from '../lib/sms-consent'
 
 type SmsStatus = {
   available: boolean
@@ -15,7 +19,7 @@ type SmsStatus = {
 type ApiResponse = SmsStatus & { error?: string; verificationRequired?: boolean }
 
 const inputClass =
-  'w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--signal)]/60'
+  'w-full rounded-xl border border-[var(--line)] bg-[var(--fill-1)] px-3 py-2 text-[var(--fg)] placeholder:text-[var(--fg-muted)] outline-none transition focus:border-[var(--signal)]/60 focus:ring-2 focus:ring-[var(--signal)]/15'
 
 /**
  * Account-owned transactional SMS preferences. The server owns every state
@@ -102,7 +106,7 @@ export function SmsNotificationSettings() {
   const verificationPending = Boolean(pendingPhone)
 
   return (
-    <section className="card !p-5" aria-labelledby="sms-notifications-heading">
+    <section className="card !border-[var(--signal)]/35 !p-5 sm:!p-6" aria-labelledby="sms-notifications-heading">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -111,7 +115,7 @@ export function SmsNotificationSettings() {
               SMS notifications
             </h2>
           </div>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-400">
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
             Receive a text when a new negotiation needs your review. Messages only link back to your signed-in Nexez dashboard;
             they never approve or change a deal.
           </p>
@@ -124,20 +128,20 @@ export function SmsNotificationSettings() {
       </div>
 
       {status === null ? (
-        <div className="mt-5 flex items-center gap-2 text-sm text-zinc-400">
-          <Loader2 className="size-4 animate-spin" /> Loading notification settings…
+        <div className="mt-5 flex items-center gap-2 text-sm text-[var(--fg-muted)]">
+          <Loader2 className="size-4 animate-spin" /> Loading notification settings...
         </div>
       ) : !configured ? (
-        <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm leading-6 text-zinc-400">
+        <div className="mt-5 rounded-xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 text-sm leading-6 text-[var(--fg-muted)]">
           SMS delivery is not configured on this deployment yet. Your existing email, push, and dashboard notifications remain active.
         </div>
       ) : status.enabled && status.destination ? (
-        <div className="mt-5 rounded-lg border border-[var(--ready)]/25 bg-[var(--ready)]/5 p-4">
+        <div className="mt-5 rounded-xl border border-[var(--ready)]/25 bg-[var(--ready)]/5 p-4">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[var(--ready)]" />
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-white">Verified number: {status.destination.phoneMasked}</p>
-              <p className="mt-1 text-sm leading-6 text-zinc-400">
+              <p className="font-medium text-[var(--fg)]">Verified number: {status.destination.phoneMasked}</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--fg-muted)]">
                 Seller negotiation alerts are enabled. Reply STOP to opt out at any time.
               </p>
               <button
@@ -155,7 +159,7 @@ export function SmsNotificationSettings() {
       ) : (
         <div className="mt-5 space-y-4">
           <label className="block text-sm">
-            <span className="mb-1 block text-zinc-300">Mobile number</span>
+            <span className="mb-1 block text-[var(--fg)]">Mobile number</span>
             <input
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
@@ -166,13 +170,13 @@ export function SmsNotificationSettings() {
               className={inputClass}
               aria-describedby="sms-phone-help"
             />
-            <span id="sms-phone-help" className="mt-1 block text-xs leading-5 text-zinc-500">
+            <span id="sms-phone-help" className="mt-1 block text-xs leading-5 text-[var(--fg-muted)]">
               Use E.164 format (for example, +14155550123). We verify it before enabling notifications.
             </span>
           </label>
 
           {!verificationPending ? (
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm leading-5 text-zinc-300">
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--signal)]/35 bg-[var(--signal)]/5 p-4 text-sm leading-6 text-[var(--fg-muted)]">
               <input
                 type="checkbox"
                 checked={consent}
@@ -181,10 +185,9 @@ export function SmsNotificationSettings() {
                 className="mt-0.5 size-4 accent-[var(--signal)]"
               />
               <span>
-                I agree to receive recurring transactional SMS from Nexez when a new seller negotiation needs my review.
-                Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a
-                condition of purchase. See our <a className="underline hover:text-white" href="/terms">Terms</a> and{' '}
-                <a className="underline hover:text-white" href="/privacy">Privacy Policy</a>.
+                {SMS_CONSENT_CORE_COPY}{' '}
+                See our <a className="font-semibold underline underline-offset-4 hover:text-[var(--fg)]" href="/terms">Terms</a> and{' '}
+                <a className="font-semibold underline underline-offset-4 hover:text-[var(--fg)]" href="/privacy">Privacy Policy</a>.
               </span>
             </label>
           ) : (
@@ -196,7 +199,7 @@ export function SmsNotificationSettings() {
           {verificationPending ? (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <label className="block flex-1 text-sm">
-                <span className="mb-1 block text-zinc-300">Verification code</span>
+                <span className="mb-1 block text-[var(--fg)]">Verification code</span>
                 <input
                   value={code}
                   onChange={(event) => setCode(event.target.value)}
@@ -229,6 +232,13 @@ export function SmsNotificationSettings() {
               Send verification code
             </button>
           )}
+
+          <p className="text-xs leading-5 text-[var(--fg-muted)]">
+            Read the complete, public opt-in workflow at{' '}
+            <a className="font-semibold text-[var(--signal)] hover:underline" href={SMS_PUBLIC_DISCLOSURE_PATH}>
+              nexez.ai{SMS_PUBLIC_DISCLOSURE_PATH}
+            </a>.
+          </p>
         </div>
       )}
 
