@@ -100,6 +100,37 @@ export type GrowthCohortMember = {
   createdAt: string
 }
 
+export type GrowthScanFunnelMetrics = {
+  captured: number
+  delivered: number
+  onboardingOpened: number
+  accountsCreated: number
+  published: number
+  launchActivated: number
+  pendingDelivery: number
+  stalePending: number
+  staleClaims: number
+  abandoned: number
+  abandoned24h: number
+  suppressed: number
+}
+
+export type GrowthScanLead = {
+  id: string
+  email: string
+  domain: string
+  score: number | null
+  stage: 'captured' | 'delivered' | 'onboarding' | 'account' | 'published' | 'launch'
+  deliveryAttempts: number
+  lastError: string | null
+  createdAt: string
+}
+
+export type GrowthScanFunnel = {
+  metrics: GrowthScanFunnelMetrics
+  recentLeads: GrowthScanLead[]
+}
+
 export type GrowthControlSummary = {
   capacityRemaining: number
   capacityPercent: number
@@ -120,7 +151,23 @@ export type GrowthControlSnapshot = {
   recentEvents: GrowthControlEvent[]
   adminEvents: GrowthControlAdminEvent[]
   cohortMembers: GrowthCohortMember[]
+  scanFunnel: GrowthScanFunnel
   warnings: string[]
+}
+
+export const EMPTY_SCAN_FUNNEL_METRICS: GrowthScanFunnelMetrics = {
+  captured: 0,
+  delivered: 0,
+  onboardingOpened: 0,
+  accountsCreated: 0,
+  published: 0,
+  launchActivated: 0,
+  pendingDelivery: 0,
+  stalePending: 0,
+  staleClaims: 0,
+  abandoned: 0,
+  abandoned24h: 0,
+  suppressed: 0,
 }
 
 export const EMPTY_GROWTH_METRICS: GrowthControlMetrics = {
@@ -192,6 +239,7 @@ export function emptyGrowthControlSnapshot(available = false): GrowthControlSnap
     recentEvents: [],
     adminEvents: [],
     cohortMembers: [],
+    scanFunnel: { metrics: { ...EMPTY_SCAN_FUNNEL_METRICS }, recentLeads: [] },
     warnings: [],
   }
 }

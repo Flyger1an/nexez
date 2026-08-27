@@ -5,6 +5,9 @@ const refs = vi.hoisted(() => ({
   exchangeError: null as any,
   admin: true,
   signOut: vi.fn(),
+  cookieGet: vi.fn(),
+  cookieDelete: vi.fn(),
+  markConverted: vi.fn(),
 }))
 
 const trial = vi.hoisted(() => ({
@@ -17,7 +20,10 @@ vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>()
   return { ...actual, after: vi.fn() }
 })
-vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
+vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({
+  get: refs.cookieGet,
+  delete: refs.cookieDelete,
+})) }))
 vi.mock('../../../utils/supabase/server', () => ({
   createClient: () => ({
     auth: {
@@ -35,6 +41,10 @@ vi.mock('../../../lib/server/trial', () => ({
 vi.mock('../../../lib/server/system-email', () => ({ sendOnceSystemEmail: vi.fn() }))
 vi.mock('../../../lib/email', () => ({ buildWelcomeEmail: vi.fn() }))
 vi.mock('../../../lib/server/plan', () => ({ isPlatformAdmin: vi.fn(async () => refs.admin) }))
+vi.mock('../../../lib/server/scan-lead', () => ({
+  SCAN_ATTRIBUTION_COOKIE: 'nexez_scan_attribution',
+  markScanLeadsConverted: refs.markConverted,
+}))
 
 import { GET } from './route'
 
@@ -52,6 +62,8 @@ describe('GET /auth/callback plan routing', () => {
       user_metadata: {},
     }
     refs.admin = true
+    refs.cookieGet.mockReturnValue(undefined)
+    refs.markConverted.mockResolvedValue(undefined)
     trial.hasBilling.mockResolvedValue(false)
     trial.ensure.mockResolvedValue(true)
   })

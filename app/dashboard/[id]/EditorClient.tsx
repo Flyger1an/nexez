@@ -241,6 +241,29 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                     />
                   </SettingRow>
 
+                  <div className={`rounded-[var(--radius)] border p-4 text-sm leading-6 ${
+                    page?.website_verified_at || page?.custom_domain_verified || initial.shopifyConnection
+                      ? 'border-[var(--ready)]/30 bg-[var(--ready)]/[0.07] text-[var(--fg-muted)]'
+                      : 'border-[var(--amber)]/30 bg-[var(--amber)]/[0.07] text-[var(--amber)]'
+                  }`}>
+                    <p className="font-medium text-[var(--fg)]">
+                      {page?.website_verified_at || page?.custom_domain_verified || initial.shopifyConnection
+                        ? 'Business verification signal confirmed'
+                        : 'Check business verification before expecting Launch'}
+                    </p>
+                    <p className="mt-1 text-xs leading-5">
+                      Launch starts only after campaign access, email confirmation, a published listing, and one verified business identity method are all confirmed.
+                    </p>
+                    {!page?.website_verified_at && !page?.custom_domain_verified && !initial.shopifyConnection ? (
+                      <a
+                        href={`/dashboard/${e.id}/settings#agent-experience`}
+                        className="mt-2 inline-flex text-xs font-medium underline underline-offset-4"
+                      >
+                        Review or add website verification
+                      </a>
+                    ) : null}
+                  </div>
+
                   {e.message ? (
                     <p role="status" className="rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--fill-1)] p-3 text-sm text-[var(--fg-muted)]">{e.message}</p>
                   ) : null}

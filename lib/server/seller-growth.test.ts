@@ -30,6 +30,7 @@ const pages = [{
   name: 'Acme Studio',
   slug: 'acme',
   is_published: true,
+  website_url: 'https://acme.example',
   website_verified_at: new Date(now - 1_000).toISOString(),
   custom_domain_verified: null,
 }]
