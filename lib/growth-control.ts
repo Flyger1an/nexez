@@ -11,6 +11,8 @@ export const GROWTH_COHORT_ACTIONS = [
   'cohort_add',
   'cohort_resend',
   'cohort_revoke',
+  'cohort_stage_batch',
+  'cohort_release_wave',
 ] as const
 
 export type GrowthControlAction = (typeof GROWTH_CONTROL_ACTIONS)[number]
@@ -19,6 +21,8 @@ export type GrowthAdminAction = GrowthControlAction | GrowthCohortAction
 export type GrowthCampaignStatus = 'draft' | 'active' | 'paused' | 'ended'
 export type GrowthEnrollmentMode = 'open' | 'invite_only'
 export type GrowthCohortStatus = 'pending' | 'claimed' | 'qualified' | 'expired' | 'revoked'
+export type GrowthCohortVerificationStatus = 'unverified' | 'valid' | 'risky' | 'invalid' | 'unknown'
+export type GrowthCohortRolloutState = 'legacy' | 'staged' | 'ready' | 'releasing' | 'sent' | 'failed' | 'suppressed'
 
 export type GrowthControlCampaign = {
   id: string
@@ -64,6 +68,15 @@ export type GrowthControlMetrics = {
   cohortRevoked: number
   cohortDelivered: number
   cohortUndelivered: number
+  cohortStaged: number
+  cohortReady: number
+  cohortReleasing: number
+  cohortDeliveryFailed: number
+  cohortSuppressed: number
+  cohortVerifiedValid: number
+  cohortVerifiedRisky: number
+  cohortVerifiedInvalid: number
+  cohortVerifiedUnknown: number
   fallbackApplied: number
   grantExpiredEvents: number
   noticesSent: number
@@ -97,7 +110,41 @@ export type GrowthCohortMember = {
   qualifiedAt: string | null
   deliveryCount: number
   lastSentAt: string | null
+  wave: number | null
+  verificationStatus: GrowthCohortVerificationStatus
+  verificationProvider: string | null
+  verifiedAt: string | null
+  rolloutState: GrowthCohortRolloutState
+  rolloutAttempts: number
+  rolloutLastError: string | null
+  releasedAt: string | null
   createdAt: string
+}
+
+export type GrowthCohortBatchCandidate = {
+  email: string
+  label: string | null
+  wave: number
+  verificationStatus: GrowthCohortVerificationStatus
+  verificationProvider: string | null
+}
+
+export type GrowthCohortBatchSummary = {
+  candidateCount: number
+  stagedCount: number
+  updatedCount: number
+  duplicateCount: number
+  waves: number[]
+  replayed: boolean
+}
+
+export type GrowthCohortReleaseSummary = {
+  wave: number
+  requested: number
+  selected: number
+  sent: number
+  failed: number
+  replayed: boolean
 }
 
 export type GrowthScanFunnelMetrics = {
@@ -198,6 +245,15 @@ export const EMPTY_GROWTH_METRICS: GrowthControlMetrics = {
   cohortRevoked: 0,
   cohortDelivered: 0,
   cohortUndelivered: 0,
+  cohortStaged: 0,
+  cohortReady: 0,
+  cohortReleasing: 0,
+  cohortDeliveryFailed: 0,
+  cohortSuppressed: 0,
+  cohortVerifiedValid: 0,
+  cohortVerifiedRisky: 0,
+  cohortVerifiedInvalid: 0,
+  cohortVerifiedUnknown: 0,
   fallbackApplied: 0,
   grantExpiredEvents: 0,
   noticesSent: 0,

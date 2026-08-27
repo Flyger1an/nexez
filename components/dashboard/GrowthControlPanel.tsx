@@ -49,6 +49,8 @@ const ACTION_LABEL: Record<GrowthAdminAction, string> = {
   cohort_add: 'Cohort member added',
   cohort_resend: 'Cohort invitation renewed',
   cohort_revoke: 'Cohort invitation revoked',
+  cohort_stage_batch: 'Cohort batch staged',
+  cohort_release_wave: 'Cohort wave released',
 }
 
 function formatDate(value: string | null): string {

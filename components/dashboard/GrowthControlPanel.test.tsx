@@ -74,7 +74,7 @@ describe('GrowthControlPanel', () => {
     expect(screen.getByText('Invitation progression')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: /Private cohort/ }))
-    expect(screen.getByText('No businesses are in this cohort. Add the first verified-business candidate from the form.')).toBeInTheDocument()
+    expect(screen.getByText('No businesses are staged. Paste the reviewed candidate CSV above to begin.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: /Scan funnel/ }))
     expect(screen.getByText('Scan-to-Launch progression')).toBeInTheDocument()

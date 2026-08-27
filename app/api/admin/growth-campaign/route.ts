@@ -1,15 +1,14 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { buildSellerGrowthInviteEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import {
   applyGrowthCohortControl,
-  recordGrowthCohortDelivery,
+  releaseGrowthCohortWave,
+  stageGrowthCohortBatch,
 } from '../../../../lib/server/growth-cohort'
 import {
   applyGrowthCampaignControl,
-  getGrowthControlSnapshot,
   GrowthControlError,
 } from '../../../../lib/server/growth-control'
 import { isPlatformAdmin } from '../../../../lib/server/plan'
@@ -22,6 +21,33 @@ const baseFields = {
   reason: z.string().trim().min(3).max(500),
   idempotencyKey: z.string().uuid(),
 }
+
+const cohortCandidateSchema = z.object({
+  email: z.string().trim().min(3).max(320).refine(isValidEmail, 'Enter a valid business email.'),
+  label: z.string().trim().min(1).max(120).nullable(),
+  wave: z.number().int().min(1).max(20),
+  verificationStatus: z.enum(['unverified', 'valid', 'risky', 'invalid', 'unknown']),
+  verificationProvider: z.string().trim().min(1).max(120).nullable(),
+}).strict().superRefine((candidate, context) => {
+  if (candidate.verificationStatus !== 'unverified' && !candidate.verificationProvider) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['verificationProvider'],
+      message: 'Verified results must identify their verification provider.',
+    })
+  }
+  if (
+    candidate.verificationStatus === 'valid'
+    && candidate.verificationProvider !== 'millionverifier'
+    && candidate.verificationProvider !== 'apollo'
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['verificationProvider'],
+      message: 'Valid release candidates require Apollo or MillionVerifier evidence.',
+    })
+  }
+})
 
 const controlSchema = z.discriminatedUnion('action', [
   z.object({ ...baseFields, action: z.literal('pause') }).strict(),
@@ -57,6 +83,18 @@ const controlSchema = z.discriminatedUnion('action', [
     ...baseFields,
     action: z.literal('cohort_revoke'),
     memberId: z.string().uuid(),
+  }).strict(),
+  z.object({
+    ...baseFields,
+    action: z.literal('cohort_stage_batch'),
+    candidates: z.array(cohortCandidateSchema).min(1).max(100),
+  }).strict(),
+  z.object({
+    ...baseFields,
+    action: z.literal('cohort_release_wave'),
+    wave: z.number().int().min(1).max(20),
+    limit: z.number().int().min(1).max(25),
+    confirmation: z.string().min(1).max(40),
   }).strict(),
 ])
 
@@ -100,6 +138,28 @@ export async function PATCH(request: Request) {
   }
 
   try {
+    if (input.action === 'cohort_stage_batch') {
+      const result = await stageGrowthCohortBatch({
+        ...input,
+        actorId: user.id,
+      })
+      return NextResponse.json(
+        { ok: true, ...result },
+        { headers: { 'Cache-Control': 'no-store' } },
+      )
+    }
+
+    if (input.action === 'cohort_release_wave') {
+      const result = await releaseGrowthCohortWave({
+        ...input,
+        actorId: user.id,
+      })
+      return NextResponse.json(
+        { ok: true, ...result },
+        { headers: { 'Cache-Control': 'no-store' } },
+      )
+    }
+
     if (
       input.action === 'cohort_add'
       || input.action === 'cohort_resend'
@@ -113,41 +173,15 @@ export async function PATCH(request: Request) {
         label: input.action === 'cohort_add' ? input.label ?? null : null,
       })
 
-      let emailed = false
+      const snapshot = result.snapshot
       const claimUrl = result.token ? appUrl(`/invite/${result.token}`) : null
-      const canDeliver = Boolean(
-        claimUrl
-        && result.member.deliveryCount < 5
-        && (
-          !result.member.lastSentAt
-          || Date.now() - Date.parse(result.member.lastSentAt) >= 60_000
-        ),
-      )
-      if (canDeliver && claimUrl && hasEmailEnv() && result.snapshot.campaign) {
-        const mail = await buildSellerGrowthInviteEmail({
-          inviterBusinessName: 'Nexez',
-          inviteeEmail: result.member.email,
-          durationDays: result.snapshot.campaign.grantDurationDays,
-          claimUrl,
-        })
-        const sent = await sendEmail({
-          to: result.member.email,
-          subject: mail.subject,
-          html: mail.html,
-          text: mail.text,
-        })
-        emailed = sent.ok
-        if (emailed) await recordGrowthCohortDelivery(result.member.id).catch(() => null)
-      }
-
-      const snapshot = emailed ? await getGrowthControlSnapshot() : result.snapshot
       return NextResponse.json(
         {
           ok: true,
           snapshot,
           member: snapshot.cohortMembers.find((member) => member.id === result.member.id) ?? result.member,
           claimUrl,
-          emailed,
+          emailed: false,
           replayed: result.replayed,
         },
         { headers: { 'Cache-Control': 'no-store' } },

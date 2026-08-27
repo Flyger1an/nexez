@@ -117,6 +117,7 @@ describe('getGrowthControlSnapshot', () => {
     expect(snapshot.metrics.grantsTotal).toBe(0)
     expect(snapshot.warnings).toEqual([
       'Campaign totals are unavailable.',
+      'Cohort rollout totals are unavailable.',
       'Recent campaign activity is unavailable.',
       'Operator audit history is unavailable.',
       'The private cohort roster is unavailable.',
