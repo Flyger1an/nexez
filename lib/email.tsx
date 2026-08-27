@@ -20,6 +20,10 @@ import {
   StaleListingEmail,
   SellerGrowthInviteEmail,
   PromotionExpiryEmail,
+  LaunchAccessStartedEmail,
+  PublishNudgeEmail,
+  ScanResultsEmail,
+  scanReadinessBand,
 } from '../emails/templates'
 
 // Gated transactional email (Resend-compatible). Dormant unless RESEND_API_KEY
@@ -44,6 +48,10 @@ type SendEmailInput = {
   idempotencyKey?: string
   replyTo?: string
   tags?: SendEmailTag[]
+  // MIME headers on the message itself, distinct from the Resend request headers
+  // above. Used for List-Unsubscribe on the one send that goes to someone who is
+  // not a user; every transactional send leaves this unset.
+  messageHeaders?: Record<string, string>
 }
 type SendResult = { ok: boolean; skipped?: boolean; id?: string; error?: string }
 
@@ -79,6 +87,9 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
         subject: input.subject,
         html: input.html,
         ...(input.text ? { text: input.text } : {}),
+        ...(input.messageHeaders && Object.keys(input.messageHeaders).length
+          ? { headers: input.messageHeaders }
+          : {}),
         tags: input.tags || [{ name: 'stream', value: 'transactional' }],
       }),
     })
@@ -640,6 +651,116 @@ export async function buildStaleListingEmail(opts: {
       freshnessLabel={freshnessLabel}
       reinterviewUrl={reinterviewUrl}
       editUrl={editUrl}
+    />,
+    text,
+  )
+  return { subject, html, text }
+}
+
+// Grant windows are stored as instants but read by a merchant as a calendar day.
+// UTC keeps the date in this email identical to the one the expiry notice quotes
+// months later; a local timezone would drift the two apart by a day for anyone
+// west of Greenwich, which is every Texas recipient.
+const asCalendarDay = (iso: string) =>
+  new Intl.DateTimeFormat('en', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(iso))
+
+// ── Seller growth: the promotional grant just started (first listing went live) ──
+export async function buildLaunchAccessStartedEmail(opts: {
+  businessName: string
+  listingName: string
+  durationLabel: string
+  endsAt: string
+  dashboardUrl: string
+}): Promise<Built> {
+  const { businessName, listingName, durationLabel, endsAt, dashboardUrl } = opts
+  const endsOn = asCalendarDay(endsAt)
+  const subject = 'Your Nexez Launch access has started'
+  const rows: Row[] = [
+    ['Business', businessName],
+    ['Plan', `Nexez Launch, ${durationLabel}`],
+    ['Started by', listingName],
+    ['Runs until', endsOn],
+  ]
+  const text = textBody(
+    `"${listingName}" is published, which is what starts your complimentary Launch access. Nothing was charged and there is no card on file.\n\nOn ${endsOn} you move to Free automatically. We will write once more before then.`,
+    rows,
+    'Open your dashboard',
+    dashboardUrl,
+  )
+  const html = await renderHtml(
+    <LaunchAccessStartedEmail
+      businessName={businessName}
+      listingName={listingName}
+      durationLabel={durationLabel}
+      endsOn={endsOn}
+      dashboardUrl={dashboardUrl}
+    />,
+    text,
+  )
+  return { subject, html, text }
+}
+
+// ── Seller growth: spot claimed, nothing published, so no grant exists yet ───────
+export async function buildPublishNudgeEmail(opts: {
+  businessName: string
+  durationLabel: string
+  reservedUntil?: string | null
+  publishUrl: string
+}): Promise<Built> {
+  const { businessName, durationLabel, reservedUntil = null, publishUrl } = opts
+  const heldUntil = reservedUntil ? asCalendarDay(reservedUntil) : null
+  const subject = 'Your Nexez Launch spot is still reserved'
+  const rows: Row[] = [
+    ['Access', `Nexez Launch, ${durationLabel}`],
+    ['Time used so far', 'None'],
+    ['Starts when', 'Your first listing is published'],
+    ['Held until', heldUntil || 'The cohort fills'],
+  ]
+  const text = textBody(
+    `${businessName} has a place in the cohort and none of it has been used. Your ${durationLabel} begins the day your first listing goes live, not the day you signed up.\n\nThere is no cost to taking another week over the details.`,
+    rows,
+    'Finish your listing',
+    publishUrl,
+  )
+  const html = await renderHtml(
+    <PublishNudgeEmail
+      businessName={businessName}
+      durationLabel={durationLabel}
+      reservedUntil={heldUntil}
+      publishUrl={publishUrl}
+    />,
+    text,
+  )
+  return { subject, html, text }
+}
+
+// ── Public scan results for a visitor with no account (landing-page scan tool) ───
+export async function buildScanResultsEmail(opts: {
+  domain: string
+  score: number
+  findings: Row[]
+  claimUrl: string
+  unsubscribeUrl: string
+}): Promise<Built> {
+  const { domain, findings, claimUrl, unsubscribeUrl } = opts
+  // A scanner bug must not produce "scored NaN out of 100" in a stranger's inbox.
+  const score = Number.isFinite(opts.score) ? Math.max(0, Math.min(100, Math.round(opts.score))) : 0
+  const band = scanReadinessBand(score)
+  const subject = `${domain} scored ${score}/100 for agent readability`
+  const text = textBody(
+    `${domain} scored ${score} out of 100: ${band.label.toLowerCase()}.\n\nThat is not a marketing grade. It is how much of your business an AI assistant can parse when a customer asks it to find someone who does what you do. Every line below is something an assistant looks for and either finds or does not.`,
+    findings,
+    'Fix this on Nexez',
+    claimUrl,
+  ) + `\n\nSix months of Nexez Launch, no card. Access starts the day your listing goes live.\n\nUnsubscribe: ${unsubscribeUrl}`
+  const html = await renderHtml(
+    <ScanResultsEmail
+      domain={domain}
+      score={score}
+      findings={findings}
+      claimUrl={claimUrl}
+      unsubscribeUrl={unsubscribeUrl}
     />,
     text,
   )

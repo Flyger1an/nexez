@@ -5,10 +5,14 @@ import {
   BuyerRequestEmail,
   BuyerStatusEmail,
   EscrowFundedEmail,
+  LaunchAccessStartedEmail,
   MoneyEventEmail,
   NegotiationEmail,
   OrderLookupEmail,
   PromotionExpiryEmail,
+  PublishNudgeEmail,
+  ScanResultsEmail,
+  FoundingCohortEmail,
   SellerGrowthInviteEmail,
   StaleListingEmail,
   SupportReplyEmail,
@@ -54,13 +58,13 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     id: 'support-operator-reply',
     element: <SupportReplyEmail subject="Checkout incident" replyBody="We found the issue and are checking the payment path now." requestUrl={`${APP}/support/requests/ticket_123`} />,
     expectedCta: `${APP}/support/requests/ticket_123`,
-    expectedState: 'Reply received',
+    expectedState: 'Answered',
   },
   {
     id: 'support-requester-reply',
     element: <SupportRequesterReplyEmail requesterEmail="owner@example.com" subject="Checkout incident" replyBody="The issue still happens after I sign in again." adminUrl="https://admin.nexez.ai/admin/support/ticket_123" />,
     expectedCta: 'https://admin.nexez.ai/admin/support/ticket_123',
-    expectedState: 'Requester replied',
+    expectedState: 'Awaiting you',
   },
   {
     id: 'merchant-booking',
@@ -84,7 +88,7 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     id: 'merchant-payment-received',
     element: <EscrowFundedEmail lead="A buyer completed payment." held={false} rows={merchantRows} inboxUrl={`${APP}/dashboard/orders/order_123`} />,
     expectedCta: `${APP}/dashboard/orders/order_123`,
-    expectedState: 'Payment received',
+    expectedState: 'Settled',
   },
   {
     id: 'merchant-refund-recorded',
@@ -108,7 +112,7 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     id: 'buyer-receipt',
     element: <BuyerReceiptEmail lead="Payment is confirmed for your order." rows={buyerRows} manageUrl={`${SITE}/orders/token_123`} />,
     expectedCta: `${SITE}/orders/token_123`,
-    expectedState: 'Payment confirmed',
+    expectedState: 'Paid',
   },
   ...([
     ['buyer-refunded', 'Refund processed', 'positive', 'Your full refund was processed.', 'View your order'],
@@ -140,7 +144,7 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     id: 'account-team-invite',
     element: <TeamInviteEmail lead="owner@example.com invited you to collaborate." inviteeEmail="teammate@example.com" acceptUrl={`${APP}/login?next=/dashboard`} />,
     expectedCta: `${APP}/login?next=/dashboard`,
-    expectedState: 'Invitation ready',
+    expectedState: 'Ready to accept',
   },
   {
     id: 'account-growth-invite',
@@ -158,7 +162,7 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     id: 'account-welcome',
     element: <WelcomeEmail name="Taio" createUrl={`${APP}/create`} />,
     expectedCta: `${APP}/create`,
-    expectedState: 'Account ready',
+    expectedState: 'Ready',
   },
   {
     id: 'account-stripe-connected',
@@ -167,9 +171,67 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     expectedState: 'Charges enabled',
   },
   {
+    id: 'campaign-founding-cohort',
+    element: <FoundingCohortEmail
+      businessName="Aqua Clear Pool Care"
+      city="Austin"
+      observation={'You already state the rule: "We do not service stock tank and above ground pools." That is exactly the kind of bad fit an agent could screen out before it ever reaches you.'}
+      spotsRemaining={50}
+      claimUrl={`${SITE}/texas/claim/token_123`}
+      unsubscribeUrl={`${SITE}/u/token_123`}
+      senderName="Tai"
+      senderTitle="Founder"
+    />,
+    expectedCta: `${SITE}/texas/claim/token_123`,
+    expectedState: '50 spots left',
+  },
+  {
     id: 'merchant-stale-listing',
     element: <StaleListingEmail businessName="Axle Plumbing Co." listingName="Emergency Plumbing" freshnessLabel="Last reviewed 90 days ago" reinterviewUrl={`${APP}/dashboard/listings/listing_123/reinterview`} editUrl={`${APP}/dashboard/listings/listing_123/edit`} />,
     expectedCta: `${APP}/dashboard/listings/listing_123/reinterview`,
     expectedState: 'Review suggested',
+  },
+  {
+    id: 'account-launch-access-started',
+    element: <LaunchAccessStartedEmail
+      businessName="Axle Plumbing Co."
+      listingName="Emergency Plumbing"
+      durationLabel="six months"
+      endsOn="24 February 2027"
+      dashboardUrl={`${APP}/dashboard`}
+    />,
+    expectedCta: `${APP}/dashboard`,
+    expectedState: 'Launch active',
+  },
+  {
+    id: 'account-publish-nudge',
+    element: <PublishNudgeEmail
+      businessName="Axle Plumbing Co."
+      durationLabel="six months"
+      reservedUntil="9 September 2026"
+      publishUrl={`${APP}/dashboard/listings/listing_123/edit`}
+    />,
+    expectedCta: `${APP}/dashboard/listings/listing_123/edit`,
+    expectedState: 'Not started yet',
+  },
+  {
+    // Low score on purpose: this is the only fixture that renders the danger
+    // badge outside the dispute path, so it guards that override too.
+    id: 'campaign-scan-results',
+    element: <ScanResultsEmail
+      domain="axleplumbing.com"
+      score={34}
+      findings={[
+        ['Business identity', 'Found'],
+        ['Prices', 'Not machine readable'],
+        ['Booking path', 'Phone number only'],
+        ['Service area', 'Not stated'],
+        ['Agent policy', 'No agent.json'],
+      ]}
+      claimUrl={`${SITE}/texas/claim/scan_123`}
+      unsubscribeUrl={`${SITE}/u/scan_123`}
+    />,
+    expectedCta: `${SITE}/texas/claim/scan_123`,
+    expectedState: 'Hard to read',
   },
 ]

@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server'
 import { getPlanLimits } from '../../../../lib/billing'
-import { buildPromotionExpiryEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
+import {
+  buildLaunchAccessStartedEmail,
+  buildPromotionExpiryEmail,
+  buildPublishNudgeEmail,
+  hasEmailEnv,
+  sendEmail,
+} from '../../../../lib/email'
 import { getOwnerPlanId } from '../../../../lib/server/plan'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
+import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
 import { appUrl } from '../../../../lib/site'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
@@ -12,6 +19,12 @@ const NOTICE_DAYS = new Set([30, 14, 7, 1])
 const HOUR_MS = 3_600_000
 const DAY_MS = 86_400_000
 const BATCH_LIMIT = 500
+const NOTIFICATION_BATCH_LIMIT = 50
+
+// A spot that has been claimed but never published is the campaign's main drop-off.
+// Three days is long enough that the nudge is not chasing someone who is mid-setup,
+// and short enough to land while they still remember signing up.
+const PUBLISH_NUDGE_AFTER_MS = 72 * HOUR_MS
 
 type GrantRow = {
   id: string
@@ -29,6 +42,56 @@ type PageRow = {
   slug: string | null
   is_published: boolean
   created_at: string
+}
+
+type StartedGrantRow = {
+  id: string
+  campaign_id: string
+  owner_id: string
+  ends_at: string
+  entitlement_activated_at: string | null
+}
+
+type ClaimedInviteRow = {
+  id: string
+  campaign_id: string
+  accepted_by_owner_id: string
+  accepted_at: string | null
+}
+
+type CampaignRow = {
+  id: string
+  grant_duration_days: number
+  signup_closes_at: string | null
+}
+
+/**
+ * "180 days" is accurate and reads like a contract. Merchants were sold six months,
+ * so the email says six months, and it is derived from the campaign row rather than
+ * written down twice - changing grant_duration_days must change the wording.
+ */
+export function describeGrantDuration(days: number): string {
+  const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
+  const spell = (n: number) => (n < WORDS.length ? WORDS[n] : String(n))
+  if (!Number.isFinite(days) || days <= 0) return 'your complimentary period'
+  if (days % 365 === 0) {
+    const years = days / 365
+    return years === 1 ? 'one year' : `${spell(years)} years`
+  }
+  if (days % 30 === 0) {
+    const months = days / 30
+    return months === 1 ? 'one month' : `${spell(months)} months`
+  }
+  return days === 1 ? 'one day' : `${days} days`
+}
+
+// The listing that earned the grant. The database mints it on the write that first
+// publishes something, so the oldest published page is that listing in every path
+// except a rare same-second double publish, where either name is honest.
+function startingListingName(pages: PageRow[]): string {
+  const published = pages.filter((page) => page.is_published)
+  const first = published[0] ?? pages[0] ?? null
+  return first?.name || first?.slug || 'Your first listing'
 }
 
 function cronAuthorized(request: Request) {
@@ -247,15 +310,184 @@ export async function GET(request: Request) {
     }
   }
 
+  // ── A grant just started: tell the owner ────────────────────────────────────
+  //
+  // The grant is minted inside a database trigger on the write that publishes a
+  // first listing. A dashboard save, a Shopify install and a webhook all reach that
+  // trigger, and none of them has a place to hang an email off, so this pass is the
+  // only notification path. Delivery is claimed through sent_system_emails, which
+  // rolls its claim back on a send failure, so a bad hour retries on the next run.
+  let startNoticesSent = 0
+  let publishNudgesSent = 0
+  let startNoticesPending = 0
+  let publishNudgesPending = 0
+
+  if (hasEmailEnv()) {
+    const { data: startedGrants } = await admin
+      .from('promotional_plan_grants')
+      .select('id, campaign_id, owner_id, ends_at, entitlement_activated_at')
+      .eq('status', 'active')
+      .not('entitlement_activated_at', 'is', null)
+      .lte('starts_at', nowIso)
+      .gt('ends_at', nowIso)
+      // Newest first prevents long-lived, already-notified grants from occupying
+      // the whole candidate window and starving a grant minted this hour.
+      .order('created_at', { ascending: false })
+      .limit(NOTIFICATION_BATCH_LIMIT)
+      .returns<StartedGrantRow[]>()
+
+    const startCandidates = startedGrants ?? []
+    let startPending: StartedGrantRow[] = []
+    if (startCandidates.length) {
+      // Filter to the ones not yet told. Without this the pass re-claims a row per
+      // live grant every hour for six months and eats a 23505 each time.
+      const { data: alreadyTold } = await admin
+        .from('sent_system_emails')
+        .select('owner_id, kind')
+        .in('owner_id', [...new Set(startCandidates.map((grant) => grant.owner_id))])
+        .like('kind', 'growth_grant_started:%')
+        .returns<{ owner_id: string; kind: string }[]>()
+      const told = new Set((alreadyTold ?? []).map((row) => `${row.owner_id}|${row.kind}`))
+      startPending = startCandidates.filter(
+        (grant) => !told.has(`${grant.owner_id}|growth_grant_started:${grant.campaign_id}`),
+      )
+    }
+    startNoticesPending = startPending.length
+
+    // ── A spot is claimed but nothing is published ────────────────────────────
+    //
+    // An invite sits at 'claimed' precisely while no grant exists; the database
+    // moves it to 'qualified' in the same statement that mints one. So this query
+    // is the reserved-but-not-started set by construction, not by inference.
+    const nudgeCutoff = new Date(now.getTime() - PUBLISH_NUDGE_AFTER_MS).toISOString()
+    const { data: stalledInvites } = await admin
+      .from('seller_growth_invites')
+      .select('id, campaign_id, accepted_by_owner_id, accepted_at')
+      .eq('status', 'claimed')
+      .not('accepted_by_owner_id', 'is', null)
+      .lte('accepted_at', nudgeCutoff)
+      // Claimed invites remain claimed after the one nudge. Newest eligible first
+      // prevents those older sent rows from permanently filling the window.
+      .order('accepted_at', { ascending: false })
+      .limit(NOTIFICATION_BATCH_LIMIT)
+      .returns<ClaimedInviteRow[]>()
+
+    const nudgeCandidates = stalledInvites ?? []
+    let nudgePending: ClaimedInviteRow[] = []
+    if (nudgeCandidates.length) {
+      const { data: alreadyNudged } = await admin
+        .from('sent_system_emails')
+        .select('owner_id, kind')
+        .in('owner_id', [...new Set(nudgeCandidates.map((invite) => invite.accepted_by_owner_id))])
+        .like('kind', 'growth_publish_nudge:%')
+        .returns<{ owner_id: string; kind: string }[]>()
+      const nudged = new Set((alreadyNudged ?? []).map((row) => `${row.owner_id}|${row.kind}`))
+      nudgePending = nudgeCandidates.filter(
+        (invite) => !nudged.has(`${invite.accepted_by_owner_id}|growth_publish_nudge:${invite.campaign_id}`),
+      )
+    }
+
+    // One page read and one campaign read for both passes.
+    const noticeOwnerIds = [
+      ...new Set([
+        ...startPending.map((grant) => grant.owner_id),
+        ...nudgePending.map((invite) => invite.accepted_by_owner_id),
+      ]),
+    ]
+    const noticeCampaignIds = [
+      ...new Set([
+        ...startPending.map((grant) => grant.campaign_id),
+        ...nudgePending.map((invite) => invite.campaign_id),
+      ]),
+    ]
+
+    if (noticeOwnerIds.length) {
+      const [noticePagesRes, noticeCampaignsRes] = await Promise.all([
+        admin
+          .from('pages')
+          .select('id, owner_id, name, slug, is_published, created_at')
+          .in('owner_id', noticeOwnerIds)
+          .order('created_at', { ascending: true })
+          .returns<PageRow[]>(),
+        admin
+          .from('seller_growth_campaigns')
+          .select('id, grant_duration_days, signup_closes_at')
+          .in('id', noticeCampaignIds)
+          .returns<CampaignRow[]>(),
+      ])
+      const noticePagesByOwner = new Map<string, PageRow[]>()
+      for (const page of noticePagesRes.data ?? []) {
+        const current = noticePagesByOwner.get(page.owner_id) ?? []
+        current.push(page)
+        noticePagesByOwner.set(page.owner_id, current)
+      }
+      const campaignsById = new Map((noticeCampaignsRes.data ?? []).map((row) => [row.id, row]))
+
+      for (const grant of startPending) {
+        const campaign = campaignsById.get(grant.campaign_id)
+        if (!campaign) continue
+        const to = await resolveOwnerNotifyEmail({ ownerId: grant.owner_id, contactEmail: null })
+        if (!to) continue
+        const pages = noticePagesByOwner.get(grant.owner_id) ?? []
+        const businessName = pages[0]?.name || pages[0]?.slug || 'Your business'
+        const result = await sendOnceSystemEmail({
+          ownerId: grant.owner_id,
+          kind: `growth_grant_started:${grant.campaign_id}`,
+          to,
+          build: () => buildLaunchAccessStartedEmail({
+            businessName,
+            listingName: startingListingName(pages),
+            durationLabel: describeGrantDuration(campaign.grant_duration_days),
+            endsAt: grant.ends_at,
+            dashboardUrl: appUrl('/dashboard'),
+          }),
+        })
+        if (result.sent) startNoticesSent += 1
+        else if (!result.skipped) errors.push(`grant_start_notice:${grant.id}`)
+      }
+
+      for (const invite of nudgePending) {
+        const campaign = campaignsById.get(invite.campaign_id)
+        if (!campaign) continue
+        const pages = noticePagesByOwner.get(invite.accepted_by_owner_id) ?? []
+        // A published listing with no grant is a different problem (unverified
+        // business identity, or a campaign that filled) and "finish your listing"
+        // would be the wrong instruction, so those are left for the dashboard.
+        if (pages.some((page) => page.is_published)) continue
+        publishNudgesPending += 1
+        const to = await resolveOwnerNotifyEmail({ ownerId: invite.accepted_by_owner_id, contactEmail: null })
+        if (!to) continue
+        const businessName = pages[0]?.name || pages[0]?.slug || 'Your business'
+        const result = await sendOnceSystemEmail({
+          ownerId: invite.accepted_by_owner_id,
+          kind: `growth_publish_nudge:${invite.campaign_id}`,
+          to,
+          build: () => buildPublishNudgeEmail({
+            businessName,
+            durationLabel: describeGrantDuration(campaign.grant_duration_days),
+            reservedUntil: campaign.signup_closes_at,
+            publishUrl: appUrl('/dashboard'),
+          }),
+        })
+        if (result.sent) publishNudgesSent += 1
+        else if (!result.skipped) errors.push(`publish_nudge:${invite.id}`)
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: errors.length === 0,
     invitesExpired,
     noticesSent,
+    startNoticesSent,
+    publishNudgesSent,
     grantsExpired,
     fallbackListingsApplied,
     scanned: {
       notices: noticeGrants?.length ?? 0,
       endedGrants: endedGrants?.length ?? 0,
+      startNotices: startNoticesPending,
+      publishNudges: publishNudgesPending,
     },
     ...(errors.length ? { errors } : {}),
     ranAt: nowIso,

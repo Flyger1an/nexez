@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowRight, Check, Copy, Loader2, Minus, RefreshCw, Sparkles, X } from 'lucide-react'
+import { ArrowRight, Check, Copy, Loader2, Mail, Minus, RefreshCw, Sparkles, X } from 'lucide-react'
 import { appUrl } from '../../lib/site'
 
 type DimensionKey = 'discovery' | 'understanding' | 'transactability' | 'trust'
@@ -146,6 +146,9 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
   const [deepMsg, setDeepMsg] = useState('')
   const [needsAuth, setNeedsAuth] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
+  const [email, setEmail] = useState('')
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [emailMsg, setEmailMsg] = useState('')
   const autoStarted = useRef(false)
 
   const runScan = useCallback(async (rawValue: string, compare = false) => {
@@ -158,6 +161,8 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
     setDeepMsg('')
     setNeedsAuth(false)
     setShareMsg('')
+    setEmailStatus('idle')
+    setEmailMsg('')
     if (!compare) {
       setResult(null)
       setPrevious(null)
@@ -238,6 +243,31 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
       setShareMsg('Link copied')
     } catch {
       setShareMsg('Copy failed')
+    }
+  }
+
+  async function emailResult(event: FormEvent) {
+    event.preventDefault()
+    if (!result || !email.trim() || emailStatus === 'sending') return
+    setEmailStatus('sending')
+    setEmailMsg('')
+    try {
+      const response = await fetch('/api/scan/subscribe', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: result.url, email: email.trim() }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setEmailStatus('error')
+        setEmailMsg(data?.error || 'Could not queue the email. Please try again.')
+        return
+      }
+      setEmailStatus('sent')
+      setEmailMsg('If this address can receive scan results, the report is on its way.')
+    } catch {
+      setEmailStatus('error')
+      setEmailMsg('Network error. Please try again.')
     }
   }
 
@@ -351,6 +381,51 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
               {deepMsg ? <p className="text-xs text-[var(--amber)]">{deepMsg}</p> : null}
             </div>
           )}
+
+          <form onSubmit={emailResult} className="mt-8 rounded-[16px] border border-[var(--bd-10)] bg-[var(--ov-03)] p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <Mail className="mt-0.5 size-4 shrink-0 text-[var(--signal)]" />
+              <div>
+                <p className="text-sm font-semibold">Email me this scan</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">
+                  One scan-result email, including the findings and founding-cohort next step. Unsubscribe at any time.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  if (emailStatus !== 'idle') {
+                    setEmailStatus('idle')
+                    setEmailMsg('')
+                  }
+                }}
+                placeholder="you@business.com"
+                aria-label="Email address for scan result"
+                disabled={emailStatus === 'sending' || emailStatus === 'sent'}
+                required
+                className="min-h-[46px] flex-1 rounded-[12px] border border-[var(--bd-10)] bg-black/20 px-4 text-sm outline-none transition focus:border-[var(--signal)] disabled:opacity-60"
+              />
+              <button
+                type="submit"
+                disabled={!email.trim() || emailStatus === 'sending' || emailStatus === 'sent'}
+                className="btn-secondary min-h-[46px] px-5 disabled:opacity-60"
+              >
+                {emailStatus === 'sending' ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
+                {emailStatus === 'sending' ? 'Queueing...' : emailStatus === 'sent' ? 'Queued' : 'Email my result'}
+              </button>
+            </div>
+            {emailMsg ? (
+              <p role={emailStatus === 'error' ? 'alert' : 'status'} className={`mt-2 text-xs ${emailStatus === 'error' ? 'text-red-400' : 'text-[var(--ready)]'}`}>
+                {emailMsg}
+              </p>
+            ) : null}
+          </form>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a href={deepHref} className="btn-primary min-h-[48px] flex-1 justify-center px-5">Build the agent-ready version <ArrowRight className="size-4" /></a>
