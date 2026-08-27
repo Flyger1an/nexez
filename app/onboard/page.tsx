@@ -72,6 +72,7 @@ export default function OnboardPage() {
   // exists, so onboarding skips the Account step and the plan pick starts the trial.
   const [authedPlanPick, setAuthedPlanPick] = useState(false)
   const [authedEmail, setAuthedEmail] = useState('')
+  const [scanContext, setScanContext] = useState<{ domain: string; score: number | null } | null>(null)
 
   const selectablePlans = useMemo(() => billingPlans.filter((p) => p.id !== 'enterprise'), [])
   const selectedPlan = billingPlans.find((p) => p.id === selectedPlanId) || selectablePlans[0]
@@ -80,12 +81,27 @@ export default function OnboardPage() {
   const progress = Math.round((step / steps.length) * 100)
 
   useEffect(() => {
+    let cancelled = false
     const params = new URLSearchParams(window.location.search)
     const planParam = params.get('plan')
     if (planParam && selectablePlans.some((p) => p.id === planParam)) setSelectedPlanId(planParam)
     const next = safeNextPath(params.get('next'))
     if (next) setNextPath(next)
-    let cancelled = false
+    const scanToken = params.get('scan')
+    if (scanToken) {
+      fetch('/api/scan/attribution', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: scanToken }),
+      })
+        .then(async (response) => response.ok
+          ? response.json() as Promise<{ domain: string; score: number | null }>
+          : null)
+        .then((context) => {
+          if (!cancelled && context?.domain) setScanContext(context)
+        })
+        .catch(() => null)
+    }
     createClient()
       .auth.getUser()
       .then(async ({ data }) => {
@@ -329,6 +345,16 @@ export default function OnboardPage() {
               </div>
 
               <div className="nx-onboard-main-body">
+                {scanContext ? (
+                  <div className="mb-5 rounded-[18px] border border-[var(--nx-auth-signal)]/25 bg-[var(--nx-auth-signal)]/10 p-4 text-sm leading-6 text-[var(--nx-auth-soft)]">
+                    <p className="font-semibold text-[var(--nx-auth-text)]">Continuing from your {scanContext.domain} scan</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--nx-auth-muted)]">
+                      {typeof scanContext.score === 'number'
+                        ? `Your ${scanContext.score}/100 result stays linked to this workspace so you can measure the path from scan to published listing and Launch activation.`
+                        : 'Your scan stays linked to this workspace so you can measure the path from scan to published listing and Launch activation.'}
+                    </p>
+                  </div>
+                ) : null}
                 {step === 1 ? (
                   <PlanStep
                     selectablePlans={selectablePlans}

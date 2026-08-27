@@ -3,7 +3,7 @@ import { createClient } from '../../../utils/supabase/server'
 import { cookies } from 'next/headers'
 import { safeNextPath } from '../../../lib/safe-redirect'
 import { sendOnceSystemEmail } from '../../../lib/server/system-email'
-import { markScanLeadsConverted } from '../../../lib/server/scan-lead'
+import { markScanLeadsConverted, SCAN_ATTRIBUTION_COOKIE } from '../../../lib/server/scan-lead'
 import { buildWelcomeEmail } from '../../../lib/email'
 import { ensureBillingSeeded, hasBillingAccount, isSelectablePlan } from '../../../lib/server/trial'
 import { isPlatformAdmin } from '../../../lib/server/plan'
@@ -16,6 +16,8 @@ const WELCOME_WINDOW_MS = 24 * 60 * 60 * 1000
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
+  const cookieStore = await cookies()
+  const scanAttributionToken = cookieStore.get(SCAN_ATTRIBUTION_COOKIE)?.value ?? null
   const code = requestUrl.searchParams.get('code')
   // Guard against open redirect: only allow a same-origin relative path.
   const adminRequest = isAdminHost(requestUrl.host)
@@ -33,7 +35,6 @@ export async function GET(request: Request) {
   }
 
   if (code) {
-    const cookieStore = await cookies()
     const supabase = createClient(cookieStore, requestUrl.host)
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (error) {
@@ -70,18 +71,20 @@ export async function GET(request: Request) {
       await ensureBillingSeeded(user.id, planMeta)
     }
 
-    if (isNew && user?.email) {
+    if (user?.email && (isNew || scanAttributionToken)) {
       const createUrl = new URL('/create', requestUrl.origin).toString()
       const name = (user.user_metadata?.full_name as string | undefined) || (user.user_metadata?.name as string | undefined) || null
       const to = user.email
       const ownerId = user.id
       after(async () => {
-        await sendOnceSystemEmail({ ownerId, kind: 'welcome', to, build: () => buildWelcomeEmail({ name, createUrl }) })
-        // Close the loop on the public scanner: an address that asked for a scan
-        // result before it had an account has now converted. Email is the only
-        // link between the two, and it is the same address on both sides.
-        await markScanLeadsConverted(ownerId, to)
+        if (isNew) {
+          await sendOnceSystemEmail({ ownerId, kind: 'welcome', to, build: () => buildWelcomeEmail({ name, createUrl }) })
+        }
+        // Close the public scanner loop. The opaque onboarding token identifies the
+        // exact scan request; the verified account email remains a second check.
+        await markScanLeadsConverted(ownerId, to, scanAttributionToken)
       })
+      if (scanAttributionToken) cookieStore.delete(SCAN_ATTRIBUTION_COOKIE)
     }
 
     // Any account with NO valid chosen plan and NO billing row goes through onboarding

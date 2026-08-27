@@ -30,6 +30,17 @@ export function deriveScanLeadToken(leadId: string): string {
     .digest('base64url')
 }
 
+/**
+ * Opaque handoff token for the scan-to-onboarding funnel. This uses a distinct
+ * HMAC namespace from unsubscribe links so the two capabilities cannot be
+ * substituted for one another even though they are derived from the same row.
+ */
+export function deriveScanOnboardingToken(leadId: string): string {
+  return createHmac('sha256', tokenSecret())
+    .update(`nexez-scan-onboarding-token-v1:${leadId}`)
+    .digest('base64url')
+}
+
 export function hashScanLeadToken(token: string): string {
   return createHash('sha256').update(`nexez-scan-lead-v1:${token}`).digest('hex')
 }

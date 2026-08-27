@@ -149,6 +149,7 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
   const [email, setEmail] = useState('')
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [emailMsg, setEmailMsg] = useState('')
+  const [scanAttributionToken, setScanAttributionToken] = useState('')
   const autoStarted = useRef(false)
 
   const runScan = useCallback(async (rawValue: string, compare = false) => {
@@ -264,6 +265,9 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
         return
       }
       setEmailStatus('sent')
+      if (typeof data?.attributionToken === 'string') {
+        setScanAttributionToken(data.attributionToken)
+      }
       setEmailMsg('If this address can receive scan results, the report is on its way.')
     } catch {
       setEmailStatus('error')
@@ -274,8 +278,11 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
   const shown: ScanResult | DeepResult | null = deep ?? result
   const comparison = previous && !deep ? previous : null
   const comprehension = deep?.comprehension
+  const attributionParam = scanAttributionToken
+    ? `&scan=${encodeURIComponent(scanAttributionToken)}`
+    : ''
   const deepHref = result
-    ? appUrl(`/onboard?next=${encodeURIComponent(`/create?url=${encodeURIComponent(result.url)}`)}`)
+    ? appUrl(`/onboard?next=${encodeURIComponent(`/create?url=${encodeURIComponent(result.url)}`)}${attributionParam}`)
     : appUrl('/onboard')
 
   return (
@@ -429,7 +436,12 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a href={deepHref} className="btn-primary min-h-[48px] flex-1 justify-center px-5">Build the agent-ready version <ArrowRight className="size-4" /></a>
-            <a href={appUrl('/onboard')} className="btn-secondary min-h-[48px] justify-center px-5">Fix this with Nexez</a>
+            <a
+              href={scanAttributionToken
+                ? appUrl(`/onboard?scan=${encodeURIComponent(scanAttributionToken)}`)
+                : appUrl('/onboard')}
+              className="btn-secondary min-h-[48px] justify-center px-5"
+            >Fix this with Nexez</a>
           </div>
           <p className="mt-3 text-center text-xs leading-5 text-[var(--fg-muted)]">
             The free scan does not store page content. Nexez records the domain, score, timing, and service telemetry needed to operate and improve the scanner.

@@ -43,12 +43,16 @@ export type SellerGrowthGrantView = {
 }
 
 export type SellerGrowthQualification = {
+  campaignOpen: boolean
   emailVerified: boolean
   publishedListing: boolean
   identityVerified: boolean
   identityMethods: Array<'website' | 'custom_domain' | 'shopify' | 'stripe'>
   campaignAccess: boolean
   accessSource: 'new_business' | 'cohort' | 'invitation' | 'none'
+  missingGates: Array<'campaign_access' | 'email' | 'published_listing' | 'identity'>
+  completedGates: number
+  totalGates: 4
   eligible: boolean
 }
 
@@ -57,6 +61,9 @@ export type SellerGrowthPageOption = {
   name: string
   slug: string
   isPublished: boolean
+  websiteUrl: string | null
+  websiteVerified: boolean
+  customDomainVerified: boolean
 }
 
 export type SellerGrowthState = {
@@ -121,15 +128,20 @@ type PageRow = {
   is_published: boolean | null
   website_verified_at: string | null
   custom_domain_verified: string | null
+  website_url: string | null
 }
 
 const emptyQualification = (): SellerGrowthQualification => ({
+  campaignOpen: false,
   emailVerified: false,
   publishedListing: false,
   identityVerified: false,
   identityMethods: [],
   campaignAccess: false,
   accessSource: 'none',
+  missingGates: ['campaign_access', 'email', 'published_listing', 'identity'],
+  completedGates: 0,
+  totalGates: 4,
   eligible: false,
 })
 
@@ -242,7 +254,7 @@ export async function getSellerGrowthState(
       .maybeSingle<GrantRow>(),
     admin
       .from('pages')
-      .select('id, name, slug, is_published, website_verified_at, custom_domain_verified')
+      .select('id, name, slug, is_published, website_url, website_verified_at, custom_domain_verified')
       .eq('owner_id', ownerId)
       .order('created_at', { ascending: true })
       .returns<PageRow[]>(),
@@ -312,10 +324,19 @@ export async function getSellerGrowthState(
     && (!campaign.signup_closes_at || closesMs >= now.getTime())
   const campaignAccess = wasInvited || (campaign.enrollment_mode === 'open' && isNewBusiness)
   const acceptedInviteKind = acceptedInviteRes.data?.invite_kind
+  const emailVerified = Boolean(authFacts.emailConfirmedAt)
+  const publishedListing = pages.some((page) => page.is_published === true)
+  const identityVerified = identityMethods.length > 0
+  const missingGates: SellerGrowthQualification['missingGates'] = []
+  if (!campaignAccess) missingGates.push('campaign_access')
+  if (!emailVerified) missingGates.push('email')
+  if (!publishedListing) missingGates.push('published_listing')
+  if (!identityVerified) missingGates.push('identity')
   const qualification: SellerGrowthQualification = {
-    emailVerified: Boolean(authFacts.emailConfirmedAt),
-    publishedListing: pages.some((page) => page.is_published === true),
-    identityVerified: identityMethods.length > 0,
+    campaignOpen,
+    emailVerified,
+    publishedListing,
+    identityVerified,
     identityMethods,
     campaignAccess,
     accessSource: wasInvited
@@ -323,11 +344,14 @@ export async function getSellerGrowthState(
       : campaign.enrollment_mode === 'open' && isNewBusiness
         ? 'new_business'
         : 'none',
+    missingGates,
+    completedGates: 4 - missingGates.length,
+    totalGates: 4,
     eligible: campaignOpen
       && campaignAccess
-      && Boolean(authFacts.emailConfirmedAt)
-      && pages.some((page) => page.is_published === true)
-      && identityMethods.length > 0,
+      && emailVerified
+      && publishedListing
+      && identityVerified,
   }
 
   const invites = (sentInvitesRes.data ?? []).map(inviteView)
@@ -341,6 +365,9 @@ export async function getSellerGrowthState(
     name: page.name || page.slug || 'Untitled listing',
     slug: page.slug || '',
     isPublished: page.is_published === true,
+    websiteUrl: page.website_url,
+    websiteVerified: Boolean(page.website_verified_at),
+    customDomainVerified: Boolean(page.custom_domain_verified),
   }))
 
   return {

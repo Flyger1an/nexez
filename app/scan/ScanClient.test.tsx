@@ -34,7 +34,7 @@ describe('ScanClient email result control', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(scanResult), {
         status: 200, headers: { 'content-type': 'application/json' },
       }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, queued: true }), {
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, queued: true, attributionToken: 'scan-token' }), {
         status: 200, headers: { 'content-type': 'application/json' },
       }))
     vi.stubGlobal('fetch', fetchMock)
@@ -56,5 +56,7 @@ describe('ScanClient email result control', () => {
       email: 'owner@example.com',
     })
     expect(await screen.findByText(/report is on its way/i)).toBeTruthy()
+    expect(screen.getByRole('link', { name: /build the agent-ready version/i }).getAttribute('href'))
+      .toContain('scan=scan-token')
   })
 })

@@ -4,6 +4,7 @@ import { isEntitlementAllocationRetry } from '../entitlement-allocation-error'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   EMPTY_GROWTH_METRICS,
+  EMPTY_SCAN_FUNNEL_METRICS,
   emptyGrowthControlSnapshot,
   summarizeGrowthControl,
   type GrowthCampaignStatus,
@@ -16,6 +17,8 @@ import {
   type GrowthControlEvent,
   type GrowthControlMetrics,
   type GrowthControlSnapshot,
+  type GrowthScanFunnelMetrics,
+  type GrowthScanLead,
 } from '../growth-control'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 
@@ -67,6 +70,21 @@ type CohortRow = {
 }
 
 type MetricsRpc = Record<string, unknown>
+
+type ScanLeadRow = {
+  id: string
+  email: string
+  domain: string
+  score: number | null
+  delivery_attempts: number
+  delivered_at: string | null
+  onboarding_opened_at: string | null
+  converted_at: string | null
+  published_at: string | null
+  grant_activated_at: string | null
+  last_error: string | null
+  created_at: string
+}
 
 export type ApplyGrowthControlInput = {
   campaignId: string
@@ -150,6 +168,48 @@ function normalizeMetrics(value: MetricsRpc | null | undefined): GrowthControlMe
     grantExpiredEvents: count(row.grant_expired_events),
     noticesSent: count(row.notices_sent),
     latestEventAt: stringOrNull(row.latest_event_at),
+  }
+}
+
+function normalizeScanMetrics(value: MetricsRpc | null | undefined): GrowthScanFunnelMetrics {
+  const row = value ?? {}
+  return {
+    captured: count(row.captured),
+    delivered: count(row.delivered),
+    onboardingOpened: count(row.onboarding_opened),
+    accountsCreated: count(row.accounts_created),
+    published: count(row.published),
+    launchActivated: count(row.launch_activated),
+    pendingDelivery: count(row.pending_delivery),
+    stalePending: count(row.stale_pending),
+    staleClaims: count(row.stale_claims),
+    abandoned: count(row.abandoned),
+    abandoned24h: count(row.abandoned_24h),
+    suppressed: count(row.suppressed),
+  }
+}
+
+function mapScanLead(row: ScanLeadRow): GrowthScanLead {
+  const stage: GrowthScanLead['stage'] = row.grant_activated_at
+    ? 'launch'
+    : row.published_at
+      ? 'published'
+      : row.converted_at
+        ? 'account'
+        : row.onboarding_opened_at
+          ? 'onboarding'
+          : row.delivered_at
+            ? 'delivered'
+            : 'captured'
+  return {
+    id: row.id,
+    email: row.email,
+    domain: row.domain,
+    score: row.score,
+    stage,
+    deliveryAttempts: count(row.delivery_attempts),
+    lastError: row.last_error,
+    createdAt: row.created_at,
   }
 }
 
@@ -270,7 +330,7 @@ export async function getGrowthControlSnapshot(
   }
   if (!campaignRow) return { ...emptyGrowthControlSnapshot(true), generatedAt: new Date().toISOString() }
 
-  const [metricsResult, eventsResult, adminEventsResult, cohortResult] = await Promise.all([
+  const [metricsResult, eventsResult, adminEventsResult, cohortResult, scanMetricsResult, scanLeadsResult] = await Promise.all([
     admin.rpc('seller_growth_control_snapshot', { p_campaign_id: campaignRow.id }),
     admin
       .from('seller_growth_events')
@@ -294,6 +354,13 @@ export async function getGrowthControlSnapshot(
       .order('created_at', { ascending: false })
       .limit(100)
       .returns<CohortRow[]>(),
+    admin.rpc('scan_growth_funnel_snapshot', {}),
+    admin
+      .from('scan_leads')
+      .select('id, email, domain, score, delivery_attempts, delivered_at, onboarding_opened_at, converted_at, published_at, grant_activated_at, last_error, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100)
+      .returns<ScanLeadRow[]>(),
   ])
 
   const warnings: string[] = []
@@ -301,11 +368,25 @@ export async function getGrowthControlSnapshot(
   if (eventsResult.error) warnings.push('Recent campaign activity is unavailable.')
   if (adminEventsResult.error) warnings.push('Operator audit history is unavailable.')
   if (cohortResult.error) warnings.push('The private cohort roster is unavailable.')
+  if (scanMetricsResult.error) warnings.push('Scan funnel totals are unavailable.')
+  if (scanLeadsResult.error) warnings.push('Recent scan leads are unavailable.')
 
   const campaign = campaignView(campaignRow)
   const metrics = metricsResult.error
     ? { ...EMPTY_GROWTH_METRICS }
     : normalizeMetrics(metricsResult.data as MetricsRpc | null)
+  const scanMetrics = scanMetricsResult.error
+    ? { ...EMPTY_SCAN_FUNNEL_METRICS }
+    : normalizeScanMetrics(scanMetricsResult.data as MetricsRpc | null)
+  if (scanMetrics.stalePending > 0) {
+    warnings.push(`${scanMetrics.stalePending} scan result email${scanMetrics.stalePending === 1 ? ' is' : 's are'} pending for more than two hours.`)
+  }
+  if (scanMetrics.staleClaims > 0) {
+    warnings.push(`${scanMetrics.staleClaims} scan delivery claim${scanMetrics.staleClaims === 1 ? ' is' : 's are'} stale and should be reclaimed by the next cron run.`)
+  }
+  if (scanMetrics.abandoned24h > 0) {
+    warnings.push(`${scanMetrics.abandoned24h} scan result deliver${scanMetrics.abandoned24h === 1 ? 'y was' : 'ies were'} abandoned in the last 24 hours.`)
+  }
 
   return {
     available: !metricsResult.error,
@@ -316,6 +397,10 @@ export async function getGrowthControlSnapshot(
     recentEvents: (eventsResult.data ?? []).map(mapEvent),
     adminEvents: (adminEventsResult.data ?? []).map(mapAdminEvent),
     cohortMembers: (cohortResult.data ?? []).map(mapCohortMember),
+    scanFunnel: {
+      metrics: scanMetrics,
+      recentLeads: (scanLeadsResult.data ?? []).map(mapScanLead),
+    },
     warnings,
   }
 }

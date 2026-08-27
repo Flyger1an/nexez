@@ -120,6 +120,8 @@ describe('getGrowthControlSnapshot', () => {
       'Recent campaign activity is unavailable.',
       'Operator audit history is unavailable.',
       'The private cohort roster is unavailable.',
+      'Scan funnel totals are unavailable.',
+      'Recent scan leads are unavailable.',
     ])
   })
 })
