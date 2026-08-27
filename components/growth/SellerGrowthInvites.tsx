@@ -66,7 +66,6 @@ export function SellerGrowthInvites({ initialState }: { initialState: SellerGrow
     )
 
   if (!state.available || !state.campaign) return null
-  if (!state.grant && !state.qualification.campaignAccess) return null
 
   async function refreshState() {
     const response = await fetch('/api/growth-invites', { cache: 'no-store' })
@@ -152,6 +151,15 @@ export function SellerGrowthInvites({ initialState }: { initialState: SellerGrow
 
   const qualificationItems = [
     {
+      label: 'Campaign access',
+      complete: state.qualification.campaignAccess,
+      detail: state.qualification.campaignAccess
+        ? state.qualification.accessSource === 'new_business'
+          ? 'Your account was created during open enrollment.'
+          : 'Your founding-cohort invitation is claimed.'
+        : 'This account needs a founding-cohort invitation.',
+    },
+    {
       label: 'Verified email',
       complete: state.qualification.emailVerified,
       detail: 'Confirms the account owner.',
@@ -167,6 +175,12 @@ export function SellerGrowthInvites({ initialState }: { initialState: SellerGrow
       detail: 'Use your website, custom domain, Shopify, or Stripe.',
     },
   ]
+  const verificationPage = state.pages.find((page) => page.websiteUrl && !page.websiteVerified)
+    ?? state.pages[0]
+    ?? null
+  const pendingVerification = !state.grant
+    && state.qualification.publishedListing
+    && !state.qualification.identityVerified
 
   return (
     <section className="mt-6 overflow-hidden rounded-lg border border-border bg-[var(--ov-03)]">
@@ -179,12 +193,18 @@ export function SellerGrowthInvites({ initialState }: { initialState: SellerGrow
                 Six months of Launch
               </div>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">
-                {state.grant ? 'Complimentary Launch is active' : 'Unlock six months of Launch'}
+                {state.grant
+                  ? 'Complimentary Launch is active'
+                  : pendingVerification
+                    ? 'Published, Launch pending verification'
+                    : state.qualification.campaignAccess
+                      ? 'Unlock six months of Launch'
+                      : 'Launch access needs an invitation'}
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
                 {state.grant
                   ? `Your verified business has Launch access for ${daysLeft.toLocaleString()} more day${daysLeft === 1 ? '' : 's'}. No card is required.`
-                  : 'Complete the three business checks below. Eligible businesses activate Launch automatically, with no card required.'}
+                  : `${state.qualification.completedGates} of ${state.qualification.totalGates} requirements complete. Launch activates automatically only when every requirement below is confirmed.`}
               </p>
             </div>
             {state.grant && (
@@ -197,7 +217,7 @@ export function SellerGrowthInvites({ initialState }: { initialState: SellerGrow
             )}
           </div>
 
-          <div className="mt-5 grid gap-2 sm:grid-cols-3">
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {qualificationItems.map((item) => (
               <div
                 key={item.label}
@@ -222,18 +242,34 @@ export function SellerGrowthInvites({ initialState }: { initialState: SellerGrow
 
           {!state.grant && (
             <div className="mt-4 flex flex-wrap gap-2">
+              {!state.qualification.campaignAccess && (
+                <a href="/support?topic=launch-access" className="btn-secondary h-9 px-3 text-xs">
+                  Request cohort access
+                </a>
+              )}
               {!state.qualification.publishedListing && (
-                <a href="/create" className="btn-primary h-9 px-3 text-xs">
+                <a href={state.pages.length ? '/dashboard/listings' : '/create'} className="btn-primary h-9 px-3 text-xs">
                   Publish a listing
                 </a>
               )}
               {!state.qualification.identityVerified && (
-                <a href="/dashboard/integrations" className="btn-secondary h-9 px-3 text-xs">
+                <a
+                  href={verificationPage
+                    ? `/dashboard/${verificationPage.id}/settings#agent-experience`
+                    : '/create'}
+                  className="btn-secondary h-9 px-3 text-xs"
+                >
                   <ShieldCheck className="size-3.5" /> Verify business
                 </a>
               )}
             </div>
           )}
+
+          {pendingVerification ? (
+            <p className="mt-4 rounded-md border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-3 text-xs leading-5 text-[var(--amber)]">
+              Your listing is live, but publication alone does not start complimentary Launch. Verify your website, custom domain, Shopify connection, or Stripe account to complete business identity.
+            </p>
+          ) : null}
 
           {state.grant && (
             <p className="mt-4 text-xs leading-5 text-muted-foreground">

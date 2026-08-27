@@ -11,6 +11,7 @@ import { getOwnerPlanId } from '../../../../lib/server/plan'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
 import { appUrl } from '../../../../lib/site'
+import { describeGrantDuration } from '../../../../lib/growth-duration'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
 export const maxDuration = 60
@@ -63,26 +64,6 @@ type CampaignRow = {
   id: string
   grant_duration_days: number
   signup_closes_at: string | null
-}
-
-/**
- * "180 days" is accurate and reads like a contract. Merchants were sold six months,
- * so the email says six months, and it is derived from the campaign row rather than
- * written down twice - changing grant_duration_days must change the wording.
- */
-export function describeGrantDuration(days: number): string {
-  const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
-  const spell = (n: number) => (n < WORDS.length ? WORDS[n] : String(n))
-  if (!Number.isFinite(days) || days <= 0) return 'your complimentary period'
-  if (days % 365 === 0) {
-    const years = days / 365
-    return years === 1 ? 'one year' : `${spell(years)} years`
-  }
-  if (days % 30 === 0) {
-    const months = days / 30
-    return months === 1 ? 'one month' : `${spell(months)} months`
-  }
-  return days === 1 ? 'one day' : `${days} days`
 }
 
 // The listing that earned the grant. The database mints it on the write that first

@@ -30,7 +30,7 @@ import type {
 import { relativeAge } from '../../lib/launch-control'
 import { GrowthCohortRoster } from './GrowthCohortRoster'
 
-type Tab = 'overview' | 'funnel' | 'cohort' | 'activity' | 'controls'
+type Tab = 'overview' | 'funnel' | 'scan' | 'cohort' | 'activity' | 'controls'
 
 const STATUS_STYLE: Record<GrowthCampaignStatus, string> = {
   draft: 'border-border bg-white/[0.04] text-[var(--fg-muted)]',
@@ -91,10 +91,11 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
   const tabs = useMemo<Array<{ id: Tab; label: string; count?: number }>>(() => [
     { id: 'overview', label: 'Overview' },
     { id: 'funnel', label: 'Activation funnel' },
+    { id: 'scan', label: 'Scan funnel', count: snapshot.scanFunnel.metrics.captured },
     { id: 'cohort', label: 'Private cohort', count: snapshot.cohortMembers.length },
     { id: 'activity', label: 'Activity', count: snapshot.recentEvents.length },
     { id: 'controls', label: 'Controls' },
-  ], [snapshot.cohortMembers.length, snapshot.recentEvents.length])
+  ], [snapshot.cohortMembers.length, snapshot.recentEvents.length, snapshot.scanFunnel.metrics.captured])
 
   if (!snapshot.available || !campaign) {
     return (
@@ -308,6 +309,10 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
         </div>
       ) : null}
 
+      {tab === 'scan' ? (
+        <ScanFunnelView snapshot={snapshot} />
+      ) : null}
+
       {tab === 'cohort' ? (
         <GrowthCohortRoster snapshot={snapshot} onSnapshot={setSnapshot} />
       ) : null}
@@ -518,6 +523,87 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
         </div>
       ) : null}
     </section>
+  )
+}
+
+const SCAN_STAGE_LABEL = {
+  captured: 'Captured',
+  delivered: 'Delivered',
+  onboarding: 'Onboarding opened',
+  account: 'Account created',
+  published: 'Listing published',
+  launch: 'Launch activated',
+} as const
+
+function ScanFunnelView({ snapshot }: { snapshot: GrowthControlSnapshot }) {
+  const funnel = snapshot.scanFunnel
+  const metrics = funnel.metrics
+  return (
+    <div className="space-y-5 pt-5">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,.85fr)]">
+        <div className="overflow-hidden rounded-lg border border-border bg-white/[0.025]">
+          <div className="border-b border-border px-4 py-3">
+            <h3 className="text-sm font-medium">Scan-to-Launch progression</h3>
+            <p className="mt-1 text-xs text-[var(--fg-muted)]">Exact milestones stamped from email delivery, onboarding, authenticated accounts, publication, and grants.</p>
+          </div>
+          <div className="space-y-4 p-4">
+            <FunnelRow label="Email captured" value={metrics.captured} total={metrics.captured} />
+            <FunnelRow label="Result delivered" value={metrics.delivered} total={metrics.captured} />
+            <FunnelRow label="Onboarding opened" value={metrics.onboardingOpened} total={metrics.captured} />
+            <FunnelRow label="Account created" value={metrics.accountsCreated} total={metrics.captured} />
+            <FunnelRow label="Listing published" value={metrics.published} total={metrics.captured} />
+            <FunnelRow label="Launch activated" value={metrics.launchActivated} total={metrics.captured} />
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-lg border border-border bg-white/[0.025]">
+          <div className="border-b border-border px-4 py-3">
+            <h3 className="text-sm font-medium">Delivery health</h3>
+            <p className="mt-1 text-xs text-[var(--fg-muted)]">Exceptions that need operator attention before another cohort is released.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-px bg-border">
+            <Fact label="Pending" value={String(metrics.pendingDelivery)} />
+            <Fact label="Pending over 2h" value={String(metrics.stalePending)} />
+            <Fact label="Stale claims" value={String(metrics.staleClaims)} />
+            <Fact label="Abandoned" value={String(metrics.abandoned)} />
+            <Fact label="Abandoned 24h" value={String(metrics.abandoned24h)} />
+            <Fact label="Suppressed" value={String(metrics.suppressed)} />
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-border bg-white/[0.025]">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <h3 className="text-sm font-medium">Recent scan leads</h3>
+            <p className="mt-1 text-xs text-[var(--fg-muted)]">Newest 100 consented scan-result requests, visible only to platform administrators.</p>
+          </div>
+          <span className="font-mono text-[10px] text-[var(--fg-muted-2)]">{funnel.recentLeads.length} shown</span>
+        </div>
+        {funnel.recentLeads.length ? (
+          <div className="divide-y divide-border">
+            {funnel.recentLeads.map((lead) => (
+              <div key={lead.id} className="grid gap-2 px-4 py-3 text-xs sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-center">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-[var(--fg-soft)]" title={lead.email}>{lead.email}</p>
+                  <p className="mt-1 truncate text-[var(--fg-muted)]" title={lead.domain}>{lead.domain}</p>
+                </div>
+                <div className="text-[var(--fg-muted)]">
+                  <span className="rounded-full border border-border px-2 py-1 text-[10px] text-[var(--signal)]">{SCAN_STAGE_LABEL[lead.stage]}</span>
+                  {lead.lastError ? <p className="mt-1 max-w-64 truncate text-red-300" title={lead.lastError}>{lead.lastError}</p> : null}
+                </div>
+                <span className="font-mono text-[var(--fg-muted)]">{lead.score ?? 'n/a'}/100</span>
+                <span className="text-[10px] text-[var(--fg-muted-2)]">{relativeAge(lead.createdAt, snapshot.generatedAt)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex min-h-28 items-center gap-3 px-4 text-xs text-[var(--fg-muted)]">
+            <MailCheck className="size-4" /> No scan-result requests have been captured yet.
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 

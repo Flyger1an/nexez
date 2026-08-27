@@ -3,7 +3,11 @@ import { evaluateCrawlability } from '../../../../lib/crawlability'
 import { captureError, captureEvent } from '../../../../lib/observability'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { selectScanFindings } from '../../../../lib/scan-findings'
-import { deriveScanLeadToken, hashScanLeadToken } from '../../../../lib/server/scan-lead-token'
+import {
+  deriveScanLeadToken,
+  deriveScanOnboardingToken,
+  hashScanLeadToken,
+} from '../../../../lib/server/scan-lead-token'
 import { gatherSiteSignals, normalizeScanUrl } from '../../../../lib/server/site-scan'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
@@ -125,14 +129,19 @@ export async function POST(request: Request) {
     // The id is minted here rather than by the default, because the unsubscribe
     // token is derived from it and the row has to carry that token's hash from the
     // moment it exists. No row is ever queued without a working unsubscribe.
-    const id = crypto.randomUUID()
+    const id = existing?.id ?? crypto.randomUUID()
+    const onboardingToken = deriveScanOnboardingToken(id)
     const { error } = existing
-      ? await admin.from('scan_leads').update(row).eq('id', existing.id)
+      ? await admin.from('scan_leads').update({
+        ...row,
+        onboarding_token_hash: hashScanLeadToken(onboardingToken),
+      }).eq('id', existing.id)
       : await admin.from('scan_leads').insert({
         ...row,
         id,
         consented_at: new Date().toISOString(),
         unsubscribe_token_hash: hashScanLeadToken(deriveScanLeadToken(id)),
+        onboarding_token_hash: hashScanLeadToken(onboardingToken),
       })
 
     if (error) {
@@ -142,7 +151,7 @@ export async function POST(request: Request) {
 
     captureEvent('scan.subscribe', { host: domain, score: report.score, repeat: Boolean(existing) })
     return NextResponse.json(
-      { ok: true, queued: true, score: report.score },
+      { ok: true, queued: true, score: report.score, attributionToken: onboardingToken },
       { headers: { 'Cache-Control': 'no-store' } },
     )
   } catch (error) {

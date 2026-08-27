@@ -5,7 +5,7 @@
 begin;
 set local search_path = public, extensions;
 
-select plan(28);
+select plan(32);
 
 insert into auth.users (id) values ('c0000000-0000-0000-0000-000000000001');
 
@@ -246,8 +246,24 @@ select is(
    from information_schema.role_table_grants
    where table_schema = 'public' and table_name = 'scan_leads'
      and grantee = 'service_role'),
-  3,
-  'the service role has only select, insert, and update on scan leads'
+  4,
+  'the service role has only select, insert, update, and retention delete on scan leads'
+);
+
+select has_column('public', 'scan_leads', 'onboarding_token_hash',
+  'scan leads hold only a hash of the onboarding handoff token');
+
+select has_column('public', 'scan_leads', 'grant_activated_at',
+  'scan leads record the final Launch activation milestone');
+
+select ok(
+  has_function_privilege('service_role', 'public.scan_growth_funnel_snapshot()', 'execute'),
+  'the service role can read the bounded funnel aggregate'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.scan_growth_funnel_snapshot()', 'execute'),
+  'anonymous callers cannot read the operator funnel aggregate'
 );
 
 select ok(

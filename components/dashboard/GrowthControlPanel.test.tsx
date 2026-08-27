@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { fireEvent, render, screen } from '../../test/dom'
 import {
   EMPTY_GROWTH_METRICS,
+  EMPTY_SCAN_FUNNEL_METRICS,
   summarizeGrowthControl,
   type GrowthControlSnapshot,
 } from '../../lib/growth-control'
@@ -53,6 +54,10 @@ function snapshot(): GrowthControlSnapshot {
     }],
     adminEvents: [],
     cohortMembers: [],
+    scanFunnel: {
+      metrics: { ...EMPTY_SCAN_FUNNEL_METRICS, captured: 12, delivered: 10 },
+      recentLeads: [],
+    },
     warnings: [],
   }
 }
@@ -70,6 +75,9 @@ describe('GrowthControlPanel', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Private cohort/ }))
     expect(screen.getByText('No businesses are in this cohort. Add the first verified-business candidate from the form.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Scan funnel/ }))
+    expect(screen.getByText('Scan-to-Launch progression')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: /Activity/ }))
     expect(screen.getByText('Free fallback applied')).toBeInTheDocument()

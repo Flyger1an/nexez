@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { buildScanResultsEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 import { captureError } from '../../../../lib/observability'
 import type { ScanFinding } from '../../../../lib/scan-findings'
-import { deriveScanLeadToken } from '../../../../lib/server/scan-lead-token'
+import { deriveScanLeadToken, deriveScanOnboardingToken } from '../../../../lib/server/scan-lead-token'
 import { appUrl, marketingUrl } from '../../../../lib/site'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
@@ -114,7 +114,7 @@ export async function GET(request: Request) {
         domain: lead.domain,
         score: lead.score ?? 0,
         findings: readFindings(lead.findings),
-        claimUrl: appUrl('/create?ref=scan'),
+        claimUrl: appUrl(`/onboard?scan=${encodeURIComponent(deriveScanOnboardingToken(lead.id))}&next=${encodeURIComponent(`/create?url=${encodeURIComponent(`https://${lead.domain}`)}`)}`),
         unsubscribeUrl,
       })
       const result = await sendEmail({
