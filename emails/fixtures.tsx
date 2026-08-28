@@ -27,7 +27,15 @@ export type EmailPreviewFixture = {
   id: string
   element: ReactElement
   expectedCta: string
-  expectedState: string
+  /**
+   * The badge text, or null for a template whose object has no state to report.
+   * Null is a policy assertion, not a gap: the render test proves those emails
+   * ship with no badge element at all, so a badge cannot creep back in as
+   * decoration. See the content model at the top of templates.tsx.
+   */
+  expectedState: string | null
+  /** Distinctive copy to pin. Required wherever expectedState is null. */
+  expectedCopy?: string
 }
 
 const APP = 'https://app.nexez.ai'
@@ -58,7 +66,8 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     id: 'support-operator-reply',
     element: <SupportReplyEmail subject="Checkout incident" replyBody="We found the issue and are checking the payment path now." requestUrl={`${APP}/support/requests/ticket_123`} />,
     expectedCta: `${APP}/support/requests/ticket_123`,
-    expectedState: 'Answered',
+    expectedState: null,
+    expectedCopy: 'We found the issue and are checking the payment path now.',
   },
   {
     id: 'support-requester-reply',
@@ -138,19 +147,22 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     id: 'buyer-order-lookup',
     element: <OrderLookupEmail lead="One order is linked to this email." count={1} findUrl={`${SITE}/orders/find/token_123`} />,
     expectedCta: `${SITE}/orders/find/token_123`,
-    expectedState: 'Private link',
+    expectedState: null,
+    expectedCopy: 'Your order is ready to view',
   },
   {
     id: 'account-team-invite',
     element: <TeamInviteEmail lead="owner@example.com invited you to collaborate." inviteeEmail="teammate@example.com" acceptUrl={`${APP}/login?next=/dashboard`} />,
     expectedCta: `${APP}/login?next=/dashboard`,
-    expectedState: 'Ready to accept',
+    expectedState: null,
+    expectedCopy: 'You have been invited to collaborate',
   },
   {
     id: 'account-growth-invite',
     element: <SellerGrowthInviteEmail inviterBusinessName="Axle Plumbing Co." inviteeEmail="new-owner@example.com" durationLabel="six months" claimUrl={`${APP}/invite/claim/token_123`} />,
     expectedCta: `${APP}/invite/claim/token_123`,
-    expectedState: 'No card required',
+    expectedState: null,
+    expectedCopy: 'Axle Plumbing Co. passed this to you',
   },
   {
     id: 'account-promotion-expiry',
@@ -160,13 +172,16 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
   },
   {
     id: 'account-welcome',
-    element: <WelcomeEmail name="Taio" createUrl={`${APP}/create`} />,
+    element: <WelcomeEmail name="Taio Okonkwo" createUrl={`${APP}/create`} financeUrl={`${APP}/dashboard/finance`} docsUrl={`${APP}/docs`} />,
     expectedCta: `${APP}/create`,
-    expectedState: 'Ready',
+    // Passes a full name on purpose: the greeting assertions below are what
+    // stop a full_name reaching the reader again.
+    expectedState: null,
+    expectedCopy: 'Three steps to your first listing',
   },
   {
     id: 'account-stripe-connected',
-    element: <StripeConnectedEmail financeUrl={`${APP}/dashboard/finance`} />,
+    element: <StripeConnectedEmail financeUrl={`${APP}/dashboard/finance`} listingsUrl={`${APP}/dashboard/listings`} docsUrl={`${APP}/docs`} />,
     expectedCta: `${APP}/dashboard/finance`,
     expectedState: 'Charges enabled',
   },
@@ -189,7 +204,8 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     id: 'merchant-stale-listing',
     element: <StaleListingEmail businessName="Axle Plumbing Co." listingName="Emergency Plumbing" freshnessLabel="Last reviewed 90 days ago" reinterviewUrl={`${APP}/dashboard/listings/listing_123/reinterview`} editUrl={`${APP}/dashboard/listings/listing_123/edit`} />,
     expectedCta: `${APP}/dashboard/listings/listing_123/reinterview`,
-    expectedState: 'Review suggested',
+    expectedState: null,
+    expectedCopy: 'Keep this listing accurate',
   },
   {
     id: 'account-launch-access-started',
@@ -221,12 +237,17 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     element: <ScanResultsEmail
       domain="axleplumbing.com"
       score={34}
+      // The outcome words are the scanner's closed vocabulary (STATUS_WORD in
+      // lib/scan-findings), not free text. The last row carries no verdict on
+      // purpose: that is a row persisted before the status was, and it must
+      // still render.
       findings={[
-        ['Business identity', 'Found'],
-        ['Prices', 'Not machine readable'],
-        ['Booking path', 'Phone number only'],
-        ['Service area', 'Not stated'],
-        ['Agent policy', 'No agent.json'],
+        ['Prices', 'Missing', 'fail'],
+        ['Agent policy', 'Missing', 'fail'],
+        ['Booking path', 'Partial', 'warn'],
+        ['Service area', 'Partial', 'warn'],
+        ['Business identity', 'Found', 'pass'],
+        ['Contact details', 'Found'],
       ]}
       claimUrl={`${SITE}/texas/claim/scan_123`}
       unsubscribeUrl={`${SITE}/u/scan_123`}

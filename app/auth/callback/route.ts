@@ -73,12 +73,14 @@ export async function GET(request: Request) {
 
     if (user?.email && (isNew || scanAttributionToken)) {
       const createUrl = new URL('/create', requestUrl.origin).toString()
+      const financeUrl = new URL('/dashboard/finance', requestUrl.origin).toString()
+      const docsUrl = new URL('/docs', requestUrl.origin).toString()
       const name = (user.user_metadata?.full_name as string | undefined) || (user.user_metadata?.name as string | undefined) || null
       const to = user.email
       const ownerId = user.id
       after(async () => {
         if (isNew) {
-          await sendOnceSystemEmail({ ownerId, kind: 'welcome', to, build: () => buildWelcomeEmail({ name, createUrl }) })
+          await sendOnceSystemEmail({ ownerId, kind: 'welcome', to, build: () => buildWelcomeEmail({ name, createUrl, financeUrl, docsUrl }) })
         }
         // Close the public scanner loop. The opaque onboarding token identifies the
         // exact scan request; the verified account email remains a second check.

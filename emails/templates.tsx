@@ -1,8 +1,8 @@
 import * as React from 'react'
 import { Link, Text } from '@react-email/components'
 import {
-  BrandedEmail, Data, EmailEyebrow, EmailHeading, FinePrint,
-  InfoRows, Lead, Notice, PrimaryButton, StatusBadge,
+  BrandedEmail, Caption, Data, EmailEyebrow, EmailHeading, Findings, FinePrint,
+  InfoRows, Lead, NextSteps, Notice, PrimaryButton, Quote, StatusBadge, Steps,
 } from './BrandedEmail'
 import { BRAND, styles, type EmailTone } from './theme'
 
@@ -19,7 +19,10 @@ type Rows = Array<[string, string | null | undefined]>
  *            Closed means new templates pick from this list or the list changes
  *            deliberately. It is what stops platform mail drifting into campaign
  *            voice: a payment receipt must never say Texas founding cohort.
- *   Badge    the state that object is now in.
+ *   Badge    the state that object is now in. Omitted entirely when the object
+ *            has no state to report: a badge that restates the heading, names a
+ *            property of the link rather than of the thing, or repeats the CTA
+ *            is louder than anything around it and says nothing.
  *   Heading  what happened, in the reader's terms, sentence case, plain verb.
  *   Lead     what it means for them. Never a restatement of the heading.
  *
@@ -172,10 +175,10 @@ export function SupportReplyEmail(p: { subject: string; replyBody: string; reque
   return (
     <BrandedEmail preview={`Nexez Support replied to “${p.subject}”.`} category="Support operations">
       <EmailEyebrow>Support</EmailEyebrow>
-      <StatusBadge tone="positive">Answered</StatusBadge>
+      {/* No badge: "Answered" is the heading again, one line higher and louder. */}
       <EmailHeading>We replied to your request</EmailHeading>
       <Lead>About <strong>{p.subject}</strong>.</Lead>
-      <InfoRows rows={[['Message', p.replyBody]]} />
+      <Quote attribution="Nexez Support">{p.replyBody}</Quote>
       <PrimaryButton href={p.requestUrl}>Open your request</PrimaryButton>
       <FinePrint>Reply inside the request so the whole conversation stays in one place.</FinePrint>
     </BrandedEmail>
@@ -193,7 +196,7 @@ export function SupportRequesterReplyEmail(p: {
       <Lead>
         <strong>{p.requesterEmail}</strong> added a reply to <strong>{p.subject}</strong>.
       </Lead>
-      <InfoRows rows={[['Message', p.replyBody]]} />
+      <Quote attribution={p.requesterEmail}>{p.replyBody}</Quote>
       <PrimaryButton href={p.adminUrl}>Open support request</PrimaryButton>
       <FinePrint>The reply is saved in the admin desk even if this notification is delayed.</FinePrint>
     </BrandedEmail>
@@ -204,7 +207,8 @@ export function OrderLookupEmail(p: { lead: string; count: number; findUrl: stri
   return (
     <BrandedEmail preview="Your secure Nexez order link" category="Buyer order">
       <EmailEyebrow>Order lookup</EmailEyebrow>
-      <StatusBadge>Private link</StatusBadge>
+      {/* No badge: "Private link" describes the link, not a state the order
+          moved into, and the eyebrow and fine print already cover it. */}
       <EmailHeading>
         {p.count === 1 ? 'Your order is ready to view' : 'Your orders are ready to view'}
       </EmailHeading>
@@ -220,12 +224,12 @@ export function TeamInviteEmail(p: { lead: string; inviteeEmail: string; acceptU
   return (
     <BrandedEmail preview={p.lead} category="Account update">
       <EmailEyebrow>Workspace</EmailEyebrow>
-      <StatusBadge tone="positive">Ready to accept</StatusBadge>
+      {/* No badge: "Ready to accept" is the button, restated above the heading. */}
       <EmailHeading>You have been invited to collaborate</EmailHeading>
       <Lead>{p.lead}</Lead>
-      <Text className="nx-muted" style={{ ...styles.lead, fontSize: '13px', color: BRAND.muted }}>
+      <Caption>
         Sign in with <Data>{p.inviteeEmail}</Data>. Access is bound to that exact address.
-      </Text>
+      </Caption>
       <PrimaryButton href={p.acceptUrl}>Accept invitation</PrimaryButton>
       <FinePrint>Not expecting this? You can ignore it.</FinePrint>
     </BrandedEmail>
@@ -242,7 +246,8 @@ export function SellerGrowthInviteEmail(p: {
       category="Account update"
     >
       <EmailEyebrow>Launch access</EmailEyebrow>
-      <StatusBadge tone="positive">No card required</StatusBadge>
+      {/* No badge: "No card required" is an offer term, not a state, and it is
+          already the "Automatic charge: None" row below. */}
       <EmailHeading>{p.inviterBusinessName} passed this to you</EmailHeading>
       <Lead>
         They invited your business onto Nexez Launch for {p.durationLabel}, with nothing to pay.
@@ -351,29 +356,67 @@ export function PromotionExpiryEmail(p: {
   )
 }
 
-export function WelcomeEmail(p: { name?: string | null; createUrl: string }) {
-  const greeting = p.name ? `Welcome, ${p.name}.` : 'Welcome to Nexez.'
+/**
+ * The one template that is not a notification. No StatusBadge: the badge
+ * vocabulary describes what state an order or account has moved into, and a
+ * brand new account has not moved into anything. "Ready" was the loudest
+ * element on the page and it was saying nothing.
+ *
+ * Only the first name is used. A full_name off an OAuth profile renders as
+ * "Welcome, Taio Smith." and, worse, the same merge field can carry a workspace
+ * or company name, which is exactly how a competitor's welcome mail shipped
+ * addressing us by our company name.
+ */
+export function firstNameOnly(name?: string | null): string | null {
+  return name?.trim().split(/\s+/)[0] || null
+}
+
+export function WelcomeEmail(p: {
+  name?: string | null; createUrl: string; financeUrl: string; docsUrl: string
+}) {
+  const first = firstNameOnly(p.name)
   return (
-    <BrandedEmail preview="Publish a listing AI agents can understand and act on." category="Account update">
+    <BrandedEmail preview="Three steps to a listing AI agents can read, quote, and buy from." category="Account update">
       <EmailEyebrow>Account</EmailEyebrow>
-      <StatusBadge tone="positive">Ready</StatusBadge>
-      <EmailHeading>{greeting}</EmailHeading>
+      <EmailHeading>{first ? `Welcome, ${first}.` : 'Welcome to Nexez.'}</EmailHeading>
       <Lead>
-        Build a listing agents can read, recommend, and act on. It sits alongside your
-        website rather than replacing it.
+        Nexez turns your business into something an AI agent can read, quote, and buy from.
+        It sits alongside your website rather than replacing it.
       </Lead>
-      <InfoRows rows={[
-        ['Start with', 'Your website or business details'],
-        ['Publish when', 'Every claim is accurate'],
-        ['Pay when', 'You receive a marketplace payment'],
-      ]} />
+      <Steps
+        label="Three steps to your first listing"
+        items={[
+          'Point us at your website. We draft the listing from what is already there.',
+          'Check every price, claim, and policy. Nothing goes live until you say it is right.',
+          'Publish. From that moment agents can read your offer, quote it, and book it.',
+        ]}
+      />
       <PrimaryButton href={p.createUrl}>Create your first listing</PrimaryButton>
+      <NextSteps
+        label="Then, when you are ready"
+        items={[
+          {
+            title: 'Connect Stripe',
+            body: 'Payments land in your own account. Nexez only takes a fee once you get paid.',
+            href: p.financeUrl,
+            cta: 'Connect Stripe',
+          },
+          {
+            title: 'See what the agents see',
+            body: 'Your listing becomes an agent.json file and an MCP endpoint any assistant can read.',
+            href: p.docsUrl,
+            cta: 'Read the docs',
+          },
+        ]}
+      />
       <FinePrint>Stuck anywhere? Reply to this email and a person will help.</FinePrint>
     </BrandedEmail>
   )
 }
 
-export function StripeConnectedEmail(p: { financeUrl: string }) {
+export function StripeConnectedEmail(p: {
+  financeUrl: string; listingsUrl: string; docsUrl: string
+}) {
   return (
     <BrandedEmail preview="Stripe is connected and your account can accept payments." category="Account update">
       <EmailEyebrow>Payments</EmailEyebrow>
@@ -388,6 +431,23 @@ export function StripeConnectedEmail(p: { financeUrl: string }) {
         ['Nexez fee', 'Only when you get paid'],
       ]} />
       <PrimaryButton href={p.financeUrl}>Open Finance</PrimaryButton>
+      <NextSteps
+        label="What this unlocks"
+        items={[
+          {
+            title: 'Check a listing is live',
+            body: 'Connecting Stripe does not create a way to buy. Payments reach you through a published listing.',
+            href: p.listingsUrl,
+            cta: 'Open your listings',
+          },
+          {
+            title: 'See the checkout an agent runs',
+            body: 'The protocol endpoints an assistant calls when it buys on a customer’s behalf.',
+            href: p.docsUrl,
+            cta: 'Read the docs',
+          },
+        ]}
+      />
       <FinePrint>Being connected is not the same as being paid. No payout is due yet.</FinePrint>
     </BrandedEmail>
   )
@@ -400,7 +460,8 @@ export function StaleListingEmail(p: {
   return (
     <BrandedEmail preview={`Review “${p.listingName}” to keep agent-facing details current.`} category="Merchant action">
       <EmailEyebrow>Listing</EmailEyebrow>
-      <StatusBadge tone="caution">Review suggested</StatusBadge>
+      {/* No badge: "Review suggested" is the heading and the button saying it a
+          third time. The listing's actual state is the Freshness row. */}
       <EmailHeading>Keep this listing accurate</EmailHeading>
       <Lead>
         <strong>{p.listingName}</strong> has not changed in a while. A short review stops agents
@@ -546,10 +607,20 @@ export function scanReadinessBand(score: number): { tone: EmailTone; label: stri
  * problem they have just been shown, which is the only framing that earns it.
  * Cold-ish recipient, so it carries an unsubscribe.
  */
+/**
+ * Status travels with each row because the scanner already knows it: the outcome
+ * words come from a closed map over CrawlCheck['status'] in lib/scan-findings.
+ * Rows persisted before that map was widened arrive without one and render
+ * neutral, which is the honest reading of "we no longer know".
+ */
+export type ScanFindingRow = [label: string, outcome: string, status?: 'pass' | 'warn' | 'fail']
+
+const FINDING_TONES = { pass: 'positive', warn: 'caution', fail: 'danger' } as const
+
 export function ScanResultsEmail(p: {
   domain: string
   score: number
-  findings: Rows
+  findings: ScanFindingRow[]
   claimUrl: string
   unsubscribeUrl: string
 }) {
@@ -567,11 +638,15 @@ export function ScanResultsEmail(p: {
         how much of your business an AI assistant can actually parse when a customer
         asks it to find someone who does what you do.
       </Lead>
-      <InfoRows rows={p.findings} />
-      <Text className="nx-muted" style={{ ...styles.lead, fontSize: '13px', color: BRAND.muted }}>
+      <Findings items={p.findings.map(([label, outcome, status]) => ({
+        label,
+        outcome,
+        tone: status ? FINDING_TONES[status] : 'neutral',
+      }))} />
+      <Caption>
         Every line above is a thing an assistant looks for and either finds or does not.
         Nothing here is an opinion about your website.
-      </Text>
+      </Caption>
       <PrimaryButton href={p.claimUrl}>Fix this on Nexez</PrimaryButton>
       <Notice>
         Six months of Nexez Launch, no card. Your access starts the day your listing
