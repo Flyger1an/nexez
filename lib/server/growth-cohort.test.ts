@@ -8,7 +8,10 @@ const refs = vi.hoisted(() => {
   }
   return {
     rpc: vi.fn(),
+    sendEmail: vi.fn(),
+    buildEmail: vi.fn(),
     snapshot: {
+      campaign: { grantDurationDays: 180 },
       cohortMembers: [{
         id: '33333333-3333-4333-8333-333333333333',
         email: 'owner@acme.test',
@@ -35,8 +38,19 @@ vi.mock('./growth-control', () => ({
   getGrowthControlSnapshot: refs.getSnapshot,
   GrowthControlError: refs.GrowthControlError,
 }))
+vi.mock('../email', () => ({
+  hasEmailEnv: vi.fn(() => true),
+  buildSellerGrowthInviteEmail: refs.buildEmail,
+  sendEmail: refs.sendEmail,
+}))
+vi.mock('../site', () => ({ appUrl: (path: string) => `https://app.nexez.ai${path}` }))
 
-import { applyGrowthCohortControl, recordGrowthCohortDelivery } from './growth-cohort'
+import {
+  applyGrowthCohortControl,
+  recordGrowthCohortDelivery,
+  releaseGrowthCohortWave,
+  stageGrowthCohortBatch,
+} from './growth-cohort'
 import { deriveSellerGrowthInviteToken, hashSellerGrowthInviteToken } from './seller-growth-token'
 
 const CAMPAIGN_ID = '11111111-1111-4111-8111-111111111111'
@@ -51,6 +65,8 @@ describe('growth cohort controls', () => {
       data: { member_id: MEMBER_ID, replayed: false },
       error: null,
     })
+    refs.buildEmail.mockResolvedValue({ subject: 'Launch', html: '<p>Launch</p>', text: 'Launch' })
+    refs.sendEmail.mockResolvedValue({ ok: true, id: 'resend-1' })
   })
 
   it('derives a replay-safe token and sends only its hash to the database', async () => {
@@ -109,5 +125,187 @@ describe('growth cohort controls', () => {
     expect(refs.rpc).toHaveBeenCalledWith('record_seller_growth_cohort_delivery', {
       p_member_id: MEMBER_ID,
     })
+  })
+
+  it('stages a batch through one atomic RPC and returns its audit summary', async () => {
+    refs.rpc.mockResolvedValueOnce({
+      data: {
+        candidate_count: 2,
+        staged_count: 1,
+        updated_count: 1,
+        duplicate_count: 0,
+        waves: [1],
+        replayed: false,
+      },
+      error: null,
+    })
+    const candidates = [{
+      email: 'owner@acme.test',
+      label: 'Acme',
+      wave: 1,
+      verificationStatus: 'valid' as const,
+      verificationProvider: 'millionverifier',
+    }]
+    const result = await stageGrowthCohortBatch({
+      campaignId: CAMPAIGN_ID,
+      actorId: 'admin-1',
+      reason: 'Reviewed founding candidates',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      candidates,
+    })
+
+    expect(refs.rpc).toHaveBeenCalledWith('stage_seller_growth_cohort_batch', {
+      p_campaign_id: CAMPAIGN_ID,
+      p_actor_id: 'admin-1',
+      p_reason: 'Reviewed founding candidates',
+      p_idempotency_key: IDEMPOTENCY_KEY,
+      p_candidates: candidates,
+    })
+    expect(result.summary).toMatchObject({ candidateCount: 2, stagedCount: 1, updatedCount: 1 })
+  })
+
+  it('releases claimed members with a stable provider idempotency key and records delivery', async () => {
+    refs.rpc.mockImplementation(async (name: string) => {
+      if (name === 'claim_seller_growth_cohort_wave') {
+        return {
+          data: {
+            wave: 1,
+            limit: 20,
+            replayed: false,
+            members: [{
+              member_id: MEMBER_ID,
+              email: 'owner@acme.test',
+              label: 'Acme',
+              token_seed: '44444444-4444-4444-8444-444444444444',
+              attempt: 1,
+            }],
+          },
+          error: null,
+        }
+      }
+      return { data: {}, error: null }
+    })
+
+    const result = await releaseGrowthCohortWave({
+      campaignId: CAMPAIGN_ID,
+      actorId: 'admin-1',
+      reason: 'Release after verification review',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      wave: 1,
+      limit: 20,
+      confirmation: 'RELEASE WAVE 1',
+    })
+
+    expect(refs.sendEmail).toHaveBeenCalledWith(expect.objectContaining({
+      to: 'owner@acme.test',
+      idempotencyKey: `growth-cohort-${MEMBER_ID}`,
+    }))
+    expect(refs.rpc).toHaveBeenCalledWith('record_seller_growth_cohort_delivery_result', expect.objectContaining({
+      p_member_id: MEMBER_ID,
+      p_release_key: IDEMPOTENCY_KEY,
+      p_delivered: true,
+      p_provider_message_id: 'resend-1',
+    }))
+    expect(result.summary).toMatchObject({ selected: 1, sent: 1, failed: 0 })
+  })
+
+  it('reports an idempotent replay from its durable delivery counts', async () => {
+    refs.rpc.mockResolvedValueOnce({
+      data: {
+        wave: 1,
+        limit: 20,
+        selected_count: 1,
+        already_delivered_count: 1,
+        already_failed_count: 0,
+        members: [],
+        replayed: true,
+      },
+      error: null,
+    })
+
+    const result = await releaseGrowthCohortWave({
+      campaignId: CAMPAIGN_ID,
+      actorId: 'admin-1',
+      reason: 'Release after verification review',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      wave: 1,
+      limit: 20,
+      confirmation: 'RELEASE WAVE 1',
+    })
+
+    expect(refs.sendEmail).not.toHaveBeenCalled()
+    expect(result.summary).toMatchObject({ selected: 1, sent: 1, failed: 0, replayed: true })
+  })
+
+  it('records an explicit provider rejection as a recoverable failure', async () => {
+    refs.sendEmail.mockResolvedValueOnce({ ok: false, error: 'provider unavailable' })
+    refs.rpc.mockImplementation(async (name: string) => {
+      if (name === 'claim_seller_growth_cohort_wave') {
+        return {
+          data: {
+            members: [{
+              member_id: MEMBER_ID,
+              email: 'owner@acme.test',
+              token_seed: '44444444-4444-4444-8444-444444444444',
+              attempt: 1,
+            }],
+          },
+          error: null,
+        }
+      }
+      return { data: {}, error: null }
+    })
+
+    const result = await releaseGrowthCohortWave({
+      campaignId: CAMPAIGN_ID,
+      actorId: 'admin-1',
+      reason: 'Release after verification review',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      wave: 1,
+      limit: 20,
+      confirmation: 'RELEASE WAVE 1',
+    })
+
+    expect(refs.rpc).toHaveBeenCalledWith('record_seller_growth_cohort_delivery_result', expect.objectContaining({
+      p_delivered: false,
+      p_error: 'provider unavailable',
+    }))
+    expect(result.summary).toMatchObject({ selected: 1, sent: 0, failed: 1 })
+  })
+
+  it('leaves an accepted message in-flight when its database receipt cannot be recorded', async () => {
+    refs.rpc.mockImplementation(async (name: string) => {
+      if (name === 'claim_seller_growth_cohort_wave') {
+        return {
+          data: {
+            members: [{
+              member_id: MEMBER_ID,
+              email: 'owner@acme.test',
+              token_seed: '44444444-4444-4444-8444-444444444444',
+              attempt: 1,
+            }],
+          },
+          error: null,
+        }
+      }
+      if (name === 'record_seller_growth_cohort_delivery_result') {
+        return { data: null, error: { code: 'XX000', message: 'receipt unavailable' } }
+      }
+      return { data: {}, error: null }
+    })
+
+    await releaseGrowthCohortWave({
+      campaignId: CAMPAIGN_ID,
+      actorId: 'admin-1',
+      reason: 'Release after verification review',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      wave: 1,
+      limit: 20,
+      confirmation: 'RELEASE WAVE 1',
+    })
+
+    const resultCalls = refs.rpc.mock.calls.filter(([name]) => name === 'record_seller_growth_cohort_delivery_result')
+    expect(resultCalls).toHaveLength(1)
+    expect(resultCalls[0]?.[1]).toMatchObject({ p_delivered: true })
   })
 })

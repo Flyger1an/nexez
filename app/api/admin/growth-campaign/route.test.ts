@@ -46,6 +46,14 @@ const state = vi.hoisted(() => {
       token: 'secure_cohort_token_secure_cohort_token_123',
       replayed: false,
     })),
+    stageCohort: vi.fn(async () => ({
+      snapshot: { campaign: { id: 'campaign-1' }, cohortMembers: [] },
+      summary: { candidateCount: 2, stagedCount: 2, updatedCount: 0, duplicateCount: 0, waves: [1], replayed: false },
+    })),
+    releaseWave: vi.fn(async () => ({
+      snapshot: { campaign: { id: 'campaign-1' }, cohortMembers: [] },
+      summary: { wave: 1, requested: 20, selected: 2, sent: 2, failed: 0, replayed: false },
+    })),
     getSnapshot: vi.fn(),
     recordDelivery: vi.fn(),
     GrowthControlError,
@@ -68,6 +76,8 @@ vi.mock('../../../../lib/server/growth-control', () => ({
 vi.mock('../../../../lib/server/growth-cohort', () => ({
   applyGrowthCohortControl: state.applyCohort,
   recordGrowthCohortDelivery: state.recordDelivery,
+  stageGrowthCohortBatch: state.stageCohort,
+  releaseGrowthCohortWave: state.releaseWave,
 }))
 vi.mock('../../../../lib/email', () => ({
   hasEmailEnv: vi.fn(() => false),
@@ -181,7 +191,56 @@ describe('PATCH /api/admin/growth-campaign', () => {
     expect(await response.json()).toMatchObject({
       ok: true,
       emailed: false,
+      claimUrl: 'https://app.nexez.ai/invite/secure_cohort_token_secure_cohort_token_123',
       member: { email: 'owner@acme.test', status: 'pending' },
+    })
+  })
+
+  it('stages a verified batch without invoking a release', async () => {
+    const candidates = [{
+      email: 'owner@acme.test',
+      label: 'Acme',
+      wave: 1,
+      verificationStatus: 'valid',
+      verificationProvider: 'millionverifier',
+    }]
+    const response = await PATCH(request({
+      campaignId: CAMPAIGN_ID,
+      action: 'cohort_stage_batch',
+      reason: 'Reviewed founding candidates',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      candidates,
+    }))
+
+    expect(response.status).toBe(200)
+    expect(state.stageCohort).toHaveBeenCalledWith({
+      campaignId: CAMPAIGN_ID,
+      action: 'cohort_stage_batch',
+      reason: 'Reviewed founding candidates',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      candidates,
+      actorId: 'admin-1',
+    })
+    expect(state.releaseWave).not.toHaveBeenCalled()
+  })
+
+  it('requires a bounded, explicit wave release', async () => {
+    const base = {
+      campaignId: CAMPAIGN_ID,
+      action: 'cohort_release_wave',
+      reason: 'Release after verification review',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      wave: 1,
+    }
+    expect((await PATCH(request({ ...base, limit: 26, confirmation: 'RELEASE WAVE 1' }))).status).toBe(400)
+
+    const response = await PATCH(request({ ...base, limit: 20, confirmation: 'RELEASE WAVE 1' }))
+    expect(response.status).toBe(200)
+    expect(state.releaseWave).toHaveBeenCalledWith({
+      ...base,
+      limit: 20,
+      confirmation: 'RELEASE WAVE 1',
+      actorId: 'admin-1',
     })
   })
 

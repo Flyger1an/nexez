@@ -10,7 +10,9 @@ import {
   type GrowthCampaignStatus,
   type GrowthAdminAction,
   type GrowthCohortMember,
+  type GrowthCohortRolloutState,
   type GrowthCohortStatus,
+  type GrowthCohortVerificationStatus,
   type GrowthControlAction,
   type GrowthControlAdminEvent,
   type GrowthControlCampaign,
@@ -66,6 +68,14 @@ type CohortRow = {
   qualified_at: string | null
   delivery_count: number
   last_sent_at: string | null
+  cohort_wave: number | null
+  email_verification_status: GrowthCohortVerificationStatus
+  email_verification_provider: string | null
+  email_verified_at: string | null
+  rollout_state: GrowthCohortRolloutState
+  rollout_attempts: number
+  rollout_last_error: string | null
+  rollout_released_at: string | null
   created_at: string
 }
 
@@ -134,8 +144,12 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null
 }
 
-function normalizeMetrics(value: MetricsRpc | null | undefined): GrowthControlMetrics {
+function normalizeMetrics(
+  value: MetricsRpc | null | undefined,
+  rolloutValue?: MetricsRpc | null,
+): GrowthControlMetrics {
   const row = value ?? {}
+  const rollout = rolloutValue ?? {}
   return {
     grantsTotal: count(row.grants_total),
     grantsActive: count(row.grants_active),
@@ -164,6 +178,15 @@ function normalizeMetrics(value: MetricsRpc | null | undefined): GrowthControlMe
     cohortRevoked: count(row.cohort_revoked),
     cohortDelivered: count(row.cohort_delivered),
     cohortUndelivered: count(row.cohort_undelivered),
+    cohortStaged: count(rollout.staged),
+    cohortReady: count(rollout.ready),
+    cohortReleasing: count(rollout.releasing),
+    cohortDeliveryFailed: count(rollout.delivery_failed),
+    cohortSuppressed: count(rollout.suppressed),
+    cohortVerifiedValid: count(rollout.verified_valid),
+    cohortVerifiedRisky: count(rollout.verified_risky),
+    cohortVerifiedInvalid: count(rollout.verified_invalid),
+    cohortVerifiedUnknown: count(rollout.verified_unknown),
     fallbackApplied: count(row.fallback_applied),
     grantExpiredEvents: count(row.grant_expired_events),
     noticesSent: count(row.notices_sent),
@@ -224,6 +247,14 @@ function mapCohortMember(row: CohortRow): GrowthCohortMember {
     qualifiedAt: row.qualified_at,
     deliveryCount: count(row.delivery_count),
     lastSentAt: row.last_sent_at,
+    wave: row.cohort_wave,
+    verificationStatus: row.email_verification_status,
+    verificationProvider: row.email_verification_provider,
+    verifiedAt: row.email_verified_at,
+    rolloutState: row.rollout_state,
+    rolloutAttempts: count(row.rollout_attempts),
+    rolloutLastError: row.rollout_last_error,
+    releasedAt: row.rollout_released_at,
     createdAt: row.created_at,
   }
 }
@@ -330,8 +361,9 @@ export async function getGrowthControlSnapshot(
   }
   if (!campaignRow) return { ...emptyGrowthControlSnapshot(true), generatedAt: new Date().toISOString() }
 
-  const [metricsResult, eventsResult, adminEventsResult, cohortResult, scanMetricsResult, scanLeadsResult] = await Promise.all([
+  const [metricsResult, rolloutMetricsResult, eventsResult, adminEventsResult, cohortResult, scanMetricsResult, scanLeadsResult] = await Promise.all([
     admin.rpc('seller_growth_control_snapshot', { p_campaign_id: campaignRow.id }),
+    admin.rpc('seller_growth_cohort_rollout_snapshot', { p_campaign_id: campaignRow.id }),
     admin
       .from('seller_growth_events')
       .select('id, event_type, metadata, created_at')
@@ -348,7 +380,7 @@ export async function getGrowthControlSnapshot(
       .returns<AdminEventRow[]>(),
     admin
       .from('seller_growth_invites')
-      .select('id, invitee_email, cohort_label, status, expires_at, accepted_at, qualified_at, delivery_count, last_sent_at, created_at')
+      .select('id, invitee_email, cohort_label, status, expires_at, accepted_at, qualified_at, delivery_count, last_sent_at, cohort_wave, email_verification_status, email_verification_provider, email_verified_at, rollout_state, rollout_attempts, rollout_last_error, rollout_released_at, created_at')
       .eq('campaign_id', campaignRow.id)
       .eq('invite_kind', 'cohort')
       .order('created_at', { ascending: false })
@@ -365,6 +397,7 @@ export async function getGrowthControlSnapshot(
 
   const warnings: string[] = []
   if (metricsResult.error) warnings.push('Campaign totals are unavailable.')
+  if (rolloutMetricsResult.error) warnings.push('Cohort rollout totals are unavailable.')
   if (eventsResult.error) warnings.push('Recent campaign activity is unavailable.')
   if (adminEventsResult.error) warnings.push('Operator audit history is unavailable.')
   if (cohortResult.error) warnings.push('The private cohort roster is unavailable.')
@@ -374,7 +407,10 @@ export async function getGrowthControlSnapshot(
   const campaign = campaignView(campaignRow)
   const metrics = metricsResult.error
     ? { ...EMPTY_GROWTH_METRICS }
-    : normalizeMetrics(metricsResult.data as MetricsRpc | null)
+    : normalizeMetrics(
+      metricsResult.data as MetricsRpc | null,
+      rolloutMetricsResult.error ? null : rolloutMetricsResult.data as MetricsRpc | null,
+    )
   const scanMetrics = scanMetricsResult.error
     ? { ...EMPTY_SCAN_FUNNEL_METRICS }
     : normalizeScanMetrics(scanMetricsResult.data as MetricsRpc | null)
