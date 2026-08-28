@@ -61,8 +61,8 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
   const [resumable, setResumable] = useState<ActiveSession | null>(null)
   const [initialMessages, setInitialMessages] = useState<AgentChatMessage<IntakeCard>[]>([])
   const [authReturnPath, setAuthReturnPath] = useState('/create')
-  // Re-interview only: whether the listing already has a saved Calendly token, so
-  // the connector can offer "use your saved connection" instead of re-pasting.
+  // Re-interview only: whether the listing already has a managed OAuth or legacy
+  // personal-token connection, so the connector can reuse it without re-entry.
   const [calendlyConnected, setCalendlyConnected] = useState(false)
   const sessionIdRef = useRef<string | null>(null)
 

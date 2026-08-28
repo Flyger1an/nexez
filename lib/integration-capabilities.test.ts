@@ -19,6 +19,7 @@ describe('connector capability manifest', () => {
   })
 
   it('declares the merchant connector contracts requested in this pass', () => {
+    expect(CONNECTOR_MANIFEST.calendly.auth).toBe('oauth')
     expect(connectorCapabilities('square')).toEqual(['catalog', 'booking_profiles', 'bookings'])
     expect(connectorCapabilities('woocommerce')).toEqual(expect.arrayContaining(['catalog', 'inventory', 'orders']))
     expect(connectorCapabilities('servicem8')).toEqual(['job_templates', 'jobs'])

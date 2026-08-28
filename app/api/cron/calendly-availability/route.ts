@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { applyEventTypeAvailability, buildCalendlyNextAvailable, calendlyEventTypeRefs } from '../../../../lib/calendly-availability'
 import { fetchCalendlyEventTypeAvailability } from '../../../../lib/server/calendly-write'
-import { getCalendlyPat, integrationCredentialsConfigured } from '../../../../lib/server/page-integration-credentials'
+import { integrationCredentialsConfigured } from '../../../../lib/server/page-integration-credentials'
+import { getCalendlyCredential } from '../../../../lib/server/calendly-credentials'
 import { parseAvailabilityWindows, type OfferItem } from '../../../../lib/agent-page'
 import { captureEvent } from '../../../../lib/observability'
 import { ownerAllows } from '../../../../lib/server/plan'
@@ -25,14 +26,14 @@ type CalPage = {
 
 /**
  * Calendly write-side calendar blocking (Vercel cron). For every published page
- * with a stored, encrypted Calendly PAT, pull the seller's REAL event-type
+ * with a managed OAuth connection or legacy encrypted personal token, pull the seller's real event-type
  * availability, publish those windows on the listing
  * (next_available → agent.json), and BLOCK (sold_out) the Calendly-sourced
  * offers when the calendar shows no open slots in the horizon - un-blocking them
  * when it frees up. This is calendar truth, superseding the booking-count
  * heuristic for connected pages.
  *
- * Dormant without INTEGRATION_SECRET_KEY (the PATs can't be decrypted).
+ * Dormant without INTEGRATION_SECRET_KEY (credentials cannot be decrypted).
  * Protected: scheduled runs must send Authorization: Bearer ${CRON_SECRET}.
  */
 export async function GET(request: Request) {
@@ -52,13 +53,39 @@ export async function GET(request: Request) {
   // Fair rotation: take the PAGE_LIMIT least-recently-synced connected pages
   // (NULLs = never synced, first). Without this ordering, LIMIT returned the
   // same arbitrary N every run and starved later sellers permanently.
-  const { data: secretRows } = await admin
-    .from('page_secrets')
-    .select('page_id')
-    .not('calendly_pat_encrypted', 'is', null)
-    .order('calendly_synced_at', { ascending: true, nullsFirst: true })
-    .limit(PAGE_LIMIT)
-  const selectedIds = (secretRows ?? []).map((r: { page_id: string }) => r.page_id)
+  const [secretResult, oauthResult] = await Promise.all([
+    admin
+      .from('page_secrets')
+      .select('page_id, calendly_synced_at')
+      .not('calendly_pat_encrypted', 'is', null)
+      .order('calendly_synced_at', { ascending: true, nullsFirst: true })
+      .limit(PAGE_LIMIT),
+    admin
+      .from('merchant_connector_connections')
+      .select('page_id, updated_at')
+      .eq('provider', 'calendly')
+      .eq('status', 'connected')
+      .order('updated_at', { ascending: true, nullsFirst: true })
+      .limit(PAGE_LIMIT),
+  ])
+  if (secretResult.error || oauthResult.error) {
+    return NextResponse.json({ ok: false, error: 'Could not select Calendly connections.' }, { status: 500 })
+  }
+  const candidates = new Map<string, number>()
+  for (const row of secretResult.data ?? []) {
+    const value = Date.parse(String((row as { calendly_synced_at?: string | null }).calendly_synced_at || ''))
+    candidates.set((row as { page_id: string }).page_id, Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY)
+  }
+  for (const row of oauthResult.data ?? []) {
+    const pageId = (row as { page_id: string }).page_id
+    const value = Date.parse(String((row as { updated_at?: string | null }).updated_at || ''))
+    const attemptedAt = Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY
+    candidates.set(pageId, Math.min(candidates.get(pageId) ?? Number.POSITIVE_INFINITY, attemptedAt))
+  }
+  const selectedIds = [...candidates.entries()]
+    .sort((left, right) => left[1] - right[1])
+    .slice(0, PAGE_LIMIT)
+    .map(([pageId]) => pageId)
   if (!selectedIds.length) {
     return NextResponse.json({ ok: true, connected: 0, synced: 0, ran_at: new Date().toISOString() })
   }
@@ -93,13 +120,13 @@ export async function GET(request: Request) {
       continue
     }
 
-    const pat = await getCalendlyPat(page.id)
-    if (!pat) {
+    const credential = await getCalendlyCredential(admin, page.id)
+    if (!credential) {
       failed += 1
       continue
     }
     const refs = calendlyEventTypeRefs([...(page.services ?? []), ...(page.products ?? [])])
-    const eventTypeAvailability = await fetchCalendlyEventTypeAvailability(pat, refs, { days: HORIZON_DAYS })
+    const eventTypeAvailability = await fetchCalendlyEventTypeAvailability(credential.accessToken, refs, { days: HORIZON_DAYS })
     if (eventTypeAvailability === null) {
       // Couldn't reach Calendly - leave the listing untouched (don't blank it).
       failed += 1
@@ -149,6 +176,11 @@ export async function GET(request: Request) {
   // unpublished/failed ones - so they move to the back of the queue and the
   // next run picks up the next least-recently-synced pages (no starvation).
   await admin.from('page_secrets').update({ calendly_synced_at: nowIso }).in('page_id', selectedIds)
+  await admin
+    .from('merchant_connector_connections')
+    .update({ updated_at: nowIso })
+    .eq('provider', 'calendly')
+    .in('page_id', selectedIds)
 
   captureEvent('cron.calendly_availability', {
     batch: selectedIds.length,

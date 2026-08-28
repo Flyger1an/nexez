@@ -5,6 +5,7 @@ import { applyIntakeAction, type IntakeExtraction, type IntakeSource, type Intak
 import { captureEvent } from '../../../../../../../lib/observability'
 import { enforceRateLimit } from '../../../../../../../lib/rate-limit'
 import { resolveRequestAuth } from '../../../../../../../lib/server/request-auth'
+import { createAdminClient } from '../../../../../../../utils/supabase/admin'
 import { ownerAllows } from '../../../../../../../lib/server/plan'
 import {
   gateIntegrationImport,
@@ -12,7 +13,7 @@ import {
   INGESTABLE_PROVIDERS,
   type IntegrationIngestInput,
 } from '../../../../../../../lib/server/integration-importers'
-import { getCalendlyPat } from '../../../../../../../lib/server/page-integration-credentials'
+import { getCalendlyCredential } from '../../../../../../../lib/server/calendly-credentials'
 
 // Ingestion crawls / live catalog fetches - keep the budget generous but bounded.
 export const maxDuration = 60
@@ -121,13 +122,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
     if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
-    // Re-interview convenience: a Calendly connect with no token falls back to
-    // the page's saved (encrypted) PAT, so the seller doesn't re-paste it. Only
-    // reached once the caller is authorized for this page.
+    // Re-interview convenience: a Calendly source with no submitted token uses
+    // the page's managed OAuth connection or legacy encrypted personal token.
+    // Only reached once the caller is authorized for this page.
     let effectiveBody = body
     if (provider === 'calendly' && !str(body.token) && pageId) {
-      const savedToken = await getCalendlyPat(pageId)
-      if (savedToken) effectiveBody = { ...body, token: savedToken }
+      const credential = await getCalendlyCredential(createAdminClient(), pageId)
+      if (credential) effectiveBody = { ...body, token: credential.accessToken }
     }
     const input = buildIntegrationInput(provider, effectiveBody)
     if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 })

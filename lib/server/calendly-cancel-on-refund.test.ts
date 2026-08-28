@@ -18,7 +18,9 @@ vi.mock('./calendly-write', () => ({
 }))
 vi.mock('./page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => h.configured,
-  getCalendlyPat: async () => h.pat,
+}))
+vi.mock('./calendly-credentials', () => ({
+  getCalendlyCredential: async () => h.pat ? { accessToken: h.pat, source: 'personal_token' } : null,
 }))
 vi.mock('../observability', () => ({ captureEvent: vi.fn() }))
 
@@ -90,7 +92,7 @@ describe('cancelCalendlyForRefund', () => {
     expect(h.cancelCalls).toHaveLength(0)
   })
 
-  it('no PAT (page disconnected) → reason no_pat', async () => {
+  it('no credential (page disconnected) returns the legacy no_pat reason', async () => {
     h.pat = null
     const { admin } = adminMock()
     expect(await cancelCalendlyForRefund(admin, neg())).toEqual({ cancelled: false, reason: 'no_pat' })

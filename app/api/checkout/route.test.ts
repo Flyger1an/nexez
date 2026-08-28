@@ -42,7 +42,12 @@ vi.mock('../../../lib/rate-limit', () => ({
 }))
 vi.mock('../../../lib/server/page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => credRef.configured,
-  getCalendlyPat: async () => { credRef.patCalls += 1; return credRef.pat },
+}))
+vi.mock('../../../lib/server/calendly-credentials', () => ({
+  getCalendlyCredential: async () => {
+    credRef.patCalls += 1
+    return credRef.pat ? { accessToken: credRef.pat, source: 'personal_token' } : null
+  },
 }))
 vi.mock('../../../lib/server/calendly-write', () => ({
   createCalendlySchedulingLink: async () => credRef.minted,

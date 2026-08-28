@@ -1,14 +1,14 @@
 import 'server-only'
 import crypto from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CONNECTOR_MANIFEST, connectorCapabilities, type ConnectorProvider } from '../integration-capabilities'
+import { CONNECTOR_MANIFEST, connectorCapabilities } from '../integration-capabilities'
 import { appUrl } from '../site'
 import { decryptSecret, encryptSecret, hasSecretCryptoKey } from './secret-crypto'
 import { hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { getResolvedWebhookEndpointError, getWebhookEndpointError } from '../webhooks'
 import { captureError, captureEvent } from '../observability'
 
-export const MANAGED_CONNECTOR_PROVIDERS = ['square', 'acuity', 'google_calendar', 'woocommerce', 'servicem8'] as const
+export const MANAGED_CONNECTOR_PROVIDERS = ['calendly', 'square', 'acuity', 'google_calendar', 'woocommerce', 'servicem8'] as const
 export type ManagedConnectorProvider = (typeof MANAGED_CONNECTOR_PROVIDERS)[number]
 export type OAuthConnectorProvider = Exclude<ManagedConnectorProvider, 'woocommerce'>
 
@@ -52,16 +52,24 @@ export type ConnectorOAuthState = {
   issuedAt: number
   nonce: string
   siteUrl?: string
+  codeVerifier?: string
 }
 
 const OAUTH_STATE_MAX_AGE_MS = 10 * 60_000
 const TOKEN_TIMEOUT_MS = 10_000
-const REFRESH_SKEW_MS = 25 * 60 * 60_000
+const REFRESH_SKEW_MS = 5 * 60_000
 const SQUARE_REFRESH_SKEW_MS = 23 * 24 * 60 * 60_000
 const CREDENTIAL_REFRESH_BATCH_SIZE = 25
 export const SQUARE_API_VERSION = '2026-07-15'
 
 const OAUTH_SCOPES: Record<OAuthConnectorProvider, readonly string[]> = {
+  calendly: [
+    'users:read',
+    'event_types:read',
+    'availability:read',
+    'scheduling_links:write',
+    'scheduled_events:write',
+  ],
   square: [
     'ITEMS_READ',
     'APPOINTMENTS_READ',
@@ -80,13 +88,15 @@ export function squareApiBaseUrl(): string {
 }
 
 function oauthClient(provider: OAuthConnectorProvider): { id: string; secret: string } | null {
-  const values = provider === 'square'
-    ? [process.env.SQUARE_APPLICATION_ID, process.env.SQUARE_APPLICATION_SECRET]
-    : provider === 'acuity'
-      ? [process.env.ACUITY_CLIENT_ID, process.env.ACUITY_CLIENT_SECRET]
-      : provider === 'google_calendar'
-        ? [process.env.GOOGLE_CALENDAR_CLIENT_ID, process.env.GOOGLE_CALENDAR_CLIENT_SECRET]
-        : [process.env.SERVICEM8_APP_ID, process.env.SERVICEM8_APP_SECRET]
+  const values = provider === 'calendly'
+    ? [process.env.CALENDLY_CLIENT_ID, process.env.CALENDLY_CLIENT_SECRET]
+    : provider === 'square'
+      ? [process.env.SQUARE_APPLICATION_ID, process.env.SQUARE_APPLICATION_SECRET]
+      : provider === 'acuity'
+        ? [process.env.ACUITY_CLIENT_ID, process.env.ACUITY_CLIENT_SECRET]
+        : provider === 'google_calendar'
+          ? [process.env.GOOGLE_CALENDAR_CLIENT_ID, process.env.GOOGLE_CALENDAR_CLIENT_SECRET]
+          : [process.env.SERVICEM8_APP_ID, process.env.SERVICEM8_APP_SECRET]
   const [id, secret] = values.map((value) => String(value || '').trim())
   return id && secret ? { id, secret } : null
 }
@@ -96,7 +106,7 @@ export function isManagedConnectorProvider(value: string): value is ManagedConne
 }
 
 export function isOAuthConnectorProvider(value: string): value is OAuthConnectorProvider {
-  return value === 'square' || value === 'acuity' || value === 'google_calendar' || value === 'servicem8'
+  return value === 'calendly' || value === 'square' || value === 'acuity' || value === 'google_calendar' || value === 'servicem8'
 }
 
 export function merchantConnectorStorageConfigured(): boolean {
@@ -121,6 +131,9 @@ export function createConnectorState(input: Omit<ConnectorOAuthState, 'version' 
     version: 1,
     issuedAt: Date.now(),
     nonce: crypto.randomBytes(16).toString('hex'),
+    ...(input.provider === 'calendly' && !input.codeVerifier
+      ? { codeVerifier: crypto.randomBytes(32).toString('base64url') }
+      : {}),
   } satisfies ConnectorOAuthState))
 }
 
@@ -136,6 +149,7 @@ export function readConnectorState(raw: string, expectedProvider: ManagedConnect
       || !state.ownerId
       || !state.userId
       || !state.nonce
+      || (state.provider === 'calendly' && !/^[A-Za-z0-9_-]{43,128}$/.test(state.codeVerifier || ''))
       || !Number.isFinite(state.issuedAt)
       || state.issuedAt > Date.now() + 30_000
       || Date.now() - state.issuedAt > OAUTH_STATE_MAX_AGE_MS
@@ -150,6 +164,19 @@ export function buildConnectorAuthorizationUrl(provider: OAuthConnectorProvider,
   const client = oauthClient(provider)
   if (!client) return null
   const redirectUri = connectorCallbackUrl(provider)
+  if (provider === 'calendly') {
+    const requestState = readConnectorState(state, provider)
+    if (!requestState?.codeVerifier) return null
+    const url = new URL('https://auth.calendly.com/oauth/authorize')
+    url.searchParams.set('client_id', client.id)
+    url.searchParams.set('redirect_uri', redirectUri)
+    url.searchParams.set('response_type', 'code')
+    url.searchParams.set('scope', OAUTH_SCOPES.calendly.join(' '))
+    url.searchParams.set('code_challenge_method', 'S256')
+    url.searchParams.set('code_challenge', crypto.createHash('sha256').update(requestState.codeVerifier).digest('base64url'))
+    url.searchParams.set('state', state)
+    return url.toString()
+  }
   if (provider === 'square') {
     const url = new URL(`${squareApiBaseUrl()}/oauth2/authorize`)
     url.searchParams.set('client_id', client.id)
@@ -244,6 +271,7 @@ async function fetchToken(url: string, init: RequestInit): Promise<Record<string
 export async function exchangeConnectorCode(
   provider: OAuthConnectorProvider,
   code: string,
+  codeVerifier?: string,
 ): Promise<{ credential: OAuthCredential; externalAccountId: string | null; scopes: string[] } | null> {
   const client = oauthClient(provider)
   if (!client) return null
@@ -263,8 +291,14 @@ export async function exchangeConnectorCode(
       grant_type: 'authorization_code',
       redirect_uri: redirectUri,
     })
+    if (provider === 'calendly') {
+      if (!codeVerifier) return null
+      body.set('code_verifier', codeVerifier)
+    }
     json = await fetchToken(
-      provider === 'google_calendar'
+      provider === 'calendly'
+        ? 'https://auth.calendly.com/oauth/token'
+        : provider === 'google_calendar'
         ? 'https://oauth2.googleapis.com/token'
         : provider === 'acuity'
           ? 'https://acuityscheduling.com/oauth2/token'
@@ -281,7 +315,11 @@ export async function exchangeConnectorCode(
       tokenType: String(json?.token_type || 'Bearer'),
       expiresAt: expiryFrom(json?.expires_at, json?.expires_in),
     },
-    externalAccountId: provider === 'square' ? String(json?.merchant_id || '') || null : null,
+    externalAccountId: provider === 'square'
+      ? String(json?.merchant_id || '') || null
+      : provider === 'calendly'
+        ? String(json?.owner || '') || null
+        : null,
     scopes: scopesFrom(json?.scope, OAUTH_SCOPES[provider]),
   }
 }
@@ -360,7 +398,11 @@ async function refreshCredential(
       grant_type: 'refresh_token',
     })
     json = await fetchToken(
-      provider === 'google_calendar' ? 'https://oauth2.googleapis.com/token' : 'https://go.servicem8.com/oauth/access_token',
+      provider === 'calendly'
+        ? 'https://auth.calendly.com/oauth/token'
+        : provider === 'google_calendar'
+          ? 'https://oauth2.googleapis.com/token'
+          : 'https://go.servicem8.com/oauth/access_token',
       { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' }, body },
     )
   }
@@ -497,7 +539,7 @@ export async function refreshDueMerchantConnectorCredentials(
       .from('merchant_connector_connections')
       .select(columns)
       .eq('status', 'connected')
-      .in('provider', ['google_calendar', 'servicem8'])
+      .in('provider', ['calendly', 'google_calendar', 'servicem8'])
       .not('expires_at', 'is', null)
       .lte('expires_at', new Date(now + REFRESH_SKEW_MS).toISOString())
       .order('expires_at', { ascending: true })
@@ -542,6 +584,21 @@ async function revokeRemote(provider: ManagedConnectorProvider, credential: Merc
         'Square-Version': SQUARE_API_VERSION,
       },
       body: JSON.stringify({ client_id: client.id, access_token: (credential as OAuthCredential).accessToken }),
+    })
+    return Boolean(response?.ok)
+  }
+  if (provider === 'calendly') {
+    const client = oauthClient('calendly')
+    if (!client) return false
+    const oauth = credential as OAuthCredential
+    const response = await fetchConnectorEndpoint('https://auth.calendly.com/oauth/revoke', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+      body: new URLSearchParams({
+        client_id: client.id,
+        client_secret: client.secret,
+        token: oauth.refreshToken || oauth.accessToken,
+      }),
     })
     return Boolean(response?.ok)
   }
@@ -601,7 +658,7 @@ export async function disconnectMerchantConnector(
   ownerId: string,
   provider: ManagedConnectorProvider,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const requiresRemoteRevocation = provider === 'square' || provider === 'acuity' || provider === 'google_calendar'
+  const requiresRemoteRevocation = provider === 'calendly' || provider === 'square' || provider === 'acuity' || provider === 'google_calendar'
   let remoteRevocationAttempted = false
   if (requiresRemoteRevocation) {
     const row = await getMerchantConnectorRow(admin, pageId, provider)

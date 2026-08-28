@@ -27,8 +27,8 @@ export type IntegrationConnectionState = {
 
 /**
  * Resolve every integration's connection state for a page in one read. Reflects
- * the stored-credential columns (Calendly PAT, Shopify creds) + the owner's
- * Stripe Connect status. Empty when the service role isn't configured.
+ * managed connector rows, legacy stored credentials, and the owner's Stripe
+ * Connect status. Empty when the service role isn't configured.
  */
 export async function getPageIntegrationConnections(pageId: string, ownerId: string | null): Promise<IntegrationConnectionState[]> {
   if (!hasSupabaseAdminEnv()) return []
@@ -70,8 +70,11 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
   const billing = billingResult.data
   const stripeConnected = getStripeConnectPayoutReadiness(billing).ready
   const managed = new Map(managedConnections.map((connection) => [connection.provider, connection]))
+  const calendly = managed.get('calendly')
   const square = managed.get('square')
   const acuity = managed.get('acuity')
+  const legacyCalendlyConnected = Boolean(secrets?.calendly_pat_encrypted)
+  const managedCalendlyConnected = Boolean(calendly && calendly.status !== 'revoked')
 
   const managedState = (
     provider: 'google_calendar' | 'woocommerce' | 'servicem8',
@@ -94,7 +97,18 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
   }
 
   return [
-    { provider: 'calendly', label: 'Calendly', connected: Boolean(secrets?.calendly_pat_encrypted), kind: 'token', autoSync: true, canSync: true, lastSyncedAt: secrets?.calendly_synced_at ?? null },
+    {
+      provider: 'calendly',
+      label: 'Calendly',
+      connected: managedCalendlyConnected || legacyCalendlyConnected,
+      kind: managedCalendlyConnected || (connectorOAuthConfigured('calendly') && !legacyCalendlyConnected) ? 'oauth' : 'token',
+      autoSync: true,
+      canSync: true,
+      lastSyncedAt: managedCalendlyConnected ? calendly?.last_synced_at ?? null : secrets?.calendly_synced_at ?? null,
+      syncStatus: managedCalendlyConnected && calendly?.status === 'attention' ? 'attention' : 'idle',
+      syncError: managedCalendlyConnected ? calendly?.last_error ?? null : null,
+      capabilities: managedCalendlyConnected ? calendly?.capabilities ?? [] : [],
+    },
     {
       provider: 'shopify',
       label: 'Shopify',

@@ -23,10 +23,16 @@ const h = vi.hoisted(() => ({
 vi.mock('./integration-importers', () => ({ importIntegrationOffers: async (input: any) => { h.importInput = input; return h.imported } }))
 vi.mock('./page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => h.configured,
-  getCalendlyPat: async () => h.calendlyPat,
   getShopifyCreds: async () => h.shopifyCreds,
   getSquareCreds: async () => h.squareCreds,
   getAcuityCreds: async () => h.acuityCreds,
+}))
+vi.mock('./calendly-credentials', () => ({
+  getCalendlyCredential: async () => {
+    const oauth = h.managedCredentials.calendly
+    if (oauth?.accessToken) return { accessToken: oauth.accessToken, source: 'oauth' }
+    return h.calendlyPat ? { accessToken: h.calendlyPat, source: 'personal_token' } : null
+  },
 }))
 vi.mock('./calendly-write', () => ({ fetchCalendlyEventTypeAvailability: async () => h.availability }))
 vi.mock('../observability', () => ({ captureEvent: vi.fn() }))
@@ -41,7 +47,7 @@ vi.mock('./merchant-connectors', () => ({
     const credential = h.managedCredentials[provider]
     return credential ? { ok: true, credential, row: {} } : { ok: false, error: 'Not connected' }
   },
-  isManagedConnectorProvider: (provider: string) => ['square', 'acuity', 'google_calendar', 'woocommerce', 'servicem8'].includes(provider),
+  isManagedConnectorProvider: (provider: string) => ['calendly', 'square', 'acuity', 'google_calendar', 'woocommerce', 'servicem8'].includes(provider),
   recordMerchantConnectorSync: async (_admin: unknown, pageId: string, provider: string, input: any) => {
     h.connectorSyncRecords.push({ pageId, provider, input })
   },
@@ -122,6 +128,22 @@ describe('syncPageIntegration', () => {
     expect(h.pagesUpdate.services.find((o: any) => o.name === '30 Minute Meeting').metadata.calendly_event_type).toBeTruthy()
     expect(h.pagesUpdate.next_available).toContain('||WINDOWS||')
     expect(h.secretsUpdate.calendly_synced_at).toBeTruthy()
+  })
+
+  it('calendly: prefers the managed OAuth credential over a retained personal token', async () => {
+    h.managedCredentials.calendly = {
+      accessToken: 'calendly-oauth',
+      refreshToken: 'calendly-refresh',
+      tokenType: 'Bearer',
+      expiresAt: null,
+    }
+    h.calendlyPat = 'legacy-personal-token'
+
+    const result = await syncPageIntegration(admin(), 'calendly', 'pg1')
+
+    expect(result.ok).toBe(true)
+    expect(h.importInput).toEqual({ provider: 'calendly', token: 'calendly-oauth' })
+    expect(h.connectorSyncRecords.at(-1)).toMatchObject({ pageId: 'pg1', provider: 'calendly', input: { ok: true } })
   })
 
   it('shopify: commits an installed OAuth sync under the exact mapping generation', async () => {

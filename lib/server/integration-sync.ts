@@ -1,7 +1,8 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { importIntegrationOffers, type IntegrationIngestInput } from './integration-importers'
-import { getCalendlyPat, getShopifyCreds, getSquareCreds, getAcuityCreds, integrationCredentialsConfigured } from './page-integration-credentials'
+import { getShopifyCreds, getSquareCreds, getAcuityCreds, integrationCredentialsConfigured } from './page-integration-credentials'
+import { getCalendlyCredential } from './calendly-credentials'
 import {
   getUsableConnectorCredential,
   isManagedConnectorProvider,
@@ -54,8 +55,8 @@ async function resolveStoredInput(
   options: SyncOptions = {},
 ): Promise<IntegrationIngestInput | null> {
   if (provider === 'calendly') {
-    const token = await getCalendlyPat(pageId)
-    return token ? { provider: 'calendly', token } : null
+    const credential = await getCalendlyCredential(admin, pageId)
+    return credential ? { provider: 'calendly', token: credential.accessToken } : null
   }
   if (provider === 'shopify') {
     if (options.shopifyCredentials) {

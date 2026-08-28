@@ -1,7 +1,8 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cancelCalendlyEvent, calendlyEventUuid } from './calendly-write'
-import { getCalendlyPat, integrationCredentialsConfigured } from './page-integration-credentials'
+import { integrationCredentialsConfigured } from './page-integration-credentials'
+import { getCalendlyCredential } from './calendly-credentials'
 import { captureEvent } from '../observability'
 
 export type CancelForRefundResult =
@@ -37,10 +38,10 @@ export async function cancelCalendlyForRefund(
     return { cancelled: false, reason: 'bad_uri' }
   }
 
-  const pat = await getCalendlyPat(neg.page_id)
-  if (!pat) return { cancelled: false, reason: 'no_pat' }
+  const credential = await getCalendlyCredential(admin, neg.page_id)
+  if (!credential) return { cancelled: false, reason: 'no_pat' }
 
-  const ok = await cancelCalendlyEvent(pat, uuid, 'Booking cancelled - the Nexez order was refunded.')
+  const ok = await cancelCalendlyEvent(credential.accessToken, uuid, 'Booking cancelled - the Nexez order was refunded.')
   if (!ok) {
     captureEvent('integration.calendly_cancel_failed', { negotiationId: neg.id })
     return { cancelled: false, reason: 'calendly_failed' }

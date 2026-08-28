@@ -30,7 +30,7 @@ vi.mock('../../../../../lib/server/merchant-connectors', () => ({
   connectorStateCookie: vi.fn((provider: string) => `oauth-${provider}`),
   discardMerchantConnectorCredential: vi.fn(async () => {}),
   exchangeConnectorCode: vi.fn(async () => exchangeRef.value),
-  isOAuthConnectorProvider: vi.fn((provider: string) => ['square', 'acuity', 'google_calendar', 'servicem8'].includes(provider)),
+  isOAuthConnectorProvider: vi.fn((provider: string) => ['calendly', 'square', 'acuity', 'google_calendar', 'servicem8'].includes(provider)),
   readConnectorState: vi.fn(() => stateRef.value),
   recordMerchantConnectorSync: vi.fn(async () => {}),
   upsertMerchantConnectorConnection: vi.fn(async () => saveRef.value),
@@ -78,7 +78,7 @@ describe('connector OAuth callback', () => {
   it('exchanges, encrypts, stores, and initially syncs Square', async () => {
     const response = await callback('square')
     expect(response.status).toBe(302)
-    expect(exchangeConnectorCode).toHaveBeenCalledWith('square', 'code-1')
+    expect(exchangeConnectorCode).toHaveBeenCalledWith('square', 'code-1', undefined)
     expect(upsertMerchantConnectorConnection).toHaveBeenCalledWith(admin, expect.objectContaining({
       pageId: 'page-1',
       ownerId: 'owner-1',
@@ -107,8 +107,27 @@ describe('connector OAuth callback', () => {
     exchangeRef.value = { credential: { accessToken: 'acuity-token' }, externalAccountId: null, scopes: ['api-v1'] }
     const response = await callback('acuity')
     expect(response.status).toBe(302)
-    expect(exchangeConnectorCode).toHaveBeenCalledWith('acuity', 'code-1')
+    expect(exchangeConnectorCode).toHaveBeenCalledWith('acuity', 'code-1', undefined)
     expect(syncPageIntegration).toHaveBeenCalledWith(admin, 'acuity', 'page-1', { trigger: 'oauth_callback' })
+  })
+
+  it('exchanges Calendly with the state-bound PKCE verifier and runs the first sync', async () => {
+    stateRef.value = { ...stateRef.value, provider: 'calendly', codeVerifier: 'v'.repeat(43) }
+    exchangeRef.value = {
+      credential: { accessToken: 'calendly-token', refreshToken: 'calendly-refresh' },
+      externalAccountId: 'https://api.calendly.com/users/user-1',
+      scopes: ['users:read', 'event_types:read', 'availability:read'],
+    }
+
+    const response = await callback('calendly')
+
+    expect(response.status).toBe(302)
+    expect(exchangeConnectorCode).toHaveBeenCalledWith('calendly', 'code-1', 'v'.repeat(43))
+    expect(upsertMerchantConnectorConnection).toHaveBeenCalledWith(admin, expect.objectContaining({
+      provider: 'calendly',
+      externalAccountId: 'https://api.calendly.com/users/user-1',
+    }))
+    expect(syncPageIntegration).toHaveBeenCalledWith(admin, 'calendly', 'page-1', { trigger: 'oauth_callback' })
   })
 
   it('reports a saved connection as needing attention when its first sync fails', async () => {

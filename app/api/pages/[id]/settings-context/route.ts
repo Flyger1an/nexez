@@ -100,6 +100,9 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     resolveOwnerSettlementReadiness(admin, access.ownerId),
     getCustomDomainClaim(admin, access.pageId),
   ])
+  const calendlyConnected = integrations.some((connection) => (
+    connection.provider === 'calendly' && connection.connected
+  ))
 
   return NextResponse.json({
     role: access.role,
@@ -120,8 +123,9 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       outbound_webhooks: outboundWebhooksForClient(secrets?.outbound_webhooks),
       domain_verification_token: secrets?.domain_verification_token ?? null,
       website_verification_token: secrets?.website_verification_token ?? null,
-      // Boolean only - the encrypted PAT is never returned to the client.
-      calendly_connected: Boolean(secrets?.calendly_pat_encrypted),
+      // Boolean only. The unified state covers managed OAuth and legacy personal
+      // tokens without returning either encrypted credential to the client.
+      calendly_connected: calendlyConnected,
     },
   })
 }

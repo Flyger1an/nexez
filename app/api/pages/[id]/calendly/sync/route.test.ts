@@ -24,7 +24,9 @@ vi.mock('../../../../../../lib/server/integration-importers', () => ({
 }))
 vi.mock('../../../../../../lib/server/page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => h.configured,
-  getCalendlyPat: async () => h.pat,
+}))
+vi.mock('../../../../../../lib/server/calendly-credentials', () => ({
+  getCalendlyCredential: async () => h.pat ? { accessToken: h.pat, source: 'personal_token' } : null,
 }))
 vi.mock('../../../../../../lib/server/calendly-write', () => ({ fetchCalendlyEventTypeAvailability: async () => h.availability }))
 vi.mock('../../../../../../lib/observability', () => ({ captureEvent: vi.fn() }))
