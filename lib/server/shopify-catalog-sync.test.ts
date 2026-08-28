@@ -149,13 +149,13 @@ describe('Shopify catalog sync queue', () => {
   })
 
   it('requeues an optimistic page-write conflict for a fresh merge', async () => {
-    h.syncResult = { ok: false, status: 409, error: 'This page changed during the sync.' }
+    h.syncResult = { ok: false, status: 409, error: 'This listing changed during the sync.' }
     const updates: any[] = []
     const result = await processPendingShopifyCatalogSyncs(admin(updates), 4)
 
     expect(result.failed).toBe(1)
     expect(updates.find((u) => u.catalog_sync_error)).toMatchObject({
-      catalog_sync_error: 'This page changed during the sync.',
+      catalog_sync_error: 'This listing changed during the sync.',
       catalog_sync_attempted_at: null,
     })
   })

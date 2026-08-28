@@ -102,8 +102,8 @@ export function buildAgentPagePayload(
         : offers.length
           ? 'No offer currently exposes a payable checkout action; preserve the published commerce constraints and contact the seller.'
           : 'Ask the seller for a direct offer URL.',
-      page.contact_email ? 'Use contact_email for human review or custom requests.' : 'Use the public page for seller context.',
-      'Quote the source page URL when summarizing this offer for a buyer.',
+      page.contact_email ? 'Use contact_email for human review or custom requests.' : 'Use the public listing for seller context.',
+      'Quote the source listing URL when summarizing this offer for a buyer.',
     ],
     plain_text: buildPlainText(page, offers, identityBase, onCustomHost, opts.storefront, opts.reviewSummary),
     ...(opts.storefront ? { storefront: opts.storefront } : {}),

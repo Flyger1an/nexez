@@ -1555,7 +1555,7 @@ function openPendingPublicPageTab(): Window | null {
 
   try {
     tab.opener = null
-    tab.document.title = 'Publishing Nexez page...'
+    tab.document.title = 'Publishing Nexez listing...'
     tab.document.body.innerHTML = '<main style="min-height:100vh;display:grid;place-items:center;background:#090b10;color:white;font-family:system-ui,sans-serif"><p>Publishing your Nexez listing...</p></main>'
   } catch {
     // Some browsers restrict access to the blank tab. It can still be redirected.

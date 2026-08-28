@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     const redirect = await renamedPageArtifactRedirect(request, slug)
     if (redirect) return redirect
     return NextResponse.json(
-      { issuer: 'nexez', slug, verified: false, valid: false, reason: 'No published page for this slug.' },
+      { issuer: 'nexez', slug, verified: false, valid: false, reason: 'No published listing for this slug.' },
       { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } },
     )
   }

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../test/dom'
 import { PhoneSignInSettings } from './PhoneSignInSettings'
 
-const PHONE = '+17627445455'
+const PHONE = '+14155550123'
 
 function response(body: object, status = 200) {
   return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }))

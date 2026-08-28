@@ -90,7 +90,7 @@ export async function gateIntegrationImport(opts: {
     return {
       ok: false,
       status: access.status,
-      error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.',
+      error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this listing.',
     }
   }
   const db = access.scoped ? createAdminClient() : opts.supabase

@@ -31,10 +31,10 @@ export function getOnboardingSteps(pages: AgentPage[], extras: OnboardingExtras 
   return [
     {
       id: 'create',
-      title: 'Create your first agent page',
+      title: 'Create your first listing',
       description: 'Talk it through with the intake interview, import your site, or start from a template.',
       href: '/create',
-      cta: 'Create page',
+      cta: 'Create listing',
       done: hasPage || Boolean(extras.interviewCompleted),
     },
     {
@@ -47,7 +47,7 @@ export function getOnboardingSteps(pages: AgentPage[], extras: OnboardingExtras 
     },
     {
       id: 'publish',
-      title: 'Publish a page',
+      title: 'Publish a listing',
       description: 'Make it live and crawlable by AI agents (GPTBot, ClaudeBot, Perplexity…).',
       href: editorHref,
       cta: 'Publish',
@@ -64,7 +64,7 @@ export function getOnboardingSteps(pages: AgentPage[], extras: OnboardingExtras 
     {
       id: 'domain',
       title: 'Connect a custom domain',
-      description: 'Host your agent page on your own brand domain, white-labeled.',
+      description: 'Host your listing on your own brand domain, white-labeled.',
       href: settingsHref,
       cta: 'Connect domain',
       done: hasCustomDomain,

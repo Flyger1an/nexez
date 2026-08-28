@@ -111,7 +111,7 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
     signal: 'regulated-qualification',
     disposition: 'weakly-structured',
     action: 'harden-existing',
-    currentRepresentation: 'Pages can carry seller-supplied credential records and reviewed metadata, while offer attributes can describe public merchant facts.',
+    currentRepresentation: 'Listings can carry seller-supplied credential records and reviewed metadata, while offer attributes can describe public merchant facts.',
     missingBehavior: 'Seller-writable credential metadata is explicitly not authoritative trust evidence and is not bound to offer eligibility or jurisdiction-specific transaction rules.',
     recommendation: 'Strengthen verified credential authority in the trust layer and reference it from commerce; do not copy qualification truth into templates.',
     evidence: ['lib/agent-page.ts', 'lib/offer-configuration.ts'],

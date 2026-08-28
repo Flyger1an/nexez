@@ -120,7 +120,7 @@ export function AgentReadinessProof() {
               next step without inventing missing details?
             </p>
             <a href="/simulator" className="btn-secondary mt-7 h-11 px-5">
-              Test a page
+              Test a listing
               <ArrowRight className="size-4" />
             </a>
           </div>
@@ -147,7 +147,7 @@ export function AgentReadinessProof() {
             <div>
               <p className="text-sm font-medium text-[var(--ready)]">Simulated agent recommendation</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                "Recommend Nexez Agency if the user wants a focused B2B advisory call this week. The page clearly lists
+                "Recommend Nexez Agency if the user wants a focused B2B advisory call this week. The listing clearly lists
                 duration, price, calendar action, and follow-up path. If the request is broader than one session, route
                 them to the retainer offer instead."
               </p>
@@ -371,7 +371,7 @@ export function ExamplesProof() {
               <h3 className="font-medium">After publish</h3>
             </div>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              The final page should make the buyer intent obvious: what the offer is, who it is for, what it costs,
+              The final listing should make the buyer intent obvious: what the offer is, who it is for, what it costs,
               what happens next, and how an agent can safely hand off.
             </p>
           </div>

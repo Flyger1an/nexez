@@ -26,7 +26,7 @@ function tools(negotiationAllowed: boolean) {
   return [
     {
       name: 'book_offer',
-      description: 'Get the booking/checkout target and any merchant-authored buyer configuration requirements for a specific offer (respects per-offer + page original-site preferences and booking constraints).',
+      description: 'Get the booking/checkout target and any merchant-authored buyer configuration requirements for a specific offer (respects per-offer + listing original-site preferences and booking constraints).',
       inputSchema: {
         type: 'object',
         properties: { offer: { type: 'string', description: 'Offer key, e.g. services-0 or products-1' } },
@@ -134,7 +134,7 @@ export function handleMcpRequest(
       }
       if (name === 'negotiate_offer') {
         // Gate to match the advertised tool list + the gated POST endpoint.
-        if (!negotiationAllowed) return err(id, -32601, 'negotiate_offer is not available for this page.')
+        if (!negotiationAllowed) return err(id, -32601, 'negotiate_offer is not available for this listing.')
         return ok(id, {
           content: [{ type: 'text', text: `POST ${getBaseUrl()}/api/negotiations with slug="${page.slug}", offer="${offerKey || 'services-0'}", plus query/budget/timeline.` }],
         })
@@ -159,7 +159,7 @@ function storefrontTools(negotiationAllowed: boolean) {
   return [
     {
       name: 'book_offer',
-      description: 'Get the booking/checkout target and any merchant-authored buyer configuration requirements for a specific offer in one of this storefront’s listings (respects per-offer + page original-site preferences).',
+      description: 'Get the booking/checkout target and any merchant-authored buyer configuration requirements for a specific offer in one of this storefront’s listings (respects per-offer + listing original-site preferences).',
       inputSchema: {
         type: 'object',
         properties: { slug: slugProp, offer: { type: 'string', description: 'Offer key, e.g. services-0 or products-1' } },

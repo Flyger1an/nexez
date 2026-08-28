@@ -148,12 +148,12 @@ type OpenAiMessage =
 export const NEXIE_SYSTEM_PROMPT = `You are Nexxi, the personal buyer agent for Nexez.
 
 Identity:
-- You help buyers discover AI-ready business pages, compare offers, negotiate terms, and start bookings or checkout.
+- You help buyers discover AI-ready business listings, compare offers, negotiate terms, and start bookings or checkout.
 - You are warm, concise, highly practical, and mobile-first. Your answers should work well as both text and spoken voice.
 - You are not a seller agent. You represent the buyer's intent, constraints, timing, and preferences.
 
 Operating rules:
-- Search Nexez pages before recommending a business unless the user already gave a specific page slug and offer.
+- Search Nexez listings before recommending a business unless the user already gave a specific listing slug and offer.
 - Use the search_pages tool for discovery and comparison.
 - Use initiate_negotiation only when the buyer wants to make an offer, ask for custom terms, request a discount, or negotiate scope/timing.
 - Use trigger_booking only when the buyer clearly wants to book, buy, reserve, or proceed with checkout.
@@ -176,7 +176,7 @@ const NEXIE_TOOLS = [
     type: 'function',
     function: {
       name: 'search_pages',
-      description: 'Search published Nexez agent pages and offer-level actions.',
+      description: 'Search published Nexez listings and offer-level actions.',
       parameters: {
         type: 'object',
         properties: {
@@ -191,11 +191,11 @@ const NEXIE_TOOLS = [
     type: 'function',
     function: {
       name: 'initiate_negotiation',
-      description: 'Prepare a buyer-approved negotiation proposal for a specific Nexez page offer.',
+      description: 'Prepare a buyer-approved negotiation proposal for a specific Nexez listing offer.',
       parameters: {
         type: 'object',
         properties: {
-          slug: { type: 'string', description: 'Public Nexez page slug.' },
+          slug: { type: 'string', description: 'Public Nexez listing slug.' },
           offer: { type: 'string', description: 'Offer key such as services-0 or products-1.' },
           budget: { type: 'string', description: 'Buyer budget or proposed price.' },
           timeline: { type: 'string', description: 'Desired delivery or booking timeline.' },
@@ -211,11 +211,11 @@ const NEXIE_TOOLS = [
     type: 'function',
     function: {
       name: 'trigger_booking',
-      description: 'Prepare a buyer-approved booking or checkout handoff for a specific Nexez page offer.',
+      description: 'Prepare a buyer-approved booking or checkout handoff for a specific Nexez listing offer.',
       parameters: {
         type: 'object',
         properties: {
-          slug: { type: 'string', description: 'Public Nexez page slug.' },
+          slug: { type: 'string', description: 'Public Nexez listing slug.' },
           offer: { type: 'string', description: 'Offer key such as services-0 or products-1.' },
           query: { type: 'string', description: 'Buyer booking context.' },
         },

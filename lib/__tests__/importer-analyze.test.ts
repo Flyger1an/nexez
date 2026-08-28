@@ -96,7 +96,7 @@ describe('analyzeSite importer normalization', () => {
         {
           id: 'target-buyer',
           field: 'audience',
-          question: 'Who should AI agents recommend this page to first?',
+          question: 'Who should AI agents recommend this listing to first?',
           answer: 'funded SaaS founders',
         },
       ],

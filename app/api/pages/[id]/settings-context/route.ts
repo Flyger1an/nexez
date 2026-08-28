@@ -41,7 +41,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       .eq('id', pageId)
       .maybeSingle<{ id: string; owner_id: string | null }>()
     if (!ownedPage || ownedPage.owner_id !== user.id) {
-      return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+      return NextResponse.json({ error: 'You do not have edit access to this listing.' }, { status: 403 })
     }
 
     const [plan, { data: secrets }] = await Promise.all([
@@ -80,7 +80,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
 
   // Settings is an editing surface → editors only (viewers are rejected).
   const access = await resolvePageAccess({ pageId, userId: user.id, userEmail: user.email, userEmailConfirmedAt: user.email_confirmed_at, requireEditor: true })
-  if (!access) return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+  if (!access) return NextResponse.json({ error: 'You do not have edit access to this listing.' }, { status: 403 })
 
   const admin = createAdminClient()
   const [plan, { data: secrets }, integrations, settlementReadiness, claimResult] = await Promise.all([

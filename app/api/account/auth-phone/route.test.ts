@@ -31,8 +31,8 @@ vi.mock('@/utils/supabase/admin', () => ({
 import { GET, POST } from './route'
 
 const USER_ID = '36c50eb6-b36a-40de-ae25-a13cecf66d84'
-const PHONE = '+17627445455'
-const STORED_PHONE = '17627445455'
+const PHONE = '+14155550123'
+const STORED_PHONE = '14155550123'
 const CODE = '123456'
 
 function request(body: unknown) {
@@ -83,7 +83,7 @@ describe('GET /api/account/auth-phone', () => {
 
     expect(response.status).toBe(200)
     expect(refs.getUserById).toHaveBeenCalledWith(USER_ID)
-    expect(body).toEqual({ phoneMasked: '+•••••••5455' })
+    expect(body).toEqual({ phoneMasked: '+•••••••0123' })
     expect(JSON.stringify(body)).not.toContain(PHONE)
     expect(JSON.stringify(body)).not.toContain(STORED_PHONE)
     expect(response.headers.get('cache-control')).toBe('no-store')
@@ -127,7 +127,7 @@ describe('POST /api/account/auth-phone', () => {
 
     expect(response.status).toBe(200)
     expect(refs.startSmsPhoneVerification).toHaveBeenCalledWith({ to: PHONE })
-    expect(body).toEqual({ sent: true, phoneMasked: '+•••••••5455' })
+    expect(body).toEqual({ sent: true, phoneMasked: '+•••••••0123' })
     expect(JSON.stringify(body)).not.toContain(PHONE)
 
     const phoneLimit = refs.enforceRateLimit.mock.calls.find(([, route]) => route === 'account:auth-phone:start:phone')
@@ -157,7 +157,7 @@ describe('POST /api/account/auth-phone', () => {
 
     expect(response.status).toBe(200)
     expect(refs.updateUserById).toHaveBeenCalledWith(USER_ID, { phone: PHONE, phone_confirm: true })
-    expect(body).toEqual({ verified: true, phoneMasked: '+•••••••5455' })
+    expect(body).toEqual({ verified: true, phoneMasked: '+•••••••0123' })
     expect(JSON.stringify(body)).not.toContain(PHONE)
     expect(JSON.stringify(body)).not.toContain(CODE)
   })

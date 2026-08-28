@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       llm_opt_in?: boolean | null
     }>()
 
-  if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 })
+  if (!page) return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
 
   // Plan gate on the OWNER (not the logged-in collaborator): AI suggestions
   // unlock on Launch+ (aiFeatures).
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
   // Consent gate: the page must have AI assist enabled.
   if (!page.llm_opt_in) {
     return NextResponse.json(
-      { error: 'Enable "Advanced AI Assist" for this page first to use AI suggestions.' },
+      { error: 'Enable "Advanced AI Assist" for this listing first to use AI suggestions.' },
       { status: 403 },
     )
   }
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'AI is not configured.' }, { status: 503 })
   }
 
-  const name = page.name || 'the page'
+  const name = page.name || 'the listing'
   try {
     if (kind === 'approval-note') {
       const suggestion = await llmComplete(
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
     const offers = (page as { services?: unknown }).services || (page as { products?: unknown }).products || []
     const pageData = `Name: ${name}. Description: ${page.description || ''}. Offers: ${JSON.stringify(offers)}. Audience: ${page.audience || ''}`
     const suggestion = await llmComplete(
-      `From this page data, generate 2-4 concise persistent memory notes for AI agents (e.g. buyer prefs, restrictions, key facts to always mention). One per line, factual only. Data: ${pageData}`,
+      `From this listing data, generate 2-4 concise persistent memory notes for AI agents (e.g. buyer prefs, restrictions, key facts to always mention). One per line, factual only. Data: ${pageData}`,
       { maxTokens: 150 },
     )
     return NextResponse.json({ suggestion: (suggestion || '').trim() })

@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       const match = domainPages?.[0]
       if (!match) {
         return NextResponse.json(
-          { error: 'No page you own uses this domain. Save the custom domain on the page first.' },
+          { error: 'No listing you own uses this domain. Save the custom domain on the listing first.' },
           { status: 403 },
         )
       }

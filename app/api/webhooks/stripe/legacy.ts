@@ -418,7 +418,7 @@ export async function POST(request: NextRequest) {
             const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page.contact_email, ownerId: page.owner_id })
             if (ownerEmail) {
               const mail = await buildEscrowFundedEmail({
-                businessName: page.name || negotiation.slug || 'your page',
+                businessName: page.name || negotiation.slug || 'your listing',
                 offerName: negotiation.offer_name || 'Agreement',
                 amount: formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd'),
                 held: !autoSettle,
@@ -578,7 +578,7 @@ export async function POST(request: NextRequest) {
             const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId })
             if (ownerEmail) {
               const mail = await buildEscrowFundedEmail({
-                businessName: page?.name || orderRow.slug || 'your page',
+                businessName: page?.name || orderRow.slug || 'your listing',
                 offerName: orderRow.offer_name || 'Your offer',
                 amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
                 held: false,
@@ -722,7 +722,7 @@ export async function POST(request: NextRequest) {
           const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId })
           if (ownerEmail) {
             const mail = await buildEscrowFundedEmail({
-              businessName: page?.name || orderRow.slug || 'your page',
+              businessName: page?.name || orderRow.slug || 'your listing',
               offerName: orderRow.offer_name || 'Your offer',
               amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
               held: false,
@@ -937,7 +937,7 @@ export async function POST(request: NextRequest) {
             if (ownerEmail) {
               const mail = await buildMoneyEventEmail({
                 kind: on.kind,
-                businessName: page?.name || order.slug || 'your page',
+                businessName: page?.name || order.slug || 'your listing',
                 offerName: order.offer_name || 'Your offer',
                 amount,
                 detail: on.detail,
@@ -1073,7 +1073,7 @@ export async function POST(request: NextRequest) {
           if (ownerEmail) {
             const mail = await buildMoneyEventEmail({
               kind: n.kind,
-              businessName: page.name || neg.slug || 'your page',
+              businessName: page.name || neg.slug || 'your listing',
               offerName: neg.offer_name || 'Agreement',
               amount,
               detail: n.detail,

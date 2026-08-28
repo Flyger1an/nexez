@@ -549,7 +549,7 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
     if (s.hasOffers && s.describedRatio < 1) gaps.push('Describe every offer so I can compare them accurately.')
     if (!s.hasAudience) gaps.push('State the ideal buyer so I can judge fit instead of guessing.')
     if (!s.hasFaqs) gaps.push('Add FAQs so I can answer objections rather than defer to a human.')
-    if (!s.hasContact) gaps.push("Add a contact path for questions I can't resolve from the page.")
+    if (!s.hasContact) gaps.push("Add a contact path for questions I can't resolve from the listing.")
     const stance: AgentStance = !s.hasOffers ? 'skip' : trust >= 3 ? 'recommend' : 'needs_info'
     return {
       lens,
@@ -568,7 +568,7 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
   Grok(page, s) {
     const lens = 'What does it cost, and is it worth surfacing?'
     if (!s.hasOffers) {
-      return { lens, stance: 'skip', headline: 'Nothing priced to compare - not worth surfacing.', noticed: [], gaps: ['Add priced offers; I skip pages I can’t rank by value.'] }
+      return { lens, stance: 'skip', headline: 'Nothing priced to compare - not worth surfacing.', noticed: [], gaps: ['Add priced offers; I skip listings I can’t rank by value.'] }
     }
     const noticed: string[] = []
     if (s.allPriced) noticed.push(`All ${s.offerCount} offers priced - instant value comparison`)
@@ -598,8 +598,8 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
     if (s.hasContact) noticed.push('A verifiable contact for attribution')
     if (s.hasFaqs) noticed.push(`${s.faqCount} quotable Q&A pair${s.faqCount === 1 ? '' : 's'}`)
     const gaps: string[] = []
-    if (!s.hasSource) gaps.push('Add a website URL so I have a primary source to cite, not just the Nexez page.')
-    if (!s.isPublished) gaps.push('Publish the page so its structured data is citable.')
+    if (!s.hasSource) gaps.push('Add a website URL so I have a primary source to cite, not just the Nexez listing.')
+    if (!s.isPublished) gaps.push('Publish the listing so its structured data is citable.')
     if (!s.hasFaqs) gaps.push('Add FAQs - quotable Q&A strengthens a citation.')
     const stance: AgentStance = s.hasSource && s.isPublished ? 'recommend' : s.isPublished ? 'needs_info' : 'skip'
     return {

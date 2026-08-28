@@ -47,7 +47,7 @@ export async function runLlmSimulation(
   const model = process.env.LLM_MODEL || 'platform-llm'
   const schema = buildParsedSchema(page, query, `${model}-Agent`, baseUrl)
   const prompt = `You are an AI agent analyzing this published business listing for the query: "${query}".
-Page: ${page.name} - ${page.description || ''}
+Listing: ${page.name} - ${page.description || ''}
 Offers: ${JSON.stringify(page.services || page.products || []).slice(0, 500)}
 Audience: ${page.audience || 'qualified buyers'}
 Location: ${page.location || 'N/A'}

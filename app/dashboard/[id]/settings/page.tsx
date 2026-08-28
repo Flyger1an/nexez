@@ -725,7 +725,7 @@ export default function PageSettings({ params }: PageProps) {
 
 	  async function upsertPageSecrets(values: Record<string, unknown>) {
 	    if (!page?.id) {
-	      return { error: { message: 'Page missing for private settings.' } }
+	      return { error: { message: 'Listing missing for private settings.' } }
 	    }
 	    // Write via the server route: page_secrets is owner-RLS'd, so a collaborator
 	    // can't upsert it directly. The route authorizes (owner/editor) + writes under

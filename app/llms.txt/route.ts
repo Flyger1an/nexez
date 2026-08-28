@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   const body = [
     '# Nexez',
     '',
-    '> AI-readable product and service pages for businesses that want agent discovery.',
+    '> AI-readable product and service listings for businesses that want agent discovery.',
     '',
     `Agent index: ${baseUrl}/agent-pages.json`,
     `Agent search API: ${baseUrl}/api/agent-search?q={query}`,
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
     `Python SDK package: ${NEXEZ_PYTHON_SDK.pypiUrl}`,
     `Agent examples: ${NEXEZ_AGENT_EXAMPLES.sourceUrl}`,
     '',
-    '## Published Agent Pages',
+    '## Published Agent Listings',
     '',
     ...publicLaunchVisiblePages(pages).map((page) => {
       const offers = getCheckoutOffers(page)
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
     '',
     '## Agent Use',
     '',
-    'Use these pages to understand each business, compare listed products and services, answer buyer questions, and route purchase or booking intent to the provided URLs.',
+    'Use these listings to understand each business, compare listed products and services, answer buyer questions, and route purchase or booking intent to the provided URLs.',
     '',
     'For query-based discovery, call the Agent search API with a buyer request such as q=consulting, q=strategy session, or q=book a service.',
     '',

@@ -11,7 +11,7 @@ const { auth } = vi.hoisted(() => ({
 
 vi.mock('../utils/supabase/client', () => ({ createClient: () => ({ auth }) }))
 
-const PHONE = '+17627445455'
+const PHONE = '+14155550123'
 
 function openPhoneLogin() {
   const onAuthenticated = vi.fn()

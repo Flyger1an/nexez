@@ -53,7 +53,7 @@ const sections: { heading: string; body: ReactNode[] }[] = [
   {
     heading: '5. Your Content & Public Listings',
     body: [
-      'You retain ownership of the business information, offers, instructions, media, and other content you submit ("Your Content"). You grant Nexez a worldwide, non-exclusive, royalty-free license to host, reproduce, format, analyze, transmit, and display Your Content as needed to operate, secure, promote, and improve the Service, including generating public pages, storefronts, search results, previews, analytics, and machine-readable artifacts such as structured data, llms.txt, agent manifests, MCP surfaces, and OpenAPI descriptions.',
+      'You retain ownership of the business information, offers, instructions, media, and other content you submit ("Your Content"). You grant Nexez a worldwide, non-exclusive, royalty-free license to host, reproduce, format, analyze, transmit, and display Your Content as needed to operate, secure, promote, and improve the Service, including generating public listings, storefronts, search results, previews, analytics, and machine-readable artifacts such as structured data, llms.txt, agent manifests, MCP surfaces, and OpenAPI descriptions.',
       'You are responsible for the accuracy, legality, availability, pricing, fulfillment terms, intellectual-property rights, and required notices for Your Content. Published content is intentionally public and can be indexed or copied by people, search engines, directories, and AI systems. Removing content from Nexez does not guarantee removal from third-party caches or indexes.',
     ],
   },

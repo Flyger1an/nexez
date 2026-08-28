@@ -1,5 +1,5 @@
 /**
- * AI Optimization helpers for Nexez agent pages (lean MVP).
+ * AI Optimization helpers for Nexez agent listings (lean MVP).
  *
  * These produce high-quality, agent-optimized copy using deterministic rules + templates.
  * They power the One-Click AI Optimize feature in the Nexez builder.
@@ -48,7 +48,7 @@ export function rewriteOfferForAgents(offer: OfferItem, context?: { businessName
   }
 
   if (!description.toLowerCase().includes('book') && !description.toLowerCase().includes('schedule')) {
-    description = `${description} Book directly via the link on this page.`
+    description = `${description} Book directly via the link on this listing.`
   }
 
   return {
@@ -63,14 +63,14 @@ export function rewriteOfferForAgents(offer: OfferItem, context?: { businessName
 export function generateAgentSummary(businessName: string, audience: string, offerCount: number, location?: string | null): string {
   const who = audience || 'buyers evaluating services'
   const where = location ? ` in ${location}` : ''
-  return `${businessName} helps ${who} quickly discover available services, compare options, understand pricing and fit, and take direct action${where}. This page is structured for AI agents and assistants to parse offers, answer questions, and route purchase intent.`
+  return `${businessName} helps ${who} quickly discover available services, compare options, understand pricing and fit, and take direct action${where}. This listing is structured for AI agents and assistants to parse offers, answer questions, and route purchase intent.`
 }
 
 export function generateStrongFaqs(businessName: string, audience: string, hasPricing: boolean): FaqItem[] {
   const faqs: FaqItem[] = []
 
   faqs.push({
-    question: 'Can an AI agent book or purchase directly from this page?',
+    question: 'Can an AI agent book or purchase directly from this listing?',
     answer: 'Yes. Every offer includes a direct "Agent checkout" path or booking URL that agents can follow or present to the buyer.',
   })
 
@@ -94,7 +94,7 @@ export function generateStrongFaqs(businessName: string, audience: string, hasPr
   if (businessName.length) {
     faqs.push({
       question: `How quickly can ${businessName} respond?`,
-      answer: 'Most inquiries routed through this page receive a response or proposal within 1-2 business days.',
+      answer: 'Most inquiries routed through this listing receive a response or proposal within 1-2 business days.',
     })
   }
 
@@ -153,7 +153,7 @@ export function suggestEnhancedFAQs(businessName: string, audience: string, offe
   if (offers[0]) {
     base.push({
       question: `Can I (or my agent) book the "${offers[0].name}" directly?`,
-      answer: `Yes - use the direct checkout link on this page or the agent.json for structured automation.`,
+      answer: `Yes - use the direct checkout link on this listing or the agent.json for structured automation.`,
     })
   }
   return base
@@ -183,7 +183,7 @@ export function enhanceDescriptionForAgents(raw: string, businessName: string, a
     return generateAgentSummary(businessName || 'This business', audience, 0)
   }
   if (d.length < 60) {
-    d = `${d}. This agent page makes pricing, scope, and next steps machine readable so AI buyers can evaluate fit instantly.`
+    d = `${d}. This listing makes pricing, scope, and next steps machine readable so AI buyers can evaluate fit instantly.`
   }
   if (!d.toLowerCase().includes('agent') && !d.toLowerCase().includes('ai')) {
     d = `${d} Structured for AI agents and assistants.`

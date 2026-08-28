@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 
 // Shared result panel for the integration importers on the Tools page:
-// renders an error, or a success message + "Create Page" handoff + offer preview.
+// renders an error, or a success message + "Create Listing" handoff + offer preview.
 export function ImportResult({
   result,
   onCreate,

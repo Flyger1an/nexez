@@ -67,7 +67,7 @@ const ACCOUNT_SETTINGS_PAGE_SELECT = [
 ].join(',')
 
 const schemaSignals = [
-  ['WebPage', 'Public page identity and canonical URL'],
+  ['WebPage', 'Public listing identity and canonical URL'],
   ['Organization', 'Seller name, website, contact, and service area'],
   ['Offer', 'Products or services with price, description, and checkout URL'],
   ['BuyAction', 'Agent-readable checkout handoff target'],

@@ -54,7 +54,7 @@ export function getEventActionLabel(eventType: CheckoutEventType) {
     case 'directory_click':
       return 'Directory discovery click'
     case 'agent_page_view':
-      return 'AI agent page visit'
+      return 'AI agent listing visit'
     case 'ab_impression':
       return 'A/B variant shown'
   }

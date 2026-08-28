@@ -626,7 +626,7 @@ export function getReadinessCriteria(page: Partial<AgentPage>): ReadinessCriteri
   })
   return [
     { id: 'name', label: 'Business name', met: Boolean(page.name), hint: 'Name the business or offer agents will see.' },
-    { id: 'slug', label: 'Public link', met: Boolean(page.slug), hint: 'Set the page URL (auto-fills from the name).' },
+    { id: 'slug', label: 'Public link', met: Boolean(page.slug), hint: 'Set the listing URL (auto-fills from the name).' },
     { id: 'description', label: 'Short description', met: Boolean(page.description), hint: 'Say what you offer in a sentence or two.' },
     { id: 'website_url', label: 'Main website', met: Boolean(page.website_url), hint: 'Link your site so agents can verify you.' },
     { id: 'cta_url', label: 'Booking / checkout link', met: Boolean(page.cta_url), hint: 'Where agents send buyers to convert.' },
@@ -635,7 +635,7 @@ export function getReadinessCriteria(page: Partial<AgentPage>): ReadinessCriteri
     { id: 'location_or_contact', label: 'Location or contact', met: Boolean(page.location || page.contact_email), hint: 'Add a service area or a contact email.' },
     { id: 'offers', label: 'At least one offer', met: offerCount > 0, hint: 'Add a service or product agents can buy.' },
     { id: 'faqs', label: 'FAQs', met: Boolean(page.faqs?.length), hint: 'Answer 1–3 questions agents will ask.' },
-    { id: 'publish', label: 'Published', met: Boolean(page.is_published), hint: 'Publish to make the page crawlable.' },
+    { id: 'publish', label: 'Published', met: Boolean(page.is_published), hint: 'Publish to make the listing crawlable.' },
   ]
 }
 

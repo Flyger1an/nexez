@@ -616,10 +616,10 @@ function NewUserHero({ name }: { name: string }) {
     <section className="overflow-hidden rounded-2xl border border-[var(--signal)]/30 bg-gradient-to-br from-[var(--signal)]/15 to-[var(--ready)]/5 p-7 md:p-10">
       <p className="text-sm text-[var(--signal)]">{name ? `Welcome, ${name}` : 'Welcome to Nexez'}</p>
       <h2 className="mt-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight">
-        Publish your first agent-readable page.
+        Publish your first agent-readable listing.
       </h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
-        Paste your existing website and we’ll turn it into an agent-readable page in seconds - or start
+        Paste your existing website and we’ll turn it into an agent-readable listing in seconds - or start
         from an industry template. Then publish it and (optionally) host it on your own custom domain.
       </p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">

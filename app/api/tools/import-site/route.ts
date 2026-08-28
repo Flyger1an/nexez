@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       requireEditor: true,
     })
     if (!access) {
-      return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+      return NextResponse.json({ error: 'You do not have edit access to this listing.' }, { status: 403 })
     }
     // Gate on the OWNER's plan via the service-role client (the collaborator's
     // session client cannot read the owner's billing_subscriptions row under RLS).
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     captureError(error, { route: 'import-site' })
     return NextResponse.json({
-      error: error.message || 'Failed to analyze the website. Please try again or create the page manually.'
+      error: error.message || 'Failed to analyze the website. Please try again or create the listing manually.'
     }, { status: 500 })
   }
 }

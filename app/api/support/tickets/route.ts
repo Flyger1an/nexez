@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       .maybeSingle<{ id: string; name: string; slug: string }>()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    if (!page) return NextResponse.json({ error: 'Selected page was not found.' }, { status: 404 })
+    if (!page) return NextResponse.json({ error: 'Selected listing was not found.' }, { status: 404 })
 
     pageId = page.id
     pageName = page.name

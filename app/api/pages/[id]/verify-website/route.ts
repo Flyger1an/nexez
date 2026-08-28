@@ -74,10 +74,10 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     .eq('owner_id', access.ownerId)
     .maybeSingle<{ id: string; owner_id: string; website_url: string | null }>()
   if (pageError) {
-    return NextResponse.json({ error: 'Could not load page for verification.' }, { status: 500 })
+    return NextResponse.json({ error: 'Could not load listing for verification.' }, { status: 500 })
   }
   if (!page) {
-    return NextResponse.json({ error: 'Page not found.' }, { status: 404 })
+    return NextResponse.json({ error: 'Listing not found.' }, { status: 404 })
   }
 
   const site = (page.website_url || '').trim()

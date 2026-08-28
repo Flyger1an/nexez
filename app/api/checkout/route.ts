@@ -95,11 +95,11 @@ export async function POST(request: Request) {
   })
 
   if (!input.slug || !input.offer) {
-    return NextResponse.json({ error: 'Missing checkout page or offer.' }, { status: 400 })
+    return NextResponse.json({ error: 'Missing checkout listing or offer.' }, { status: 400 })
   }
 
   const page = await getPublishedPage(input.slug)
-  if (!page) return NextResponse.json({ error: 'Checkout page not found.' }, { status: 404 })
+  if (!page) return NextResponse.json({ error: 'Checkout listing not found.' }, { status: 404 })
 
   const offer = getCheckoutOffer(page, input.offer)
   if (!offer) return NextResponse.json({ error: 'Checkout offer not found.' }, { status: 404 })

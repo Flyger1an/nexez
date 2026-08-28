@@ -74,7 +74,7 @@ export type RequirePageAccessOptions = {
   host?: string | null
 }
 
-const DENY_403 = 'You do not have edit access to this page.'
+const DENY_403 = 'You do not have edit access to this listing.'
 
 export async function requirePageAccess(options: RequirePageAccessOptions): Promise<PageAccessResult> {
   const {

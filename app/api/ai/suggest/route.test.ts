@@ -123,7 +123,7 @@ describe('POST /api/ai/suggest', () => {
     accessRef.fn = () => null
     const res = await POST(post({ pageId: 'p1', kind: 'memory' }))
     expect(res.status).toBe(403)
-    expect(await res.json()).toMatchObject({ error: 'You do not have edit access to this page.' })
+    expect(await res.json()).toMatchObject({ error: 'You do not have edit access to this listing.' })
     // Never reaches the plan gate or LLM.
     expect(ownerAllows).not.toHaveBeenCalled()
   })
@@ -143,7 +143,7 @@ describe('POST /api/ai/suggest', () => {
     const res = await POST(post({ pageId: 'p1', kind: 'memory' }))
     expect(res.status).toBe(403)
     expect(await res.json()).toMatchObject({
-      error: 'Enable "Advanced AI Assist" for this page first to use AI suggestions.',
+      error: 'Enable "Advanced AI Assist" for this listing first to use AI suggestions.',
     })
   })
 

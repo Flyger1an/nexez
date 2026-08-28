@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
   if (!testPageSlug) {
-    return NextResponse.json({ error: 'A page slug is required. Add ?slug=your-page-slug to the webhook URL.' }, { status: 400 })
+    return NextResponse.json({ error: 'A listing slug is required. Add ?slug=your-listing-slug to the webhook URL.' }, { status: 400 })
   }
 
   const { data: pages, error: pageError } = await supabase
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
   const page = pages?.[0] || null
   if (!page) {
-    return NextResponse.json({ error: 'Page not found for Calendly webhook slug.' }, { status: 404 })
+    return NextResponse.json({ error: 'Listing not found for Calendly webhook slug.' }, { status: 404 })
   }
 
   const { data: pageSecrets } = await supabase
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
   const secret = perPageSecret || (canUseHeaderSecret ? headerSecret : null)
 
   if (!secret) {
-    return NextResponse.json({ error: 'Calendly webhook secret is not configured for this page.' }, { status: 401 })
+    return NextResponse.json({ error: 'Calendly webhook secret is not configured for this listing.' }, { status: 401 })
   }
 
   if (!signature && !canUseHeaderSecret) {
@@ -360,7 +360,7 @@ export async function GET() {
   return NextResponse.json({
     status: 'ok',
     message: 'Calendly webhook receiver is live. POST signed Calendly webhooks here.',
-    usage: '/api/webhooks/calendly?slug=your-page-slug',
+    usage: '/api/webhooks/calendly?slug=your-listing-slug',
   })
 }
 

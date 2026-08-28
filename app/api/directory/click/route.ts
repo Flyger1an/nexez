@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     .single()
 
   if (pageError || !page) {
-    return NextResponse.json({ error: 'Published page not found.' }, { status: 404 })
+    return NextResponse.json({ error: 'Published listing not found.' }, { status: 404 })
   }
   const privateMeta = await getPagePrivateMeta(page.id)
 

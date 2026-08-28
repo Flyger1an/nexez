@@ -443,7 +443,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
             <div className="card p-8 text-center">
               <p className="text-[#9CA3AF]">No published offers match this search.</p>
               <a href={appUrl('/create')} className="btn-primary mt-5 inline-flex items-center gap-2">
-                Create page
+                Create listing
                 <ArrowRight className="size-4" />
               </a>
             </div>

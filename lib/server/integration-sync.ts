@@ -165,7 +165,7 @@ export async function syncPageIntegration(
     .select('id, slug, services, products, next_available, updated_at')
     .eq('id', pageId)
     .maybeSingle<{ id: string; slug: string; services: OfferItem[] | null; products: OfferItem[] | null; next_available: string | null; updated_at: string }>()
-  if (!page) return fail(404, 'Page not found.')
+  if (!page) return fail(404, 'Listing not found.')
 
   // Column-aware merge: update a provider offer wherever it already lives
   // (services OR products) and never duplicate across columns - the webhook/cron
@@ -239,7 +239,7 @@ export async function syncPageIntegration(
       return fail(409, 'The Shopify listing connection changed during sync. Retry from the currently linked listing.')
     }
     if (commit === 'page_conflict') {
-      return fail(409, 'This page changed during the sync. Nexez will retry with the latest version.')
+      return fail(409, 'This listing changed during the sync. Nexez will retry with the latest version.')
     }
   } else {
     const { data: written, error: writeErr } = await admin
@@ -251,7 +251,7 @@ export async function syncPageIntegration(
       .maybeSingle<{ id: string }>()
     if (writeErr) return fail(500, 'Could not save the synced offers.')
     if (!written) {
-      return fail(409, 'This page changed during the sync. Nexez will retry with the latest version.')
+      return fail(409, 'This listing changed during the sync. Nexez will retry with the latest version.')
     }
   }
 

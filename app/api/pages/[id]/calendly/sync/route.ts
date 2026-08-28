@@ -65,7 +65,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     .select('id, slug, services, next_available')
     .eq('id', pageId)
     .maybeSingle<{ id: string; slug: string; services: OfferItem[] | null; next_available: string | null }>()
-  if (!page) return NextResponse.json({ error: 'Page not found.' }, { status: 404 })
+  if (!page) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 })
 
   // 2) Merge Calendly offers in. CRITICAL: only ever manage CALENDLY-sourced
   // offers. smartMergeOffers('all') joins by name and would overwrite a

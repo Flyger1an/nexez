@@ -62,7 +62,7 @@ export async function POST(request: Request) {
   })
   if (!access.ok) {
     return NextResponse.json(
-      { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
+      { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this listing.' },
       { status: access.status },
     )
   }

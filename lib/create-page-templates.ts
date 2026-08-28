@@ -24,7 +24,7 @@ export const createPageTemplates: CreatePageTemplate[] = [
     name: 'Your Consulting Offer',
     slug: 'consulting-offer',
     description:
-      'A focused advisory page for buyers who need expert help, clear scope, pricing context, and a safe next step.',
+      'A focused advisory listing for buyers who need expert help, clear scope, pricing context, and a safe next step.',
     audience: 'Founders, operators, and teams evaluating expert advisory support',
     industry: 'Consulting & Strategy',
     ctaLabel: 'Book a strategy session',
@@ -73,7 +73,7 @@ export const createPageTemplates: CreatePageTemplate[] = [
     name: 'Your Local Service',
     slug: 'local-service',
     description:
-      'A practical booking page for buyers who need to know service area, availability, price signal, and next step fast.',
+      'A practical bookable service listing for buyers who need to know service area, availability, price signal, and next step fast.',
     audience: 'Local buyers looking for a trusted provider with clear availability',
     industry: 'Home Services (Plumbing, Electrical, Cleaning, etc.)',
     ctaLabel: 'Request service',
@@ -124,7 +124,7 @@ export const createPageTemplates: CreatePageTemplate[] = [
     name: 'Your Productized Offer',
     slug: 'productized-offer',
     description:
-      'A clean offer page for packages buyers can compare by scope, price, delivery timeline, and purchase path.',
+      'A clean offer listing for packages buyers can compare by scope, price, delivery timeline, and purchase path.',
     audience: 'Buyers comparing clear packages before purchase or implementation',
     industry: 'Marketing & Sales',
     ctaLabel: 'Choose a package',

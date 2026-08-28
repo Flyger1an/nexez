@@ -81,7 +81,7 @@ export function PhoneSignInSettings({ initialPhoneMasked }: PhoneSignInSettingsP
 
     const normalizedPhone = normalizeE164PhoneNumber(phone)
     if (!normalizedPhone) {
-      showError('Enter a mobile number in international format, such as +17627445455.')
+      showError('Enter a mobile number in international format, such as +14155550123.')
       return
     }
 
@@ -244,7 +244,7 @@ export function PhoneSignInSettings({ initialPhoneMasked }: PhoneSignInSettingsP
                 autoComplete="tel"
                 value={phone}
                 onChange={(event) => setPhone(event.target.value)}
-                placeholder="+17627445455"
+                placeholder="+14155550123"
                 autoFocus={!linkedPhoneMasked}
                 disabled={busy}
                 className="min-h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 text-[var(--fg)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:opacity-60"

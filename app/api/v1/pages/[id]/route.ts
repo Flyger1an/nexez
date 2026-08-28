@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data) return NextResponse.json({ error: 'Page not found.' }, { status: 404 })
+  if (!data) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 })
   return NextResponse.json({ page: data })
 }
 
@@ -59,7 +59,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .eq('id', id)
       .eq('owner_id', auth.ownerId)
       .maybeSingle<{ slug: string }>()
-    if (!current) return NextResponse.json({ error: 'Page not found.' }, { status: 404 })
+    if (!current) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 })
     const validation = validatePublicIdentifier(update.slug, { current: current.slug })
     if (!validation.ok) return NextResponse.json({ error: validation.message }, { status: 400 })
   }
@@ -108,6 +108,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
-  if (!data) return NextResponse.json({ error: 'Page not found.' }, { status: 404 })
+  if (!data) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 })
   return NextResponse.json({ page: data, url: `${getBaseUrl()}/${(data as unknown as { slug: string }).slug}` })
 }

@@ -15,7 +15,7 @@ vi.mock('@supabase/supabase-js', () => ({ createClient: refs.createClient }))
 
 import { POST } from './route'
 
-const PHONE = '+17627445455'
+const PHONE = '+14155550123'
 
 function request(body: unknown) {
   return new Request('https://app.nexez.ai/api/auth/phone/start', {

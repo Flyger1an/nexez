@@ -53,7 +53,7 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
 
     const normalizedPhone = normalizeE164PhoneNumber(verificationPhone ?? phone)
     if (!normalizedPhone) {
-      showError('Enter a mobile number in international format, such as +17627445455.')
+      showError('Enter a mobile number in international format, such as +14155550123.')
       return
     }
 
@@ -200,7 +200,7 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
               className="nx-auth-input"
-              placeholder="+17627445455"
+              placeholder="+14155550123"
               disabled={disabled || busy}
               autoFocus
             />

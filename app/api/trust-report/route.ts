@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const { page, pageId } = await request.json()
 
     if (!page) {
-      return NextResponse.json({ error: 'page data required' }, { status: 400 })
+      return NextResponse.json({ error: 'Listing data required' }, { status: 400 })
     }
 
     // Authorize: a `pageId` lets an editor-collaborator run the report on the page
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     })
     if (!access.ok) {
       return NextResponse.json(
-        { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
+        { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this listing.' },
         { status: access.status },
       )
     }
@@ -104,8 +104,8 @@ export async function POST(request: Request) {
       })
     }
 
-    const prompt = `Generate a concise trust report for this Nexez page for AI agents and business owner.
-Page: ${page.name} - ${page.description || ''}
+    const prompt = `Generate a concise trust report for this Nexez listing for AI agents and business owner.
+Listing: ${page.name} - ${page.description || ''}
 Readiness: ${readinessBase}/60 base
 Server-backed verification: Custom domain ${evidence.customDomainVerified ? 'verified' : 'no'}, existing website ${evidence.websiteVerified ? 'verified' : 'no'}.
 Seller-provided credentials: ${claimedCredentialCount} (claims only; excluded from verification and Trust Score).

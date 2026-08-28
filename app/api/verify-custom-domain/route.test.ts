@@ -303,7 +303,7 @@ describe('POST /api/verify-custom-domain', () => {
     }))
 
     expect(res.status).toBe(403)
-    expect(await res.json()).toMatchObject({ error: 'You do not have edit access to this page.' })
+    expect(await res.json()).toMatchObject({ error: 'You do not have edit access to this listing.' })
     expect(adminUpdates).toHaveLength(0)
   })
 
@@ -401,7 +401,7 @@ describe('POST /api/verify-custom-domain', () => {
 
     expect(res.status).toBe(400)
     expect(await res.json()).toMatchObject({
-      error: 'Verification token does not match the saved token for this page.',
+      error: 'Verification token does not match the saved token for this listing.',
     })
   })
 })

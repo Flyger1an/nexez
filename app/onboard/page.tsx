@@ -693,7 +693,7 @@ function AccountStep(props: {
         <p className="text-sm font-semibold">Workspace protection</p>
         <div className="mt-4 space-y-3">
           <SecurityRow icon={<ShieldCheck className="size-4" />} title="Session protected" text="Private tools stay behind auth." />
-          <SecurityRow icon={<BadgeCheck className="size-4" />} title="Public pages stay crawlable" text="Agent pages remain clean and fast." />
+          <SecurityRow icon={<BadgeCheck className="size-4" />} title="Public listings stay crawlable" text="Listings remain clean and fast." />
           <SecurityRow icon={<Gauge className="size-4" />} title="No card required" text="Free remains available after promotional access." />
         </div>
       </div>

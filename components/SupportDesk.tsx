@@ -197,7 +197,7 @@ export function SupportDesk() {
         <HelpCircle className="mx-auto size-8 text-muted-foreground" />
         <h2 className="mt-4 text-xl font-semibold">Sign in for support</h2>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-          Support needs your workspace context so AI can inspect the right pages and tickets are tied to your account.
+          Support needs your workspace context so AI can inspect the right listings and tickets are tied to your account.
         </p>
         <a href={appUrl('/login?next=/support')} className="btn-primary mt-5">Sign in</a>
       </div>

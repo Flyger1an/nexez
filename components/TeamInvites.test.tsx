@@ -79,7 +79,7 @@ describe('TeamInvites', () => {
     vi.stubGlobal('fetch', vi.fn())
     render(<TeamInvites />)
 
-    expect(await screen.findByText(/editors can update listing content and page-scoped configuration under your plan/i)).toBeInTheDocument()
+    expect(await screen.findByText(/editors can update listing content and listing-scoped configuration under your plan/i)).toBeInTheDocument()
     expect(screen.getByText(/Account and storefront administration, transaction decisions, money movement, negotiation lifecycle, and final approvals remain owner-only/i)).toBeInTheDocument()
     expect(screen.queryByText(/access to your listings and negotiations/i)).not.toBeInTheDocument()
   })
