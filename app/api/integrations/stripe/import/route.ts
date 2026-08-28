@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     supabase,
     user,
     pageId: body.pageId,
-    proMessage: 'Importing from Stripe is a Pro feature. Upgrade to sync products, or add offers manually / upload a CSV (free).',
+    proMessage: 'Importing from Stripe is a Pro feature. Upgrade to sync products, or add offers manually or import a catalog file for free.',
   })
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 

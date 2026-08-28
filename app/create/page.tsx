@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AlertCircle,
@@ -26,7 +26,7 @@ import {
   parseOfferLines,
   formatOfferLines,
 } from '../../lib/agent-page'
-import { parseAgentCsv, sampleAgentCsv } from '../../lib/csv-import'
+import { ImportedAgentCatalog, sampleAgentCsv } from '../../lib/catalog-import'
 import { NEXEZ_INDUSTRIES, getIndustrySuggestions } from '../../lib/industry-catalog'
 import { createClient } from '../../utils/supabase/client'
 import { VisualOfferBuilder } from '../../components/VisualOfferBuilder'
@@ -48,6 +48,7 @@ import {
   PublicIdentifierFeedback,
   usePublicIdentifierAvailability,
 } from '../../components/public-identifier/PublicIdentifierFeedback'
+import { CatalogImportDialog } from '../../components/import/CatalogImportDialog'
 
 type GuidedImportReview = {
   suggestedPage?: {
@@ -136,7 +137,7 @@ export default function CreatePage() {
   const [guidedAnswers, setGuidedAnswers] = useState<Record<string, string>>({})
   const [showAllGuidedOffers, setShowAllGuidedOffers] = useState(false)
   const [guidedImporting, setGuidedImporting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [catalogImportOpen, setCatalogImportOpen] = useState(false)
   const [stripeImportOpen, setStripeImportOpen] = useState(false)
   const [stripeInput, setStripeInput] = useState('')
   const [stripeImporting, setStripeImporting] = useState(false)
@@ -215,11 +216,11 @@ export default function CreatePage() {
       setReinterviewPageId(reinterview)
     } else if (
       // Form-centric entries skip the interview fork: explicit ?mode=form,
-      // template starts, CSV import, the Tools import handoff, and a pending
+      // template starts, catalog file import, the Tools import handoff, and a pending
       // page saved before a sign-in round-trip (that flow is form work).
       params.get('mode') === 'form' ||
       params.get('template') ||
-      params.get('import') === 'csv' ||
+      ['catalog', 'csv'].includes(params.get('import') || '') ||
       params.get('imported') === 'true' ||
       sessionStorage.getItem('nexez_pending_page')
     ) {
@@ -240,9 +241,9 @@ export default function CreatePage() {
       setStep(1)
     }
 
-    if (params.get('import') === 'csv') {
+    if (['catalog', 'csv'].includes(params.get('import') || '')) {
       setStep(2)
-      setImportMessage('Upload CSV import.')
+      setCatalogImportOpen(true)
     }
 
     // Handle import from Tools page
@@ -533,49 +534,30 @@ export default function CreatePage() {
     setImportMessage(`Guided import applied. ${keptOffers.length} offer${keptOffers.length === 1 ? ' is' : 's are'} ready in the Visual Builder.`)
   }
 
-  async function handleCsvFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) return
+  function applyCatalogImport(imported: ImportedAgentCatalog, fileName: string) {
+    if (!name && imported.page.name) setName(imported.page.name)
+    if (!slug && imported.page.slug) setSlug(imported.page.slug)
+    if (!description && imported.page.description) setDescription(imported.page.description)
+    if (!websiteUrl && imported.page.websiteUrl) setWebsiteUrl(imported.page.websiteUrl)
+    if (!ctaUrl && imported.page.ctaUrl) setCtaUrl(imported.page.ctaUrl)
+    if ((!ctaLabel || ctaLabel === 'Visit website') && imported.page.ctaLabel) setCtaLabel(imported.page.ctaLabel)
+    if (!audience && imported.page.audience) setAudience(imported.page.audience)
+    if (!location && imported.page.location) setLocation(imported.page.location)
+    if (!contactEmail && imported.page.contactEmail) setContactEmail(imported.page.contactEmail)
 
-    try {
-      const imported = parseAgentCsv(await file.text())
+    const nextServices = mergeLines(services, imported.services)
+    const nextProducts = mergeLines(products, imported.products)
+    const nextFaqs = mergeLines(faqs, imported.faqs)
+    setServices(nextServices)
+    setProducts(nextProducts)
+    setFaqs(nextFaqs)
+    setServicesOffers(parseOfferLines(nextServices))
+    setProductsOffers(parseOfferLines(nextProducts))
 
-      if (!imported.rowCount) {
-        setImportMessage('No importable rows found in that CSV.')
-        return
-      }
-
-      if (!name && imported.page.name) setName(imported.page.name)
-      if (!slug && imported.page.slug) setSlug(imported.page.slug)
-      if (!description && imported.page.description) setDescription(imported.page.description)
-      if (!websiteUrl && imported.page.websiteUrl) setWebsiteUrl(imported.page.websiteUrl)
-      if (!ctaUrl && imported.page.ctaUrl) setCtaUrl(imported.page.ctaUrl)
-      if ((!ctaLabel || ctaLabel === 'Visit website') && imported.page.ctaLabel) setCtaLabel(imported.page.ctaLabel)
-      if (!audience && imported.page.audience) setAudience(imported.page.audience)
-      if (!location && imported.page.location) setLocation(imported.page.location)
-      if (!contactEmail && imported.page.contactEmail) setContactEmail(imported.page.contactEmail)
-
-      setServices((current) => mergeLines(current, imported.services))
-      setProducts((current) => mergeLines(current, imported.products))
-      setFaqs((current) => mergeLines(current, imported.faqs))
-
-      // Phase 1 A: Keep rich state in sync after CSV import
-      if (imported.services?.length) setServicesOffers(parseOfferLines(mergeLines(services, imported.services)))
-      if (imported.products?.length) setProductsOffers(parseOfferLines(mergeLines(products, imported.products)))
-
-      setImportMessage(
-        `Imported ${imported.services.length} services, ${imported.products.length} products, and ${imported.faqs.length} FAQs from ${file.name}.`,
-      )
-      setStep(2)
-    } catch (error) {
-      setImportMessage(error instanceof Error ? error.message : 'Could not import that CSV.')
-    } finally {
-      event.target.value = ''
-    }
-  }
-
-  function openCsvUpload() {
-    fileInputRef.current?.click()
+    setImportMessage(
+      `Imported ${imported.services.length} services, ${imported.products.length} products, and ${imported.faqs.length} FAQs from ${fileName} after review.`,
+    )
+    setStep(2)
   }
 
   async function importFromStripe() {
@@ -747,6 +729,11 @@ export default function CreatePage() {
   return (
     <ErrorBoundary>
     <main className="min-h-screen bg-[#0A0A0F] text-white">
+      <CatalogImportDialog
+        open={catalogImportOpen}
+        onClose={() => setCatalogImportOpen(false)}
+        onImport={applyCatalogImport}
+      />
       {needsAuth && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="card w-full max-w-md !p-7 text-center">
@@ -770,14 +757,6 @@ export default function CreatePage() {
         </div>
       )}
       <div className="mx-auto max-w-6xl px-6 py-8">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          onChange={handleCsvFile}
-          className="hidden"
-        />
-
         <div className="card !p-8 border border-[var(--signal)]/40">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-xl">
@@ -1156,7 +1135,7 @@ export default function CreatePage() {
                       feature="integrations"
                       currentPlan={currentPlan}
                       title="Stripe & Calendly imports"
-                      description="Import connected catalogs and bookings without retyping them. CSV import stays available on every plan."
+                      description="Import connected catalogs and bookings without retyping them. Reviewed catalog file import stays available on every plan."
                       variant="inline"
                     >
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -1178,7 +1157,7 @@ export default function CreatePage() {
                         </button>
                       </div>
                     </PlanGate>
-                    <button className={secondaryButton} type="button" onClick={openCsvUpload}>Upload CSV</button>
+                    <button className={secondaryButton} type="button" onClick={() => setCatalogImportOpen(true)}>Import catalog file</button>
                   </div>
 
                   {integrationsAllowed && stripeImportOpen && (
@@ -1237,8 +1216,8 @@ export default function CreatePage() {
                   )}
                   <div className="rounded-lg border border-white/10 bg-black/20 p-4 text-sm text-zinc-400">
                     <p>
-                      CSV import supports rows with type, name, price, description, URL, question, answer, audience,
-                      and location columns.
+                      Import CSV, TSV, TXT, JSON, XLS, or XLSX. Preview every file, choose a workbook sheet, and map
+                      source columns to offers, FAQs, and business details before anything is applied.
                     </p>
                     <a
                       href={sampleCsvHref}
@@ -1329,7 +1308,7 @@ export default function CreatePage() {
                     </Field>
                   </div>
 
-                  {/* Legacy raw text kept for CSV / power users (advanced) */}
+                  {/* Legacy raw text stays available for power users who prefer direct editing. */}
                   <details className="group">
                     <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-200">Advanced: raw format</summary>
                     <div className="mt-3 space-y-4">
@@ -1340,7 +1319,7 @@ export default function CreatePage() {
                         <textarea value={products} onChange={(event) => { setProducts(event.target.value); setProductsOffers(parseOfferLines(event.target.value)) }} className={textareaClass} />
                       </Field>
                       <div className="flex flex-wrap gap-3">
-                        <button type="button" onClick={openCsvUpload} className={secondaryButton}>Import CSV</button>
+                        <button type="button" onClick={() => setCatalogImportOpen(true)} className={secondaryButton}>Import data file</button>
                         <a href={sampleCsvHref} download="nexez-agent-page-sample.csv" className={secondaryButton}>Sample CSV</a>
                       </div>
                     </div>

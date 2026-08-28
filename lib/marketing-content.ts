@@ -66,7 +66,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         eyebrow: 'Step 1',
         title: 'Start from what already exists.',
         copy:
-          'Import from your website, CSV, Calendly, Stripe, Shopify, Square, or enter offers by hand. Nexez helps clean the raw material into short, purchasable services and products.',
+          'Import from your website, CSV, TSV, TXT, JSON, Excel, Calendly, Stripe, Shopify, Square, or enter offers by hand. Nexez helps clean the raw material into short, purchasable services and products.',
         cards: [
           { title: 'Website importer', copy: 'Extracts offers and descriptions without asking users to start from a blank screen.' },
           { title: 'Guided builder', copy: 'Keeps the listing structured while still giving non-technical users plain language controls.' },

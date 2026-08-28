@@ -333,7 +333,7 @@ export default function ToolsPage() {
               <li>• <span className="text-[var(--signal)]">Google Calendar</span> - live free/busy-derived availability through OAuth</li>
               <li>• <span className="text-[var(--signal)]">WooCommerce</span> - read-only products and order visibility</li>
               <li>• <span className="text-[var(--ready)]">ServiceM8</span> - job templates and active job visibility through OAuth</li>
-              <li>• CSV and website hybrid import</li>
+              <li>• Catalog file and website hybrid import</li>
             </ul>
             <p className="mt-3 text-[10px] text-zinc-500">Connected providers can resync from each listing's Settings. One-time imports remain explicitly labeled.</p>
           </div>
