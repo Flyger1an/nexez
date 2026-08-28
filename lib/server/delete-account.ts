@@ -27,8 +27,25 @@ import { escapeLike } from './sql-escape'
 // Buyer-side rows on OTHER sellers' records have no FK to the buyer, so the anonymizer below is the
 // ONLY path that erases that buyer PII - it must stay exhaustive and runs in BOTH branches.
 
-/** SELLER/account tables keyed by user_id - deleted ONLY in the pure-buyer full-removal path. */
-const SELLER_USER_ID_TABLES = ['user_integrations', 'platform_admins'] as const
+/**
+ * SELLER-facet rows keyed by user_id - deleted ONLY in the pure-buyer full-removal path.
+ *
+ * SMS delivery history references the destination with ON DELETE RESTRICT, so it
+ * must be cleared before the account-level SMS destination below.
+ */
+const SELLER_USER_ID_TABLES = ['sms_notification_events'] as const
+
+/**
+ * Account-level rows keyed by user_id - deleted ONLY in the pure-buyer full-removal path.
+ * They are retained when a Nexxi buyer also owns a Nexez seller account, alongside
+ * that seller's notification preferences and verified destination.
+ */
+const ACCOUNT_USER_ID_TABLES = [
+  'user_integrations',
+  'platform_admins',
+  'sms_subscriptions',
+  'user_sms_destinations',
+] as const
 
 /** SELLER tables keyed by owner_id - deleted ONLY in the pure-buyer full-removal path. */
 const SELLER_OWNER_ID_TABLES = [
@@ -220,9 +237,15 @@ export async function deleteUserAccount(userId: string, email: string | null): P
     return { ok: true, authUserDeleted: false, sellerRetained: true, errors }
   }
 
-  // 3. Pure buyer → full removal: remaining account tables (empty for a pure buyer, but be thorough),
-  //    then the auth user LAST.
+  // 3. Pure buyer → full removal: seller event history first, then account
+  //    settings (including SMS destination/subscription), then the auth user LAST.
+  //    We delete explicitly even though these rows cascade from auth.users so
+  //    errors are collected and the destination's RESTRICT FK cannot strand data.
   for (const table of SELLER_USER_ID_TABLES) {
+    const { error } = await admin.from(table).delete().eq('user_id', userId)
+    if (error) errors.push({ scope: `delete:${table}`, message: error.message })
+  }
+  for (const table of ACCOUNT_USER_ID_TABLES) {
     const { error } = await admin.from(table).delete().eq('user_id', userId)
     if (error) errors.push({ scope: `delete:${table}`, message: error.message })
   }
@@ -281,6 +304,7 @@ async function deleteAuthUser(admin: SupabaseClient, userId: string): Promise<bo
 export const __DELETE_ACCOUNT_TABLES = {
   BUYER_USER_ID_TABLES,
   SELLER_USER_ID_TABLES,
+  ACCOUNT_USER_ID_TABLES,
   SELLER_OWNER_ID_TABLES,
   SELLER_SIGNAL_TABLES,
   BUYER_DATA_CONTRACT,

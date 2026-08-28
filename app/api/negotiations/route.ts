@@ -19,6 +19,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/
 import { ownerAllows, getOwnerBillingState } from '../../../lib/server/plan'
 import { negotiationService } from '../../../lib/negotiation.service'
 import { captureError } from '../../../lib/observability'
+import { deliverQueuedSmsNotifications, enqueueSellerNegotiationSms } from '../../../lib/server/sms-notifications'
 import {
   actionRequestHash,
   actionApprovalRequired,
@@ -300,6 +301,24 @@ export async function POST(request: Request) {
         })
       } catch {
         // swallow - a push failure must not affect the negotiation flow
+      }
+
+      // Record a seller-owned, consented SMS alert before returning. The durable
+      // outbox is intentionally separate from the fast path: a Twilio outage,
+      // missing preference, or worker failure can never reject the buyer's
+      // proposal. The five-minute cron is the backstop if this after() callback
+      // does not get a chance to run.
+      try {
+        const sms = await enqueueSellerNegotiationSms({
+          ownerId,
+          negotiationId: result.negotiationId,
+          ...(admin ? { admin } : {}),
+        })
+        if (sms.queued) {
+          after(() => deliverQueuedSmsNotifications({ limit: 1 }).catch(() => undefined))
+        }
+      } catch {
+        // SMS is optional and must never affect proposal creation.
       }
 
       // Retry-loop tripwire (deferred, observability-only). The content-replay

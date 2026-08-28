@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { marketingUrl } from '../../lib/site'
 
@@ -18,9 +19,9 @@ export const metadata: Metadata = {
   },
 }
 
-const LAST_UPDATED = 'August 20, 2026'
+const LAST_UPDATED = 'August 27, 2026'
 
-const sections: { heading: string; body: string[] }[] = [
+const sections: { heading: string; body: ReactNode[] }[] = [
   {
     heading: '1. Agreement to Terms',
     body: [
@@ -65,14 +66,25 @@ const sections: { heading: string; body: string[] }[] = [
     ],
   },
   {
-    heading: '7. Sellers, Buyers & Transactions',
+    heading: '7. SMS Notifications',
+    body: [
+      <>
+        Nexez offers optional transactional SMS alerts when a new seller negotiation needs review. To subscribe, you provide a mobile number, actively select an unchecked consent box, and verify that number through the Service. Message frequency varies with your activity. Message and data rates may apply. Consent is not a condition of purchase.
+      </>,
+      <>
+        You can opt out at any time by replying <strong>STOP</strong>. For help, reply <strong>HELP</strong> or visit <a href="https://nexez.ai/support" className="text-[var(--signal)] hover:underline">https://nexez.ai/support</a>. Carriers are not liable for delayed or undelivered messages. See our <a href="/privacy" className="text-[var(--signal)] hover:underline">Privacy Policy</a> for how we handle mobile information and SMS consent.
+      </>,
+    ],
+  },
+  {
+    heading: '8. Sellers, Buyers & Transactions',
     body: [
       'Nexez provides commerce infrastructure and workflow tools; it is not the seller of a merchant’s products or services. Unless expressly stated otherwise, the seller is the merchant of record and is solely responsible for its offers, required licenses, buyer disclosures, taxes, fulfillment, scheduling, cancellations, returns, refunds, warranties, support, and compliance with law. Buyers are responsible for reviewing seller terms and providing accurate transaction information.',
       'A validation, simulation, recommendation, negotiation draft, agreement record, or checkout handoff is not a guarantee that an offer is lawful, available, suitable, or fulfilled. Sellers and buyers remain responsible for the transaction between them. Nexez can provide status, evidence, messaging, and payment or scheduling integrations without becoming a party to the underlying sale or service agreement.',
     ],
   },
   {
-    heading: '8. Subscriptions, Fees & Cancellation',
+    heading: '9. Subscriptions, Fees & Cancellation',
     body: [
       'Current plan prices, billing intervals, included features, limits, and transaction or platform fees are shown before purchase and form part of these Terms. Taxes can be added where required. Free and paid plans can have different limits and fee rates.',
       'A paid subscription renews for the interval shown at purchase until canceled. Before you confirm a paid subscription, Nexez or its billing provider will display the renewal price and frequency and provide a retainable confirmation. You can manage or cancel an online subscription through the billing portal linked from the Billing page. Cancellation stops future renewals and normally takes effect at the end of the paid period unless law or the checkout terms require otherwise.',
@@ -81,7 +93,7 @@ const sections: { heading: string; body: string[] }[] = [
     ],
   },
   {
-    heading: '9. Payments, Refunds & Disputes',
+    heading: '10. Payments, Refunds & Disputes',
     body: [
       'Payment processing, connected-account onboarding, payouts, refunds, and disputes can be provided by Stripe, Shopify, or another enabled provider and are also governed by that provider’s terms. Nexez does not intentionally receive or store full card numbers or card security codes.',
       'For transactions processed for a seller through a connected payment account, applicable platform fees can be collected from the seller’s transaction proceeds. The seller is responsible for refunds, chargebacks, disputes, negative balances, taxes, and fulfillment obligations associated with its transactions. Nexez may relay a refund or cancellation request but does not guarantee that a seller or provider will approve it.',
@@ -89,73 +101,73 @@ const sections: { heading: string; body: string[] }[] = [
     ],
   },
   {
-    heading: '10. Integrations & Custom Domains',
+    heading: '11. Integrations & Custom Domains',
     body: [
       'Optional integrations are provided by third parties and are subject to their terms, availability, scopes, and account requirements. You authorize Nexez to access and process the connected data needed for the features you enable. You are responsible for the connected account, permissions, and data you instruct Nexez to import, synchronize, publish, or send.',
       'When you connect a custom domain, you represent that you own or control it and authorize Nexez to configure and serve the applicable listing. You are responsible for DNS configuration and third-party registrar obligations. Nexez is not responsible for downtime or loss caused by a registrar, provider, revoked permission, expired credential, or incorrect configuration outside Nexez’s control.',
     ],
   },
   {
-    heading: '11. Acceptable Use',
+    heading: '12. Acceptable Use',
     body: [
       'You may not use the Service to violate law or another person’s rights; offer prohibited or unlawfully regulated goods or services; publish deceptive, harmful, infringing, or malicious content; misrepresent identity, authority, price, availability, provenance, approval, or transaction status; send spam; facilitate fraud, money laundering, exploitation, or unsafe activity; introduce malware; probe or bypass security; access another user’s data; disrupt the Service; evade limits or fees; or use automated access contrary to published interfaces and rate limits.',
       'You may use public discovery artifacts and documented APIs for their intended interoperability purposes. Nexez may remove content, limit features, or suspend access when reasonably necessary to address risk, abuse, provider requirements, or violations of these Terms.',
     ],
   },
   {
-    heading: '12. Nexez Technology & Feedback',
+    heading: '13. Nexez Technology & Feedback',
     body: [
       'Nexez and its licensors retain all rights in the Service, software, designs, documentation, models, workflows, trademarks, and other technology, excluding Your Content. Subject to these Terms, Nexez grants you a limited, non-exclusive, non-transferable, revocable right to use the Service for its intended purpose during your authorized access.',
       'If you provide feedback or suggestions, you grant Nexez a perpetual, worldwide, royalty-free right to use them without restriction or obligation to you. You may not copy, resell, reverse engineer, or create derivative works from non-public Service technology except where applicable law expressly permits it.',
     ],
   },
   {
-    heading: '13. Suspension & Termination',
+    heading: '14. Suspension & Termination',
     body: [
       'You may stop using the Service at any time and can cancel paid subscriptions through the available billing controls. Deleting buyer data does not delete a seller business operated through the same login; seller-account closure must be requested separately so business records are not destroyed accidentally.',
       'We may suspend, restrict, or terminate access when you materially breach these Terms, create security or legal risk, fail to pay amounts due, abuse the Service, or when a provider or authority requires action. Where practical, we will provide notice and an opportunity to cure. Provisions that by their nature should survive termination, including ownership, payment obligations, disclaimers, liability limits, indemnity, and general terms, will survive.',
     ],
   },
   {
-    heading: '14. Disclaimers',
+    heading: '15. Disclaimers',
     body: [
       'To the maximum extent permitted by law, the Service is provided “as is” and “as available.” Nexez disclaims implied warranties of merchantability, fitness for a particular purpose, title, and non-infringement. We do not warrant uninterrupted operation, error-free AI output, third-party availability, permanent indexing, a particular ranking or business outcome, or that every defect or security event will be prevented.',
       'Nothing in these Terms excludes warranties or rights that cannot lawfully be excluded. You are responsible for maintaining appropriate backups of Your Content and for verifying important outputs and transaction details.',
     ],
   },
   {
-    heading: '15. Limitation of Liability',
+    heading: '16. Limitation of Liability',
     body: [
       'To the maximum extent permitted by law, Nexez will not be liable for indirect, incidental, special, exemplary, punitive, or consequential damages; loss of profits, revenue, goodwill, data, or business opportunity; or losses caused by a seller, buyer, agent, integration, payment provider, scheduling provider, registrar, or other third party.',
       'To the maximum extent permitted by law, Nexez’s aggregate liability arising from or relating to the Service or these Terms will not exceed the greater of US $100 or the amount you paid Nexez for the Service during the 12 months before the event giving rise to the claim. These limits apply regardless of the theory of liability and even if a remedy fails of its essential purpose. They do not limit liability that applicable law does not allow us to limit.',
     ],
   },
   {
-    heading: '16. Indemnification',
+    heading: '17. Indemnification',
     body: [
       'To the extent permitted by law, you will defend, indemnify, and hold harmless Nexez and its personnel from third-party claims, damages, losses, and reasonable costs arising from Your Content, your products or services, your transactions or fulfillment, your violation of law or third-party rights, your misuse of the Service, or your breach of these Terms. This obligation does not apply to the extent a claim results from Nexez’s own unlawful conduct.',
     ],
   },
   {
-    heading: '17. Promotional Access',
+    heading: '18. Promotional Access',
     body: [
       'Promotional Launch access is time-limited, requires an eligible verified business, is limited to one claim per business and campaign, and may not be sold or transferred. Launch pass invitations are bound to the recipient email and create a separate business account, not access to the sender’s workspace. Promotional access does not create an automatic charge. We may reject or revoke fraudulent, duplicate, ineligible, or abusive claims.',
     ],
   },
   {
-    heading: '18. Changes & Notices',
+    heading: '19. Changes & Notices',
     body: [
       'We may update these Terms to reflect changes to the Service, law, providers, or risk. We will update the date above and provide additional notice when required. Changes apply prospectively from their stated effective date. If you do not agree to updated Terms, you must stop using the affected Service. We may send operational or legal notices through the Service or to the email associated with your account.',
     ],
   },
   {
-    heading: '19. General',
+    heading: '20. General',
     body: [
       'These Terms, the Privacy Policy, and any applicable additional terms are the entire agreement about the Service and replace prior agreements on the same subject. If a provision is unenforceable, it will be modified to the minimum extent necessary and the remaining provisions will continue. A failure to enforce a provision is not a waiver. You may not assign these Terms without our consent; Nexez may assign them in connection with a merger, financing, reorganization, or sale of assets. Mandatory consumer protections and other rights that cannot be waived remain unaffected.',
     ],
   },
   {
-    heading: '20. Contact',
+    heading: '21. Contact',
     body: [
       'Questions about these Terms can be sent to legal@nexez.ai or mailed to Nexez, 8 The Green, Ste B, Dover, DE 19901, USA.',
     ],

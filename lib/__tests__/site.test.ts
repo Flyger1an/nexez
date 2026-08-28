@@ -18,7 +18,7 @@ import {
 
 describe('isMarketingPath', () => {
   it('treats the homepage + marketing prefixes as marketing', () => {
-    for (const p of ['/', '/pricing', '/pricing/teams', '/discovery', '/leaderboard', '/simulator', '/support', '/privacy', '/security', '/terms', '/design', '/blog/x', '/docs']) {
+    for (const p of ['/', '/pricing', '/pricing/teams', '/discovery', '/leaderboard', '/simulator', '/support', '/privacy', '/security', '/sms-notifications', '/terms', '/design', '/blog/x', '/docs']) {
       expect(isMarketingPath(p), p).toBe(true)
     }
   })
@@ -82,6 +82,7 @@ describe('canonicalHostFor', () => {
   it('routes marketing, app, and public runtime paths to their canonical hosts', () => {
     expect(canonicalHostFor('/')).toBe(MARKETING_HOST)
     expect(canonicalHostFor('/pricing')).toBe(MARKETING_HOST)
+    expect(canonicalHostFor('/sms-notifications')).toBe(MARKETING_HOST)
     expect(canonicalHostFor('/api/directory')).toBe(MARKETING_HOST)
     expect(canonicalHostFor('/api/simulate-url')).toBe(MARKETING_HOST)
 
@@ -99,6 +100,8 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/some-slug')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/agent-pages.json')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/api/negotiations')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/webhooks/twilio/inbound')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/webhooks/twilio/status')).toBe(AGENT_RUNTIME_HOST)
   })
 
   it('keeps agent/buyer negotiation routes on the runtime but OWNER actions on the app host', () => {

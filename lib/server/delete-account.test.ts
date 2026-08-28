@@ -119,6 +119,9 @@ describe('deleteUserAccount - facet-aware (Nexxi buyer vs Nexez seller)', () => 
     for (const t of __DELETE_ACCOUNT_TABLES.SELLER_USER_ID_TABLES) {
       expect(adminRef.ops).toContainEqual({ op: 'delete', table: t, by: 'user_id', val: 'user-1' })
     }
+    for (const t of __DELETE_ACCOUNT_TABLES.ACCOUNT_USER_ID_TABLES) {
+      expect(adminRef.ops).toContainEqual({ op: 'delete', table: t, by: 'user_id', val: 'user-1' })
+    }
     for (const t of __DELETE_ACCOUNT_TABLES.SELLER_OWNER_ID_TABLES) {
       expect(adminRef.ops).toContainEqual({ op: 'delete', table: t, by: 'owner_id', val: 'user-1' })
     }
@@ -182,6 +185,18 @@ describe('deleteUserAccount - facet-aware (Nexxi buyer vs Nexez seller)', () => 
     })
   })
 
+  it('removes SMS event history before the destination with its RESTRICT foreign key', async () => {
+    await deleteUserAccount('user-1', 'Buyer@Acme.com')
+    const eventDelete = adminRef.ops.findIndex(
+      (operation) => operation.op === 'delete' && operation.table === 'sms_notification_events',
+    )
+    const destinationDelete = adminRef.ops.findIndex(
+      (operation) => operation.op === 'delete' && operation.table === 'user_sms_destinations',
+    )
+    expect(eventDelete).toBeGreaterThanOrEqual(0)
+    expect(destinationDelete).toBeGreaterThan(eventDelete)
+  })
+
   it('erases the buyer\'s own chat turns from sellers\' negotiation threads (GDPR)', async () => {
     adminRef.negIds = ['neg-1', 'neg-2']
     await deleteUserAccount('user-1', 'Buyer@Acme.com')
@@ -218,7 +233,11 @@ describe('deleteUserAccount - facet-aware (Nexxi buyer vs Nexez seller)', () => 
     // ...and buyer PII anonymized (runs in both branches)...
     expect(adminRef.ops.some((o) => o.op === 'update' && o.table === 'agent_negotiations')).toBe(true)
     // ...but NO seller table is deleted (the business survives).
-    for (const t of [...__DELETE_ACCOUNT_TABLES.SELLER_OWNER_ID_TABLES, ...__DELETE_ACCOUNT_TABLES.SELLER_USER_ID_TABLES]) {
+    for (const t of [
+      ...__DELETE_ACCOUNT_TABLES.SELLER_OWNER_ID_TABLES,
+      ...__DELETE_ACCOUNT_TABLES.SELLER_USER_ID_TABLES,
+      ...__DELETE_ACCOUNT_TABLES.ACCOUNT_USER_ID_TABLES,
+    ]) {
       expect(adminRef.ops.some((o) => o.op === 'delete' && o.table === t)).toBe(false)
     }
   })

@@ -98,6 +98,14 @@ describe('exportUserAccount', () => {
       }
       expect(result!.data).toHaveProperty(contract.dataset)
     }
+    for (const t of __EXPORT_ACCOUNT_TABLES.SELLER_USER_ID_TABLES) {
+      expect(adminRef.ops).toContainEqual(expect.objectContaining({ table: t, by: 'user_id', val: 'user-1' }))
+      expect(result!.facets.seller).toContain(t)
+    }
+    for (const t of __EXPORT_ACCOUNT_TABLES.ACCOUNT_USER_ID_TABLES) {
+      expect(adminRef.ops).toContainEqual(expect.objectContaining({ table: t, by: 'user_id', val: 'user-1' }))
+      expect(result!.facets.account).toContain(t)
+    }
 
     // Every data key is facet-attributed - nothing "mixed".
     const attributed = new Set([...result!.facets.buyer, ...result!.facets.seller, ...result!.facets.account])
@@ -120,6 +128,9 @@ describe('exportUserAccount', () => {
     expect(result!.facets.seller).toContain('staged_settlement_agreements')
     expect(result!.facets.seller).toContain('staged_settlement_obligations')
     expect(result!.facets.seller).toContain('support_ticket_messages')
+    expect(result!.facets.seller).toContain('sms_notification_events')
+    expect(result!.facets.account).toContain('user_sms_destinations')
+    expect(result!.facets.account).toContain('sms_subscriptions')
 
     // api_keys metadata only - never the hash.
     const keyOp = adminRef.ops.find((o) => o.table === 'api_keys')

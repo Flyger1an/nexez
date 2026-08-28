@@ -56,6 +56,11 @@ function redisRestConfig(): { url: string; token: string } | null {
   return url && token ? { url, token } : null
 }
 
+/** True only when an application-wide rate-limit store is configured. */
+export function hasSharedRateLimitBackend(): boolean {
+  return redisRestConfig() !== null
+}
+
 function numResult(entry: unknown): number | null {
   const r = (entry as { result?: unknown } | null)?.result
   return typeof r === 'number' ? r : null
@@ -72,12 +77,16 @@ export async function rateLimitShared(
   limit: number,
   windowMs: number,
   now: number = Date.now(),
-  opts?: { failClosed?: boolean },
+  opts?: { failClosed?: boolean; requireShared?: boolean },
 ): Promise<RateResult> {
   const cfg = redisRestConfig()
   // No shared store configured → in-memory limiter (NOT a failure; failClosed must not deny here,
   // or unprovisioned/dev deploys would 429 everything).
-  if (!cfg) return rateLimit(key, limit, windowMs, now)
+  if (!cfg) {
+    return opts?.requireShared
+      ? { ok: false, remaining: 0, retryAfter: Math.ceil(windowMs / 1000), limit }
+      : rateLimit(key, limit, windowMs, now)
+  }
   // The store IS configured but errored. Default: fall open to the in-memory limiter (availability
   // over strictness). For money/expensive routes, opt into failClosed so a store OUTAGE denies
   // rather than silently degrading to weak per-instance counts (the bypass the store exists to close).
@@ -128,13 +137,16 @@ export async function enforceRateLimit(
   route: string,
   limit: number,
   windowMs: number,
-  opts?: { subject?: string; failClosed?: boolean },
+  opts?: { subject?: string; failClosed?: boolean; requireShared?: boolean },
 ): Promise<NextResponse | null> {
   // `subject` keys the bucket by a stable identity (e.g. the authed user id) instead of the client
   // IP - so one account can't multiply its quota by rotating IPs. `failClosed` denies on a shared-
   // store OUTAGE (money/expensive routes). Both default off → existing callers are unchanged.
   const id = opts?.subject ? `u:${opts.subject}` : clientIp(request)
-  const res = await rateLimitShared(`${route}:${id}`, limit, windowMs, Date.now(), { failClosed: opts?.failClosed })
+  const res = await rateLimitShared(`${route}:${id}`, limit, windowMs, Date.now(), {
+    failClosed: opts?.failClosed,
+    requireShared: opts?.requireShared,
+  })
   return res.ok ? null : tooManyRequests(res.retryAfter)
 }
 

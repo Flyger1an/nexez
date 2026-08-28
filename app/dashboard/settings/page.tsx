@@ -38,6 +38,7 @@ import { SurfaceHeader, surfaceActionClass } from '../../../components/dashboard
 import { StatusPill } from '../../../components/settings/SettingsPrimitives'
 import { AccountSettingsNav } from '../../../components/settings/AccountSettingsNav'
 import { NotificationPreferencesPanel } from '../../../components/NotificationPreferencesPanel'
+import { SmsNotificationSettings } from '../../../components/SmsNotificationSettings'
 import { loadSellerNotificationPreferences } from '../../../lib/server/seller-notification-preferences'
 import {
   DEFAULT_SELLER_NOTIFICATION_PREFERENCES,
@@ -259,6 +260,7 @@ export default async function AccountSettingsPage() {
               ) : (
                 <NotificationPreferencesPanel initialPreferences={notificationState.data.preferences} />
               )}
+              <SmsNotificationSettings />
             </SettingsArea>
 
             <SettingsArea
