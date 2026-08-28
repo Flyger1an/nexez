@@ -30,7 +30,7 @@ describe('homepage commerce story', () => {
     expect(hero).toContain('<AgentXray />')
     expect(source).toContain("{ value: '<200ms', label: 'Agent-ready load' }")
     expect(source).toContain("{ value: '19+', label: 'AI crawlers welcomed' }")
-    expect(source).toContain("{ value: '5+', label: 'Structured formats' }")
+    expect(source).toContain("{ value: '10+', label: 'Ways to connect' }")
     expect(source).toContain("{ value: 'Live', label: 'Conversion analytics' }")
   })
 
@@ -53,6 +53,16 @@ describe('homepage commerce story', () => {
     expect(source).toContain("title: 'Copilot'")
     expect(source).toContain("title: 'Your brand, your domain'")
     expect(source).toContain("title: 'Trust context'")
+  })
+
+  it('makes supported merchant integrations visible without changing the hero promise', () => {
+    expect(source).toContain('Connects with the tools your business already uses')
+    expect(source).toContain("const integrationRail = ['Stripe', 'Shopify', 'Square', 'Calendly', 'Acuity', 'Google Calendar']")
+    expect(source).toContain('Your existing tools become')
+    expect(source).toContain('one clear buying path.')
+    expect(source).toContain('Review every imported offer before it goes live.')
+    expect(source).toContain('Explore integrations')
+    expect(source).toContain('Zapier-compatible workflows')
   })
 
   it('gives the homepage modern merchant-facing metadata', () => {
