@@ -13,9 +13,9 @@ import { renamedPageArtifactRedirect } from '../../../lib/server/public-identifi
  *
  * The "fetch-my-artifacts" seam of the plugin pivot. A merchant's WordPress
  * plugin (or Shopify app / any server-side embedder) fetches THIS once and gets
- * the ready-to-inject strings - server-rendered JSON-LD, the manifest <link>, the
- * absolute artifact URLs, and the 301 redirect map - so it NEVER re-derives
- * Nexez's JSON-LD / currency / priceValidUntil logic (which would drift).
+ * ready-to-inject data, legacy server-rendered snippets, absolute artifact URLs,
+ * and the 301 redirect map. Structured consumers should use `structuredData`
+ * and `artifacts`; the string snippets remain for backwards compatibility.
  *
  * Exposes only already-public listing data (same read as agent.json), so it's
  * ungated like the other per-slug artifacts. It must NOT project owner-private
@@ -64,6 +64,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       name: page.name || slug,
       base,
       websiteBase,
+      structuredData,
+      // Backwards-compatible snippets for existing non-WordPress embedders.
+      // The WordPress plugin consumes the structured fields and builds markup
+      // locally so remote HTML is never printed into a merchant site.
       jsonld,
       headLink,
       // Template only - the real token is issued per-owner in Settings and is never

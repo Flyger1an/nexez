@@ -47,7 +47,14 @@ describe('GET /[slug]/embed.json', () => {
     expect(body.ok).toBe(true)
     expect(body.slug).toBe('demo')
 
-    // JSON-LD is a real <script> tag that parses and carries the offer.
+    // Structured consumers receive JSON data rather than needing to trust HTML.
+    expect(body.structuredData['@context']).toBe('https://schema.org')
+    expect(JSON.stringify(body.structuredData)).toContain('Consult')
+    expect(body.structuredData.url).toBe('https://demo.example.com')
+    expect(body.structuredData.mainEntity.url).toBe('https://demo.example.com')
+    expect(body.structuredData.mainEntity.makesOffer[0].url).toBe('https://nexez.test/checkout/demo?offer=services-0')
+
+    // Legacy HTML remains parseable for existing non-WordPress embedders.
     expect(body.jsonld.startsWith('<script type="application/ld+json">')).toBe(true)
     const inner = body.jsonld.replace(/^<script[^>]*>/, '').replace(/<\/script>$/, '')
     const ld = JSON.parse(inner)
@@ -77,6 +84,7 @@ describe('GET /[slug]/embed.json', () => {
     dbRef.handler = () => ({ data: { ...demoPage, website_url: null }, error: null })
     const body = await (await GET(req(), ctx('demo'))).json()
     expect(body.websiteBase).toMatch(/\/demo$/)
+    expect(body.structuredData.url).toBe('https://nexez.test/demo')
     const inner = body.jsonld.replace(/^<script[^>]*>/, '').replace(/<\/script>$/, '')
     const ld = JSON.parse(inner)
     expect(ld.url).toBe('https://nexez.test/demo')
