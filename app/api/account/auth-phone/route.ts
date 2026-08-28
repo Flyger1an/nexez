@@ -1,7 +1,12 @@
 import { createHmac } from 'crypto'
 import { NextResponse } from 'next/server'
 import { enforceRateLimit, hasSharedRateLimitBackend } from '@/lib/rate-limit'
-import { maskE164PhoneNumber, normalizeE164PhoneNumber, normalizePhoneOtp } from '@/lib/phone-auth'
+import {
+  maskE164PhoneNumber,
+  normalizeE164PhoneNumber,
+  normalizePhoneOtp,
+  normalizeSupabaseAuthPhoneNumber,
+} from '@/lib/phone-auth'
 import { resolveRequestAuth } from '@/lib/server/request-auth'
 import {
   checkSmsPhoneVerification,
@@ -89,7 +94,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (error || !data.user) return genericStatusError(502)
 
   const phone = data.user.phone_confirmed_at
-    ? normalizeE164PhoneNumber(data.user.phone)
+    ? normalizeSupabaseAuthPhoneNumber(data.user.phone)
     : null
 
   return NextResponse.json(

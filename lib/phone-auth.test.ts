@@ -4,6 +4,7 @@ import {
   maskE164PhoneNumber,
   normalizeE164PhoneNumber,
   normalizePhoneOtp,
+  normalizeSupabaseAuthPhoneNumber,
 } from './phone-auth'
 
 describe('phone auth helpers', () => {
@@ -20,6 +21,12 @@ describe('phone auth helpers', () => {
     expect(normalizePhoneOtp('1234567890')).toBe('1234567890')
     expect(normalizePhoneOtp('12345')).toBeNull()
     expect(normalizePhoneOtp('12345a')).toBeNull()
+  })
+
+  it('restores Supabase Auth phone storage to strict E.164', () => {
+    expect(normalizeSupabaseAuthPhoneNumber('17627445455')).toBe('+17627445455')
+    expect(normalizeSupabaseAuthPhoneNumber('+17627445455')).toBe('+17627445455')
+    expect(normalizeSupabaseAuthPhoneNumber('invalid')).toBeNull()
   })
 
   it('masks all but the last four phone digits', () => {

@@ -10,6 +10,13 @@ export function normalizeE164PhoneNumber(value: string | null | undefined): stri
   return E164_PHONE_NUMBER.test(normalized) ? normalized : null
 }
 
+/** Convert Supabase Auth's digits-only storage form back to strict E.164. */
+export function normalizeSupabaseAuthPhoneNumber(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim()
+  return normalizeE164PhoneNumber(normalized.startsWith('+') ? normalized : `+${normalized}`)
+}
+
 export function isE164PhoneNumber(value: unknown): value is string {
   return typeof value === 'string' && E164_PHONE_NUMBER.test(value)
 }

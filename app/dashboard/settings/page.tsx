@@ -41,7 +41,7 @@ import { AccountSettingsNav } from '../../../components/settings/AccountSettings
 import { NotificationPreferencesPanel } from '../../../components/NotificationPreferencesPanel'
 import { SmsNotificationSettings } from '../../../components/SmsNotificationSettings'
 import { loadSellerNotificationPreferences } from '../../../lib/server/seller-notification-preferences'
-import { maskE164PhoneNumber } from '../../../lib/phone-auth'
+import { maskE164PhoneNumber, normalizeSupabaseAuthPhoneNumber } from '../../../lib/phone-auth'
 import {
   DEFAULT_SELLER_NOTIFICATION_PREFERENCES,
   type SellerNotificationPreferences,
@@ -250,7 +250,11 @@ export default async function AccountSettingsPage() {
               <div className="grid gap-5 2xl:grid-cols-2">
                 <PasskeySettings />
                 <PhoneSignInSettings
-                  initialPhoneMasked={user.phone_confirmed_at ? maskE164PhoneNumber(user.phone) : null}
+                  initialPhoneMasked={
+                    user.phone_confirmed_at
+                      ? maskE164PhoneNumber(normalizeSupabaseAuthPhoneNumber(user.phone))
+                      : null
+                  }
                 />
               </div>
             </SettingsArea>

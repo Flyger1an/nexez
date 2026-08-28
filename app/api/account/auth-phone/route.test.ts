@@ -32,6 +32,7 @@ import { GET, POST } from './route'
 
 const USER_ID = '36c50eb6-b36a-40de-ae25-a13cecf66d84'
 const PHONE = '+17627445455'
+const STORED_PHONE = '17627445455'
 const CODE = '123456'
 
 function request(body: unknown) {
@@ -64,7 +65,7 @@ beforeEach(() => {
   refs.startSmsPhoneVerification.mockResolvedValue({ ok: true, verificationSid: 'VE123', status: 'pending' })
   refs.checkSmsPhoneVerification.mockResolvedValue({ ok: true, approved: true, verificationSid: 'VE123', status: 'approved' })
   refs.getUserById.mockResolvedValue({
-    data: { user: { id: USER_ID, phone: PHONE, phone_confirmed_at: '2026-08-28T00:00:00.000Z' } },
+    data: { user: { id: USER_ID, phone: STORED_PHONE, phone_confirmed_at: '2026-08-28T00:00:00.000Z' } },
     error: null,
   })
   refs.updateUserById.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
@@ -84,6 +85,7 @@ describe('GET /api/account/auth-phone', () => {
     expect(refs.getUserById).toHaveBeenCalledWith(USER_ID)
     expect(body).toEqual({ phoneMasked: '+•••••••5455' })
     expect(JSON.stringify(body)).not.toContain(PHONE)
+    expect(JSON.stringify(body)).not.toContain(STORED_PHONE)
     expect(response.headers.get('cache-control')).toBe('no-store')
   })
 
