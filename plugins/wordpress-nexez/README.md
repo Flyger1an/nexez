@@ -2,16 +2,17 @@
 
 Makes a WordPress site legible and transactable to AI shopping agents by
 connecting it to the site owner's [Nexez](https://nexez.ai) listing. It is a thin
-server-side delivery vehicle over the Nexez **embed manifest** - it fetches, it
-never re-derives.
+server-side delivery vehicle over the Nexez **embed manifest**. It fetches public
+data, validates it, and constructs all WordPress output locally.
 
 ## What it does
 
 Given a listing slug, on every front-end request the plugin:
 
-1. **Injects JSON-LD + a manifest `<link>` into `<head>`** (hook `wp_head`), fetched
-   from `https://nexez.app/<slug>/embed.json` and cached for 1 hour. Server-rendered,
-   so it is visible to agents that read the raw HTML (a client `<script>` is not).
+1. **Adds JSON-LD and a manifest `<link>` to `<head>`** (hook `wp_head`). Public
+   listing data comes from `https://nexez.app/<slug>/embed.json` and is cached for
+   1 hour. The plugin validates the JSON, encodes it with WordPress, and builds
+   the markup locally, so remote HTML is never printed into the site.
 2. **301-redirects the agent artifact paths** (hook `template_redirect`, exact-path
    match, GET/HEAD only) - `/.well-known/agent.json`, `/agent.json`, `/llms.txt`,
    `/openapi.json`, and `/mcp.json` (when the listing enables MCP) - to the live
@@ -20,8 +21,10 @@ Given a listing slug, on every front-end request the plugin:
 3. **Serves `/.well-known/nexez-verify.txt`** with the owner's verification token so
    the site can be verified on Nexez via the file method (no DNS change).
 
-The only external host contacted is `nexez.app`. All injected HTML is host-pinned,
-public, Nexez-generated content.
+The only external host contacted is `nexez.app`. The request sends the configured
+public listing slug, the server IP inherent to the connection, and the plugin's
+site-neutral User-Agent. The WordPress.org `readme.txt` contains the complete
+external-service disclosure and legal links.
 
 ## Why a plugin (and not just the `<script>` embed)
 

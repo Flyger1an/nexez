@@ -2,41 +2,47 @@
 
 Goal: list **Nexez Agent-Ready** (`plugins/wordpress-nexez/`) in the wordpress.org
 directory. Besides distribution, the listing earns a high-authority backlink to
-nexez.ai (SEO audit P2 item). The plugin + `readme.txt` are submission-ready,
-including the review team's required **External services** disclosure.
+nexez.ai (SEO audit P2 item).
 
-Everything below needs YOUR account/identity - none of it is automatable.
+The first review requested a clearer external-service disclosure and removal of
+raw remote HTML output. This checklist covers the corrected upload and reply.
 
 ## 1. Pre-submission (30-60 min)
 
-- [ ] **Test on the current WordPress release** (spin up a fresh WP on latest,
+- [ ] **Test on the current WordPress release** (spin up a fresh WP 7.1 install,
       install the plugin from a zip, exercise: settings save, JSON-LD appears in
-      head, artifact 301s, verify-file). Then bump `Tested up to:` in
-      `readme.txt` (currently `6.6`) to the version you tested. Do NOT claim a
-      version you haven't run - reviewers check.
+      head, artifact 301s, verify-file, API failure, and hostile API payload).
+      `readme.txt` claims `Tested up to: 7.1` only after this gate passes.
 - [ ] **Check the slug is free**: visit `https://wordpress.org/plugins/nexez-agent-ready/`
       (should 404). The directory assigns the slug from the plugin at review time
       and it is permanent.
-- [ ] **Build the zip** from `plugins/wordpress-nexez/` containing exactly:
-      `nexez-agent-ready.php`, `readme.txt`, `uninstall.php` (no README.md, no
-      dotfiles): `cd plugins/wordpress-nexez && zip nexez-agent-ready.zip nexez-agent-ready.php readme.txt uninstall.php`
-- [ ] Optional but worth it: run the official **Plugin Check (PCP)** plugin
-      against it locally - the review team runs the same tool.
+- [ ] **Build the zip** with one top-level `nexez-agent-ready/` directory
+      containing exactly `nexez-agent-ready.php`, `readme.txt`, and
+      `uninstall.php` (no README.md, tests, or dotfiles). Inspect the archive
+      with `unzip -l` before uploading it.
+- [ ] Run the official **Plugin Check (PCP)** plugin against the installed ZIP,
+      including runtime checks, and save the result with the release evidence.
+- [ ] Run PHP syntax checks on PHP 7.2 and the current supported PHP release.
+- [ ] Run WordPress Coding Standards and inspect every output, input, remote
+      request, redirect, capability check, option, transient, and uninstall path.
 
 ## 2. Submit
 
 - [ ] Log in / register at wordpress.org (use support@nexez.ai so the listing
       isn't tied to a personal account).
-- [ ] Submit the zip at `https://wordpress.org/plugins/developers/add/`.
-- [ ] The review team replies by email (typically days to a few weeks). Common
-      asks and our answers:
-      - *External calls?* → covered by the `== External services ==` section:
-        one server-side GET to the user-configured public embed.json on
-        nexez.app; no visitor data, no tracking.
-      - *Sanitization/escaping?* → settings are sanitized on save; all output is
-        escaped at render (spot-check `nexez-agent-ready.php` if they cite lines).
-      - *Trademark in slug* → "Nexez" is our own mark; be ready to confirm from
-        the support@nexez.ai address.
+- [ ] Upload the corrected zip in the existing submission flow.
+- [ ] Reply in the existing review email thread. Suggested response:
+
+      Thank you for the review. I uploaded a corrected ZIP. The External services
+      section now identifies Nexez, explains exactly what data is sent, when and
+      why it is sent, and links the service, terms, and privacy policy. The plugin
+      no longer outputs remote HTML. It validates public response data, encodes
+      JSON-LD with WordPress, and constructs escaped markup locally. I also ran
+      Plugin Check, WordPress Coding Standards, clean-install tests with WP_DEBUG,
+      and API failure and hostile-payload tests.
+
+      Regards,
+      Nexez
 
 ## 3. After approval
 
