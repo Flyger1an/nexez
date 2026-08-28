@@ -299,6 +299,29 @@ describe('CreatePage guided import review', () => {
     expect(Array.from(options).some((option) => option.getAttribute('value') === 'Immigration Law')).toBe(true)
   })
 
+  it('applies a reviewed catalog file to the visual builder and business fields', async () => {
+    const { container } = render(<CreatePage />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import catalog file' }))
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File([
+          'type,name,price,description,business_name,website_url\nservice,Agent Audit,$180,Readiness review,Acme Lab,https://acme.example',
+        ], 'catalog.csv', { type: 'text/csv' })],
+      },
+    })
+
+    expect(await screen.findByText('catalog.csv')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Apply reviewed import' }))
+
+    expect(await screen.findByText(/Imported 1 services, 0 products, and 0 FAQs from catalog.csv after review/i)).toBeInTheDocument()
+    expect(screen.getByDisplayValue('https://acme.example')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Agent Audit')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(screen.getByDisplayValue('Acme Lab')).toBeInTheDocument()
+  })
+
   it('does not expose paid AI optimization before an owner plan is resolved', () => {
     render(<CreatePage />)
 
@@ -314,10 +337,10 @@ describe('CreatePage guided import review', () => {
     expect(screen.getByText(/AI Optimize, bulk rewrite, and Co-Pilot tools unlock on Launch/i)).toBeInTheDocument()
   })
 
-  it('keeps CSV import available while gating premium imports below Pro', () => {
+  it('keeps catalog file import available while gating premium imports below Pro', () => {
     render(<CreatePage />)
 
-    expect(screen.getByRole('button', { name: 'Upload CSV' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Import catalog file' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Import Stripe' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Import Calendly' })).not.toBeInTheDocument()
     expect(screen.getByText('Stripe & Calendly imports')).toBeInTheDocument()
@@ -341,7 +364,7 @@ describe('CreatePage guided import review', () => {
     expect(screen.getByText('Stripe Product or Price Import')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Import Calendly' }))
     expect(screen.getByText('Calendly Bookings Import')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Upload CSV' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Import catalog file' })).toBeInTheDocument()
   })
 
   it.each(refinementScenarios)('runs the refinement loop for $name offers', async (scenario) => {

@@ -86,8 +86,8 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
       {
         name: 'Guided creation, scanning, and import',
         availability: 'Core',
-        summary: 'Manual authoring, templates, CSV, and deterministic website import are core; deeper AI-assisted scanning starts on Launch, while premium catalog and scheduling imports start on Pro.',
-        details: ['Core manual, template, CSV, and deterministic website-import paths', 'Launch AI refinement and deeper authenticated scanning', 'Pro premium imports, with the installed Shopify App Store connector available on every plan'],
+        summary: 'Manual authoring, templates, reviewed catalog files, and deterministic website import are core; deeper AI-assisted scanning starts on Launch, while premium catalog and scheduling imports start on Pro.',
+        details: ['Core manual, template, CSV, TSV, TXT, JSON, XLS, XLSX, and deterministic website-import paths', 'Launch AI refinement and deeper authenticated scanning', 'Pro premium imports, with the installed Shopify App Store connector available on every plan'],
         surfaces: ['Create Listing', 'Scan', 'Tools'],
       },
       {
@@ -252,8 +252,8 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
       {
         name: 'Commerce and catalog connections',
         availability: 'Plan-controlled',
-        summary: 'CSV and the installed Shopify App Store connector are core; Pro adds Stripe, Square, WooCommerce, and ServiceM8 imports into editable offers.',
-        details: ['Core CSV import and installed Shopify OAuth, listing link, catalog sync, and storefront proxy', 'Pro Stripe catalog plus Square OAuth catalog and booking-profile reads', 'Pro read-only WooCommerce product and order access, plus ServiceM8 job-template and job reads'],
+        summary: 'Reviewed catalog files and the installed Shopify App Store connector are core; Pro adds Stripe, Square, WooCommerce, and ServiceM8 imports into editable offers.',
+        details: ['Core CSV, TSV, TXT, JSON, XLS, and XLSX import with preview and column mapping, plus installed Shopify OAuth, listing link, catalog sync, and storefront proxy', 'Pro Stripe catalog plus Square OAuth catalog and booking-profile reads', 'Pro read-only WooCommerce product and order access, plus ServiceM8 job-template and job reads'],
         surfaces: ['Integrations', 'Tools', 'Per-listing Settings'],
       },
       {
