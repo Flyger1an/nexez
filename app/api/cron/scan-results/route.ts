@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { buildScanResultsEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 import { captureError } from '../../../../lib/observability'
-import type { ScanFinding } from '../../../../lib/scan-findings'
+import { inferFindingStatus } from '../../../../lib/scan-findings'
+import type { ScanFinding, ScanFindingStatus } from '../../../../lib/scan-findings'
 import { deriveScanLeadToken, deriveScanOnboardingToken } from '../../../../lib/server/scan-lead-token'
 import { appUrl, marketingUrl } from '../../../../lib/site'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
@@ -34,12 +35,24 @@ function cronAuthorized(request: Request) {
 
 // findings is jsonb, so it is whatever was written. Anything that is not a pair of
 // strings is dropped rather than rendered as "[object Object]" in a stranger's inbox.
+const FINDING_STATUSES = new Set<ScanFindingStatus>(['pass', 'warn', 'fail'])
+
+/**
+ * Rows written before the verdict was carried explicitly are two long. Recover
+ * those from the outcome word, which comes from a closed map, and leave the
+ * status off if the word is not one we recognise.
+ */
 function readFindings(value: unknown): ScanFinding[] {
   if (!Array.isArray(value)) return []
-  return value.flatMap((entry): ScanFinding[] =>
-    Array.isArray(entry) && typeof entry[0] === 'string' && typeof entry[1] === 'string'
-      ? [[entry[0], entry[1]]]
-      : [])
+  return value.flatMap((entry): ScanFinding[] => {
+    if (!Array.isArray(entry)) return []
+    const [label, outcome, status] = entry
+    if (typeof label !== 'string' || typeof outcome !== 'string') return []
+    const verdict = FINDING_STATUSES.has(status as ScanFindingStatus)
+      ? (status as ScanFindingStatus)
+      : inferFindingStatus(outcome)
+    return [verdict ? [label, outcome, verdict] : [label, outcome]]
+  })
 }
 
 /**

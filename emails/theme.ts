@@ -223,6 +223,162 @@ export const styles = {
   } as const,
   rowKeyLast: { borderBottom: 'none' } as const,
   rowValLast: { borderBottom: 'none' } as const,
+
+  // ── Onboarding primitives ───────────────────────────────────────────────────
+  // A welcome is instructions, not a receipt, so it gets a numbered list rather
+  // than the label/value InfoRows table. Same fill, radius and hairline as the
+  // details table so the two read as one family rather than two systems.
+  sectionLabel: {
+    color: BRAND.faint,
+    fontFamily: FONT_MONO,
+    fontSize: '10px',
+    fontWeight: 500,
+    letterSpacing: '0.16em',
+    lineHeight: '1.4',
+    margin: '0 0 12px',
+    textTransform: 'uppercase',
+  } as const,
+  steps: {
+    backgroundColor: BRAND.fill,
+    border: `1px solid ${BRAND.borderSoft}`,
+    borderRadius: '14px',
+    margin: '0 0 26px',
+    padding: '4px 18px',
+    width: '100%',
+  } as const,
+  // The ordinal is the one place the signal colour appears outside the button.
+  // It is a counter, not decoration: it tells you how many steps are left.
+  stepNum: {
+    borderBottom: `1px solid ${BRAND.borderSoft}`,
+    color: BRAND.signalSolid,
+    fontFamily: FONT_MONO,
+    fontSize: '12px',
+    fontWeight: 500,
+    lineHeight: '1.6',
+    padding: '14px 14px 14px 0',
+    verticalAlign: 'top',
+    width: '22px',
+  } as const,
+  // Body face, not mono: these are sentences to read, where InfoRows holds data
+  // to scan. Mono here would make instructions look like a payload.
+  stepText: {
+    borderBottom: `1px solid ${BRAND.borderSoft}`,
+    color: BRAND.ink,
+    fontSize: '14px',
+    lineHeight: '1.6',
+    padding: '14px 0',
+    verticalAlign: 'top',
+  } as const,
+  // Painted, not bordered: Outlook drops border-top on a block-level element
+  // often enough that the prismRule already uses this same fill-a-1px-box trick.
+  divider: {
+    backgroundColor: BRAND.borderSoft,
+    fontSize: '0',
+    height: '1px',
+    lineHeight: '0',
+    margin: '30px 0 22px',
+  } as const,
+  nextItem: { margin: '0 0 20px' } as const,
+  nextItemLast: { margin: '0' } as const,
+  nextTitle: {
+    color: BRAND.ink,
+    fontFamily: FONT_DISPLAY,
+    fontSize: '15px',
+    fontWeight: 600,
+    letterSpacing: '-0.012em',
+    lineHeight: '1.4',
+    margin: '0 0 3px',
+  } as const,
+  nextBody: {
+    color: BRAND.muted,
+    fontSize: '13px',
+    lineHeight: '1.6',
+    margin: '0 0 6px',
+  } as const,
+  nextLink: {
+    color: BRAND.signalSolid,
+    fontSize: '13px',
+    fontWeight: 600,
+    lineHeight: '1.6',
+    textDecoration: 'none',
+  } as const,
+
+  // ── Findings ────────────────────────────────────────────────────────────────
+  // A check and its outcome, which is neither a fact to scan nor a sentence to
+  // read. The label stays in the body face so it reads as a question that was
+  // asked; the outcome stays mono and tone-coloured so a failure is visible
+  // before a word of it is read.
+  findings: {
+    backgroundColor: BRAND.fill,
+    border: `1px solid ${BRAND.borderSoft}`,
+    borderRadius: '14px',
+    margin: '0 0 18px',
+    padding: '4px 18px',
+    width: '100%',
+  } as const,
+  findingDotCell: {
+    borderBottom: `1px solid ${BRAND.borderSoft}`,
+    padding: '15px 12px 15px 0',
+    verticalAlign: 'top',
+    width: '16px',
+  } as const,
+  // A div rather than a glyph. Every tick and cross character has at least one
+  // client that renders it as a box, and the Word engine is the usual culprit.
+  findingDot: {
+    borderRadius: '999px',
+    fontSize: '0',
+    height: '8px',
+    lineHeight: '0',
+    marginTop: '6px',
+    width: '8px',
+  } as const,
+  findingLabel: {
+    borderBottom: `1px solid ${BRAND.borderSoft}`,
+    color: BRAND.ink,
+    fontSize: '14px',
+    lineHeight: '1.5',
+    padding: '14px 10px 14px 0',
+    verticalAlign: 'top',
+  } as const,
+  findingOutcome: {
+    borderBottom: `1px solid ${BRAND.borderSoft}`,
+    fontFamily: FONT_MONO,
+    fontSize: '11px',
+    fontWeight: 500,
+    letterSpacing: '0.08em',
+    lineHeight: '1.5',
+    padding: '15px 0 14px',
+    textAlign: 'right',
+    textTransform: 'uppercase',
+    verticalAlign: 'top',
+    whiteSpace: 'nowrap',
+  } as const,
+
+  // ── Quote ───────────────────────────────────────────────────────────────────
+  // Prose somebody else wrote. It was going through the mono data cell, which is
+  // the wrong face, the wrong measure, and drops the author's line breaks.
+  quote: {
+    borderLeft: `2px solid ${BRAND.border}`,
+    margin: '0 0 24px',
+    padding: '2px 0 2px 16px',
+  } as const,
+  quoteBody: {
+    color: BRAND.ink,
+    fontSize: '14.5px',
+    lineHeight: '1.68',
+    margin: '0',
+    whiteSpace: 'pre-wrap',
+  } as const,
+  quoteAttribution: {
+    color: BRAND.faint,
+    fontFamily: FONT_MONO,
+    fontSize: '11px',
+    fontWeight: 500,
+    letterSpacing: '0.1em',
+    lineHeight: '1.4',
+    margin: '10px 0 0',
+    textTransform: 'uppercase',
+  } as const,
   // The pill. DESIGN_SYSTEM.md calls the liquid button "the signature"; email
   // cannot do the sheen or the specular, but the pill radius is free and it is
   // the shape people recognise. A 9px rounded rect is any SaaS on earth.
@@ -253,6 +409,12 @@ export const styles = {
     margin: '24px 0 0',
     padding: '2px 0 2px 14px',
   } as const,
+  caption: {
+    color: BRAND.muted,
+    fontSize: '13px',
+    lineHeight: '1.65',
+    margin: '0 0 24px',
+  } as const,
   fine: {
     color: BRAND.faint,
     fontSize: '12px',
@@ -277,6 +439,18 @@ export const TONE = {
   positive: { backgroundColor: '#E4F5F1', color: '#0A7A68', border: '1px solid #BFE7DF' },
   caution: { backgroundColor: '#FBF1E0', color: '#8A5C13', border: '1px solid #F0DFC0' },
   danger: { backgroundColor: '#F8E7E3', color: '#93321F', border: '1px solid #EFCFC8' },
+} as const
+
+/**
+ * The same four meanings as TONE, resolved for text on the fill surface rather
+ * than for a pill. TONE's colours are tuned against their own tinted
+ * backgrounds and are too light to sit directly on --fill-1.
+ */
+export const FINDING_TONE = {
+  neutral: { text: BRAND.muted, dot: BRAND.faint },
+  positive: { text: '#0A7A68', dot: BRAND.ready },
+  caution: { text: '#8A5C13', dot: BRAND.amber },
+  danger: { text: '#93321F', dot: BRAND.danger },
 } as const
 
 export type EmailTone = keyof typeof TONE

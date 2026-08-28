@@ -1173,7 +1173,11 @@ export async function POST(request: NextRequest) {
             ownerId,
             kind: 'stripe_connected',
             to,
-            build: () => buildStripeConnectedEmail({ financeUrl: appUrl('/dashboard/finance') }),
+            build: () => buildStripeConnectedEmail({
+              financeUrl: appUrl('/dashboard/finance'),
+              listingsUrl: appUrl('/dashboard/listings'),
+              docsUrl: appUrl('/docs'),
+            }),
           })
         })
       }

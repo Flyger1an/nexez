@@ -16,6 +16,8 @@ import {
   OrderLookupEmail,
   TeamInviteEmail,
   WelcomeEmail,
+  firstNameOnly,
+  type ScanFindingRow,
   StripeConnectedEmail,
   StaleListingEmail,
   SellerGrowthInviteEmail,
@@ -114,9 +116,16 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
 type Built = { subject: string; html: string; text: string }
 type Row = [string, string | null | undefined]
 
-const present = (rows: Row[]) => rows.filter(([, v]) => v)
-const textBody = (lead: string, rows: Row[], cta: string, url: string) =>
+// Structural, not Row, so a row that carries extra elements (a scan finding's
+// verdict) still renders as "label: outcome" without a conversion step.
+type TextRow = readonly [string, string | null | undefined, ...unknown[]]
+const present = (rows: readonly TextRow[]) => rows.filter(([, v]) => v)
+const textBody = (lead: string, rows: readonly TextRow[], cta: string, url: string) =>
   [lead, '', ...present(rows).map(([k, v]) => `${k}: ${v}`), '', `${cta}: ${url}`].join('\n')
+
+/** Prose quoted in a text part, marked per line so a reply is visibly not ours. */
+const quoteBlock = (body: string) =>
+  body.replace(/\r\n/g, '\n').split('\n').map((line) => `> ${line}`.trimEnd()).join('\n')
 
 // A plain-HTML fallback built from the (always-present) text body. Used only if
 // react-email render() throws.
@@ -174,12 +183,15 @@ export async function buildSupportReplyEmail(opts: {
   requestUrl: string
 }): Promise<Built> {
   const subject = `Re: ${opts.ticketSubject} [${opts.ticketId.slice(0, 8)}]`
-  const text = textBody(
+  // The reply is prose, so it gets its own block rather than a "Message: ..."
+  // row that folds a multi-paragraph answer onto one line.
+  const text = [
     `Nexez Support replied to “${opts.ticketSubject}”.`,
-    [['Message', opts.replyBody]],
-    'Open your support request',
-    opts.requestUrl,
-  )
+    '',
+    quoteBlock(opts.replyBody),
+    '',
+    `Open your support request: ${opts.requestUrl}`,
+  ].join('\n')
   const html = await renderHtml(
     <SupportReplyEmail
       subject={opts.ticketSubject}
@@ -198,12 +210,13 @@ export async function buildSupportRequesterReplyEmail(opts: {
   adminUrl: string
 }): Promise<Built> {
   const subject = `[Support reply] ${opts.ticketSubject}`
-  const text = textBody(
+  const text = [
     `${opts.requesterEmail} replied to “${opts.ticketSubject}”.`,
-    [['Message', opts.replyBody]],
-    'Open support request',
-    opts.adminUrl,
-  )
+    '',
+    quoteBlock(opts.replyBody),
+    '',
+    `Open support request: ${opts.adminUrl}`,
+  ].join('\n')
   const html = await renderHtml(
     <SupportRequesterReplyEmail
       requesterEmail={opts.requesterEmail}
@@ -598,31 +611,56 @@ export async function buildPromotionExpiryEmail(opts: {
 }
 
 // ── New-user welcome (fired once on first sign-in via sendOnceSystemEmail) ───────
-export async function buildWelcomeEmail(opts: { name?: string | null; createUrl: string }): Promise<Built> {
-  const { name, createUrl } = opts
+export async function buildWelcomeEmail(opts: {
+  name?: string | null; createUrl: string; financeUrl: string; docsUrl: string
+}): Promise<Built> {
+  const { name, createUrl, financeUrl, docsUrl } = opts
+  const first = firstNameOnly(name)
   const subject = 'Welcome to Nexez'
-  const greeting = name ? `Welcome to Nexez, ${name}.` : 'Welcome to Nexez.'
   const text = [
-    greeting,
+    first ? `Welcome, ${first}.` : 'Welcome to Nexez.',
     '',
-    'Publish a listing AI agents can read - then let them book and pay through, straight to your own Stripe. You only pay a fee when you get paid.',
+    'Nexez turns your business into something an AI agent can read, quote, and buy from. It sits alongside your website rather than replacing it.',
     '',
-    `Create your first agent listing: ${createUrl}`,
+    'Three steps to your first listing:',
+    '1. Point us at your website. We draft the listing from what is already there.',
+    '2. Check every price, claim, and policy. Nothing goes live until you say it is right.',
+    '3. Publish. From that moment agents can read your offer, quote it, and book it.',
+    '',
+    `Create your first listing: ${createUrl}`,
+    '',
+    'Then, when you are ready:',
+    `Connect Stripe, so payments land in your own account: ${financeUrl}`,
+    `See what the agents see, an agent.json file and an MCP endpoint: ${docsUrl}`,
+    '',
+    'Stuck anywhere? Reply to this email and a person will help.',
   ].join('\n')
-  const html = await renderHtml(<WelcomeEmail name={name} createUrl={createUrl} />, text)
+  const html = await renderHtml(
+    <WelcomeEmail name={name} createUrl={createUrl} financeUrl={financeUrl} docsUrl={docsUrl} />,
+    text,
+  )
   return { subject, html, text }
 }
 
 // ── Stripe Connect linked + charges enabled (fired once on the false→true flip) ──
-export async function buildStripeConnectedEmail(opts: { financeUrl: string }): Promise<Built> {
-  const { financeUrl } = opts
+export async function buildStripeConnectedEmail(opts: {
+  financeUrl: string; listingsUrl: string; docsUrl: string
+}): Promise<Built> {
+  const { financeUrl, listingsUrl, docsUrl } = opts
   const subject = 'Stripe is connected - you can accept agent payments'
   const text = [
     'Your Stripe account is linked and charges are enabled. You can now accept card payments from AI agents - payouts go straight to your Stripe, and Nexez only takes its fee when you get paid.',
     '',
     `Open your Finance dashboard: ${financeUrl}`,
+    '',
+    'What this unlocks:',
+    `Check a listing is live, because payments only reach you through one: ${listingsUrl}`,
+    `See the checkout an agent runs: ${docsUrl}`,
   ].join('\n')
-  const html = await renderHtml(<StripeConnectedEmail financeUrl={financeUrl} />, text)
+  const html = await renderHtml(
+    <StripeConnectedEmail financeUrl={financeUrl} listingsUrl={listingsUrl} docsUrl={docsUrl} />,
+    text,
+  )
   return { subject, html, text }
 }
 
@@ -739,7 +777,7 @@ export async function buildPublishNudgeEmail(opts: {
 export async function buildScanResultsEmail(opts: {
   domain: string
   score: number
-  findings: Row[]
+  findings: ScanFindingRow[]
   claimUrl: string
   unsubscribeUrl: string
 }): Promise<Built> {

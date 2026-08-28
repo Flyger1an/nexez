@@ -144,7 +144,9 @@ describe('GET /api/cron/scan-results', () => {
 
     await GET(cronRequest())
 
-    expect(refs.buildScanResultsEmail.mock.calls[0]![0].findings).toEqual([['ok', 'Missing']])
+    // The malformed row is dropped; the surviving one keeps the verdict recovered
+    // from its outcome word, because this fixture predates the third element.
+    expect(refs.buildScanResultsEmail.mock.calls[0]![0].findings).toEqual([['ok', 'Missing', 'fail']])
   })
 
   it('no-ops quietly when email is not configured', async () => {

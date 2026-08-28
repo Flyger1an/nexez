@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CrawlCheck } from './crawlability'
-import { SCAN_FINDING_LIMIT, selectScanFindings } from './scan-findings'
+import { inferFindingStatus, SCAN_FINDING_LIMIT, selectScanFindings } from './scan-findings'
 
 const check = (id: string, status: CrawlCheck['status'], label = id): CrawlCheck => ({
   id, label, status, dimension: 'discovery', detail: 'detail',
@@ -30,7 +30,11 @@ describe('selectScanFindings', () => {
 
   it('translates status into words a merchant reads, not scanner vocabulary', () => {
     const rows = selectScanFindings([check('x', 'fail'), check('y', 'warn'), check('z', 'pass')])
-    expect(rows).toEqual([['x', 'Missing'], ['y', 'Partial'], ['z', 'Found']])
+    expect(rows).toEqual([
+      ['x', 'Missing', 'fail'],
+      ['y', 'Partial', 'warn'],
+      ['z', 'Found', 'pass'],
+    ])
   })
 
   it('caps the list so the email stays scannable', () => {
@@ -41,10 +45,25 @@ describe('selectScanFindings', () => {
   it('still returns rows for a site that passes everything', () => {
     // Otherwise the email renders a heading promising findings above an empty table.
     const rows = selectScanFindings([check('a', 'pass'), check('b', 'pass')])
-    expect(rows).toEqual([['a', 'Found'], ['b', 'Found']])
+    expect(rows).toEqual([['a', 'Found', 'pass'], ['b', 'Found', 'pass']])
   })
 
   it('returns nothing for no checks rather than throwing', () => {
     expect(selectScanFindings([])).toEqual([])
+  })
+
+  // Rows written to scan_leads.findings before the verdict travelled with them
+  // are two long. The email still has to colour those correctly, and the only
+  // thing left to read them from is the outcome word.
+  describe('inferFindingStatus', () => {
+    it('recovers the verdict from every word the scanner emits', () => {
+      const rows = selectScanFindings([check('x', 'fail'), check('y', 'warn'), check('z', 'pass')])
+      expect(rows.map(([, outcome]) => inferFindingStatus(outcome)))
+        .toEqual(rows.map(([, , status]) => status))
+    })
+
+    it('returns nothing for a word it does not recognise', () => {
+      expect(inferFindingStatus('Not machine readable')).toBeUndefined()
+    })
   })
 })
