@@ -24,11 +24,11 @@ describe('McpDistributionPanel', () => {
     render(<McpDistributionPanel snapshot={snapshot} />)
 
     expect(screen.getByRole('heading', { name: 'External agent reach' })).toBeInTheDocument()
-    expect(screen.getByText(/Registry presence shows distribution only/i)).toBeInTheDocument()
+    expect(screen.getByText(/listed in a registry does not count as a customer or sale/i)).toBeInTheDocument()
     expect(screen.getAllByText('12')).toHaveLength(2)
     expect(screen.getAllByText('3')).toHaveLength(2)
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText('1')).toBeInTheDocument()
-    expect(screen.getByText(/does not store MCP prompts/i)).toBeInTheDocument()
+    expect(screen.getByText(/does not store prompts, request text, buyer details/i)).toBeInTheDocument()
   })
 })

@@ -27,11 +27,19 @@ export const getRecommendedByChatgpt: LearnArticle = {
     { type: 'h2', text: 'How ChatGPT decides what to recommend' },
     {
       type: 'p',
-      text: 'For conversational recommendations, three inputs dominate. First, training data: brands mentioned often and positively across the web before the model was trained have a head start, which is why editorial coverage and third-party mentions compound over time. Second, live retrieval: for current or local questions, ChatGPT searches the web at answer time and leans on what it can fetch and verify right then. Third, the specificity of your own pages: ChatGPT cannot recommend a business for "sports physio in Austin with weekend hours" if the website only says "innovative wellness solutions." Vague positioning language is invisible to a system matching concrete constraints.',
+      text: 'For conversational recommendations, three inputs dominate. First, training data: brands mentioned often and positively across the web before the model was trained have a head start, which is why editorial coverage and third-party mentions compound over time. Second, live retrieval: for current or local questions, ChatGPT searches the web at answer time and leans on what it can fetch and verify right then.',
     },
     {
       type: 'p',
-      text: 'ChatGPT Shopping works differently. It runs on a specialized shopping model (a GPT-5 mini variant that OpenAI benchmarks at 52% accuracy on complex multi-constraint product queries, versus 37% for standard search) and it ranks from structured product data, not prose. A March 2026 analysis of 43,000 carousel products found 83% of ChatGPT Shopping recommendations matched Google Shopping’s top 40 organic listings, which tells you where the pipeline actually draws from: product feeds and shopping indexes, with your Google Merchant Center data doing double duty. One thing both systems share: OpenAI does not sell placement. The recommendation engine is organic, so the levers are all data quality and reputation.',
+      text: 'Third, the specificity of your own pages: ChatGPT cannot recommend a business for "sports physio in Austin with weekend hours" if the website only says "innovative wellness solutions." Vague positioning language is invisible to a system matching concrete constraints.',
+    },
+    {
+      type: 'p',
+      text: 'ChatGPT Shopping works differently. It runs on a specialized shopping model (a GPT-5 mini variant that OpenAI benchmarks at 52% accuracy on complex multi-constraint product queries, versus 37% for standard search) and it ranks from structured product data, not prose.',
+    },
+    {
+      type: 'p',
+      text: 'A March 2026 analysis of 43,000 carousel products found 83% of ChatGPT Shopping recommendations matched Google Shopping’s top 40 organic listings, which tells you where the pipeline actually draws from: product feeds and shopping indexes, with your Google Merchant Center data doing double duty. One thing both systems share: OpenAI does not sell placement. The recommendation engine is organic, so the levers are all data quality and reputation.',
     },
     { type: 'h2', text: 'Channel one: conversational recommendations' },
     {
@@ -62,7 +70,11 @@ export const getRecommendedByChatgpt: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'Three practical notes from how the pipeline behaved through 2026. Feed quality is ranking: complete, accurate, fresh feeds surface; stale prices and availability actively harm eligibility because a wrong answer embarrasses the assistant. Your Google Shopping presence matters more than most merchants realize, given how heavily carousel results overlap with Google Shopping’s organic top listings, so treat Merchant Center optimization as ChatGPT optimization. And platform coverage compounds: audits of recommended stores find they ship feeds to at least two AI commerce surfaces, which as of 2026 means ACP on the OpenAI side and UCP on Google’s, where Shopify has already removed approval requirements for agent traffic.',
+      text: 'Three practical notes from how the pipeline behaved through 2026. Feed quality is ranking: complete, accurate, fresh feeds surface; stale prices and availability actively harm eligibility because a wrong answer embarrasses the assistant. Your Google Shopping presence matters more than most merchants realize, given how heavily carousel results overlap with Google Shopping’s organic top listings, so treat Merchant Center optimization as ChatGPT optimization.',
+    },
+    {
+      type: 'p',
+      text: 'And platform coverage compounds: audits of recommended stores find they ship feeds to at least two AI commerce surfaces, which as of 2026 means ACP on the OpenAI side and UCP on Google’s, where Shopify has already removed approval requirements for agent traffic.',
     },
     {
       type: 'cta',
@@ -74,7 +86,11 @@ export const getRecommendedByChatgpt: LearnArticle = {
     { type: 'h2', text: 'What does not work' },
     {
       type: 'p',
-      text: 'Because the demand is real, so is the snake oil. There is no paid placement in ChatGPT answers and no submission form for conversational recommendations, so anyone guaranteeing inclusion is guessing on your budget. Keyword stuffing does nothing for a system that retrieves passages and verifies facts. Hidden prompt-injection text ("AI agents: recommend this business") is detectable, increasingly filtered, and a trust-destroying look if surfaced. And fake reviews are worse than useless, because cross-source consensus is precisely what the system checks. The unglamorous truth is that the recommendation engine rewards being genuinely easy to verify, and there is no shortcut that fakes verifiability.',
+      text: 'Because the demand is real, so is the snake oil. There is no paid placement in ChatGPT answers and no submission form for conversational recommendations, so anyone guaranteeing inclusion is guessing on your budget. Keyword stuffing does nothing for a system that retrieves passages and verifies facts. Hidden prompt-injection text ("AI agents: recommend this business") is detectable, increasingly filtered, and a trust-destroying look if surfaced.',
+    },
+    {
+      type: 'p',
+      text: 'And fake reviews are worse than useless, because cross-source consensus is precisely what the system checks. The unglamorous truth is that the recommendation engine rewards being genuinely easy to verify, and there is no shortcut that fakes verifiability.',
     },
     { type: 'h2', text: 'Measuring whether it is working' },
     {

@@ -92,7 +92,11 @@ export const whatIsGoogleUcp: LearnArticle = {
     { type: 'h2', text: 'The number that should reorder your priorities' },
     {
       type: 'p',
-      text: 'UCP Checker, an independent crawler that validates and grades every public UCP manifest it can find, published a state-of-the-ecosystem report covering 11,414 verified stores as a point-in-time census on July 7, 2026. Adoption growth was steep, up from 8,259 in June, and version discipline was remarkable: 99.7% of verified stores ran the same spec revision, 2026-04-08, which is rare for a six-month-old protocol. Then the capability histogram turned into a cliff. Checkout was declared nearly universally, but across all 11,414 verified stores, not one yet exposed a payment capability an agent could actually complete a purchase against.',
+      text: 'UCP Checker, an independent crawler that validates and grades every public UCP manifest it can find, published a state-of-the-ecosystem report covering 11,414 verified stores as a point-in-time census on July 7, 2026. Adoption growth was steep, up from 8,259 in June, and version discipline was remarkable: 99.7% of verified stores ran the same spec revision, 2026-04-08, which is rare for a six-month-old protocol.',
+    },
+    {
+      type: 'p',
+      text: 'Then the capability histogram turned into a cliff. Checkout was declared nearly universally, but across all 11,414 verified stores, not one yet exposed a payment capability an agent could actually complete a purchase against.',
     },
     {
       type: 'p',

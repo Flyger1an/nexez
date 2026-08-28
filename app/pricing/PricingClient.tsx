@@ -194,8 +194,8 @@ export default function PricingClient() {
               <div className="chip mx-0" style={{ color: 'var(--signal)' }}>Agent-ready checkout on every plan</div>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight">Start selling before you subscribe.</h2>
               <p className="mt-3 text-sm text-[#9CA3AF]">
-                Every commerce-ready merchant can be discovered and complete Nexez-settled transactions. Paid plans add operating
-                leverage, higher limits, and lower platform fees as your agent-commerce volume grows.
+                Every published merchant can be discovered and sell through Nexez. Paid plans raise limits and reduce platform
+                fees as sales grow.
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-black/10 p-6">
@@ -217,7 +217,7 @@ export default function PricingClient() {
             <div className="chip ready mx-auto">We only make money when you do</div>
             <h2 className="display mt-4">Transparent platform fees</h2>
             <p className="lede mx-auto mt-3 text-center">
-              Lower platform fees as your agent-commerce volume grows.
+              Lower platform fees as your sales grow.
             </p>
           </div>
 
@@ -231,7 +231,7 @@ export default function PricingClient() {
                 <p className="mt-2 text-xs text-[#9CA3AF]">
                   {plan.id === 'enterprise'
                     ? 'Custom commercial terms based on volume and requirements.'
-                    : `$100 Nexez-settled sale → $${plan.commissionPercent} to Nexez, $${100 - plan.commissionPercent} before payment processing.`}
+                    : `$100 sale through Nexez → $${plan.commissionPercent} to Nexez, $${100 - plan.commissionPercent} before payment processing.`}
                 </p>
               </div>
             ))}
@@ -239,8 +239,8 @@ export default function PricingClient() {
           <p className="mt-4 text-center text-xs text-zinc-500">The transaction fee steps down as your plan goes up - higher tiers keep more of every sale.</p>
 
           <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-[#9CA3AF]">
-            Nexez&rsquo;s platform commission applies to transactions settled through Nexez. Card and payment-processing fees are separate.
-            External provider handoffs are not charged a Nexez transaction commission unless separately agreed.
+            Nexez commission applies only to sales completed through Nexez. Card-processing fees are separate.
+            External-provider handoffs have no Nexez transaction fee unless separately agreed.
           </p>
         </div>
 

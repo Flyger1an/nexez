@@ -27,7 +27,8 @@ describe('/how-it-works merchant story', () => {
     }
 
     expect(copy).toContain('you set')
-    expect(copy).toContain('customers and ai assistants')
+    expect(copy).toContain('buyers can choose')
+    expect(copy).toContain('ai assistants')
     expect(copy).toContain('get paid')
     expect(copy).toContain('plain language')
     expect(copy).toContain('stop instead of guessing')

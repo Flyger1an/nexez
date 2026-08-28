@@ -246,7 +246,7 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
   if (contextLimited) {
     return (
       <div role="status" className="rounded-lg border border-[var(--line)] bg-[var(--fill-1)] p-4 text-xs leading-5 text-[var(--fg-muted)]">
-        Integration connection status needs the server credential used by deployed environments. Your listing settings remain available, but connect and sync controls are hidden here.
+        Connection status is temporarily unavailable. Your listing settings are unaffected, but connection and sync controls are hidden.
       </div>
     )
   }

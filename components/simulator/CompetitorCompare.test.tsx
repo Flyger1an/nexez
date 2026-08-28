@@ -69,7 +69,7 @@ describe('CompetitorCompare research workspace', () => {
 
   it('keeps signed-out visitors locked and does not fetch private history', () => {
     render(<CompetitorCompare isLoggedIn={false} myPages={[]} currentPlan="free" />)
-    expect(screen.getByText(/Sign in to unlock/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument()
     expect(fetch).not.toHaveBeenCalled()
   })
 

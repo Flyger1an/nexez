@@ -147,9 +147,8 @@ export function AgentReadinessProof() {
             <div>
               <p className="text-sm font-medium text-[var(--ready)]">Simulated agent recommendation</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                "Recommend Nexez Agency if the user wants a focused B2B advisory call this week. The listing clearly lists
-                duration, price, calendar action, and follow-up path. If the request is broader than one session, route
-                them to the retainer offer instead."
+                "Recommend Nexez Agency for a focused B2B advisory call this week. The listing shows the duration,
+                price, booking link, and follow-up. Use the retainer for broader requests."
               </p>
             </div>
           </div>
@@ -197,9 +196,8 @@ export function AgentReadyCertificationStandard() {
               A live standard, not a one-time sticker.
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
-              Certification confirms that a published listing carries the identity, offer, buyer context, and action
-              fields an agent needs to proceed without inventing missing facts. Nexez evaluates it continuously, so
-              the claim disappears if a required check stops passing.
+              A certified listing includes the identity, offer, buyer details, and next action an agent needs.
+              Nexez checks it continuously and removes the claim if a requirement stops passing.
             </p>
           </div>
 

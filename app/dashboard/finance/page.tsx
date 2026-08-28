@@ -687,7 +687,8 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
           </GlassCard>
 
           <p className="mt-6 text-center text-[11px] text-zinc-600">
-            Totals include only live Stripe payments. Gross sales come from paid orders. Net sales subtract recorded refunds and the Nexez fee charged at the time of sale. Test and unverified older records are excluded. Stripe controls your available balance and payouts.
+            Gross sales include verified live Stripe payments only. Net sales subtract recorded refunds and Nexez fees.
+            Test payments and unverified older records are excluded. Stripe controls balances and payouts.
           </p>
         </div>
       </ErrorBoundary>

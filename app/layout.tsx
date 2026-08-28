@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   // ≤160 chars - this is the homepage's (and any metadata-less page's) SERP snippet.
   description:
-    "Create a structured listing AI agents can understand and buy from - JSON-LD, llms.txt, agent.json, and an MCP endpoint from one source of truth.",
+    "Create a clear business listing AI assistants can understand, recommend, and buy from. Keep offers, pricing, and next steps in one place.",
   applicationName: "Nexez",
   keywords: [
     "AI agents",

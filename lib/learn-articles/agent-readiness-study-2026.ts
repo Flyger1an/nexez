@@ -14,7 +14,15 @@ export const agentReadinessStudy2026: LearnArticle = {
   blocks: [
     {
       type: 'p',
-      text: 'AI assistants now recommend, book, and buy on behalf of their users, and the sales they influence are measured in the hundreds of billions of dollars. So we asked a question with a measurable answer: if an AI agent visits an ordinary small-business website today, what can it actually read? We scanned 652 real SMB websites across five industries with the same deterministic scanner that powers our free [/scan](/scan) tool. The headline: 30.7% are invisible to agents, meaning they offer no machine-readable facts and no agent artifact of any kind. And on the question of whether an agent could act rather than just read, the number is not low, it is zero: not one site in the sample exposes a callable agent surface.',
+      text: 'AI assistants now recommend, book, and buy on behalf of their users, and the sales they influence are measured in the hundreds of billions of dollars. So we asked a question with a measurable answer: if an AI agent visits an ordinary small-business website today, what can it actually read?',
+    },
+    {
+      type: 'p',
+      text: 'We scanned 652 real SMB websites across five industries with the same deterministic scanner that powers our free [/scan](/scan) tool. The headline: 30.7% are invisible to agents, meaning they offer no machine-readable facts and no agent artifact of any kind.',
+    },
+    {
+      type: 'p',
+      text: 'And on the question of whether an agent could act rather than just read, the number is not low, it is zero: not one site in the sample exposes a callable agent surface.',
     },
     {
       type: 'p',
@@ -39,7 +47,15 @@ export const agentReadinessStudy2026: LearnArticle = {
     { type: 'h2', text: 'What "invisible to agents" means, precisely' },
     {
       type: 'p',
-      text: 'Composites are where studies cheat, so here is ours in full. A site counts as invisible to agents when either (a) its homepage was not reachable with a successful response at scan time, or (b) it has no valid, parseable JSON-LD structured data AND none of the six agent artifacts the scanner probes for: agent.json, a well-known agent.json, an A2A agent card, an MCP server card, an OpenAPI spec, or an llms.txt file. In plain terms: the site gives an agent no typed facts and no machine-readable surface at all. An agent visiting it can only scrape prose, which is exactly the failure mode that makes assistants hallucinate prices and hours or skip a business entirely.',
+      text: 'Composites are where studies cheat, so here is ours in full.',
+    },
+    {
+      type: 'p',
+      text: 'A site counts as invisible to agents when either (a) its homepage was not reachable with a successful response at scan time, or (b) it has no valid, parseable JSON-LD structured data AND none of the six agent artifacts the scanner probes for: agent.json, a well-known agent.json, an A2A agent card, an MCP server card, an OpenAPI spec, or an llms.txt file.',
+    },
+    {
+      type: 'p',
+      text: 'In plain terms: the site gives an agent no typed facts and no machine-readable surface at all. An agent visiting it can only scrape prose, which is exactly the failure mode that makes assistants hallucinate prices and hours or skip a business entirely.',
     },
     {
       type: 'p',
@@ -59,12 +75,24 @@ export const agentReadinessStudy2026: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'Three patterns stand out. Home trades lead on transactability signals by a wide margin (18% publish some structured offer schema and 13% structured pricing, against low single digits everywhere else), consistent with trade-focused site builders baking LocalBusiness and Service markup into their templates. Independent retail is the structured-data laggard, with 47% lacking any valid JSON-LD despite being the vertical closest to e-commerce. And health is the least invisible vertical (28%) while publishing machine-readable pricing almost never (5%), a familiar opacity that will serve those practices poorly when patients start asking assistants what an appointment costs. Restaurants and personal care tie for the most invisible at 33%.',
+      text: 'Three patterns stand out. Home trades lead on transactability signals by a wide margin (18% publish some structured offer schema and 13% structured pricing, against low single digits everywhere else), consistent with trade-focused site builders baking LocalBusiness and Service markup into their templates. Independent retail is the structured-data laggard, with 47% lacking any valid JSON-LD despite being the vertical closest to e-commerce.',
+    },
+    {
+      type: 'p',
+      text: 'And health is the least invisible vertical (28%) while publishing machine-readable pricing almost never (5%), a familiar opacity that will serve those practices poorly when patients start asking assistants what an appointment costs. Restaurants and personal care tie for the most invisible at 33%.',
     },
     { type: 'h2', text: 'The transactability gap' },
     {
       type: 'p',
-      text: 'Discovery is only half of agentic commerce; the other half is whether an agent can act. Here the numbers fall off a cliff. 58.4% of sites show a human-clickable action (book, order, request a quote), and 31.9% expose that action somewhere in structured data, but the artifacts an agent could actually call are simply absent: 0% serve an agent.json, 0% an MCP server card, 0% an OpenAPI spec, across the entire sample. The pattern is unmistakable: Main Street has built for human eyes and left machines to guess. In practice, when a customer asks an assistant to "book me a plumber Tuesday afternoon," the assistant cannot complete that request against any of these 652 sites; at best it summarizes a phone number. The businesses that close this gap first inherit that intent, and the mechanics are covered in [how AI agents book service businesses](/learn/ai-agents-book-service-businesses).',
+      text: 'Discovery is only half of agentic commerce; the other half is whether an agent can act. Here the numbers fall off a cliff.',
+    },
+    {
+      type: 'p',
+      text: '58.4% of sites show a human-clickable action (book, order, request a quote), and 31.9% expose that action somewhere in structured data, but the artifacts an agent could actually call are simply absent: 0% serve an agent.json, 0% an MCP server card, 0% an OpenAPI spec, across the entire sample. The pattern is unmistakable: Main Street has built for human eyes and left machines to guess.',
+    },
+    {
+      type: 'p',
+      text: 'In practice, when a customer asks an assistant to "book me a plumber Tuesday afternoon," the assistant cannot complete that request against any of these 652 sites; at best it summarizes a phone number. The businesses that close this gap first inherit that intent, and the mechanics are covered in [how AI agents book service businesses](/learn/ai-agents-book-service-businesses).',
     },
     {
       type: 'cta',
@@ -76,7 +104,15 @@ export const agentReadinessStudy2026: LearnArticle = {
     { type: 'h2', text: 'Robots.txt and the llms.txt surprise' },
     {
       type: 'p',
-      text: 'Crawler blocking turned out to be modest and oddly targeted. 5.1% of sites block at least one major AI token in robots.txt, and the blocking skews heavily toward training crawlers: GPTBot (4.9%), ClaudeBot (4.6%), and Google-Extended (4.1%) are the usual targets, while the agents that fetch pages on behalf of a live user request (ChatGPT-User, Claude-User, Perplexity, the search bots) are blocked by fewer than 1% of sites. That pattern looks like anti-training defaults spreading through CMS plugins rather than deliberate anti-agent policy, and it means the blocking is mostly symbolic today: a site that blocks GPTBot still serves an agent acting for a real customer. The self-inflicted damage sits elsewhere, in the 8.9% of sites whose firewalls returned hard 403 or 503 responses to an honestly identified scanner.',
+      text: 'Crawler blocking turned out to be modest and oddly targeted.',
+    },
+    {
+      type: 'p',
+      text: '5.1% of sites block at least one major AI token in robots.txt, and the blocking skews heavily toward training crawlers: GPTBot (4.9%), ClaudeBot (4.6%), and Google-Extended (4.1%) are the usual targets, while the agents that fetch pages on behalf of a live user request (ChatGPT-User, Claude-User, Perplexity, the search bots) are blocked by fewer than 1% of sites.',
+    },
+    {
+      type: 'p',
+      text: 'That pattern looks like anti-training defaults spreading through CMS plugins rather than deliberate anti-agent policy, and it means the blocking is mostly symbolic today: a site that blocks GPTBot still serves an agent acting for a real customer. The self-inflicted damage sits elsewhere, in the 8.9% of sites whose firewalls returned hard 403 or 503 responses to an honestly identified scanner.',
     },
     {
       type: 'p',
@@ -101,12 +137,16 @@ export const agentReadinessStudy2026: LearnArticle = {
       type: 'callout',
       tone: 'amber',
       title: 'What this study cannot tell you',
-      text: 'Three honest limitations. First, the frame is businesses that are mapped in OSM with their own website tagged; businesses whose only web presence is a social page are not measured, so the invisibility percentages are, if anything, understatements for the broader SMB population. Second, OSM coverage skews toward better-mapped areas, and per-cell eligibility varied widely (from hundreds of candidates down to single digits for sparsely tagged trades), so this is not a probability sample of all US small businesses. Third, we scanned homepages; a site keeping agent artifacts only on deeper paths would be undercounted, matching how real agent discovery typically starts.',
+      text: 'Three limitations matter. First, OSM includes only businesses with their own website tagged, so businesses that rely on social pages are missing. This may understate invisibility. Second, OSM coverage and eligible business counts varied by area, so this is not a probability sample of every US small business. Third, we scanned homepages. Sites that keep agent files on deeper paths may be undercounted, although discovery usually starts at the homepage.',
     },
     { type: 'h2', text: 'Why this gap exists, and why it will not last' },
     {
       type: 'p',
-      text: 'None of these numbers reflect laziness. Ten years of SEO advice taught businesses to write for Google\u2019s crawler, and Google could always compensate for messy markup with scale. Agents are different consumers: they need typed facts to trust (a price field, not a price mentioned in a paragraph) and callable surfaces to act (a bookable endpoint, not a phone number in a footer). The tooling to publish those artifacts has existed for years ([JSON-LD](/learn/json-ld-for-ai-agents) is a copy-paste job for most sites), but nothing forced adoption. Agent-mediated purchasing is that forcing function, and the current state of [agentic commerce](/learn/what-is-agentic-commerce) rewards early movers precisely because the baseline is this low.',
+      text: 'None of these numbers reflect laziness. Ten years of SEO advice taught businesses to write for Google’s crawler, and Google could always compensate for messy markup with scale. Agents are different consumers: they need typed facts to trust (a price field, not a price mentioned in a paragraph) and callable surfaces to act (a bookable endpoint, not a phone number in a footer).',
+    },
+    {
+      type: 'p',
+      text: 'The tooling to publish those artifacts has existed for years ([JSON-LD](/learn/json-ld-for-ai-agents) is a copy-paste job for most sites), but nothing forced adoption. Agent-mediated purchasing is that forcing function, and the current state of [agentic commerce](/learn/what-is-agentic-commerce) rewards early movers precisely because the baseline is this low.',
     },
     {
       type: 'p',

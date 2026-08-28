@@ -334,7 +334,7 @@ describe('CreatePage guided import review', () => {
     expect(screen.queryByRole('button', { name: 'Optimize Offers' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Enhance' })).not.toBeInTheDocument()
     expect(screen.queryByText('AI Co-Pilot')).not.toBeInTheDocument()
-    expect(screen.getByText(/AI Optimize, bulk rewrite, and Co-Pilot tools unlock on Launch/i)).toBeInTheDocument()
+    expect(screen.getByText(/AI Optimize, bulk rewrite, and Co-Pilot tools are available.*Launch plan/i)).toBeInTheDocument()
   })
 
   it('keeps catalog file import available while gating premium imports below Pro', () => {

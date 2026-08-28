@@ -48,13 +48,13 @@ export default function AnalyticsActions({ selectedPage }: Props) {
       {selectedPage && (
         <section className="mt-6">
           <div className="min-w-0 rounded-lg border border-[var(--bd-10)] bg-[var(--ov-04)] p-5">
-            <h2 className="text-xl font-semibold">LLM Trust Report (AI-powered insights)</h2>
+            <h2 className="text-xl font-semibold">AI trust report</h2>
             <div className="mt-4">
               <button onClick={handleGenerateTrust} disabled={loading} className="btn-secondary text-xs disabled:cursor-wait disabled:opacity-60">
-                {loading ? 'Generating…' : 'Generate LLM trust insights'}
+                {loading ? 'Generating…' : 'Generate trust insights'}
               </button>
               <p className="mt-2 text-[10px] text-[var(--fg-muted-2)]">
-                Uses configured LLM for actionable trust analysis based on score, signals, and activity. Improves with more events.
+                Summarizes trust gaps and next steps using your configured AI model.
               </p>
               {report ? (
                 <div className="mt-4 rounded-lg border border-[var(--ready)]/20 bg-[var(--ready)]/[0.06] p-4" role="status">

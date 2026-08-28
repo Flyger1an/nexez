@@ -34,9 +34,9 @@ describe('AnalyticsActions', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Rate limited.' }), {
         status: 429,
         headers: { 'content-type': 'application/json' },
-      }))
+    }))
     render(<AnalyticsActions selectedPage={page} />)
-    const button = screen.getByRole('button', { name: /generate llm trust insights/i })
+    const button = screen.getByRole('button', { name: /generate trust insights/i })
 
     fireEvent.click(button)
     expect(await screen.findByText('Trust score 82/100')).toBeInTheDocument()

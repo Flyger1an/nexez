@@ -75,7 +75,11 @@ export const whatIsAgenticCommerce: LearnArticle = {
     { type: 'h2', text: 'The protocol stack underneath it' },
     {
       type: 'p',
-      text: 'Three open protocols turned agentic commerce from demos into plumbing. The Agentic Commerce Protocol (ACP), launched by Stripe and OpenAI in September 2025 under an Apache 2.0 license, defines how an agent transacts with a merchant. It launched as the rail behind ChatGPT Instant Checkout, which OpenAI [retired in March 2026](/learn/chatgpt-instant-checkout-retired), and now lives through adopters including PayPal and Stripe. Google debuted the Universal Commerce Protocol (UCP) at NRF in January 2026 to cover the full commerce journey across its surfaces. And the Model Context Protocol (MCP), open-sourced by Anthropic in late 2024 and since adopted across the major AI vendors, is the general-purpose standard that lets an agent call live tools: check a calendar, quote a price, place an order.',
+      text: 'Three open protocols turned agentic commerce from demos into plumbing. The Agentic Commerce Protocol (ACP), launched by Stripe and OpenAI in September 2025 under an Apache 2.0 license, defines how an agent transacts with a merchant. It launched as the rail behind ChatGPT Instant Checkout, which OpenAI [retired in March 2026](/learn/chatgpt-instant-checkout-retired), and now lives through adopters including PayPal and Stripe.',
+    },
+    {
+      type: 'p',
+      text: 'Google debuted the Universal Commerce Protocol (UCP) at NRF in January 2026 to cover the full commerce journey across its surfaces. And the Model Context Protocol (MCP), open-sourced by Anthropic in late 2024 and since adopted across the major AI vendors, is the general-purpose standard that lets an agent call live tools: check a calendar, quote a price, place an order.',
     },
     {
       type: 'p',
@@ -119,7 +123,11 @@ export const whatIsAgenticCommerce: LearnArticle = {
     { type: 'h2', text: 'The honest risks' },
     {
       type: 'p',
-      text: 'Three deserve a clear-eyed look. First, fraud and trust: 78% of financial institutions expect fraud attempts to rise with agent traffic, and 2026 is the year "know your agent" authentication frameworks are being formalized, including cryptographic agent signatures pushed by infrastructure providers. Expect to verify agents the way you verify payments. Second, margin pressure: when an agent compares on verifiable facts, weak differentiation gets priced out fast. Third, brand disintermediation: if the agent owns the relationship, the merchant risks becoming an anonymous fulfiller. The counterweight to all three is the same: be the merchant whose data is accurate, whose actions work on the first try, and whose name the agent has good reason to surface.',
+      text: 'Three deserve a clear-eyed look. First, fraud and trust: 78% of financial institutions expect fraud attempts to rise with agent traffic, and 2026 is the year "know your agent" authentication frameworks are being formalized, including cryptographic agent signatures pushed by infrastructure providers. Expect to verify agents the way you verify payments.',
+    },
+    {
+      type: 'p',
+      text: 'Second, margin pressure: when an agent compares on verifiable facts, weak differentiation gets priced out fast. Third, brand disintermediation: if the agent owns the relationship, the merchant risks becoming an anonymous fulfiller. The counterweight to all three is the same: be the merchant whose data is accurate, whose actions work on the first try, and whose name the agent has good reason to surface.',
     },
     {
       type: 'p',

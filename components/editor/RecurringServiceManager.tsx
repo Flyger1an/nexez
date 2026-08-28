@@ -314,7 +314,7 @@ export function RecurringServiceManager({
     <details className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
       <summary className="cursor-pointer text-sm font-medium text-zinc-200">Recurring service contracts</summary>
       <p className="mt-2 text-xs leading-5 text-zinc-500">
-        Merchant-authored terms only. Nexez never infers cadence from a service name or template. Apply an exact fixed cadence, or map an existing required buyer choice to exact billing intervals.
+        Set the billing schedule yourself or tie it to a required buyer choice. Nexez never guesses the schedule from a service name or template.
       </p>
       <div className="mt-4 space-y-3">
         {offers.map((offer, index) => (

@@ -64,7 +64,11 @@ export const whatIsAnMcpServer: LearnArticle = {
     { type: 'h2', text: 'Who actually supports it' },
     {
       type: 'p',
-      text: 'Adoption is the reason MCP matters and the thing that separates it from most AI-era acronyms. Anthropic built it natively into Claude across desktop, web, and its developer products. OpenAI adopted the standard in March 2025 across its Agents SDK and products, an unusual case of the two biggest labs converging on one spec. Google committed Gemini support the same spring, and the ecosystem around them (developer tools, agent frameworks, and thousands of published servers for everything from GitHub to Stripe) treats MCP as the default integration layer. When one standard is spoken by the major assistants, a single server on your side reaches all of them.',
+      text: 'Adoption is the reason MCP matters and the thing that separates it from most AI-era acronyms. Anthropic built it natively into Claude across desktop, web, and its developer products. OpenAI adopted the standard in March 2025 across its Agents SDK and products, an unusual case of the two biggest labs converging on one spec.',
+    },
+    {
+      type: 'p',
+      text: 'Google committed Gemini support the same spring, and the ecosystem around them (developer tools, agent frameworks, and thousands of published servers for everything from GitHub to Stripe) treats MCP as the default integration layer. When one standard is spoken by the major assistants, a single server on your side reaches all of them.',
     },
     { type: 'h2', text: 'Why a business would want its own server' },
     {

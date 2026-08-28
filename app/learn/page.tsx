@@ -6,7 +6,7 @@ import { safeJsonScript } from '../../lib/safe-json'
 
 const metaTitle = 'Learn: guides to selling through AI agents'
 const metaDescription =
-  'Practical guides to agentic commerce: selling through ChatGPT and Google, ACP and UCP enrollment, MCP, llms.txt, and making any business bookable by AI agents.'
+  'Practical guides to selling through AI assistants, from discovery and trust to booking, payment, and technical integration.'
 
 export const metadata: Metadata = {
   title: metaTitle,

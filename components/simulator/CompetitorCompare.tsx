@@ -99,8 +99,8 @@ export function CompetitorCompare({
         </div>
         <h3 className="text-xl font-semibold">Compare a competitor</h3>
         <p className="max-w-md text-sm text-zinc-400">
-          Score any rival site for agent-readiness - trust, parseability, structured data, and clarity - see exactly
-          what it&apos;s missing, and put it side-by-side with your own listing. Sign in to unlock.
+          Compare a rival site with your listing across trust, content clarity, structure, and offer details.
+          Sign in to see what it is missing.
         </p>
         <div className="mt-1 flex gap-2">
           <a href={appUrl('/login')} className="btn-secondary text-sm">Sign in</a>
@@ -207,7 +207,7 @@ export function CompetitorCompare({
 
   const scoreCards = [
     { label: 'Overall agent trust', val: analysis?.scores?.overall },
-    { label: 'Parseability', val: analysis?.scores?.parseability },
+    { label: 'Content clarity', val: analysis?.scores?.parseability },
     { label: 'Structured data', val: analysis?.scores?.structuredDataQuality },
     { label: 'Clarity & intent', val: analysis?.scores?.clarityAndIntent },
   ]
@@ -395,7 +395,7 @@ function analysisToMd(a: CompetitorAnalysis): string {
   return [
     `# Agent-readiness analysis - ${a.url}`,
     ``,
-    `Overall: ${a.scores.overall} · Parseability: ${a.scores.parseability} · Structured data: ${a.scores.structuredDataQuality} · Clarity: ${a.scores.clarityAndIntent}`,
+    `Overall: ${a.scores.overall} · Content clarity: ${a.scores.parseability} · Structured data: ${a.scores.structuredDataQuality} · Offer clarity: ${a.scores.clarityAndIntent}`,
     ``,
     `## Missing`,
     ...a.missing.map((m) => `- ${m}`),
