@@ -1,5 +1,5 @@
 -- Transactional SMS is intentionally account-owned rather than listing-owned:
--- a public page's contact details must never become an SMS destination.  V1 is
+-- a public page's contact details must never become an SMS destination. V1 is
 -- seller-only and sends only the fixed “new negotiation needs review” template
 -- to a verified, explicitly opted-in account number.
 
