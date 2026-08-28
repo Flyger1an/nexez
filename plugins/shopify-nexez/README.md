@@ -10,6 +10,9 @@ listing. Two parts:
 - **Theme app extension** (`extensions/agent-ready/`) ships same-origin manifest
   and agent-summary discovery links, plus an optional verification `<meta>`, in
   the storefront `<head>`.
+- **Channel config extension** (`extensions/channel-config/`) declares Nexez as
+  a sales channel, defines the US English channel specification, and lets
+  merchants control which products are published to Nexez.
 - **App server routes** (in the main Nexez Next app) provide OAuth installation,
   mandatory webhooks, and an **App Proxy** that serves the full live artifacts
   under the shop's own domain. All are **inert** until `SHOPIFY_API_KEY` /
@@ -36,7 +39,7 @@ the response to the live `nexez.app/<slug>/<artifact>` resource.
 | `GET /api/shopify/claim` | app.nexez.ai | Consume a one-time token and continue top-level Nexez account linking |
 | `GET /api/shopify/auth` | app.nexez.ai | OAuth install start (SSRF-pinned shop, CSRF state) |
 | `GET /api/shopify/callback` | app.nexez.ai | HMAC + state verify -> expiring offline credentials -> `shopify_installs` |
-| `POST /api/webhooks/shopify` | app.nexez.ai | `app/uninstalled` + GDPR (HMAC-verified) |
+| `POST /api/webhooks/shopify` | app.nexez.ai | Lifecycle, GDPR, and product-feed webhooks (HMAC-verified) |
 | `GET /api/shopify/proxy` | app.nexez.ai | App-Proxy-signed artifact delivery |
 
 Data: `shopify_installs` (migrations `20260711015728` and `20260712222518`)
@@ -49,18 +52,20 @@ atomically cleared on first use.
 
 ## Catalog sync
 
-After a merchant links the installed shop to a Nexez listing, Nexez immediately
-imports the active, published storefront catalog at no additional connector
-charge. The same OAuth installation powers later manual syncs from listing
-settings; merchants never paste an Admin API token into Nexez.
+After a merchant links the installed shop to a Nexez listing, Nexez creates a
+Shopify channel connection and imports only the active products published to the
+Nexez sales channel. Shopify contextual product-feed events keep the connection
+current. The same OAuth installation powers later manual reconciliations from
+listing settings; merchants never paste an Admin API token into Nexez.
 
-Product create, update, and delete webhooks enqueue a debounced catalog refresh.
-A bounded five-minute worker reconciles up to 250 active products per pass,
-retries transient failures, and reports attention state in listing settings.
-Webhook requests never wait on the Shopify Admin API. Deleted or unpublished
-Shopify items are pruned only when Shopify confirms the fetched catalog is
-complete, and only from that exact shop; manual offers and other connected shops
-remain untouched.
+Contextual full-sync and incremental product-feed webhooks enqueue a debounced
+catalog reconciliation. Product create, update, and delete webhooks remain a
+supplemental safety net. A bounded five-minute worker reconciles up to 250 active
+channel products per pass, retries transient failures, and reports attention
+state in listing settings. Webhook requests never wait on the Shopify Admin API.
+Deleted or unpublished Shopify items are pruned only when Shopify confirms the
+fetched catalog is complete, and only from that exact shop. Manual offers and
+other connected shops remain untouched.
 
 Catalog reads use Shopify's GraphQL Admin API and preserve the store currency,
 product and variant IDs, storefront URLs, availability, sellable quantity, and up
@@ -72,15 +77,17 @@ path so buyers and agents complete the purchase on the merchant's Shopify store.
 1. Create the app in your **Shopify Partner** dashboard; copy Client ID/secret and
    set `SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET` in the Nexez environment, plus
    `INTEGRATION_SECRET_KEY` for token encryption.
-2. Keep the embedded App URL, `read_products,write_app_proxy` scopes, redirect URL, App Proxy,
-   compliance topics, and catalog-change webhooks in `shopify.app.toml`
+2. Keep the embedded App URL, `read_products,read_product_listings,write_app_proxy`
+   scopes, redirect URL, App Proxy, compliance topics, and lifecycle webhooks in `shopify.app.toml`
    synchronized with production.
-3. Run `shopify app deploy` (the theme extension has its own release lifecycle,
-   separate from the Vercel `next build`).
-4. Install the app, link the shop to a Nexez listing, confirm the initial catalog
+3. Configure Shopify App Pricing plans and the Partner API billing environment
+   described below.
+4. Run `shopify app deploy`. The theme and channel config extensions have their
+   own release lifecycle, separate from the Vercel `next build`.
+5. Install the app, link the shop to a Nexez listing, confirm the initial catalog
    sync, then use the post-link theme editor button to activate and save the
    Agent-ready discovery app embed.
-5. Resolve every blocking decision in `APP_STORE_READINESS.md`, then complete the
+6. Resolve every blocking decision in `APP_STORE_READINESS.md`, then complete the
    listing, screencast, test credentials, privacy details, and quality checks.
 
 Existing installations created before expiring offline tokens were enabled must
@@ -90,12 +97,22 @@ reauthorization.
 
 ## App Store billing model
 
-The Shopify-installed connector is free: account linking, initial import, manual
-sync, webhook reconciliation, theme discovery links, and the signed storefront
-proxy do not depend on a Nexez subscription. This avoids off-platform billing for
-the public app's Shopify functionality. Manually supplied Shopify credentials are
-part of Nexez's separate integrations product and are not used by this app.
+Shopify-installed accounts use Shopify App Pricing for Free, Launch, Pro, and
+Scale plans. The app sends merchants to Shopify's hosted plan-selection page,
+verifies the active subscription through the Partner API, and mirrors that plan
+into Nexez entitlements. Stripe subscription checkout and the Stripe customer
+portal are disabled for every account linked to an installed Shopify app.
 
-Before App Store submission, confirm whether Shopify classifies Nexez's external
-agent-discovery distribution as a Sales Channel. That classification is separate
-from the connector billing implementation.
+Required server environment:
+
+- `SHOPIFY_PARTNER_ORG_ID`
+- `SHOPIFY_PARTNER_API_ACCESS_TOKEN`
+- `SHOPIFY_APP_GID`
+- `SHOPIFY_APP_HANDLE` (defaults to `nexez-agent-ready`)
+- Optional plan-handle overrides: `SHOPIFY_PLAN_HANDLE_FREE`,
+  `SHOPIFY_PLAN_HANDLE_LAUNCH`, `SHOPIFY_PLAN_HANDLE_PRO`, and
+  `SHOPIFY_PLAN_HANDLE_SCALE`
+
+The Shopify plans must match Nexez's canonical monthly pricing: Free at $0,
+Launch at $19, Pro at $49, and Scale at $149. Enterprise remains sales-assisted
+and is not offered as an off-platform charge inside the Shopify app.

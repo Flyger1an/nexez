@@ -14,6 +14,8 @@ import { syncPageIntegration } from '../../../../lib/server/integration-sync'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { createClient } from '../../../../utils/supabase/server'
 import { requirePageAccess } from '../../../../lib/server/require-page-access'
+import { ensureShopifySalesChannel } from '../../../../lib/server/shopify-channel'
+import { shopifyPartnerBillingConfigured, verifyShopifyBilling } from '../../../../lib/server/shopify-billing'
 
 /**
  * Link the just-installed Shopify shop to one of the signed-in owner's listings.
@@ -135,6 +137,18 @@ export async function POST(request: Request) {
     if (!credentials) {
       sync = { status: 'attention', error: 'Reconnect the Shopify app to import the catalog.' }
     } else {
+      const [{ data: page }, linkedInstall] = await Promise.all([
+        admin.from('pages').select('name, slug').eq('id', pageId).maybeSingle<{ name: string | null; slug: string }>(),
+        getInstallByShop(admin, shop),
+      ])
+      if (!linkedInstall) throw new Error('The Shopify installation disappeared after linking.')
+      await ensureShopifySalesChannel(admin, linkedInstall, credentials, {
+        pageId,
+        accountName: page?.name || page?.slug || 'Nexez catalog',
+      })
+      if (shopifyPartnerBillingConfigured()) {
+        await verifyShopifyBilling(admin, linkedInstall, credentials)
+      }
       const result = await syncPageIntegration(admin, 'shopify', pageId, {
         shopifyCredentials: credentials,
         shopifyMapping: mapping,
@@ -164,5 +178,5 @@ export async function POST(request: Request) {
   }
 
   jar.delete('shopify_pending_shop')
-  return NextResponse.json({ ok: true, shop, pageId, sync })
+  return NextResponse.json({ ok: true, shop, pageId, sync, salesChannel: true })
 }

@@ -10,7 +10,16 @@ vi.mock('../../../../lib/server/shopify', () => ({
 }))
 vi.mock('../../../../lib/server/shopify-install', () => ({
   ensureShopifySessionInstall: vi.fn(),
+  getShopifyInstallCredentialsByShop: vi.fn(async () => null),
   issueShopifyLinkToken: vi.fn(async () => 'link-token'),
+}))
+vi.mock('../../../../lib/server/shopify-channel', () => ({
+  ensureShopifySalesChannel: vi.fn(),
+}))
+vi.mock('../../../../lib/server/shopify-billing', () => ({
+  shopifyPartnerBillingConfigured: vi.fn(() => false),
+  shopifyPricingUrl: vi.fn((shop: string) => `https://admin.shopify.com/store/${shop.split('.')[0]}/charges/nexez-agent-ready/pricing_plans`),
+  verifyShopifyBilling: vi.fn(),
 }))
 vi.mock('../../../../utils/supabase/admin', () => ({
   createAdminClient: vi.fn(),
@@ -79,6 +88,10 @@ describe('POST /api/shopify/session', () => {
       catalog_sync_pending_at: null,
       catalog_sync_attempts: 0,
       catalog_sync_error: null,
+      channel_id: 'gid://shopify/Channel/1',
+      channel_handle: 'nexez-page1',
+      channel_specification_handle: 'nexez-us',
+      channel_connected_at: '2026-07-13T17:00:00Z',
     })
 
     const body = await (await POST(request())).json()

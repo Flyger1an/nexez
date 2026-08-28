@@ -166,7 +166,13 @@ describe('syncPageIntegration', () => {
       services: expect.arrayContaining([expect.objectContaining({ name: 'Existing' })]),
       products: expect.arrayContaining([expect.objectContaining({ name: 'Mug', source: 'shopify' })]),
     })
-    expect(h.importInput).toEqual({ provider: 'shopify', shop: 'oauth-shop.myshopify.com', accessToken: 'oauth-token', limit: 250 })
+    expect(h.importInput).toEqual({
+      provider: 'shopify',
+      shop: 'oauth-shop.myshopify.com',
+      accessToken: 'oauth-token',
+      limit: 250,
+      channelPublishedOnly: true,
+    })
   })
 
   it('never falls back to a manual token when an installed credential lacks its mapping proof', async () => {

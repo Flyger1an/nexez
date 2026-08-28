@@ -14,6 +14,7 @@ import {
   retireSupersededBillingObject,
   stripeBillingIdempotencyKey,
 } from '../../../../lib/server/billing-checkout-attempt'
+import { getOwnerShopifyBillingContext } from '../../../../lib/server/shopify-billing'
 
 // /login and /dashboard/billing live on the APP host (app.nexez.ai), so build
 // these redirects with appUrl() - getBaseUrl() returns the agent-runtime host
@@ -51,6 +52,11 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.redirect(appUrl(`/login?next=/dashboard/billing?plan=${plan.id}`), 303)
+  }
+
+  if (hasSupabaseAdminEnv()) {
+    const shopifyBilling = await getOwnerShopifyBillingContext(createAdminClient(), user.id)
+    if (shopifyBilling) return NextResponse.redirect(shopifyBilling.pricingUrl, 303)
   }
 
   const priceId = getPlanPriceId(plan)

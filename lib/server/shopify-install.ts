@@ -33,6 +33,14 @@ export type ShopifyInstall = {
   mapping_transition_started_at?: string | null
   mapping_transition_owner_id?: string | null
   mapping_transition_page_id?: string | null
+  shop_gid?: string | null
+  channel_id?: string | null
+  channel_handle?: string | null
+  channel_specification_handle?: string | null
+  channel_connected_at?: string | null
+  shopify_plan_handle?: string | null
+  shopify_billing_status?: string | null
+  shopify_billing_verified_at?: string | null
 }
 
 type ShopifyTokenRow = ShopifyInstall & {
@@ -76,7 +84,7 @@ export class ShopifyMappingChangeError extends Error {
 const TOKEN_REFRESH_SKEW_MS = 2 * 60 * 1000
 const SHOPIFY_TOKEN_TIMEOUT_MS = 10_000
 const SHOPIFY_LINK_TOKEN_TTL_MS = 10 * 60 * 1000
-const INSTALL_SELECT = 'shop_domain, owner_id, page_id, scope, uninstalled_at, linked_at, last_synced_at, catalog_sync_pending_at, catalog_sync_attempted_at, catalog_sync_attempts, catalog_sync_error, catalog_sync_topic, mapping_generation, catalog_generation, mapping_transition_token, mapping_transition_kind, mapping_transition_started_at, mapping_transition_owner_id, mapping_transition_page_id'
+const INSTALL_SELECT = 'shop_domain, owner_id, page_id, scope, uninstalled_at, linked_at, last_synced_at, catalog_sync_pending_at, catalog_sync_attempted_at, catalog_sync_attempts, catalog_sync_error, catalog_sync_topic, mapping_generation, catalog_generation, mapping_transition_token, mapping_transition_kind, mapping_transition_started_at, mapping_transition_owner_id, mapping_transition_page_id, shop_gid, channel_id, channel_handle, channel_specification_handle, channel_connected_at, shopify_plan_handle, shopify_billing_status, shopify_billing_verified_at'
 const TOKEN_SELECT = `${INSTALL_SELECT}, offline_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at`
 
 function clearedMappingTransition() {

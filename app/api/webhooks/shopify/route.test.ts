@@ -4,7 +4,15 @@ import crypto from 'node:crypto'
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(() => ({})), hasSupabaseAdminEnv: vi.fn(() => false) }))
 vi.mock('../../../../lib/server/shopify-install', () => ({ markUninstalled: vi.fn(), redactShop: vi.fn() }))
 vi.mock('../../../../lib/server/shopify-catalog-sync', () => ({
-  isShopifyCatalogTopic: (topic: string) => ['products/create', 'products/update', 'products/delete'].includes(topic),
+  isShopifyCatalogTopic: (topic: string) => [
+    'products/create',
+    'products/update',
+    'products/delete',
+    'product_feeds/full_sync',
+    'product_feeds/full_sync_finish',
+    'product_feeds/incremental_sync',
+    'product_feeds/update',
+  ].includes(topic),
   queueShopifyCatalogSync: vi.fn(async () => true),
 }))
 
@@ -89,5 +97,26 @@ describe('POST /api/webhooks/shopify (inert until configured)', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true, queued: true })
     expect(queueShopifyCatalogSync).toHaveBeenCalledWith(expect.anything(), 'demo.myshopify.com', 'products/update')
+  })
+
+  it('queues contextual product feed events for the sales channel worker', async () => {
+    vi.stubEnv('SHOPIFY_API_KEY', 'k')
+    vi.stubEnv('SHOPIFY_API_SECRET', 's')
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+    const body = JSON.stringify({ metadata: { action: 'UPDATE' }, productFeed: { id: 'gid://shopify/ProductFeed/1' } })
+    const hmac = crypto.createHmac('sha256', 's').update(body).digest('base64')
+    const response = await POST(req({
+      'x-shopify-hmac-sha256': hmac,
+      'x-shopify-shop-domain': 'demo.myshopify.com',
+      'x-shopify-topic': 'product_feeds/incremental_sync',
+    }, body))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, queued: true })
+    expect(queueShopifyCatalogSync).toHaveBeenCalledWith(
+      expect.anything(),
+      'demo.myshopify.com',
+      'product_feeds/incremental_sync',
+    )
   })
 })

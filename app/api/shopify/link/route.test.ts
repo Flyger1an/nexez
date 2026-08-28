@@ -63,6 +63,18 @@ vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({ get: () => ({ value: 'tok' }), delete: deletePendingCookie })),
 }))
 vi.mock('../../../../lib/server/shopify', () => ({ shopifyConfigured: () => state.cfg, readPendingShop: () => state.pending }))
+vi.mock('../../../../lib/server/shopify-channel', () => ({
+  ensureShopifySalesChannel: vi.fn(async () => ({
+    id: 'gid://shopify/Channel/1',
+    handle: 'nexez-p1',
+    specificationHandle: 'nexez-us',
+    connectedAt: '2026-08-28T00:00:00Z',
+  })),
+}))
+vi.mock('../../../../lib/server/shopify-billing', () => ({
+  shopifyPartnerBillingConfigured: vi.fn(() => false),
+  verifyShopifyBilling: vi.fn(),
+}))
 vi.mock('../../../../utils/supabase/server', () => ({ createClient: () => ({ auth: { getUser: async () => ({ data: { user: state.user } }) } }) }))
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: () => ({ from: () => adminQuery() }), hasSupabaseAdminEnv: () => true }))
 vi.mock('../../../../lib/server/page-access', () => ({ resolvePageAccess: async () => state.access }))

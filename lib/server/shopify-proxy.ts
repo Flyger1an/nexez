@@ -7,6 +7,55 @@ import { shopifyConfigured, verifyShopifyAppProxySignature } from './shopify'
 import { activeShopifyInstallMapping, getInstallByShop } from './shopify-install'
 
 const ALLOWED_ARTIFACTS = new Set(['agent.json', 'llms.txt', 'openapi.json', 'mcp.json', 'embed.json'])
+const FORWARDED_ARTIFACT_HEADERS = [
+  'access-control-allow-headers',
+  'access-control-allow-methods',
+  'access-control-allow-origin',
+  'cache-control',
+  'content-language',
+  'content-type',
+  'vary',
+] as const
+
+async function serveArtifact(slug: string, artifact: string) {
+  const upstreamUrl = agentRuntimeUrl(`/${slug}/${artifact}`)
+
+  try {
+    const upstream = await fetch(upstreamUrl, {
+      headers: { accept: artifact.endsWith('.txt') ? 'text/plain' : 'application/json' },
+      cache: 'no-store',
+      redirect: 'follow',
+    })
+
+    if (!upstream.ok) {
+      console.error('[shopify-proxy] artifact upstream failed', {
+        artifact,
+        slug,
+        status: upstream.status,
+      })
+      return NextResponse.json({ error: 'The linked artifact is unavailable.' }, { status: 502 })
+    }
+
+    const headers = new Headers()
+    for (const name of FORWARDED_ARTIFACT_HEADERS) {
+      const value = upstream.headers.get(name)
+      if (value) headers.set(name, value)
+    }
+    headers.set('x-content-type-options', 'nosniff')
+
+    return new NextResponse(upstream.body, {
+      status: 200,
+      headers,
+    })
+  } catch (error) {
+    console.error('[shopify-proxy] artifact fetch failed', {
+      artifact,
+      slug,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return NextResponse.json({ error: 'The linked artifact is unavailable.' }, { status: 502 })
+  }
+}
 
 /**
  * Resolve a signed Shopify App Proxy request to a linked Nexez artifact.
@@ -54,5 +103,5 @@ export async function handleShopifyProxy(request: Request, artifactPath?: string
     return NextResponse.json({ error: 'Linked listing not found.' }, { status: 404 })
   }
 
-  return NextResponse.redirect(agentRuntimeUrl(`/${slug}/${artifact}`), 302)
+  return serveArtifact(slug, artifact)
 }

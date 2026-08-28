@@ -13,6 +13,7 @@ import {
   stripeBillingIdempotencyKey,
 } from '../../../../lib/server/billing-checkout-attempt'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { getOwnerShopifyBillingContext } from '../../../../lib/server/shopify-billing'
 
 /**
  * Creates a Stripe Subscription for recurring paid plans using Embedded Components flow.
@@ -49,6 +50,20 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    if (hasSupabaseAdminEnv()) {
+      const shopifyBilling = await getOwnerShopifyBillingContext(createAdminClient(), user.id)
+      if (shopifyBilling) {
+        return NextResponse.json(
+          {
+            error: 'This account is billed through Shopify. Manage its plan in Shopify admin.',
+            provider: 'shopify',
+            pricingUrl: shopifyBilling.pricingUrl,
+          },
+          { status: 409 },
+        )
+      }
     }
 
     const priceId = getPlanPriceId(plan)

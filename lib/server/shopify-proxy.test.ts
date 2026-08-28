@@ -16,6 +16,8 @@ const state = vi.hoisted(() => ({
     mapping_transition_token: null,
   } as any,
   slug: 'demo-listing' as string | null,
+  upstreamStatus: 200,
+  upstreamBody: JSON.stringify({ ok: true, slug: 'demo-listing' }),
 }))
 
 vi.mock('./shopify', () => ({
@@ -79,32 +81,53 @@ describe('handleShopifyProxy', () => {
       mapping_transition_token: null,
     }
     state.slug = 'demo-listing'
+    state.upstreamStatus = 200
+    state.upstreamBody = JSON.stringify({ ok: true, slug: 'demo-listing' })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(state.upstreamBody, {
+      status: state.upstreamStatus,
+      headers: {
+        'content-type': 'application/json',
+        'cache-control': 'public, max-age=120',
+        'x-private-upstream-header': 'not-forwarded',
+      },
+    })))
   })
 
-  it('redirects the proxy root to the default agent manifest', async () => {
+  it('serves the default agent manifest directly with a successful response', async () => {
     const response = await handleShopifyProxy(request())
-    expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('https://nexez.app/demo-listing/agent.json')
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(response.headers.get('content-type')).toContain('application/json')
+    expect(response.headers.get('cache-control')).toBe('public, max-age=120')
+    expect(response.headers.get('x-private-upstream-header')).toBeNull()
+    await expect(response.json()).resolves.toEqual({ ok: true, slug: 'demo-listing' })
+    expect(fetch).toHaveBeenCalledWith(
+      'https://nexez.app/demo-listing/agent.json',
+      expect.objectContaining({ redirect: 'follow', cache: 'no-store' }),
+    )
   })
 
   it('serves an allowlisted child artifact path', async () => {
     const response = await handleShopifyProxy(request(), 'llms.txt')
-    expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('https://nexez.app/demo-listing/llms.txt')
+    expect(response.status).toBe(200)
+    expect(fetch).toHaveBeenCalledWith(
+      'https://nexez.app/demo-listing/llms.txt',
+      expect.objectContaining({ headers: { accept: 'text/plain' } }),
+    )
   })
 
   it('keeps signed installed-app artifacts available below Pro', async () => {
     state.integrationsAllowed = false
     const response = await handleShopifyProxy(request())
-    expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('https://nexez.app/demo-listing/agent.json')
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
   })
 
   it('does not consult the premium entitlement resolver for a signed install', async () => {
     state.entitlementError = true
     const response = await handleShopifyProxy(request())
-    expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('https://nexez.app/demo-listing/agent.json')
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
   })
 
   it('rejects unknown or nested paths instead of becoming an open proxy', async () => {
@@ -132,5 +155,12 @@ describe('handleShopifyProxy', () => {
       mapping_transition_token: 'lease-1',
     }
     expect((await handleShopifyProxy(request())).status).toBe(404)
+  })
+
+  it('returns a controlled gateway error when the live artifact cannot be loaded', async () => {
+    state.upstreamStatus = 404
+    const response = await handleShopifyProxy(request())
+    expect(response.status).toBe(502)
+    await expect(response.json()).resolves.toEqual({ error: 'The linked artifact is unavailable.' })
   })
 })

@@ -48,10 +48,15 @@ vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({
   retireSupersededBillingObject: billingAttempt.retire,
   stripeBillingIdempotencyKey: (attempt: string, operation: string) => `nexez-billing:${operation}:${attempt}`,
 }))
+vi.mock('../../../../lib/server/shopify-billing', () => ({
+  getOwnerShopifyBillingContext: vi.fn(async () => null),
+}))
 
 import { POST } from './route'
 import { createClient } from '../../../../utils/supabase/server'
 import { getBillingPlan, getPlanPriceId, isUniqueSelfServePlanPrice } from '../../../../lib/billing'
+import { hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { getOwnerShopifyBillingContext } from '../../../../lib/server/shopify-billing'
 
 const jsonRequest = (body: Record<string, unknown>) =>
   new Request('https://nexez.test/api/billing/create-subscription', {
@@ -63,6 +68,8 @@ const jsonRequest = (body: Record<string, unknown>) =>
 describe('POST /api/billing/create-subscription', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getOwnerShopifyBillingContext).mockResolvedValue(null)
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(false)
     vi.mocked(isUniqueSelfServePlanPrice).mockReturnValue(true)
     // Default: the customer has NO live subscription, so create-subscription proceeds
     // to mint the first one. Tests exercising a plan change override this.
@@ -105,6 +112,26 @@ describe('POST /api/billing/create-subscription', () => {
     const res = await POST(jsonRequest({ plan: 'pro' }))
 
     expect(res.status).toBe(401)
+  })
+
+  it('blocks Stripe subscription creation for Shopify-linked owners', async () => {
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(createClient).mockReturnValue(createSupabaseMock(() => ({ data: null }), { user: { id: 'u1', email: 'a@b.c' } }) as any)
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+    vi.mocked(getOwnerShopifyBillingContext).mockResolvedValue({
+      provider: 'shopify',
+      shop: 'review.myshopify.com',
+      pricingUrl: 'https://admin.shopify.com/store/review/charges/nexez-agent-ready/pricing_plans',
+      planHandle: 'pro',
+      status: 'active',
+      verifiedAt: '2026-08-28T00:00:00.000Z',
+    })
+
+    const res = await POST(jsonRequest({ plan: 'pro' }))
+
+    expect(res.status).toBe(409)
+    await expect(res.json()).resolves.toMatchObject({ provider: 'shopify' })
+    expect(subscriptionsCreate).not.toHaveBeenCalled()
   })
 
   it('returns setup guidance when Stripe or the plan price is missing', async () => {

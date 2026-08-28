@@ -17,6 +17,7 @@ import { buildMarketplaceLedger, type DirectFinanceRow, type NegotiationFinanceR
 import type { CheckoutEvent } from '../../../lib/checkout-events'
 import { createClient } from '../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { getOwnerShopifyBillingContext } from '../../../lib/server/shopify-billing'
 
 // Client components
 import { AutoRefreshConnect } from '../../../components/billing/AutoRefreshConnect'
@@ -57,6 +58,11 @@ export default async function BillingPage({ searchParams }: BillingProps) {
     .select('*')
     .eq('owner_id', user.id)
     .maybeSingle<BillingSubscription>()
+
+  const admin = hasSupabaseAdminEnv() ? createAdminClient() : null
+  const shopifyBilling = admin
+    ? await getOwnerShopifyBillingContext(admin, user.id)
+    : null
 
   // Canonical trial/paused lifecycle (trial-expiry aware) for the banner + active-plan
   // resolution. Days left is rounded up so "1 day left" shows on the final day.
@@ -109,8 +115,8 @@ export default async function BillingPage({ searchParams }: BillingProps) {
 
   // Resolve the sanitized effective rate server-side so negotiated Enterprise terms
   // render accurately without exposing the commercial-terms table to the browser.
-  const commission = hasSupabaseAdminEnv()
-    ? await getOwnerCommission(createAdminClient(), user.id, trialState)
+  const commission = admin
+    ? await getOwnerCommission(admin, user.id, trialState)
     : getCommercialPlanDefaultCommission(trialState)
   const commissionPct = commission.percent
 
@@ -176,7 +182,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
 
   // Real Stripe invoices for Billing History (replaces the hardcoded placeholders).
   let invoices: Array<{ id: string; date: string; description: string; amount: number; status: 'paid' | 'pending' | 'failed'; hostedUrl: string | null }> = []
-  if (billingState?.stripe_customer_id && process.env.STRIPE_SECRET_KEY) {
+  if (!shopifyBilling && billingState?.stripe_customer_id && process.env.STRIPE_SECRET_KEY) {
     try {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
       const list = await stripe.invoices.list({ customer: billingState.stripe_customer_id, limit: 12 })
@@ -205,7 +211,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
             </div>
             <h1 className="mt-1 text-4xl font-semibold tracking-[-1.5px]">Your plan &amp; payouts</h1>
           </div>
-          <a href="/pricing" className="rounded-2xl border border-white/15 px-5 py-2 text-sm hover:bg-white/5 transition">
+          <a href={shopifyBilling?.pricingUrl || '/pricing'} target={shopifyBilling ? '_top' : undefined} className="rounded-2xl border border-white/15 px-5 py-2 text-sm hover:bg-white/5 transition">
             Compare plans
           </a>
         </header>
@@ -231,7 +237,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
         )}
 
         {/* Trial and Free-fallback lifecycle banners */}
-        {trialState.isTrialing && !effectivePromotion && (
+        {!shopifyBilling && trialState.isTrialing && !effectivePromotion && (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm">
             <span className="text-white">
               <span className="font-semibold">{trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left</span> in your {trialPlanName} trial. Add a payment method to keep this plan after it ends.
@@ -241,7 +247,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
             </a>
           </div>
         )}
-        {trialState.isTrialExpired && !effectivePromotion && trialState.planId === 'free' && (
+        {!shopifyBilling && trialState.isTrialExpired && !effectivePromotion && trialState.planId === 'free' && (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm">
             <span className="text-white">
               <span className="font-semibold">Your paid-plan trial ended.</span> Your account returned to Free and your primary listing remains live.
@@ -276,6 +282,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
             id: page.id,
             name: page.name || page.slug || 'Untitled listing',
           }))}
+          shopifyBilling={shopifyBilling}
         />
       </div>
     </main>

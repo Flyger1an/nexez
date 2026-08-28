@@ -185,6 +185,43 @@ describe('importShopifyOffers', () => {
     expect(r.catalogComplete).toBe(true)
   })
 
+  it('keeps only products published to the installed sales channel when requested', async () => {
+    const product = (id: number, publishedOnCurrentPublication: boolean) => ({
+      id: `gid://shopify/Product/${id}`,
+      title: `Product ${id}`,
+      description: '',
+      handle: `product-${id}`,
+      onlineStoreUrl: `https://acme.myshopify.com/products/product-${id}`,
+      publishedOnCurrentPublication,
+      variants: { nodes: [{
+        id: `gid://shopify/ProductVariant/${id}`,
+        title: 'Default',
+        price: '9.99',
+        availableForSale: true,
+        sellableOnlineQuantity: 1,
+      }] },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({
+      data: {
+        shop: { currencyCode: 'USD' },
+        products: {
+          nodes: [product(1, true), product(2, false)],
+          pageInfo: { hasNextPage: false, endCursor: null },
+        },
+      },
+    })))
+
+    const r = await importShopifyOffers({
+      shop: 'acme.myshopify.com',
+      accessToken: 't',
+      channelPublishedOnly: true,
+    })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.offers.map((offer) => offer.name)).toEqual(['Product 1'])
+    expect(r.note).toContain('Nexez channel products')
+  })
+
   it('marks a limit-truncated Shopify catalog as incomplete', async () => {
     const product = {
       id: 'gid://shopify/Product/1',

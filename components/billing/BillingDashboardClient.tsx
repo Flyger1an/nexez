@@ -106,6 +106,14 @@ interface BillingDashboardClientProps {
   hasEnterpriseOverride?: boolean
   promotion?: PromotionalPlanGrant | null
   fallbackPages?: Array<{ id: string; name: string }>
+  shopifyBilling?: {
+    provider: 'shopify'
+    shop: string
+    pricingUrl: string
+    planHandle: string | null
+    status: string | null
+    verifiedAt: string | null
+  } | null
 }
 
 export default function BillingDashboardClient({
@@ -128,6 +136,7 @@ export default function BillingDashboardClient({
   hasEnterpriseOverride = false,
   promotion = null,
   fallbackPages = [],
+  shopifyBilling = null,
 }: BillingDashboardClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>('overview')
@@ -193,6 +202,11 @@ export default function BillingDashboardClient({
   async function startEmbeddedCheckout(planId: string) {
     const plan = billingPlans.find((p) => p.id === planId)
     if (!plan || plan.id === 'free' || plan.id === 'enterprise') return
+
+    if (shopifyBilling) {
+      window.open(shopifyBilling.pricingUrl, '_top')
+      return
+    }
 
     if (!stripeReady) {
       setCheckoutError('Stripe is not fully configured yet. Add your Stripe keys to enable subscriptions.')
@@ -290,6 +304,10 @@ export default function BillingDashboardClient({
   }
 
   function handleInvoiceDownload(inv: Invoice) {
+    if (shopifyBilling) {
+      window.open(shopifyBilling.pricingUrl, '_top')
+      return
+    }
     // Open the real Stripe-hosted invoice when we have its URL; otherwise fall back
     // to the customer portal (the source of truth for all invoices).
     if (inv.hostedUrl) {
@@ -440,7 +458,9 @@ export default function BillingDashboardClient({
                   : promotion
                     ? 'Returns to Free when the promotion ends. No automatic charge.'
                   : activePlan?.cadence
-                    ? `Billed ${activePlan.cadence} • Cancel anytime via Stripe portal`
+                    ? shopifyBilling
+                      ? `Billed through Shopify • Manage this plan in Shopify admin`
+                      : `Billed ${activePlan.cadence} • Cancel anytime via Stripe portal`
                     : 'No active subscription • Upgrade anytime'}
               </p>
             </div>
@@ -454,7 +474,15 @@ export default function BillingDashboardClient({
                   <ArrowUp className="size-4" /> Upgrade plan
                 </button>
               )}
-              {billingState?.stripe_subscription_id && (
+              {shopifyBilling ? (
+                <a
+                  href={shopifyBilling.pricingUrl}
+                  target="_top"
+                  className="rounded-2xl border border-[var(--bd-15)] px-6 py-3 text-sm hover:bg-white/5 transition"
+                >
+                  Manage in Shopify
+                </a>
+              ) : billingState?.stripe_subscription_id && (
                 <form action="/api/billing/portal" method="post">
                   <button className="rounded-2xl border border-[var(--bd-15)] px-6 py-3 text-sm hover:bg-white/5 transition">
                     Manage subscription
@@ -462,7 +490,8 @@ export default function BillingDashboardClient({
                 </form>
               )}
               <a
-                href="/pricing"
+                href={shopifyBilling?.pricingUrl || '/pricing'}
+                target={shopifyBilling ? '_top' : undefined}
                 className="rounded-2xl border border-[var(--bd-15)] px-6 py-3 text-sm hover:bg-white/5 transition inline-flex items-center"
               >
                 Full comparison
@@ -589,23 +618,29 @@ export default function BillingDashboardClient({
           </GlassCard>
         </div>
 
-        {/* Payment method (requirement #3) – consolidated */}
+        {/* Subscription payment source */}
         <GlassCard className="p-7">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-16 items-center justify-center rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-04)] font-mono text-xs text-[var(--fg-muted)]">
-                {billingState?.stripe_customer_id ? '••••' : '-'}
+                {shopifyBilling ? 'SHOP' : billingState?.stripe_customer_id ? '••••' : '-'}
               </div>
               <div>
-                <div className="font-medium">Payment method</div>
+                <div className="font-medium">{shopifyBilling ? 'Shopify billing' : 'Payment method'}</div>
                 <div className="text-sm text-[var(--fg-muted)] mt-0.5">
-                  {billingState?.stripe_customer_id
+                  {shopifyBilling
+                    ? `Nexez app charges for ${shopifyBilling.shop} are processed by Shopify and appear on the merchant's Shopify invoice.`
+                    : billingState?.stripe_customer_id
                     ? 'Card on file is stored and managed securely by Stripe.'
                     : 'No payment method is attached yet.'}
                 </div>
               </div>
             </div>
-            {billingState?.stripe_customer_id ? (
+            {shopifyBilling ? (
+              <a href={shopifyBilling.pricingUrl} target="_top" className="rounded-2xl border border-[var(--bd-15)] px-5 py-2.5 text-sm hover:bg-white/5 transition">
+                Manage plan in Shopify
+              </a>
+            ) : billingState?.stripe_customer_id ? (
               <form action="/api/billing/portal" method="post">
                 <button className="rounded-2xl border border-[var(--bd-15)] px-5 py-2.5 text-sm hover:bg-white/5 transition">
                   Update payment method →
@@ -672,11 +707,17 @@ export default function BillingDashboardClient({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <SectionHeader icon={History} title="Billing history" subtitle="Recent invoices and account records" />
-        <form action="/api/billing/portal" method="post">
-          <button className="text-sm text-[var(--signal)] hover:underline flex items-center gap-1">
-            View full history in Stripe <Download className="size-3.5" />
-          </button>
-        </form>
+        {shopifyBilling ? (
+          <a href={shopifyBilling.pricingUrl} target="_top" className="text-sm text-[var(--signal)] hover:underline flex items-center gap-1">
+            View billing in Shopify <ExternalLink className="size-3.5" />
+          </a>
+        ) : (
+          <form action="/api/billing/portal" method="post">
+            <button className="text-sm text-[var(--signal)] hover:underline flex items-center gap-1">
+              View full history in Stripe <Download className="size-3.5" />
+            </button>
+          </form>
+        )}
       </div>
 
       <GlassCard className="overflow-hidden">
@@ -699,7 +740,9 @@ export default function BillingDashboardClient({
               {sortedInvoices.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-6 py-10 text-center text-sm text-[var(--fg-muted)]">
-                    No invoices yet. Paid-subscription invoices appear here (and in your Stripe portal) after your first payment.
+                    {shopifyBilling
+                      ? 'Shopify-managed subscription charges and receipts appear in Shopify admin.'
+                      : 'No invoices yet. Paid-subscription invoices appear here (and in your Stripe portal) after your first payment.'}
                   </td>
                 </tr>
               )}
@@ -739,7 +782,9 @@ export default function BillingDashboardClient({
       </GlassCard>
 
       <p className="text-center text-xs text-[var(--fg-muted)]">
-        All invoices and receipts are also available in your Stripe customer portal.
+        {shopifyBilling
+          ? 'Shopify is the source of truth for this account’s app subscription and receipts.'
+          : 'All invoices and receipts are also available in your Stripe customer portal.'}
       </p>
     </div>
   )
@@ -771,8 +816,15 @@ export default function BillingDashboardClient({
           </div>
         </GlassCard>
 
-        {/* Stripe Connect – full management (dual revenue model) */}
-        <GlassCard className="p-8">
+        {/* Shopify product sales settle in Shopify. Direct Nexez commerce uses Connect. */}
+        {shopifyBilling ? (
+          <GlassCard className="p-8">
+            <SectionHeader icon={CreditCard} title="Shopify product settlement" subtitle="Checkout and payouts stay in Shopify" />
+            <p className="text-sm text-[var(--fg-muted)] max-w-prose">
+              Products imported through the Nexez Shopify sales channel send buyers back to the merchant’s Shopify storefront. Shopify handles checkout, payment processing, refunds, and payouts for those sales.
+            </p>
+          </GlassCard>
+        ) : <GlassCard className="p-8">
           <div className="mb-6">
             <div className="text-lg font-semibold tracking-tight">Payout account (Stripe Connect)</div>
             <div className="text-sm text-[var(--fg-muted)]">Receive earnings from transactions (you are the merchant of record for customer payments).</div>
@@ -814,7 +866,7 @@ export default function BillingDashboardClient({
           <div className="mt-8 text-[10px] text-[var(--fg-muted)]">
             Separate from your Nexez subscription billing. Transaction revenue uses Stripe Connect + application fees.
           </div>
-        </GlassCard>
+        </GlassCard>}
       </div>
     )
   }
@@ -825,7 +877,13 @@ export default function BillingDashboardClient({
     return (
       <div className="space-y-8">
         <div>
-          <SectionHeader icon={Sparkles} title="Plans & Pricing" subtitle="Switch plans anytime. Billed monthly. Cancel via Stripe portal." />
+          <SectionHeader
+            icon={Sparkles}
+            title="Plans & Pricing"
+            subtitle={shopifyBilling
+              ? 'Choose and manage plans through Shopify App Pricing.'
+              : 'Switch plans anytime. Billed monthly. Cancel via Stripe portal.'}
+          />
           <p className="text-sm text-[var(--fg-muted)] max-w-prose">
             Paid plans include lower platform fees on transactions. All plans (including Free) allow you to earn through your published agents.
           </p>
@@ -837,7 +895,7 @@ export default function BillingDashboardClient({
             const isCurrent = plan.id === currentId
             const isLoadingThis = checkoutLoading === plan.id
             const isSelected = selectedPlanId === plan.id
-            const planCheckoutReady = plan.id === 'free' || plan.id === 'enterprise' || configuredPlanIds.includes(plan.id)
+            const planCheckoutReady = Boolean(shopifyBilling) || plan.id === 'free' || plan.id === 'enterprise' || configuredPlanIds.includes(plan.id)
             const planEconomics = getPlanEconomics(plan.id)
             const planTotalCents = planEconomics ? monthlyNexezCost(agentRevenueCents, planEconomics) : null
             const honestSavingsCents =
@@ -893,7 +951,15 @@ export default function BillingDashboardClient({
                 </ul>
 
                 <div className="mt-8">
-                  {isCurrent ? (
+                  {shopifyBilling ? (
+                    <a
+                      href={shopifyBilling.pricingUrl}
+                      target="_top"
+                      className="block w-full rounded-2xl bg-[var(--signal-solid)] py-3 text-center text-sm font-semibold text-white transition hover:opacity-90"
+                    >
+                      {isCurrent ? 'Manage in Shopify' : 'Choose in Shopify'}
+                    </a>
+                  ) : isCurrent ? (
                     <button
                       onClick={() => setActiveTab('overview')}
                       className="w-full rounded-2xl border border-[var(--bd-15)] py-3 text-sm hover:bg-white/5 transition"
@@ -958,7 +1024,7 @@ export default function BillingDashboardClient({
         </div>
 
         {/* Inline glassmorphic Embedded Checkout panel (requirement #7) */}
-        {(selectedPlanId || clientSecret || checkoutError || checkoutSuccess) && (
+        {!shopifyBilling && (selectedPlanId || clientSecret || checkoutError || checkoutSuccess) && (
           <GlassCard className="p-8 border-[var(--signal)]/40">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -999,7 +1065,9 @@ export default function BillingDashboardClient({
         )}
 
         <p className="text-center text-[10px] text-[var(--fg-muted)]">
-          Stripe processes subscriptions. Nexez commission applies only to sales completed through Nexez. Card-processing fees are separate.
+          {shopifyBilling
+            ? 'App subscriptions are processed by Shopify. Shopify-imported product purchases stay on the merchant’s Shopify storefront.'
+            : 'Subscriptions are processed by Stripe. Nexez commissions apply only to Nexez-settled transactions; payment-processing fees are separate.'}
         </p>
       </div>
     )
