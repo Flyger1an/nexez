@@ -3,6 +3,7 @@ import { ArrowRight, BellRing, CheckCircle2, ExternalLink, MessageSquareText, Sh
 import { appUrl, marketingUrl } from '../../lib/site'
 import {
   SMS_CONSENT_CORE_COPY,
+  SMS_PRIVACY_NON_SHARING_COPY,
   SMS_SAMPLE_MESSAGE,
   SMS_SETTINGS_PATH,
 } from '../../lib/sms-consent'
@@ -170,8 +171,7 @@ export default function SmsNotificationsPage() {
           <article className="rounded-3xl border border-[var(--line)] bg-[var(--fill-1)] p-6 sm:p-8">
             <h2 className="text-xl font-semibold">Privacy and control</h2>
             <p className="mt-5 text-sm leading-6 text-[var(--fg-muted)]">
-              Nexez does not share mobile information or SMS consent with third parties or affiliates for marketing or
-              promotional purposes. Sellers can turn SMS off in Account settings at any time.
+              {SMS_PRIVACY_NON_SHARING_COPY} Sellers can turn SMS off in Account settings at any time.
             </p>
             <div className="mt-5 flex flex-wrap gap-4 text-sm font-semibold">
               <a className="text-[var(--signal)] hover:underline" href="/privacy">Privacy Policy</a>

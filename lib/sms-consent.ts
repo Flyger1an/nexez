@@ -7,5 +7,8 @@ export const SMS_CONSENT_CORE_COPY =
 
 export const SMS_CONSENT_LEGAL_COPY = 'See our Terms and Privacy Policy.'
 
+export const SMS_PRIVACY_NON_SHARING_COPY =
+  'We do not share, sell, or provide your mobile phone number or messaging consent data to third parties or affiliates for marketing or promotional purposes.'
+
 export const SMS_SAMPLE_MESSAGE =
   'Nexez: A new negotiation needs review. Sign in to your dashboard: https://app.nexez.ai/dashboard/negotiations Reply STOP to opt out.'
