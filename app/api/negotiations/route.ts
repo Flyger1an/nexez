@@ -117,7 +117,7 @@ export async function POST(request: Request) {
   if (limited) return limited
 
   if (!input.slug || !input.offer) {
-    return NextResponse.json({ error: 'Missing negotiation page or offer.' }, { status: 400 })
+    return NextResponse.json({ error: 'Missing negotiation listing or offer.' }, { status: 400 })
   }
   if (!hasSupabaseAdminEnv()) {
     return NextResponse.json(
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
 
   const page = await getPublishedPage(input.slug)
   if (!page) {
-    return NextResponse.json({ error: 'Negotiation page not found.' }, { status: 404 })
+    return NextResponse.json({ error: 'Negotiation listing not found.' }, { status: 404 })
   }
 
   const offer = getCheckoutOffer(page, input.offer)
@@ -152,7 +152,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const ownerNegotiationAllowed = ownerId ? await ownerAllows(admin, ownerId, 'negotiation') : false
   if (!ownerNegotiationAllowed) {
-    return NextResponse.json({ error: 'This page is not accepting offers - use the listed price to book or buy.' }, { status: 403 })
+    return NextResponse.json({ error: 'This listing is not accepting offers - use the listed price to book or buy.' }, { status: 403 })
   }
 
   // Compatibility gate for an explicit operational suspension. Billing expiry

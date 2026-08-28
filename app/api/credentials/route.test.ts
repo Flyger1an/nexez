@@ -137,7 +137,7 @@ describe('POST /api/credentials (collaborator-aware)', () => {
     accessRef.fn = () => null
     const res = await POST(postReq({ pageId: 'p1', file: pngFile() }))
     expect(res.status).toBe(403)
-    expect(await res.json()).toMatchObject({ error: 'You do not have edit access to this page.' })
+    expect(await res.json()).toMatchObject({ error: 'You do not have edit access to this listing.' })
   })
 
   it('the OWNER can upload (201) and writes are scoped to the owner id', async () => {

@@ -635,7 +635,7 @@ export function analyzeQueryRank(field: AgentPage[], target: AgentPage, query: s
     if (c.score > targetScore) reasons.push('Stronger relevance - matches more of your query')
     else if (c.score === targetScore && c.readiness > targetReadiness)
       reasons.push(`Tied on relevance, but more complete (readiness ${c.readiness}% vs your ${targetReadiness}%)`)
-    if (termsYouMiss.length) reasons.push(`Mentions ${termsYouMiss.map((t) => `“${t}”`).join(', ')} where your page doesn't`)
+    if (termsYouMiss.length) reasons.push(`Mentions ${termsYouMiss.map((t) => `“${t}”`).join(', ')} where your listing doesn't`)
     if (!reasons.length) reasons.push('Edges you out on the published evidence tie-break')
     return { name: c.page.name, slug: c.page.slug, score: c.score, readiness: c.readiness, reasons, termsYouMiss }
   })
@@ -647,8 +647,8 @@ export function analyzeQueryRank(field: AgentPage[], target: AgentPage, query: s
     const keyTerms = meaningfulTerms(tokens)
     toWin.push(
       keyTerms.length
-        ? `Your page doesn't surface for this query. Work its key terms into an offer name or description: ${keyTerms.map((t) => `“${t}”`).join(', ')}.`
-        : `Your page doesn't surface for this query. Name your offers the way buyers phrase what they want.`,
+        ? `Your listing doesn't surface for this query. Work its key terms into an offer name or description: ${keyTerms.map((t) => `“${t}”`).join(', ')}.`
+        : `Your listing doesn't surface for this query. Name your offers the way buyers phrase what they want.`,
     )
   } else if (rank === 1) {
     toWin.push('You already rank #1 for this query - keep your readiness high to hold the top spot.')
@@ -658,7 +658,7 @@ export function analyzeQueryRank(field: AgentPage[], target: AgentPage, query: s
     if (tiedHigherReadiness) toWin.push(`Raise your readiness (currently ${targetReadiness}%) - publish, and fill in audience, FAQs, and prices to win the tie-break.`)
     if (!termsToAdd.length && !tiedHigherReadiness) toWin.push('Sharpen your offer names and descriptions to match buyer phrasing more directly.')
   }
-  if (!target.is_published) toWin.unshift('This page is unpublished, so it has no real discovery rank yet - the position above is projected. Publish to compete.')
+  if (!target.is_published) toWin.unshift('This listing is unpublished, so it has no real discovery rank yet - the position above is projected. Publish to compete.')
 
   return {
     query,

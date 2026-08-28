@@ -49,7 +49,7 @@ async function authedOwner(pageId: string, actingUser?: any): Promise<AuthedOwne
     userEmailConfirmedAt: user.email_confirmed_at,
     requireEditor: true,
   })
-  if (!access) return { error: NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 }) }
+  if (!access) return { error: NextResponse.json({ error: 'You do not have edit access to this listing.' }, { status: 403 }) }
 
   const admin = createAdminClient()
   // Ownership already proven by resolvePageAccess - load the trusted page row by id
@@ -59,7 +59,7 @@ async function authedOwner(pageId: string, actingUser?: any): Promise<AuthedOwne
     .select('id, owner_id, name, industry, location, verification_details')
     .eq('id', access.pageId)
     .maybeSingle()
-  if (!page) return { error: NextResponse.json({ error: 'Page not found, or you do not own it.' }, { status: 403 }) }
+  if (!page) return { error: NextResponse.json({ error: 'Listing not found, or you do not own it.' }, { status: 403 }) }
   return { admin, user, access, page: page as any }
 }
 

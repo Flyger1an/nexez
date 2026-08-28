@@ -109,7 +109,7 @@ describe('platform documentation source of truth', () => {
       .flatMap((chapter) => chapter.capabilities)
       .find((capability) => capability.name === 'Teams and controlled collaboration')
 
-    expect(JSON.stringify(collaboration)).toMatch(/listing content.*page-scoped configuration/i)
+    expect(JSON.stringify(collaboration)).toMatch(/listing content.*listing-scoped configuration/i)
     expect(JSON.stringify(collaboration)).toMatch(/Owner-only.*transaction decisions.*money movement.*negotiation lifecycle.*final approvals/i)
   })
 

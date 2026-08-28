@@ -46,7 +46,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       requireEditor: true,
     })
     if (!access) {
-      return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+      return NextResponse.json({ error: 'You do not have edit access to this listing.' }, { status: 403 })
     }
 
     const admin = createAdminClient()

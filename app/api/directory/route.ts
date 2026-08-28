@@ -131,7 +131,7 @@ export async function GET(request: Request) {
     }),
     results,
     // Helpful for agents consuming the directory
-    note: 'All results are published agent-optimized pages. Use /<slug>/agent.json or /<slug> for full context.',
+    note: 'All results are published agent-optimized listings. Use /<slug>/agent.json or /<slug> for full context.',
   })
 }
 

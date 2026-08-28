@@ -40,7 +40,7 @@ const WIDGET_JS = `
     var publicUrl = origin + '/' + encodeURIComponent(opts.slug);
 
     var btn = document.createElement('button');
-    btn.setAttribute('aria-label', opts.label || 'Book via agent-optimized page');
+    btn.setAttribute('aria-label', opts.label || 'Book via agent-optimized listing');
     btn.style.position = 'fixed';
     btn.style.bottom = '24px';
     btn.style.right = '24px';

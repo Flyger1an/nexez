@@ -117,10 +117,10 @@ export async function POST(request: NextRequest) {
     .maybeSingle<{ id: string; owner_id: string; custom_domain: string | null }>()
 
   if (pageError) {
-    return NextResponse.json({ error: 'Could not load page for verification.' }, { status: 500 })
+    return NextResponse.json({ error: 'Could not load listing for verification.' }, { status: 500 })
   }
   if (!page) {
-    return NextResponse.json({ error: 'Save this domain on a page you own before verifying it.' }, { status: 403 })
+    return NextResponse.json({ error: 'Save this domain on a listing you own before verifying it.' }, { status: 403 })
   }
 
   const claimResult = await getCustomDomainClaim(admin, access.pageId)
@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (token && String(token).trim() !== expected) {
-    return NextResponse.json({ error: 'Verification token does not match the saved token for this page.' }, { status: 400 })
+    return NextResponse.json({ error: 'Verification token does not match the saved token for this listing.' }, { status: 400 })
   }
 
   const verifyHost = getVerifyHost(domain)

@@ -116,7 +116,7 @@ describe('POST /api/ai/enhance', () => {
     accessRef.fn = () => null
     const res = await POST(post({ description: 'hello', pageId: 'p1' }))
     expect(res.status).toBe(403)
-    expect(await res.json()).toMatchObject({ error: 'You do not have edit access to this page.' })
+    expect(await res.json()).toMatchObject({ error: 'You do not have edit access to this listing.' })
     expect(ownerAllowsRef.calls).toEqual([])
   })
 

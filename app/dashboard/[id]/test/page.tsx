@@ -427,7 +427,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                   <StatusPill label="Private draft" tone="attention" className="mx-auto" />
                   <h4 className="mt-4 text-2xl font-semibold tracking-tight">Publish to activate the live embed</h4>
                   <p className="mt-3 text-sm leading-6 text-[var(--fg-muted)]">
-                    The agent analysis above uses your owner-visible draft safely. The public page and embed remain unavailable until you publish this listing.
+                    The agent analysis above uses your owner-visible draft safely. The public listing and embed remain unavailable until you publish it.
                   </p>
                 </div>
               </div>

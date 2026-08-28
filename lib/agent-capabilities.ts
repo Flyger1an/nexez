@@ -12,7 +12,7 @@ export function buildNexezCapabilities() {
   return {
     schema_version: 'nexez.capabilities.v1',
     name: 'Nexez',
-    description: 'AI-readable discovery, offer manifests, and checkout handoff for published business pages.',
+    description: 'AI-readable discovery, offer manifests, and checkout handoff for published business listings.',
     homepage_url: baseUrl,
     agent_access_url: distribution.docs_url,
     llms_url: `${baseUrl}/llms.txt`,
@@ -32,21 +32,21 @@ export function buildNexezCapabilities() {
         method: 'GET',
         url_template: `${baseUrl}/api/agent-search?q={query}`,
         authentication: 'none',
-        purpose: 'Find published pages and offer-level checkout actions from a buyer request.',
+        purpose: 'Find published listings and offer-level checkout actions from a buyer request.',
       },
       {
         name: 'MCP discovery catalog',
         method: 'GET',
         url_template: `${baseUrl}/.well-known/mcp.json`,
         authentication: 'none',
-        purpose: 'List published pages that expose MCP-compatible resources and offer tools.',
+        purpose: 'List published listings that expose MCP-compatible resources and offer tools.',
       },
       {
-        name: 'Agent page manifest',
+        name: 'Agent listing manifest',
         method: 'GET',
         url_template: `${baseUrl}/{slug}/agent.json`,
         authentication: 'none',
-        purpose: 'Read complete structured seller, offer, FAQ, and checkout context for one published page.',
+        purpose: 'Read complete structured seller, offer, FAQ, and checkout context for one published listing.',
       },
       {
         name: 'Agent checkout handoff',
@@ -223,14 +223,14 @@ export function buildOpenApiSpec() {
     info: {
       title: 'Nexez Agent API',
       version: '0.1.0',
-      description: 'Discovery and checkout handoff API for AI-readable product and service pages.',
+      description: 'Discovery and checkout handoff API for AI-readable product and service listings.',
       'x-nexez-agent-distribution': distribution,
     },
     servers: [{ url: baseUrl }],
     paths: {
       '/api/agent-search': {
         get: {
-          summary: 'Search published agent pages and offers',
+          summary: 'Search published agent listings and offers',
           operationId: 'searchAgentPages',
           parameters: [
             {
@@ -289,7 +289,7 @@ export function buildOpenApiSpec() {
           ],
           responses: {
             '200': {
-              description: 'Offer-level matches with checkout URLs and page manifests.',
+              description: 'Offer-level matches with checkout URLs and listing manifests.',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/AgentSearchResponse' },
@@ -301,11 +301,11 @@ export function buildOpenApiSpec() {
       },
       '/agent-pages.json': {
         get: {
-          summary: 'List published agent pages',
+          summary: 'List published agent listings',
           operationId: 'listAgentPages',
           responses: {
             '200': {
-              description: 'Published page index with manifest and checkout URLs.',
+              description: 'Published listing index with manifest and checkout URLs.',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/AgentPageIndex' },
@@ -317,11 +317,11 @@ export function buildOpenApiSpec() {
       },
       '/.well-known/mcp.json': {
         get: {
-          summary: 'List MCP-enabled agent pages',
+          summary: 'List MCP-enabled agent listings',
           operationId: 'listMcpEnabledAgentPages',
           responses: {
             '200': {
-              description: 'Discovery catalog for pages exposing MCP-compatible resources.',
+              description: 'Discovery catalog for listings exposing MCP-compatible resources.',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/McpDiscoveryCatalog' },
@@ -333,7 +333,7 @@ export function buildOpenApiSpec() {
       },
       '/{slug}/agent.json': {
         get: {
-          summary: 'Read one published page manifest',
+          summary: 'Read one published listing manifest',
           operationId: 'getAgentPageManifest',
           parameters: [
             {
@@ -352,7 +352,7 @@ export function buildOpenApiSpec() {
                 },
               },
             },
-            '404': { description: 'No published page for this slug.' },
+            '404': { description: 'No published listing for this slug.' },
           },
         },
       },
@@ -378,7 +378,7 @@ export function buildOpenApiSpec() {
                 },
               },
             },
-            '404': { description: 'Page or offer not found.' },
+            '404': { description: 'Listing or offer not found.' },
             '409': { description: 'Checkout is not configured for this offer.' },
           },
         },
@@ -411,12 +411,12 @@ export function buildOpenApiSpec() {
       },
       '/api/v1/pages': {
         get: {
-          summary: 'List your pages (programmatic API)',
+          summary: 'List your listings (programmatic API)',
           operationId: 'listOwnerPages',
           security: [{ bearerAuth: [] }],
           responses: {
             '200': {
-              description: 'Pages owned by the authenticated API key.',
+              description: 'Listings owned by the authenticated API key.',
               content: { 'application/json': { schema: { type: 'object', properties: { pages: { type: 'array', items: { type: 'object' } } } } } },
             },
             '401': { description: 'Missing, invalid, or revoked API key.' },
@@ -424,7 +424,7 @@ export function buildOpenApiSpec() {
           },
         },
         post: {
-          summary: 'Create a page (programmatic API)',
+          summary: 'Create a listing (programmatic API)',
           operationId: 'createOwnerPage',
           security: [{ bearerAuth: [] }],
           requestBody: {
@@ -453,7 +453,7 @@ export function buildOpenApiSpec() {
           },
           responses: {
             '201': {
-              description: 'Created page + public URL.',
+              description: 'Created listing + public URL.',
               content: { 'application/json': { schema: { type: 'object', properties: { page: { type: 'object' }, url: { type: 'string' } } } } },
             },
             '400': { description: 'Missing name or invalid body.' },
@@ -464,31 +464,31 @@ export function buildOpenApiSpec() {
       },
       '/api/v1/pages/{id}': {
         get: {
-          summary: 'Get one of your pages (programmatic API)',
+          summary: 'Get one of your listings (programmatic API)',
           operationId: 'getOwnerPage',
           security: [{ bearerAuth: [] }],
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           responses: {
-            '200': { description: 'The page.', content: { 'application/json': { schema: { type: 'object', properties: { page: { type: 'object' } } } } } },
+            '200': { description: 'The listing.', content: { 'application/json': { schema: { type: 'object', properties: { page: { type: 'object' } } } } } },
             '401': { description: 'Missing, invalid, or revoked API key.' },
-            '404': { description: 'Page not found for this owner.' },
+            '404': { description: 'Listing not found for this owner.' },
             '503': { description: 'Programmatic API not configured on this deployment.' },
           },
         },
         patch: {
-          summary: 'Update one of your pages (programmatic API)',
+          summary: 'Update one of your listings (programmatic API)',
           operationId: 'updateOwnerPage',
           security: [{ bearerAuth: [] }],
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           requestBody: {
             required: true,
-            content: { 'application/json': { schema: { type: 'object', description: 'Any writable page fields (name, description, services, products, faqs, is_published, custom_domain, domain_path, ...).' } } },
+            content: { 'application/json': { schema: { type: 'object', description: 'Any writable listing fields (name, description, services, products, faqs, is_published, custom_domain, domain_path, ...).' } } },
           },
           responses: {
-            '200': { description: 'Updated page + public URL.', content: { 'application/json': { schema: { type: 'object', properties: { page: { type: 'object' }, url: { type: 'string' } } } } } },
+            '200': { description: 'Updated listing + public URL.', content: { 'application/json': { schema: { type: 'object', properties: { page: { type: 'object' }, url: { type: 'string' } } } } } },
             '400': { description: 'No writable fields or invalid body.' },
             '401': { description: 'Missing, invalid, or revoked API key.' },
-            '404': { description: 'Page not found for this owner.' },
+            '404': { description: 'Listing not found for this owner.' },
             '503': { description: 'Programmatic API not configured on this deployment.' },
           },
         },
@@ -635,7 +635,7 @@ export function buildPageOpenApiSpec(
     paths: {
       [`/${page.slug}/agent.json`]: {
         get: {
-          summary: 'Read this page\'s manifest',
+          summary: 'Read this listing\'s manifest',
           operationId: 'getAgentPageManifest',
           responses: {
             '200': {
@@ -646,7 +646,7 @@ export function buildPageOpenApiSpec(
                 },
               },
             },
-            '404': { description: 'No published page for this slug.' },
+            '404': { description: 'No published listing for this slug.' },
           },
         },
       },
@@ -672,7 +672,7 @@ export function buildPageOpenApiSpec(
                 },
               },
             },
-            '404': { description: 'Page or offer not found.' },
+            '404': { description: 'Listing or offer not found.' },
             '409': { description: 'Checkout is not configured for this offer.' },
           },
         },

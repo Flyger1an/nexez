@@ -122,7 +122,7 @@ describe('requirePageAccess', () => {
     })
 
     it('lets the resolver deny with its own response', async () => {
-      const denial = NextResponse.json({ error: 'No page you own uses this domain.' }, { status: 403 })
+      const denial = NextResponse.json({ error: 'No listing you own uses this domain.' }, { status: 403 })
       const result = await requirePageAccess({ pageId: async () => denial })
       expect(result.ok).toBe(false)
       if (result.ok) return

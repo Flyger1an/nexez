@@ -60,10 +60,10 @@ function buildSupportResponse(input: Required<Pick<SupportAssistInput, 'category
       confidence: 82,
       summary: `I’d start by checking the agent-facing files for ${target}. Most visibility issues come from publish status, missing offer detail, or stale discovery files.`,
       steps: [
-        'Confirm the page is published and has at least one complete offer.',
-        'Open the public page, /llms.txt, and /agent.json to confirm each responds.',
+        'Confirm the listing is published and has at least one complete offer.',
+        'Open the public listing, /llms.txt, and /agent.json to confirm each responds.',
         'Run the Simulator to see whether schema, CTAs, and buyer context are parsed clearly.',
-        'If the page was just changed, wait a few minutes and re-test from the public URL.',
+        'If the listing was just changed, wait a few minutes and re-test from the public URL.',
       ],
       escalationHint: 'Create a ticket if the files load but the simulator or crawlers still miss key offers.',
     }
@@ -116,7 +116,7 @@ function buildSupportResponse(input: Required<Pick<SupportAssistInput, 'category
     summary: `For ${target}, I’d narrow this to the affected page, feature area, and the result you expected.`,
     steps: [
       'Select the exact page or workspace area where the issue appears.',
-      'Check whether the page is published, recently edited, or connected to an integration.',
+      'Check whether the listing is published, recently edited, or connected to an integration.',
       'Run the closest built-in test: Simulator for parsing, Analytics for events, or Integrations for sync.',
       'If the answer still feels off, create a ticket and Nexez support gets the full context.',
     ],

@@ -109,8 +109,8 @@ export function buildUrlSimComparison(url: string, r: ImportResult): UrlSimCompa
   if (faqCount) gains.push(`${faqCount} FAQ${faqCount === 1 ? '' : 's'} agents can quote to clear objections`)
 
   const verdict = detectedOffers
-    ? `Nexez would turn ${host} into a page an AI agent can act on - ${offers.length} structured offer${offers.length === 1 ? '' : 's'} with a callable checkout and a projected ${readiness}% readiness, up from raw HTML an agent has to guess at.`
-    : `We couldn't auto-detect structured offers on ${host} from its public pages - an agent-ready Nexez page would add the offer list, prices, and actions an agent needs.`
+    ? `Nexez would turn ${host} into a listing an AI agent can act on - ${offers.length} structured offer${offers.length === 1 ? '' : 's'} with a callable checkout and a projected ${readiness}% readiness, up from raw HTML an agent has to guess at.`
+    : `We couldn't auto-detect structured offers on ${host} from its public pages - an agent-ready Nexez listing would add the offer list, prices, and actions an agent needs.`
 
   return {
     url,

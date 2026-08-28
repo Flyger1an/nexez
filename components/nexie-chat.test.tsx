@@ -105,7 +105,7 @@ describe('NexieChat (regression after the agent-chat factor-out)', () => {
     expect(calls[1].payload).toEqual({ message: 'find a strategist', mode: 'text', threadId: undefined })
   })
 
-  it('renders page_result cards with the View page link', async () => {
+  it('renders page_result cards with the View listing link', async () => {
     mockFetch([
       {
         body: {
@@ -134,7 +134,7 @@ describe('NexieChat (regression after the agent-chat factor-out)', () => {
     render(<NexieChat />)
     await sendText('find a photographer')
     await waitFor(() => expect(screen.getByText('Apex Photography')).toBeInTheDocument())
-    expect(screen.getByRole('link', { name: 'View page' })).toHaveAttribute('href', 'https://nexez.app/apex-photo')
+    expect(screen.getByRole('link', { name: 'View listing' })).toHaveAttribute('href', 'https://nexez.app/apex-photo')
     expect(screen.getByText('$450')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ask Nexxi to book' })).toBeInTheDocument()
     // starters hide once cards are on the table

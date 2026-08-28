@@ -88,7 +88,7 @@ export async function GET(request: Request) {
       usage: {
         method: 'GET',
         example: `${baseUrl}/api/agent-search?q=plumbing&location=Chicago%2C%20IL&verified=true&nexez_checkout_ready=true`,
-        note: 'Returns published AI-readable pages and offer-level actions. has_actionable_offer covers a Nexez action or provider handoff; nexez_checkout_ready separately confirms private payout readiness. Relevance is the hard first rank; exact location/service area, availability, actionability, verification, established verified-purchase reputation, readiness, and freshness resolve ties in that order. Sparse review history is neutral. lat/lng are context metadata only and do not filter or rerank results.',
+        note: 'Returns published AI-readable listings and offer-level actions. has_actionable_offer covers a Nexez action or provider handoff; nexez_checkout_ready separately confirms private payout readiness. Relevance is the hard first rank; exact location/service area, availability, actionability, verification, established verified-purchase reputation, readiness, and freshness resolve ties in that order. Sparse review history is neutral. lat/lng are context metadata only and do not filter or rerank results.',
       },
     },
     {

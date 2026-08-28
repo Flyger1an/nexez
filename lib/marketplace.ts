@@ -254,7 +254,7 @@ export function buildMarketplaceInsights(
       id: 'certified' as const,
       label: 'Certified',
       count: summaries.filter((item) => item.summary.certified).length,
-      description: 'Published pages with very high readiness.',
+      description: 'Published listings with very high readiness.',
     },
     {
       id: 'high_trust' as const,

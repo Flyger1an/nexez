@@ -231,7 +231,7 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
     adminRef.domainPages = []
     const res = await POST(post({ action: 'status', domain: 'acme.com' }))
     expect(res.status).toBe(403)
-    expect((await res.json()).error).toMatch(/No page you own uses this domain/)
+    expect((await res.json()).error).toMatch(/No listing you own uses this domain/)
   })
 
   it('the owner still works (status)', async () => {

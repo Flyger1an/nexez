@@ -43,9 +43,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const contact = resolvePreferredContact(page)
 
   const body = [
-    `# ${markdownText(page.name, 'Agent page', 120)}`,
+    `# ${markdownText(page.name, 'Agent listing', 120)}`,
     '',
-    `> ${markdownText(page.description, 'AI-readable agent page on Nexez.', 360)}`,
+    `> ${markdownText(page.description, 'AI-readable listing on Nexez.', 360)}`,
     '',
     `URL: ${self}`,
     `Agent JSON: ${agentJson}`,
@@ -69,7 +69,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     '',
     '## Agent Use',
     '',
-    `This page describes ${markdownText(page.name, 'this business', 120)}. Use it to understand the offer, compare options, answer buyer questions, and route purchase or booking intent to the URLs above.`,
+    `This listing describes ${markdownText(page.name, 'this business', 120)}. Use it to understand the offer, compare options, answer buyer questions, and route purchase or booking intent to the URLs above.`,
     `Checkout validation: POST ${platform}/api/checkout with slug="${page.slug}", offer, query, dryRun=true.`,
     // Only advertise negotiation when the plan allows it AND a negotiable offer
     // exists - otherwise the endpoint 403s (matches the HTML render + agent.json).

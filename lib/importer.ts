@@ -318,7 +318,7 @@ async function llmExtractDraftWithStatus(docs: CrawledDoc[], guidance: ImportGui
   ].filter(Boolean).join('\n\n')
 
   const completion = await llmCompleteDetailed(prompt, {
-    system: 'You extract complete structured business drafts for clean AI-agent-readable pages. Output valid JSON only.',
+    system: 'You extract complete structured business drafts for clean AI-agent-readable listings. Output valid JSON only.',
     maxTokens: 1800,
     temperature: 0.15,
   })
@@ -763,7 +763,7 @@ function ctaLabelForAction(action?: string | null): string {
 function buildGuidedDescription(title: string, rawDescription: string, offers: OfferItem[], guidance: ImportGuidance): string {
   const business = cleanTitle(title)
   const buyer = guidance.targetBuyer || answerForField(guidance, 'audience') || 'buyers evaluating this business'
-  const focus = guidance.offerFocus ? ` The page emphasizes ${guidance.offerFocus}.` : ''
+  const focus = guidance.offerFocus ? ` The listing emphasizes ${guidance.offerFocus}.` : ''
   const actionGuidance = guidance.desiredAction || answerForField(guidance, 'action')
   const action = actionGuidance ? ` Agents should guide qualified buyers toward ${actionGuidance.toLowerCase()}.` : ''
   const refinement = guidance.clarifyingAnswers?.length ? ' Refined with owner-provided context.' : ''
@@ -787,8 +787,8 @@ function buildGuidedFaqs(title: string, offers: OfferItem[], guidance: ImportGui
 
   return [
     {
-      question: 'Can an AI agent use this page to understand what is offered?',
-      answer: 'Yes. This page is structured so agents can parse the business summary, offers, pricing, and next step without crawling the full marketing website.',
+      question: 'Can an AI agent use this listing to understand what is offered?',
+      answer: 'Yes. This listing is structured so agents can parse the business summary, offers, pricing, and next step without crawling the full marketing website.',
     },
     {
       question: `Who is ${business} best for?`,
@@ -807,7 +807,7 @@ function buildGuidedFaqs(title: string, offers: OfferItem[], guidance: ImportGui
     ...(primaryOffer
       ? [{
           question: `Can agents recommend ${primaryOffer}?`,
-          answer: `Yes, if the buyer request matches the offer description, timing, pricing, and service area shown on this page.`,
+          answer: `Yes, if the buyer request matches the offer description, timing, pricing, and service area shown on this listing.`,
         }]
       : []),
   ].slice(0, 5)
@@ -876,7 +876,7 @@ function buildClarifyingQuestions(
     add({
       id: 'target-buyer',
       field: 'audience',
-      question: 'Who should AI agents recommend this page to first?',
+      question: 'Who should AI agents recommend this listing to first?',
       why: 'A clear buyer profile improves offer matching and agent summaries.',
     })
   }
@@ -904,7 +904,7 @@ function buildClarifyingQuestions(
       id: 'featured-offers',
       field: 'offers',
       question: 'Which 2-3 offers should be featured first for agents?',
-      why: 'Prioritizing offers keeps the public agent page easier to parse.',
+      why: 'Prioritizing offers keeps the public agent listing easier to parse.',
     })
   }
 

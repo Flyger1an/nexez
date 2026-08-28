@@ -13,6 +13,7 @@ import {
   User,
 } from 'lucide-react'
 import { NexezLogo } from './NexezLogo'
+import { PhoneLoginForm } from './PhoneLoginForm'
 import { safeNextPath } from '../lib/safe-redirect'
 import { browserSupportsPasskeys, passkeyErrorMessage } from '../lib/passkeys'
 import { createClient } from '../utils/supabase/client'
@@ -98,6 +99,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [phoneBusy, setPhoneBusy] = useState(false)
   const [passkeysSupported, setPasskeysSupported] = useState(false)
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState<'error' | 'info'>('info')
@@ -116,6 +118,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
     setLoading(false)
     setOauthLoading(false)
     setPasskeyLoading(false)
+    setPhoneBusy(false)
   }, [initialMode])
 
   useEffect(() => {
@@ -229,7 +232,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
   }
 
   async function handleGoogle() {
-    if (loading || oauthLoading || passkeyLoading) return
+    if (loading || oauthLoading || passkeyLoading || phoneBusy) return
     setOauthLoading(true)
     setMessage('')
     const supabase = createClient()
@@ -251,7 +254,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
   }
 
   async function handlePasskey() {
-    if (loading || oauthLoading || passkeyLoading || !passkeysSupported) return
+    if (loading || oauthLoading || passkeyLoading || phoneBusy || !passkeysSupported) return
     setPasskeyLoading(true)
     setMessage('')
 
@@ -272,7 +275,12 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
     }
   }
 
-  const authBusy = loading || oauthLoading || passkeyLoading
+  const authBusy = loading || oauthLoading || passkeyLoading || phoneBusy
+
+  function finishAuthentication() {
+    const next = safeNextPath(new URLSearchParams(window.location.search).get('next') || nextPath)
+    window.location.href = next
+  }
 
   const title =
     mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Create your Nexez workspace' : 'Reset your password'
@@ -365,6 +373,13 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                       {oauthLoading ? <Loader2 className="size-4 animate-spin" /> : <GoogleGlyph className="size-[18px]" />}
                       Continue with Google
                     </button>
+                    {mode === 'signin' ? (
+                      <PhoneLoginForm
+                        disabled={!hydrated || loading || oauthLoading || passkeyLoading}
+                        onBusyChange={setPhoneBusy}
+                        onAuthenticated={finishAuthentication}
+                      />
+                    ) : null}
                     <div className="nx-auth-divider" role="separator">
                       <span>or continue with email</span>
                     </div>

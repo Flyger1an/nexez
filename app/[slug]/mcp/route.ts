@@ -34,7 +34,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     if (redirect) return redirect
   }
   if (!page || !(page as { mcp_enabled?: boolean }).mcp_enabled) {
-    return NextResponse.json({ error: 'MCP not enabled for this page.' }, { status: 404 })
+    return NextResponse.json({ error: 'MCP not enabled for this listing.' }, { status: 404 })
   }
   const base = getRequestBaseUrl(request)
   const onCustom = !!(page.custom_domain && page.custom_domain_verified)
@@ -62,7 +62,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   }
   if (!page || !(page as { mcp_enabled?: boolean }).mcp_enabled) {
     return NextResponse.json(
-      { jsonrpc: '2.0', id: null, error: { code: -32601, message: 'MCP not enabled for this page.' } },
+      { jsonrpc: '2.0', id: null, error: { code: -32601, message: 'MCP not enabled for this listing.' } },
       { status: 404 },
     )
   }

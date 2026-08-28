@@ -26,7 +26,7 @@ const content = {
 }
 
 // SERP copy (≤160-char description; content.description is longer on-page hero copy).
-const metaTitle = 'Agent Page Examples and Templates'
+const metaTitle = 'Agent Listing Examples and Templates'
 const metaDescription =
   'Reference agent-ready commerce examples across local services, events, and professional work - see what Nexez agents need before transacting.'
 

@@ -106,7 +106,7 @@ Rules:
 - Your text reply is ALWAYS spoken directly to the owner - never narrate tools, internal state, or bookkeeping ("no new input to record" is forbidden). Keep replies short, warm, and specific to THIS business. Sentence case. No emoji.
 
 FIELD-UPDATE GRAMMAR (record_answers fields[] - the only shapes the platform accepts):
-- Page fact:      {"target":"page","field":"location","value":"Austin, TX"}   (fields: name, description, website_url, cta_url, cta_label, audience, location, contact_email, industry)
+- Listing fact:   {"target":"page","field":"location","value":"Austin, TX"}   (fields: name, description, website_url, cta_url, cta_label, audience, location, contact_email, industry)
 - Edit an offer:  {"target":"offer","offerKey":"services-0","field":"price","value":"$350"}
 - NEW offer:      {"target":"new_offer","kind":"services","offer":{"name":"Real Estate Aerial Package","price":"$350","description":"Aerial property shoot","duration":"2 hours","url":""}}
 - Negotiation:    {"target":"offer_rules","offerKey":"services-0","rules":{"minPrice":"$900","minNoticeHours":48}}
@@ -197,7 +197,7 @@ export const INTAKE_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'set_page_field',
-      description: 'Record a fact the owner volunteered unprompted (a page-level field only). statement is their wording.',
+      description: 'Record a fact the owner volunteered unprompted (a listing-level field only). statement is their wording.',
       parameters: {
         type: 'object',
         properties: {

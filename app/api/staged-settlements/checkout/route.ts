@@ -86,14 +86,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: idempotency.error, code: 'invalid_idempotency_key' }, { status: 400 })
   }
   if (!input.slug || !input.offer) {
-    return NextResponse.json({ error: 'Missing staged checkout page or offer.' }, { status: 400 })
+    return NextResponse.json({ error: 'Missing staged checkout listing or offer.' }, { status: 400 })
   }
   if (!hasSupabaseAdminEnv()) {
     return NextResponse.json({ error: 'Staged settlement is not configured on this deployment.' }, { status: 503 })
   }
 
   const page = await getPublishedPage(input.slug)
-  if (!page) return NextResponse.json({ error: 'Checkout page not found.' }, { status: 404 })
+  if (!page) return NextResponse.json({ error: 'Checkout listing not found.' }, { status: 404 })
   if (!page.owner_id) return NextResponse.json({ error: 'Checkout owner is unavailable.' }, { status: 409 })
   const ownerId = page.owner_id
   const offer = getCheckoutOffer(page, input.offer)

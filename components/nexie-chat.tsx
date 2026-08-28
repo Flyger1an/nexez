@@ -208,7 +208,7 @@ function NexieCardView({
                 rel="noreferrer"
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/75 transition hover:border-[var(--signal)]/40 hover:text-[var(--signal)]"
               >
-                View page
+                View listing
               </a>
               {card.checkoutUrl ? (
                 <button

@@ -1,13 +1,13 @@
 import 'server-only'
 import twilio from 'twilio'
+import { isE164PhoneNumber, normalizeE164PhoneNumber } from '../phone-auth'
+
+export { isE164PhoneNumber, normalizeE164PhoneNumber } from '../phone-auth'
 
 // Twilio is intentionally isolated behind this server-only module. The browser
 // never sees a Twilio credential, a phone number, or a verification code. Routes
 // can mock this module as a single boundary, while the SDK details remain here.
 
-// E.164 permits up to 15 digits; Nexez rejects implausibly short values too so
-// database and request validation use the exact same 8 to 15 digit boundary.
-const E164_PHONE_NUMBER = /^\+[1-9]\d{7,14}$/
 const VERIFY_CODE = /^[A-Za-z0-9]{4,10}$/
 const SMS_EVENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const SID_PATTERNS = {
@@ -161,17 +161,6 @@ function canonicalTwilioWebhookOrigin(env: NodeJS.ProcessEnv): string | null {
 
 function hasWebhookOverride(env: NodeJS.ProcessEnv): boolean {
   return LEGACY_WEBHOOK_OVERRIDE_NAMES.some((name) => envValue(env, name) !== null)
-}
-
-/** Accept only an E.164 number (after benign surrounding whitespace is removed). */
-export function normalizeE164PhoneNumber(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const normalized = value.trim()
-  return E164_PHONE_NUMBER.test(normalized) ? normalized : null
-}
-
-export function isE164PhoneNumber(value: unknown): value is string {
-  return typeof value === 'string' && E164_PHONE_NUMBER.test(value)
 }
 
 /** Canonical UUID emitted by the database for a durable SMS outbox event. */

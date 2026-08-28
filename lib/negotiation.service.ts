@@ -113,7 +113,7 @@ export class NegotiationService {
     } = params;
 
     const page = await this.loadPublishedPage(slug);
-    if (!page) throw new Error('Page not found or not published');
+    if (!page) throw new Error('Listing not found or not published');
 
     const offer = getCheckoutOffer(page, offerKey);
     if (!offer) throw new Error('Offer not found');
@@ -222,7 +222,7 @@ export class NegotiationService {
 
     try {
       const page = await this.loadPublishedPage(claimed.slug);
-      if (!page) throw new Error('Page not found or not published');
+      if (!page) throw new Error('Listing not found or not published');
       const offer = getCheckoutOffer(page, claimed.offer_key);
       if (!offer) throw new Error('Offer not found');
       await this.produceDecision(claimed, page, offer);

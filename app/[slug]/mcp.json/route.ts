@@ -53,7 +53,7 @@ export async function GET(
   }
   if (!page || !(page as any).mcp_enabled) {
     return NextResponse.json(
-      { error: 'MCP not enabled for this page or page not found' },
+      { error: 'MCP not enabled for this listing or listing not found' },
       { status: 404 }
     )
   }
@@ -94,7 +94,7 @@ export async function GET(
     server_info: {
       name: 'Nexez',
       version: '1.0.0',
-      description: 'Nexez agent-optimized page exposed via MCP resources/tools',
+      description: 'Nexez agent-optimized listing exposed via MCP resources/tools',
     },
     capabilities: {
       resources: { subscribe: false, listChanged: false },
@@ -141,7 +141,7 @@ export async function GET(
     tools: [
       {
         name: 'book_offer',
-        description: 'Book or purchase a specific offer via the Nexez agent checkout or original site (respects per-offer and page prefer_original settings).',
+        description: 'Book or purchase a specific offer via the Nexez agent checkout or original site (respects per-offer and listing prefer_original settings).',
         inputSchema: {
           type: 'object',
           properties: {

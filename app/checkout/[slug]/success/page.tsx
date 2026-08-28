@@ -47,7 +47,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-12">
         <a href={`/${currentSlug}`} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
           <ArrowLeft className="size-4" />
-          Back to agent page
+          Back to listing
         </a>
 
         <section className="mt-8 card !p-8 text-center">
@@ -72,7 +72,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
           <div className="mt-7 flex flex-wrap justify-center gap-3">
             <a href={`/${currentSlug}`} className="inline-flex items-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]">
               <Bot className="size-4" />
-              Public Page
+              Public listing
             </a>
             <a href={`/checkout/${currentSlug}${search.offer ? `?offer=${search.offer}` : ''}`} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-5 py-3 text-sm text-zinc-200 hover:bg-white/10">
               <BadgeCheck className="size-4" />

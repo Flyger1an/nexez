@@ -143,7 +143,7 @@ export function TeamInvites({ collaborationEnabled = true }: { collaborationEnab
       </div>
       <p className="mt-1 text-sm text-[var(--fg-muted)]">
         {collaborationEnabled
-          ? 'Invite teammates by email - editors can update listing content and page-scoped configuration under your plan. Account and storefront administration, transaction decisions, money movement, negotiation lifecycle, and final approvals remain owner-only. We email them a link to join; they sign in with that same email to get access.'
+          ? 'Invite teammates by email - editors can update listing content and listing-scoped configuration under your plan. Account and storefront administration, transaction decisions, money movement, negotiation lifecycle, and final approvals remain owner-only. We email them a link to join; they sign in with that same email to get access.'
           : 'Collaboration is inactive on this plan. Existing members remain listed so you can revoke retained access.'}
       </p>
 

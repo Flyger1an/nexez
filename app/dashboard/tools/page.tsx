@@ -136,7 +136,7 @@ export default function ToolsPage() {
         <a href="/openapi.json" className="text-[var(--signal)] hover:underline block">OpenAPI spec - full endpoint reference →</a>
         <a href="/agent-pages.json" className="text-[var(--signal)] hover:underline block">Public agent index →</a>
         <a href="/api/directory" className="text-[var(--signal)] hover:underline block">Directory API - readiness &amp; trust signals →</a>
-        <a href="/api/public-simulate" className="text-[var(--signal)] hover:underline block">Simulation API - preview how agents read a page →</a>
+        <a href="/api/public-simulate" className="text-[var(--signal)] hover:underline block">Simulation API - preview how agents read a listing →</a>
       </div>
     </div>
   )
@@ -151,7 +151,7 @@ export default function ToolsPage() {
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Tools</h1>
           </div>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
-            Import from the web and your favorite tools, then generate an agent-ready page in minutes.
+            Import from the web and your favorite tools, then generate an agent-ready listing in minutes.
           </p>
         </header>
 

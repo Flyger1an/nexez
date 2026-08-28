@@ -174,7 +174,7 @@ describe('POST /api/tools/import-site', () => {
     const res = await POST(post({ url: 'https://acme.test', pageId: 'page-1' }))
     expect(res.status).toBe(403)
     expect(await res.json()).toMatchObject({
-      error: 'You do not have edit access to this page.',
+      error: 'You do not have edit access to this listing.',
     })
     expect(ownerAllowsRef.calls).toEqual([])
   })

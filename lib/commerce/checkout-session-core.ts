@@ -160,7 +160,7 @@ function resolveRequest(
   const label = requested.offer
   const offer = getCheckoutOffer(page, requested.offer)
   if (!offer) {
-    return { ok: false, issue: { offer: label, code: 'not_found', message: 'No matching offer was found for this page.' } }
+    return { ok: false, issue: { offer: label, code: 'not_found', message: 'No matching offer was found for this listing.' } }
   }
 
   if (getOfferStagedSettlementTerms(offer)) {

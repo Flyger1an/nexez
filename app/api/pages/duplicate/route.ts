@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     admin.from('pages').select(OWNER_PAGE_SELECT).eq('id', access.pageId).maybeSingle<AgentPage>(),
     admin.from('pages').select('slug').eq('owner_id', access.ownerId).returns<{ slug: string }[]>(),
   ])
-  if (!source) return NextResponse.json({ error: 'Page not found.' }, { status: 404 })
+  if (!source) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 })
 
   const slugs = (owned ?? []).map((p) => p.slug)
   // Clone under the PAGE OWNER (not the caller). The published-page-limit trigger keys
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       slugs.push(payload.slug)
       continue
     }
-    return NextResponse.json({ error: error?.message || 'Could not duplicate the page.' }, { status: 500 })
+    return NextResponse.json({ error: error?.message || 'Could not duplicate the listing.' }, { status: 500 })
   }
   return NextResponse.json({ error: 'Could not find a free name for the copy - try again.' }, { status: 409 })
 }

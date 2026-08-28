@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       .single()
     const page = pageData as AgentPage | null
     if (!page) {
-      return NextResponse.json({ error: 'Page not found or not published' }, { status: 404 })
+      return NextResponse.json({ error: 'Listing not found or not published' }, { status: 404 })
     }
 
     const outcome = await runLlmSimulation(page, query, getRequestBaseUrl(request))
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         query,
         agent: 'LLM-Enhanced',
         schema,
-        naturalLanguage: schema.page?.summary || 'Deterministic simulation (LLM not enabled for this page).',
+        naturalLanguage: schema.page?.summary || 'Deterministic simulation (LLM not enabled for this listing).',
         llmEnhanced: false,
         reason: outcome.reason,
       })

@@ -90,7 +90,7 @@ const exampleCards = [
   {
     title: 'Find and validate',
     path: 'examples/agents/python/find_and_validate.py',
-    copy: 'Search by buyer intent, fetch the page manifest, then dry-run checkout or negotiation before any action.',
+    copy: 'Search by buyer intent, fetch the listing manifest, then dry-run checkout or negotiation before any action.',
   },
   {
     title: 'Location shortlist',
@@ -114,13 +114,13 @@ const endpoints = [
     label: 'Search',
     href: agentRuntimeUrl('/api/agent-search?q=strategy%20session'),
     value: `${distribution.runtime_base_url}/api/agent-search?q={query}`,
-    copy: 'Find matching pages and offer-level actions from a buyer request.',
+    copy: 'Find matching listings and offer-level actions from a buyer request.',
   },
   {
     label: 'Index',
     href: distribution.agent_index_url,
     value: distribution.agent_index_url,
-    copy: 'List published pages, manifests, readiness, offers, and checkout URLs.',
+    copy: 'List published listings, manifests, readiness, offers, and checkout URLs.',
   },
   {
     label: 'LLM guide',
@@ -138,7 +138,7 @@ const endpoints = [
     label: 'MCP catalog',
     href: distribution.mcp_discovery_url,
     value: distribution.mcp_discovery_url,
-    copy: 'Discovery catalog for pages exposing MCP-compatible resources.',
+    copy: 'Discovery catalog for listings exposing MCP-compatible resources.',
   },
   {
     label: 'ARD catalog',
@@ -161,7 +161,7 @@ const workflow = [
     sample: 'Find a Chicago consultant for a one-week growth audit.',
   },
   {
-    title: 'Read the page manifest',
+    title: 'Read the listing manifest',
     copy: 'Fetch agent.json or llms.txt for seller context, offers, FAQs, policies, and direct actions.',
     sample: '/{slug}/agent.json',
   },
@@ -394,7 +394,7 @@ export default function AgentAccessPage() {
                 Everything points to one source of truth.
               </h2>
               <p className="mt-4 text-sm leading-6 text-muted-foreground md:text-base">
-                These endpoints stay on the public agent runtime so pages remain fast, crawlable, and separate from
+                These endpoints stay on the public agent runtime so listings remain fast, crawlable, and separate from
                 the authenticated app.
               </p>
             </div>
@@ -550,17 +550,17 @@ export default function AgentAccessPage() {
                 <p className="font-medium">For buyer agents</p>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Search by outcome, location, budget signal, or service type. Nexez returns pages with structured
+                Search by outcome, location, budget signal, or service type. Nexez returns listings with structured
                 offers, trust signals, and direct next actions.
               </p>
             </div>
             <div className="nx-tile p-6">
               <div className="flex items-center gap-3">
                 <Globe2 className="size-5 text-[var(--signal)]" />
-                <p className="font-medium">For seller pages</p>
+                <p className="font-medium">For seller listings</p>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Public pages remain on the agent runtime, while the marketing site and dashboard stay on their own
+                Public listings remain on the agent runtime, while the marketing site and dashboard stay on their own
                 domains. That split protects crawlability and signed-in workflows.
               </p>
             </div>
@@ -584,7 +584,7 @@ export default function AgentAccessPage() {
             Ready for the agent web.
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Publish a seller page, make it visible in the directory, and let agents discover the offer through the
+            Publish a seller listing, make it visible in the directory, and let agents discover the offer through the
             clean runtime.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">

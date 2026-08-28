@@ -9,7 +9,7 @@ export function isValidEmail(email: string): boolean {
 }
 
 export function roleLabel(role: TeamRole): string {
-  return role === 'editor' ? 'Editor - can edit pages' : 'Viewer - read-only'
+  return role === 'editor' ? 'Editor - can edit listings' : 'Viewer - read-only'
 }
 
 export const TEAM_ROLES: TeamRole[] = ['editor', 'viewer']

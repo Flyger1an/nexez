@@ -159,7 +159,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <a href={`/${page.slug}`} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
             <ArrowLeft className="size-4" />
-            Back to agent page
+            Back to listing
           </a>
           <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
             <StatusPill icon={<ShieldCheck className="size-3.5" />} label="Agent context attached" />
@@ -271,7 +271,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                 <div className="flex items-start gap-3">
                   <Bot className="mt-1 size-5 text-[var(--signal)]" />
                   <p className="text-sm leading-6 text-zinc-200">
-                    Buyer intent, selected offer, provider URL, and page context are packaged for the payment handoff.
+                    Buyer intent, selected offer, provider URL, and listing context are packaged for the payment handoff.
                   </p>
                 </div>
               </div>
@@ -329,12 +329,12 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
               <h2 className="font-semibold">Agent Handoff</h2>
             </div>
             <p className="mt-4 text-sm leading-6 text-zinc-400">
-              This route gives AI buyers one stable URL for the selected offer, the public source page, and the
+              This route gives AI buyers one stable URL for the selected offer, the public source listing, and the
               provider action URL.
             </p>
             <div className="mt-5 space-y-3 text-sm">
               <DetailRow label="Checkout URL" value={checkoutUrl} />
-              <DetailRow label="Source page" value={publicUrl} />
+              <DetailRow label="Source listing" value={publicUrl} />
               <DetailRow label="Action URL" value={usesNexezCheckout ? checkoutAction : destination || 'Not configured'} />
             </div>
           </div>

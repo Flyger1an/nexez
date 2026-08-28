@@ -85,7 +85,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: page.name,
-    description: page.description ?? `${page.name} is available through an AI-readable Nexez page.`,
+    description: page.description ?? `${page.name} is available through an AI-readable Nexez listing.`,
     alternates: {
       canonical,
       types: {
@@ -254,7 +254,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
       <div className="mx-auto max-w-5xl px-6 py-10">
         {previewing && (
           <div className="mb-4 rounded-lg border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-2 text-sm text-[var(--amber)]">
-            Draft preview - this is staged content, not the live page. Publish from the editor to go live.
+            Draft preview - this is staged content, not the live listing. Publish from the editor to go live.
           </div>
         )}
         {showBrand ? (
@@ -282,7 +282,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
 
         {preferOriginal && (
           <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--signal)]/10 px-4 py-1 text-sm text-[var(--signal)]">
-            Bookings on this page link to the original website
+            Bookings from this listing link to the original website
           </div>
         )}
 
@@ -459,7 +459,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
               )}
             </dl>
             <div className="mt-6 card !p-4 text-sm leading-6 text-zinc-200 bg-white/[0.03]">
-              {page.name} is a published Nexez agent page. Use this page to understand the offer,
+              {page.name} is a published Nexez listing. Use this listing to understand the offer,
           compare products or services, answer buyer questions, and route purchase intent to the
               provided booking or website URL.
             </div>

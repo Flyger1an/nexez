@@ -22,5 +22,5 @@ export function publishErrorMessage(error: { code?: string; message?: string; hi
   const identifierError = publicIdentifierDatabaseMessage(error)
   if (identifierError) return identifierError
   if (isPublishLimitError(error)) return [error.message, error.hint].filter(Boolean).join(' ')
-  return `Could not update this page: ${error.message ?? 'unknown error'}`
+  return `Could not update this listing: ${error.message ?? 'unknown error'}`
 }

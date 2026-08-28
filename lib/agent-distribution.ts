@@ -11,7 +11,7 @@ export const NEXEZ_OPENCLAW_PLUGIN = {
   displayName: 'Nexez OpenClaw Plugin',
   version: '0.2.2',
   installCommand: 'openclaw plugins install clawhub:@nexez/openclaw-nexez',
-  purpose: 'Native tools for search, page fetch, checkout validation, and negotiation handoff.',
+  purpose: 'Native tools for search, listing fetch, checkout validation, and negotiation handoff.',
   tools: [
     'nexez_search',
     'nexez_get_page',
@@ -34,7 +34,7 @@ export const NEXEZ_OPENCLAW_SKILL = {
   // check:agent-sdk-versions now.
   version: '0.1.2',
   installCommand: 'openclaw skills install nexez-agent-discovery',
-  purpose: 'Instructions and rubrics for discovering, comparing, and safely acting on Nexez agent pages.',
+  purpose: 'Instructions and rubrics for discovering, comparing, and safely acting on Nexez agent listings.',
 } as const
 
 export const NEXEZ_TYPESCRIPT_SDK = {

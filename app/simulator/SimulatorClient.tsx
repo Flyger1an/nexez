@@ -426,7 +426,7 @@ export default function GlobalAgentSimulator() {
       }, null, 2)
     } else {
       content = `# Nexez Agent Simulator Analysis\n\n`
-      content += `**Page**: ${pageInfo.name} (/${pageInfo.slug})\n`
+      content += `**Listing**: ${pageInfo.name} (/${pageInfo.slug})\n`
       content += `**Readiness**: ${readiness}/100\n`
       content += `**Query**: ${query}\n`
       content += `**Generated**: ${new Date().toISOString()}\n\n`
@@ -434,14 +434,14 @@ export default function GlobalAgentSimulator() {
         content += `**Engine**: ${activeEvidence.execution.engineVersion}\n`
         content += `**Evidence coverage**: ${activeEvidence.competitiveField.visiblePagesEvaluated} visible listings evaluated; commerce contracts inspected, no transaction executed.\n\n`
       }
-      content += `## Recommendations\n${recs.length ? recs.map(r => `- ${r}`).join('\n') : '- Page is well optimized.'}\n\n`
+      content += `## Recommendations\n${recs.length ? recs.map(r => `- ${r}`).join('\n') : '- Listing is well optimized.'}\n\n`
       content += `## Per-Agent Analysis\n`
       simulationResults.forEach((r: any) => {
         content += `\n### ${r.agent}\n`
         content += `- Readiness: ${r.readiness}\n`
         if (r.schema) content += `- Parsed Schema: ${JSON.stringify(r.schema.page || r.schema, null, 0).slice(0, 300)}...\n`
       })
-      content += `\n---\nExported from Nexez Global Simulator. Use to brief agents or improve your page.`
+      content += `\n---\nExported from Nexez Global Simulator. Use to brief agents or improve your listing.`
     }
 
     if (format === 'pdf') {
@@ -760,7 +760,7 @@ export default function GlobalAgentSimulator() {
                     </div>
                   </div>
                   <div className="text-sm text-[#9CA3AF] space-y-1">
-                    {recommendations.length ? recommendations.map((r, i) => <div key={i}>• {r}</div>) : 'Page is well optimized.'}
+                    {recommendations.length ? recommendations.map((r, i) => <div key={i}>• {r}</div>) : 'Listing is well optimized.'}
                   </div>
                   <p className="mt-3 text-[10px] text-zinc-500">Shareable agent report.</p>
                 </div>

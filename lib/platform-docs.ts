@@ -64,7 +64,7 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
       {
         name: 'Teams and controlled collaboration',
         availability: 'Plan-controlled',
-        summary: 'Pro owners can invite collaborators to edit listing content and page-scoped configuration under the owner plan without transferring ownership or exposing unrelated workspace data; retained access stays visible for revocation after a downgrade.',
+        summary: 'Pro owners can invite collaborators to edit listing content and listing-scoped configuration under the owner plan without transferring ownership or exposing unrelated workspace data; retained access stays visible for revocation after a downgrade.',
         details: ['Pro email-based invitations, acceptance, and role changes', 'Owner-only account and storefront administration, transaction decisions, money movement, negotiation lifecycle, and final approvals', 'Plan and seat enforcement with downgrade cleanup preserved'],
         surfaces: ['Platform Settings', 'Team invitations', 'Listing collaboration'],
       },
@@ -311,7 +311,7 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
         name: 'Public discovery and management APIs',
         availability: 'Developer',
         summary: 'Core public runtime APIs cover discovery and commerce; Pro API keys unlock private owner-management operations, while negotiation endpoints require the negotiation entitlement.',
-        details: ['Core OpenAPI-described public discovery and commerce endpoints', 'Pro owner API keys and versioned page-management APIs', 'Pro negotiation plus dry-run and status-token patterns for safe agent use'],
+        details: ['Core OpenAPI-described public discovery and commerce endpoints', 'Pro owner API keys and versioned listing-management APIs', 'Pro negotiation plus dry-run and status-token patterns for safe agent use'],
         surfaces: ['REST APIs', 'OpenAPI', 'Developer tools'],
       },
       {
@@ -340,7 +340,7 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
         name: 'Host, auth, and data boundaries',
         availability: 'Core',
         summary: 'Marketing, authenticated app, and public agent runtime routes have distinct canonical hosts; owner data is protected by authentication, RLS, and deliberate public projections.',
-        details: ['Host-aware routing and no-index app behavior', 'Owner and collaborator row-level policies', 'Published pages use a restricted public projection rather than the private base table'],
+        details: ['Host-aware routing and no-index app behavior', 'Owner and collaborator row-level policies', 'Published listings use a restricted public projection rather than the private base table'],
         surfaces: ['nexez.ai', 'app.nexez.ai', 'nexez.app'],
       },
       {
@@ -348,7 +348,7 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
         availability: 'Core',
         summary: 'Integration credentials and recoverable bearer tokens use server-only access and AES-256-GCM encrypted storage where recovery is required.',
         details: ['Encrypted Calendly, Shopify, Square, and Acuity credentials', 'Encrypted checkout access and negotiation status tokens', 'Webhook signature verification and narrow service-role access'],
-        surfaces: ['Page secrets', 'Checkout runtime', 'Webhook handlers'],
+        surfaces: ['Listing secrets', 'Checkout runtime', 'Webhook handlers'],
       },
       {
         name: 'Release, reconciliation, and launch controls',

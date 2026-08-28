@@ -220,11 +220,11 @@ describe('POST /api/pages/[id]/integrations/[provider]/sync', () => {
   })
 
   it('maps an installed-app sync failure to its status', async () => {
-    h.result = { ok: false, status: 409, error: 'This page changed during the sync.' }
+    h.result = { ok: false, status: 409, error: 'This listing changed during the sync.' }
 
     const response = await POST(request(), context('shopify'))
 
     expect(response.status).toBe(409)
-    expect((await response.json()).error).toMatch(/page changed/i)
+    expect((await response.json()).error).toMatch(/listing changed/i)
   })
 })

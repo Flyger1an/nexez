@@ -30,6 +30,7 @@ import { buildAgentOperationsSnapshot, type AgentOperationsSnapshot } from '../.
 import { createClient } from '../../../utils/supabase/server'
 import { AccountDataControls } from '../../../components/AccountDataControls'
 import { PasskeySettings } from '../../../components/PasskeySettings'
+import { PhoneSignInSettings } from '../../../components/PhoneSignInSettings'
 import { ProfileSettings } from '../../../components/ProfileSettings'
 import { StorefrontSettings, type StorefrontListing } from '../../../components/StorefrontSettings'
 import { TeamInvites } from '../../../components/TeamInvites'
@@ -40,6 +41,7 @@ import { AccountSettingsNav } from '../../../components/settings/AccountSettings
 import { NotificationPreferencesPanel } from '../../../components/NotificationPreferencesPanel'
 import { SmsNotificationSettings } from '../../../components/SmsNotificationSettings'
 import { loadSellerNotificationPreferences } from '../../../lib/server/seller-notification-preferences'
+import { maskE164PhoneNumber, normalizeSupabaseAuthPhoneNumber } from '../../../lib/phone-auth'
 import {
   DEFAULT_SELLER_NOTIFICATION_PREFERENCES,
   type SellerNotificationPreferences,
@@ -65,7 +67,7 @@ const ACCOUNT_SETTINGS_PAGE_SELECT = [
 ].join(',')
 
 const schemaSignals = [
-  ['WebPage', 'Public page identity and canonical URL'],
+  ['WebPage', 'Public listing identity and canonical URL'],
   ['Organization', 'Seller name, website, contact, and service area'],
   ['Offer', 'Products or services with price, description, and checkout URL'],
   ['BuyAction', 'Agent-readable checkout handoff target'],
@@ -245,7 +247,16 @@ export default async function AccountSettingsPage() {
               description="Keep your identity current and add phishing-resistant sign-in protection."
               icon={ShieldCheck}
             >
-              <PasskeySettings />
+              <div className="grid gap-5 2xl:grid-cols-2">
+                <PasskeySettings />
+                <PhoneSignInSettings
+                  initialPhoneMasked={
+                    user.phone_confirmed_at
+                      ? maskE164PhoneNumber(normalizeSupabaseAuthPhoneNumber(user.phone))
+                      : null
+                  }
+                />
+              </div>
             </SettingsArea>
 
             <SettingsArea
