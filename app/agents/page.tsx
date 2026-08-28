@@ -570,8 +570,8 @@ export default function AgentAccessPage() {
                 <p className="font-medium">For registries</p>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                The ARD catalog at /.well-known/ai-catalog.json lists every Nexez MCP server with its capabilities and
-                representative queries, so a discovery service can index the whole network from one document.
+                The ARD catalog at /.well-known/ai-catalog.json lists every Nexez MCP server, its capabilities, and sample queries.
+                A discovery service can index the network from that single file.
               </p>
             </div>
           </div>

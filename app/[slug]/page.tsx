@@ -508,10 +508,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           <section id="negotiate" className="border-t border-white/10 py-12">
             <h2 className="text-2xl font-semibold">Request a custom quote</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-              Buying agents and humans can propose scope, budget, and timeline. The owner (or intelligent LLM negotiation engine) reviews each
-              proposal and responds. Every negotiation creates a persistent resumable thread at /negotiate/{'{id}'} that agents can bookmark and return to later (full history + LLM memory included).
-              AI agents can also negotiate programmatically via{' '}
-              <code className="text-zinc-300">POST /api/negotiations</code> (response includes persistent negotiationUrl).
+              Buyers and their assistants can propose scope, budget, and timing. The owner reviews each proposal and replies.
+              The full conversation stays available through a private link until the deal is resolved.
             </p>
 
             {negotiationCreated ? (

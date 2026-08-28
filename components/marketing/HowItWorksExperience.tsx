@@ -21,7 +21,7 @@ export const HOW_IT_WORKS_COPY = {
     title: 'Set up your business once.',
     accent: 'Let Nexez handle the details.',
     description:
-      'Tell Nexez what you sell and how you want to sell it. Customers and AI assistants can then choose the right service, answer the questions you need, and place an order within the rules you set.',
+      'Tell Nexez what you sell and how you sell it. Buyers can choose a service, answer your questions, and order within your rules.',
   },
   steps: [
     {
@@ -254,9 +254,8 @@ function OrderExample() {
               A buyer asks. Nexez checks. Your rules decide what happens next.
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              Imagine you offer home cleaning. You decide which home sizes you serve, how options change the price,
-              whether pets are okay, and whether buyers can book repeat service. Nexez uses those choices when someone
-              wants to buy.
+              Imagine you offer home cleaning. You choose the homes you serve, how options affect the price,
+              whether pets are allowed, and whether buyers can book repeat service.
             </p>
           </div>
 
@@ -367,8 +366,8 @@ function SimulatorCallout() {
               See how an AI assistant understands your business.
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              The simulator lets you see what an AI assistant can understand about your offers and what it still needs
-              to know. If something is unclear, you can improve it before relying on a real order.
+              The simulator shows what an AI assistant understands and what is still unclear.
+              You can fix missing details before relying on a real order.
             </p>
             <a href="/simulator" className="btn-primary mt-7 h-11 px-5">
               Try the simulator

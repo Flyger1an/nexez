@@ -96,7 +96,8 @@ export default async function CommercePage({ searchParams }: CommercePageProps) 
             <div>
               <h2 className="font-medium text-[var(--fg)]">Orders and deals stay separate</h2>
               <p className="mt-1 max-w-4xl text-sm leading-6 text-[var(--fg-muted)]">
-                Order totals are recorded payments. Deal totals remain proposed or agreed values until Nexez records a payment. Fulfillment is shown only for orders that can be fulfilled in Nexez.
+                Orders show recorded payments. Deals show proposed or agreed amounts until payment is recorded.
+                Nexez only shows fulfillment for supported orders.
               </p>
             </div>
           </div>

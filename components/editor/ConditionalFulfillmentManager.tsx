@@ -339,7 +339,7 @@ export function ConditionalFulfillmentManager({
     <details className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
       <summary className="cursor-pointer text-sm font-medium text-zinc-200">Conditional fulfillment</summary>
       <p className="mt-2 text-xs leading-5 text-zinc-500">
-        Turn merchant qualification policy into deterministic machine-readable gates. Rules only inspect required buyer answers; Nexez and agents never invent missing facts. Matching rules either require merchant review or make the request ineligible before payment.
+        Use required buyer answers to decide whether a request can proceed. Nexez never guesses missing details. You can review matching requests or stop ineligible requests before payment.
       </p>
       <div className="mt-4 space-y-3">
         {offers.map((offer, index) => <OfferFulfillmentEditor key={`${offer.name || 'service'}-${index}`} offer={offer} index={index} onApply={apply} />)}

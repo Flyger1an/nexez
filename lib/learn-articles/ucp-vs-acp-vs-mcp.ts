@@ -29,7 +29,11 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     { type: 'h2', text: 'Three protocols, three different jobs' },
     {
       type: 'p',
-      text: 'Here is the shortest accurate version. ACP is the open checkout specification OpenAI and Stripe published, now maintained as a standard with adopters including PayPal and Stripe, though the ChatGPT surface it launched with is gone. UCP is Google’s commerce protocol: it connects your catalog and checkout to Gemini and Google’s AI shopping surfaces, onboarded through Merchant Center, and it is where live agentic checkout actually happens in 2026. MCP is the general-purpose tool protocol: it is how agents call any external capability at all, and commerce actions like searching listings or starting a booking are just one use of it.',
+      text: 'Here is the shortest accurate version. ACP is the open checkout specification OpenAI and Stripe published, now maintained as a standard with adopters including PayPal and Stripe, though the ChatGPT surface it launched with is gone.',
+    },
+    {
+      type: 'p',
+      text: 'UCP is Google’s commerce protocol: it connects your catalog and checkout to Gemini and Google’s AI shopping surfaces, onboarded through Merchant Center, and it is where live agentic checkout actually happens in 2026. MCP is the general-purpose tool protocol: it is how agents call any external capability at all, and commerce actions like searching listings or starting a booking are just one use of it.',
     },
     {
       type: 'p',

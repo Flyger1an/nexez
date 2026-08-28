@@ -42,7 +42,15 @@ export const chatgptInstantCheckoutRetired: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'OpenAI did not put out a press release announcing the shutdown. The disclosure sat near the end of a post titled "Powering Product Discovery in ChatGPT," in language worth quoting because it is the company’s own framing: they found the initial version did not offer the level of flexibility they aspire to provide, so they are allowing merchants to use their own checkout experiences while they focus their efforts on product discovery. The Information reported the pullback first. TD Cowen analysts called it a stunning admission, Booking.com stock rose about 8% on the news and Expedia about 13%, and a chorus on LinkedIn declared agentic commerce dead on arrival.',
+      text: 'OpenAI did not put out a press release announcing the shutdown.',
+    },
+    {
+      type: 'p',
+      text: 'The disclosure sat near the end of a post titled "Powering Product Discovery in ChatGPT," in language worth quoting because it is the company’s own framing: they found the initial version did not offer the level of flexibility they aspire to provide, so they are allowing merchants to use their own checkout experiences while they focus their efforts on product discovery.',
+    },
+    {
+      type: 'p',
+      text: 'The Information reported the pullback first. TD Cowen analysts called it a stunning admission, Booking.com stock rose about 8% on the news and Expedia about 13%, and a chorus on LinkedIn declared agentic commerce dead on arrival.',
     },
     { type: 'h2', text: 'Why it actually failed' },
     {

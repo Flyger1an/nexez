@@ -10,7 +10,8 @@ export function McpDistributionPanel({ snapshot }: { snapshot: McpDemandSnapshot
           <div>
             <h2 id="external-agent-reach-heading" className="text-lg font-semibold">External agent reach</h2>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
-              See whether compatible AI apps can find Nexez, what they use, and whether a validated request becomes real commerce. Registry presence shows distribution only. It does not count as a customer or sale.
+              See whether compatible AI apps can find Nexez and turn validated requests into real activity.
+              Being listed in a registry does not count as a customer or sale.
             </p>
           </div>
         </div>
@@ -88,7 +89,8 @@ export function McpDistributionPanel({ snapshot }: { snapshot: McpDemandSnapshot
       )}
 
       <p className="mt-3 text-xs leading-5 text-[var(--fg-muted-2)]">
-        This report stores controlled event categories and an opaque handoff ID only. Nexez does not store MCP prompts, request text, buyer identity, IP addresses, user-agent strings, or device details here.
+        This report stores anonymous event totals and a reference ID. It does not store prompts, request text,
+        buyer details, IP addresses, browser details, or device details.
       </p>
     </section>
   )

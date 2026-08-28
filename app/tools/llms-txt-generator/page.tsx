@@ -31,7 +31,7 @@ const faqs = [
   {
     question: 'Does llms.txt improve my rankings?',
     answer:
-      'There is no evidence it does: Ahrefs found no performance correlation, and Google says it is not required. It is a cheap, harmless addition - the artifacts agents demonstrably use (structured data, feeds, agent endpoints) matter more.',
+      'There is no evidence that it improves rankings. Ahrefs found no correlation, and Google does not require it. Structured data, feeds, and callable endpoints matter more.',
   },
   {
     question: 'Where do I put the file?',
@@ -40,7 +40,7 @@ const faqs = [
   {
     question: 'What does the generator actually do?',
     answer:
-      'It fetches your page once, reads the title, description, and your own navigation links, and formats them into the llmstxt.org structure with clearly marked placeholders for the parts only you can write.',
+      'It reads your page title, description, and navigation links once. Then it builds the llmstxt.org format and marks the details only you can provide.',
   },
 ]
 

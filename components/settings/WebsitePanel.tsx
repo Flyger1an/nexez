@@ -216,12 +216,10 @@ export function WebsitePanel({
                   <Artifact id="v-dns-host" label="DNS TXT record name:" value={verificationTxtHost(host || '')} copiedId={copiedId} onCopy={copy} />
                   <Artifact id="v-dns-value" label="Value:" value={token} copiedId={copiedId} onCopy={copy} />
                   <p className="text-[11px] leading-relaxed text-[var(--fg-muted-2)]">
-                    The finished record must read exactly <code className="text-[var(--fg-muted)]">{verificationTxtHost(host || '')}</code>.
-                    Many providers (Namecheap, GoDaddy, Cloudflare) append your DNS zone to whatever you type in the Host
-                    field, which doubles the name and stops it from verifying. If yours does, type only the part before
-                    your zone, so <code className="text-[var(--fg-muted)]">{VERIFICATION_TXT_LABEL}</code> when you manage{' '}
-                    <code className="text-[var(--fg-muted)]">{host}</code> itself. Verify anyway if you are unsure: we detect a
-                    doubled record and tell you the exact value to use.
+                    The record must read exactly <code className="text-[var(--fg-muted)]">{verificationTxtHost(host || '')}</code>.
+                    Some providers add your domain automatically. If that happens, enter only{' '}
+                    <code className="text-[var(--fg-muted)]">{VERIFICATION_TXT_LABEL}</code> as the Host. Verify even if you
+                    are unsure. Nexez detects a duplicated domain and tells you what to fix.
                   </p>
                 </div>
               ) : method === 'meta' ? (

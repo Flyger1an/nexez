@@ -27,7 +27,11 @@ export const generativeEngineOptimization: LearnArticle = {
     { type: 'h2', text: 'How answer engines choose what to cite' },
     {
       type: 'p',
-      text: 'Modern AI search does not rank pages; it retrieves passages. When someone asks a complex question, the engine typically breaks it into smaller sub-queries (often called fan-out queries), runs live retrieval for each, extracts the most relevant passages from the results, and generates one synthesized answer with citations back to the sources it used. Three properties of that pipeline explain most GEO tactics: retrieval favors pages that directly answer the sub-query near the top, extraction favors passages that are self-contained and clearly structured, and synthesis favors facts the model can attribute confidently, which is where typed data and named entities earn their keep.',
+      text: 'Modern AI search does not rank pages; it retrieves passages. When someone asks a complex question, the engine typically breaks it into smaller sub-queries (often called fan-out queries), runs live retrieval for each, extracts the most relevant passages from the results, and generates one synthesized answer with citations back to the sources it used.',
+    },
+    {
+      type: 'p',
+      text: 'Three properties of that pipeline explain most GEO tactics: retrieval favors pages that directly answer the sub-query near the top, extraction favors passages that are self-contained and clearly structured, and synthesis favors facts the model can attribute confidently, which is where typed data and named entities earn their keep.',
     },
     {
       type: 'p',
@@ -92,7 +96,15 @@ export const generativeEngineOptimization: LearnArticle = {
     { type: 'h2', text: 'Measuring GEO without fooling yourself' },
     {
       type: 'p',
-      text: 'The metric that matters is citation share: across a fixed set of prompts your customers actually ask, how often are you cited or recommended, and against whom. Build a prompt panel of 20 to 50 realistic questions, run them monthly across ChatGPT, Perplexity, Gemini, and AI Overviews, and log mentions. Alongside it, segment AI referrals in analytics (referrers like chatgpt.com and perplexity.ai) and watch conversion quality, not just volume. Tooling is maturing fast, with the major SEO platforms adding prompt-volume and citation tracking, but a spreadsheet and discipline get you surprisingly far. Expect movement in weeks on narrow topics and months on competitive ones; engines re-retrieve continuously, so improvements show up faster than classic SEO but decay faster too if you go stale.',
+      text: 'The metric that matters is citation share: across a fixed set of prompts your customers actually ask, how often are you cited or recommended, and against whom. Build a prompt panel of 20 to 50 realistic questions, run them monthly across ChatGPT, Perplexity, Gemini, and AI Overviews, and log mentions.',
+    },
+    {
+      type: 'p',
+      text: 'Alongside it, segment AI referrals in analytics (referrers like chatgpt.com and perplexity.ai) and watch conversion quality, not just volume. Tooling is maturing fast, with the major SEO platforms adding prompt-volume and citation tracking, but a spreadsheet and discipline get you surprisingly far.',
+    },
+    {
+      type: 'p',
+      text: 'Expect movement in weeks on narrow topics and months on competitive ones; engines re-retrieve continuously, so improvements show up faster than classic SEO but decay faster too if you go stale.',
     },
     {
       type: 'cta',

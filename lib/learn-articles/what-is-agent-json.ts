@@ -53,7 +53,15 @@ export const whatIsAgentJson: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'It sits at the transactable end of the readiness stack, downstream of [JSON-LD](/learn/json-ld-for-ai-agents) and [llms.txt](/learn/what-is-llms-txt). Where JSON-LD tells a crawler what your business IS in schema.org\u2019s vocabulary, and llms.txt is a plain-text index for language models, agent.json goes further: it is API-shaped, meant to be fetched and acted on programmatically, listing not just facts but callable next steps with URLs and expected request bodies. If [an MCP server](/learn/what-is-an-mcp-server) is the live, conversational version of "here is what you can do with my business," agent.json is its static cousin: fetchable with a single GET request, no protocol handshake required, ideal for agents doing a first pass over many candidates before committing to a deeper connection.',
+      text: 'It sits at the transactable end of the readiness stack, downstream of [JSON-LD](/learn/json-ld-for-ai-agents) and [llms.txt](/learn/what-is-llms-txt).',
+    },
+    {
+      type: 'p',
+      text: 'Where JSON-LD tells a crawler what your business IS in schema.org’s vocabulary, and llms.txt is a plain-text index for language models, agent.json goes further: it is API-shaped, meant to be fetched and acted on programmatically, listing not just facts but callable next steps with URLs and expected request bodies.',
+    },
+    {
+      type: 'p',
+      text: 'If [an MCP server](/learn/what-is-an-mcp-server) is the live, conversational version of "here is what you can do with my business," agent.json is its static cousin: fetchable with a single GET request, no protocol handshake required, ideal for agents doing a first pass over many candidates before committing to a deeper connection.',
     },
     { type: 'h2', text: 'What a good commerce agent.json actually contains' },
     {
@@ -118,7 +126,15 @@ export const whatIsAgentJson: LearnArticle = {
     { type: 'h2', text: 'Should you build your own' },
     {
       type: 'p',
-      text: 'You can, and for a single static offer list it is a reasonable afternoon project: pick a shape close to the example above, publish it at /agent.json, and keep it current by hand. The honest complication is the same one that applies to structured data generally: a manifest that quotes a price your checkout no longer honors is worse than no manifest, because an agent will act on it confidently and your customer, or your support inbox, absorbs the mismatch. The moment you have more than a handful of offers, or prices and availability that change, hand-maintenance becomes the actual risk, not the missing file.',
+      text: 'You can, and for a single static offer list it is a reasonable afternoon project: pick a shape close to the example above, publish it at /agent.json, and keep it current by hand.',
+    },
+    {
+      type: 'p',
+      text: 'The honest complication is the same one that applies to structured data generally: a manifest that quotes a price your checkout no longer honors is worse than no manifest, because an agent will act on it confidently and your customer, or your support inbox, absorbs the mismatch.',
+    },
+    {
+      type: 'p',
+      text: 'The moment you have more than a handful of offers, or prices and availability that change, hand-maintenance becomes the actual risk, not the missing file.',
     },
     {
       type: 'p',
@@ -134,7 +150,15 @@ export const whatIsAgentJson: LearnArticle = {
     { type: 'h2', text: 'What to watch next' },
     {
       type: 'p',
-      text: 'The closest thing to convergence so far is Agentic Resource Discovery (ARD), the ai-catalog.json convention that Google and ten other companies shipped together in June 2026. It does not replace agent.json-style commerce manifests; it sits a level above them, as an index pointing to a site\u2019s MCP server, A2A agent identity, and APIs in one place. If a genuine standard consolidates the naming mess described in this guide, ARD-style multi-party backing is the most likely shape it takes, because a spec with one author rarely becomes the default. Until then, the pragmatic move is the one that has been true of every emerging web convention: publish the artifact that solves your actual problem, keep it accurate and current, and treat the exact filename as far less important than whether the facts inside it are true.',
+      text: 'The closest thing to convergence so far is Agentic Resource Discovery (ARD), the ai-catalog.json convention that Google and ten other companies shipped together in June 2026. It does not replace agent.json-style commerce manifests; it sits a level above them, as an index pointing to a site’s MCP server, A2A agent identity, and APIs in one place.',
+    },
+    {
+      type: 'p',
+      text: 'If a genuine standard consolidates the naming mess described in this guide, ARD-style multi-party backing is the most likely shape it takes, because a spec with one author rarely becomes the default.',
+    },
+    {
+      type: 'p',
+      text: 'Until then, the pragmatic move is the one that has been true of every emerging web convention: publish the artifact that solves your actual problem, keep it accurate and current, and treat the exact filename as far less important than whether the facts inside it are true.',
     },
     {
       type: 'cta',

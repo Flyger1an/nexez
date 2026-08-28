@@ -205,9 +205,8 @@ export default function BuyerApprovalPage() {
               Consent patterns for <span className="nx-accent-text">agent commerce.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-              Analysis may search, compare, and dry-run safely. Consequential action stops here: Nexez exposes the
-              seller, offer, terms, destination, shared data, risk notes, and recovery-safe approval state before
-              checkout, negotiation, booking, or contact sharing proceeds.
+              Agents may search, compare, and preview safely. Before checkout, negotiation, booking, or contact sharing,
+              Nexez shows the seller, offer, terms, destination, shared data, and risks for approval.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href="#schema" className="btn-primary h-11 px-5">

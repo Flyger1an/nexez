@@ -109,8 +109,7 @@ export default function PlatformDocsPage() {
                 The complete <span className="nx-accent-text">Nexez platform.</span>
               </h1>
               <p className="mt-6 max-w-3xl text-base leading-7 text-muted-foreground md:text-lg">
-                One maintained guide to what Nexez does, how the system fits together, where every capability lives,
-                and which boundary applies before an agent discovers, recommends, or acts.
+                The maintained guide to Nexez capabilities, where they live, and the safety boundaries that apply.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <a href="#platform-model" className="btn-primary h-11 px-5">
@@ -157,8 +156,8 @@ export default function PlatformDocsPage() {
               <p className="text-sm font-medium text-[var(--signal)]">The platform model</p>
               <h2 className="mt-2 text-4xl font-semibold tracking-[-0.05em] md:text-5xl">Four records. One buying truth.</h2>
               <p className="mt-4 text-sm leading-6 text-muted-foreground md:text-base">
-                Nexez is the governed commerce layer between a business&apos;s existing systems and the agents acting for buyers.
-                These primitives keep every human page, machine artifact, approval, transaction, and report aligned.
+                Nexez connects a business&apos;s existing systems with agents acting for buyers.
+                It keeps pages, technical files, approvals, transactions, and reports aligned.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

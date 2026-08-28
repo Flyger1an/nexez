@@ -64,8 +64,8 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
       {
         name: 'Teams and controlled collaboration',
         availability: 'Plan-controlled',
-        summary: 'Pro owners can invite collaborators to edit listing content and listing-scoped configuration under the owner plan without transferring ownership or exposing unrelated workspace data; retained access stays visible for revocation after a downgrade.',
-        details: ['Pro email-based invitations, acceptance, and role changes', 'Owner-only account and storefront administration, transaction decisions, money movement, negotiation lifecycle, and final approvals', 'Plan and seat enforcement with downgrade cleanup preserved'],
+        summary: 'Pro owners can invite collaborators to edit a listing without transferring ownership or exposing the rest of the workspace. Access remains visible and can be revoked after a downgrade.',
+        details: ['Pro collaboration for listing content and listing-scoped configuration', 'Owner-only account and storefront administration, transaction decisions, money movement, negotiation lifecycle, and final approvals', 'Plan and seat enforcement with downgrade cleanup preserved'],
         surfaces: ['Platform Settings', 'Team invitations', 'Listing collaboration'],
       },
       {
@@ -86,7 +86,7 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
       {
         name: 'Guided creation, scanning, and import',
         availability: 'Core',
-        summary: 'Manual authoring, templates, reviewed catalog files, and deterministic website import are core; deeper AI-assisted scanning starts on Launch, while premium catalog and scheduling imports start on Pro.',
+    summary: 'Manual entry, templates, reviewed catalog files, and website import are core features. Launch adds AI-assisted scanning. Pro adds catalog and scheduling imports.',
         details: ['Core manual, template, CSV, TSV, TXT, JSON, XLS, XLSX, and deterministic website-import paths', 'Launch AI refinement and deeper authenticated scanning', 'Pro premium imports, with the installed Shopify App Store connector available on every plan'],
         surfaces: ['Create Listing', 'Scan', 'Tools'],
       },

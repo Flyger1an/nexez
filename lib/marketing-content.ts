@@ -47,7 +47,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     title: 'Your website is for people.',
     accent: 'Your Nexez listing is for agents.',
     description:
-      'Nexez turns the useful parts of your business website into a separate, lightweight listing AI agents can read, compare, and act on. Your main site stays human-first. Your listing becomes the clean source of truth.',
+      'Nexez turns key information from your website into a focused listing AI agents can use. Your main site stays human-first. Your listing keeps offers and next steps clear.',
     primaryCta: { label: 'Create your first listing', href: appUrl('/create') },
     secondaryCta: { label: 'Test the simulator', href: '/simulator' },
     stats: [
@@ -77,7 +77,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         eyebrow: 'Step 2',
         title: 'Shape the listing for agent decisions.',
         copy:
-          'Listings avoid the usual marketing-site mess: heavy scripts, vague CTAs, scattered pricing, and copy that hides the next step. Nexez makes the offer model explicit enough for a buying assistant to recommend.',
+          'Listings remove website noise, vague buttons, scattered pricing, and hidden next steps. Nexez gives buying assistants a clear offer they can recommend.',
         cards: [
           { title: 'Clear offers', copy: 'Services, products, packages, retainers, and bookings are separated into predictable blocks.' },
           { title: 'Direct actions', copy: 'Each offer can point to booking, checkout, contact, negotiation, or external handoff.' },
@@ -110,7 +110,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     title: 'Start with the listing shape',
     accent: 'agents already want.',
     description:
-      'Use these templates as starting points for services, retainers, bookings, local work, SaaS implementation, and productized offers. Each one is built around a buyer intent, not a decorative landing page section.',
+      'Start with a template for services, retainers, bookings, local work, software implementation, or packaged offers. Each template begins with what the buyer needs.',
     primaryCta: { label: 'Use a template', href: appUrl('/create?template=consulting') },
     secondaryCta: { label: 'Browse live listings', href: '/discovery' },
     stats: [
@@ -364,7 +364,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     title: 'APIs and artifacts for',
     accent: 'agent-native commerce.',
     description:
-      'Build on documented discovery, validation, approval, checkout, negotiation, and management contracts, with SDKs, examples, plugins, skills, MCP, and ARD distribution already attached.',
+      'Build with documented APIs for discovery, approval, checkout, negotiation, and account management. SDKs, examples, and agent distribution tools are ready to use.',
     primaryCta: { label: 'View OpenAPI', href: agentRuntimeUrl('/openapi.json') },
     secondaryCta: { label: 'Read developer docs', href: '/docs#developer-distribution' },
     stats: [
@@ -395,7 +395,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         eyebrow: 'Contracts and distribution',
         title: 'Use the contract your runtime understands.',
         copy:
-          'The public HTML page is one representation. SDKs, OpenAPI, agent.json, llms.txt, MCP resources, ARD catalogs, capability manifests, plugins, and skills expose the same operating model through different clients.',
+          'Choose the interface your product supports. Nexez keeps the same listing, approval, and commerce rules across its APIs, SDKs, files, and MCP tools.',
         cards: [
           { title: 'SDKs and examples', copy: 'Published TypeScript and Python packages mirror safe search, validation, approval, and negotiation patterns.' },
           { title: 'Native agent access', copy: 'An OpenClaw plugin and discovery skill provide installable tool and context paths.' },
@@ -418,7 +418,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
       { title: 'Are public APIs authenticated?', copy: 'Public discovery APIs are open by design. Account and management APIs require authentication.' },
       { title: 'Can I build an agent on top of Nexez?', copy: 'Yes. Nexez is designed to be a clean offer source for agents, search tools, and buying assistants.' },
       { title: 'How should agents ask for approval?', copy: 'Use the buyer approval pattern to show seller, offer, price, terms, risk notes, and the exact next action before side effects.' },
-      { title: 'Do you support Agentic Resource Discovery?', copy: 'Yes. Nexez publishes an ARD ai-catalog manifest at /.well-known/ai-catalog.json listing the platform MCP server, the search API, and every published storefront and listing MCP endpoint, so registries can index them by capability.' },
+      { title: 'Do you support Agentic Resource Discovery?', copy: 'Yes. The public ARD catalog lists Nexez search and MCP endpoints so compatible registries can index them.' },
       { title: 'Where should crawlers start?', copy: 'Start with https://nexez.app/llms.txt, /agent-pages.json, and /openapi.json.' },
     ],
     finalCtaTitle: 'Stop scraping. Start with structured intent.',
@@ -471,11 +471,11 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         eyebrow: 'Versus disconnected commerce tools',
         title: 'A handoff is not the end of the record.',
         copy:
-          'A scheduler, processor, or store can execute one step. Nexez keeps the originating intent, offer, approval, transaction, negotiation, refund, settlement, and analytics evidence connected around it.',
+          'Other tools may handle a booking or payment. Nexez keeps the original request, approval, transaction, and follow-up connected.',
         cards: [
-          { title: 'Approval boundary', copy: 'The buyer sees the offer, terms, destination, and shared data before consequential action.' },
-          { title: 'Operational continuity', copy: 'Orders, negotiations, resources, agreements, refunds, disputes, and status paths survive the handoff.' },
-          { title: 'Financial truth', copy: 'Immutable economics and currency-safe reporting separate verified money from estimated attention.' },
+          { title: 'Clear approval', copy: 'The buyer sees the offer, terms, destination, and shared data before anything happens.' },
+          { title: 'Connected follow-up', copy: 'Orders, messages, refunds, disputes, and status remain connected after the handoff.' },
+          { title: 'Verified reporting', copy: 'Reports keep completed payments separate from estimates and attention.' },
         ],
       },
     ],
@@ -557,7 +557,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
 export const pricingFaqs = [
   { question: 'Do I pay a commission if no one books?', answer: 'No. Nexez commission applies only to successful transactions settled through Nexez. Paid-plan subscriptions and card-processing fees are separate.' },
   { question: 'Can I change plans later?', answer: 'Yes, upgrade or downgrade from your Billing page. Prorated billing.' },
-  { question: 'How does complimentary Launch access work?', answer: 'Start on Free, then verify and publish your business. While the capped campaign is available, eligible businesses can receive six months of Launch access with no card and no automatic charge. Afterward, the account returns to Free unless upgraded.' },
+  { question: 'How does complimentary Launch access work?', answer: 'Start on Free, then verify and publish your business. Eligible businesses can receive six months of Launch access while the limited campaign is available. No card is required and there is no automatic charge. Afterward, the account returns to Free unless upgraded.' },
   { question: 'What if I need custom pricing?', answer: 'Enterprise plans are fully customizable. Reach out via support.' },
 ] as const
 
@@ -612,7 +612,7 @@ export const useCases: UseCasePage[] = [
     faq: [
       { title: 'Do I have to publish exact prices?', copy: 'No. A starting price, a range, or a paid scoping call all work. Agents just need something to compare, and silence reads as a dead end.' },
       { title: 'What if my work is too custom to package?', copy: 'Package the first step instead. A paid scoping call or a fixed audit gives agents a concrete offer, and the custom engagement follows from there.' },
-      { title: 'Will this compete with my main website?', copy: 'No. The listing links back to your site and does one job: giving agents a clean, current version of your offers. If you do not have a site, it is hosted and can stand on its own at a Nexez link or your own domain.' },
+      { title: 'Will this compete with my main website?', copy: 'No. The listing links back to your site and gives agents a current view of your offers. If you do not have a site, the listing can stand alone on a Nexez link or your own domain.' },
     ],
     cta: 'Create a consulting listing',
   },
@@ -665,7 +665,7 @@ export const useCases: UseCasePage[] = [
     ],
     faq: [
       { title: 'My coaching is personal. Can a listing capture that?', copy: 'It does not have to. The listing gets you found and booked for the intro session. The connection happens on the call.' },
-      { title: 'Do I need a website first?', copy: 'No. The listing is hosted for you: a live page with your programs, prices, and booking path, on a Nexez link or your own domain. For a lot of coaches it becomes the whole public presence.' },
+      { title: 'Do I need a website first?', copy: 'No. Nexez hosts a live page with your programs, prices, and booking path. It can use a Nexez link or your own domain.' },
       { title: 'What if my prices vary by client?', copy: 'Publish the intro session at a fixed price and mark programs with a starting price. That is enough for an agent to compare.' },
     ],
     cta: 'Create a coaching listing',
@@ -691,7 +691,7 @@ export const useCases: UseCasePage[] = [
       { title: 'Estimate or payment rules', copy: 'Free or paid estimates, deposits, and accepted payment. No surprises at the door.' },
     ],
     faq: [
-      { title: 'I get my work from referrals. Why bother?', copy: 'Referrals are moving to assistants too: find me someone like the electrician my neighbor used. A listing makes you findable when that happens, and you do not need a website to have one. It is hosted, with a live URL you can put on a card or a truck.' },
+      { title: 'I get my work from referrals. Why bother?', copy: 'People now ask assistants for providers like the ones their friends recommend. A listing makes you findable in that moment. It is hosted for you, with a link you can put on a card or truck.' },
       { title: 'My availability changes daily.', copy: 'Connect your calendar and the listing updates itself. That is the point: agents see current availability, not last month.' },
       { title: 'Can an agent actually book me?', copy: 'Yes, through your booking link or calendar integration. For jobs that need a human first, it hands off to a call or quote request.' },
     ],

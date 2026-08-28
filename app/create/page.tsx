@@ -1326,7 +1326,7 @@ export default function CreatePage() {
                   </details>
 
                   <p className="text-xs text-zinc-500">
-                    AI Optimize, bulk rewrite, and Co-Pilot tools unlock on Launch after this draft has an authoritative owner plan.
+                    AI Optimize, bulk rewrite, and Co-Pilot tools are available after the listing owner signs in with a Launch plan.
                   </p>
                 </div>
               ) : null}

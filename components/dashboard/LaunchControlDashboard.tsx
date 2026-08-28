@@ -236,7 +236,7 @@ export function LaunchControlDashboard({
             {snapshot.certification.map((check) => <CertificationRow key={check.id} check={check} />)}
           </div>
           <p className="mt-3 text-xs leading-5 text-[var(--fg-muted-2)]">
-            The automated gauntlet performs dry-run validation and tokenless denial checks. It never creates a charge, Checkout Session, or negotiation. Checkout dry runs retain their normal telemetry event.
+            These checks validate the purchase flow without creating a charge, checkout, or negotiation.
           </p>
         </section>
 

@@ -165,7 +165,7 @@ export function AgreementPortal({ token }: { token: string }) {
               <ShieldCheck className="size-4 text-[var(--ready)]" /> Buyer control
             </p>
             <p className="mt-2 leading-6 text-zinc-400">
-              Cancellation takes effect at the end of the current paid service period. Nexez recurring-service v1 does not expose a fake pause: no future service period is presented as paused while billing semantics continue underneath.
+              Cancellation takes effect at the end of the current paid period. Pausing is not available, so billing will never continue under a misleading paused status.
             </p>
             {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
             {canManage ? (

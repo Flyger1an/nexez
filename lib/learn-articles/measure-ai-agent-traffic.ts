@@ -81,7 +81,15 @@ grep -iE 'GPTBot|ClaudeBot|PerplexityBot' access.log | awk '{print $9}' | sort |
     },
     {
       type: 'p',
-      text: 'For scale context: Cloudflare reported AI crawlers generating more than 50 billion requests per day across its network as of March 2025, just under 1% of all requests it saw. By January 2026 its comparison of crawl breadth found Googlebot still reaching far more unique URLs than any AI crawler, roughly 1.76 times more than GPTBot and 167 times more than PerplexityBot, so AI crawl volume is meaningful but nowhere near search-scale yet. Growth is the real signal: ClaudeBot approximately doubled its crawl rate between Q3 2025 and Q1 2026 on monitored sites, and AI search visits overall grew about 42.8% year over year, from 15.6 billion to 27.4 billion between Q1 2025 and Q1 2026.',
+      text: 'For scale context: Cloudflare reported AI crawlers generating more than 50 billion requests per day across its network as of March 2025, just under 1% of all requests it saw.',
+    },
+    {
+      type: 'p',
+      text: 'By January 2026 its comparison of crawl breadth found Googlebot still reaching far more unique URLs than any AI crawler, roughly 1.76 times more than GPTBot and 167 times more than PerplexityBot, so AI crawl volume is meaningful but nowhere near search-scale yet.',
+    },
+    {
+      type: 'p',
+      text: 'Growth is the real signal: ClaudeBot approximately doubled its crawl rate between Q3 2025 and Q1 2026 on monitored sites, and AI search visits overall grew about 42.8% year over year, from 15.6 billion to 27.4 billion between Q1 2025 and Q1 2026.',
     },
     {
       type: 'callout',

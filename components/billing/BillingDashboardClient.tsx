@@ -505,7 +505,7 @@ export default function BillingDashboardClient({
         {/* How money flows - the dual-revenue model in one glance */}
         <GlassCard className="p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
-            <MoneyFlowStep label="Nexez-settled GMV" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} sub="settled volume this month" tone="white" />
+            <MoneyFlowStep label="Sales through Nexez" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} sub="paid sales this month" tone="white" />
             <FlowArrow />
             <MoneyFlowStep label={`Nexez fee (${commissionPct}%)`} value={`– ${formatCurrencyAmount(platformFeesCents, revenueCurrency)}`} sub="only when you get paid" tone="muted" />
             <FlowArrow />
@@ -521,7 +521,7 @@ export default function BillingDashboardClient({
           <p className="mt-4 border-t border-[var(--bd-10)] pt-3 text-xs text-[var(--fg-muted)]">
             Transaction fees are separate from your{' '}
             <span className="text-white">{hasEnterpriseOverride ? 'Enterprise access' : `${activePlan?.name ?? 'Free'} subscription`}</span>
-            {!hasEnterpriseOverride && activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''}. They apply only to transactions Nexez settles; external-provider handoffs carry no Nexez transaction commission unless separately agreed. Card and payment-processing fees are separate.
+            {!hasEnterpriseOverride && activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''}. They apply only to sales completed through Nexez. External-provider handoffs have no Nexez transaction fee unless separately agreed. Card-processing fees are separate.
           </p>
         </GlassCard>
 
@@ -530,14 +530,14 @@ export default function BillingDashboardClient({
             <SectionHeader icon={Sparkles} title={`${nextPlan.name} economics`} subtitle="Subscription and Nexez commission compared together" />
             {nextTierSavingsCents > 0 ? (
               <p className="text-sm text-[var(--ready)]">
-                At this month&rsquo;s Nexez-settled volume, {nextPlan.name} would have saved approximately{' '}
+                At this month&rsquo;s sales volume, {nextPlan.name} would have saved approximately{' '}
                 <span className="font-semibold">{formatCurrencyAmount(nextTierSavingsCents, revenueCurrency)}</span> in Nexez subscription and platform fees.
               </p>
             ) : (
               <p className="text-sm text-[var(--fg-muted)]">
                 {nextTierBreakevenCents == null
                   ? `${nextPlan.name} does not have a lower total Nexez cost at this rate.`
-                  : `${nextPlan.name} becomes no more expensive on Nexez costs at about ${formatCurrencyAmount(nextTierBreakevenCents, revenueCurrency)} in monthly Nexez-settled GMV.`}
+                  : `${nextPlan.name} costs about the same at ${formatCurrencyAmount(nextTierBreakevenCents, revenueCurrency)} in monthly sales through Nexez.`}
               </p>
             )}
             <p className="mt-2 text-xs text-[var(--fg-muted)]">Payment-processing fees are excluded because they are separate from Nexez pricing.</p>
@@ -750,7 +750,7 @@ export default function BillingDashboardClient({
         <GlassCard className="p-8">
           <SectionHeader icon={Percent} title="Platform fees & payouts" subtitle={`${commissionPct}% current Nexez commission`} />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <FeeMetric label="Nexez-settled GMV" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} />
+            <FeeMetric label="Sales through Nexez" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} />
             <FeeMetric label="Nexez platform fees" value={formatCurrencyAmount(platformFeesCents, revenueCurrency)} />
             <FeeMetric
               label="Payment processing"
@@ -759,7 +759,7 @@ export default function BillingDashboardClient({
             <FeeMetric label="Before processing" value={formatCurrencyAmount(Math.max(0, agentRevenueCents - platformFeesCents), revenueCurrency)} />
           </div>
           <p className="mt-6 text-sm text-[var(--fg-muted)]">
-            Nexez commission applies only when Nexez settles the transaction. Card and payment-processing fees are separate, and are not included in the before-processing figure. External provider handoffs carry no Nexez transaction commission unless separately agreed.
+            Nexez commission applies only to sales completed through Nexez. Card-processing fees are separate and are not included in the before-processing amount. External-provider handoffs have no Nexez transaction fee unless separately agreed.
           </p>
           <div className="mt-6 grid gap-2 text-xs text-[var(--fg-muted)] sm:grid-cols-2 lg:grid-cols-5">
             {billingPlans.map((plan) => (
@@ -869,7 +869,7 @@ export default function BillingDashboardClient({
                 </div>
 
                 <div className="text-xs text-[var(--fg-muted)] mt-1">
-                  {isCurrent ? commissionPct : plan.id === 'enterprise' ? 'Typically 1–2' : plan.commissionPercent}% platform fee on Nexez-settled transactions
+                  {isCurrent ? commissionPct : plan.id === 'enterprise' ? 'Typically 1–2' : plan.commissionPercent}% platform fee on sales through Nexez
                 </div>
                 {honestSavingsCents > 0 && (
                   <div className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md bg-[var(--ready)]/10 px-2 py-1 text-xs font-medium text-[var(--ready)]">
@@ -999,7 +999,7 @@ export default function BillingDashboardClient({
         )}
 
         <p className="text-center text-[10px] text-[var(--fg-muted)]">
-          Subscriptions are processed by Stripe. Nexez commissions apply only to Nexez-settled transactions; payment-processing fees are separate.
+          Stripe processes subscriptions. Nexez commission applies only to sales completed through Nexez. Card-processing fees are separate.
         </p>
       </div>
     )

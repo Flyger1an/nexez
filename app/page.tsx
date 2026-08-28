@@ -157,7 +157,7 @@ const marqueeModels = [
 const pinnedStories: Feature[] = [
   {
     title: 'Your prices stay yours.',
-    copy: 'You set the price and the choices that can change it. Nexez uses those terms when a buyer configures the service instead of letting an AI make up a number.',
+    copy: 'You set the price and the choices that can change it. Nexez follows those terms instead of letting AI invent a number.',
     Icon: TrendingUp,
   },
   {
@@ -315,7 +315,8 @@ export default function NexezHome() {
               AI can help someone buy from you. <span className="nx-accent-text">It still needs your rules.</span>
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              A buyer may know what they want, but an AI assistant still needs to know what you sell, what it costs, what details you require, and what you are willing to accept. Nexez keeps those answers clear before the sale moves forward.
+              A buyer may know what they want, but an AI assistant still needs clear offers, prices, and requirements.
+              Nexez keeps those answers clear before the sale moves forward.
             </p>
             <div className="mt-10 hidden aspect-square w-full lg:block">
               <KnowledgeGraph />
@@ -386,7 +387,8 @@ export default function NexezHome() {
               Let AI sell what you offer. <span className="nx-accent-text">Keep control of how you sell it.</span>
             </h2>
             <p className="mt-5 max-w-lg text-sm leading-6 text-muted-foreground md:text-base">
-              Nexez gives customers and AI assistants a clear buying path without giving them permission to change your prices, ignore your requirements, or promise work you did not agree to do.
+              Nexez gives customers and AI assistants a clear buying path. They cannot change your prices,
+              ignore your requirements, or promise work you did not approve.
             </p>
             <ul className="mt-7 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
               {valueBullets.map((item) => (
@@ -447,7 +449,7 @@ export default function NexezHome() {
             A good AI sale should follow <span className="nx-accent-text">the same business you run.</span>
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Nexez connects the buyer&apos;s request to your actual offer: the details you require, the price that follows from their choices, and the rules that decide whether the purchase should move forward.
+            Nexez connects the buyer&apos;s request to your offer, required details, price, and purchase rules.
           </p>
           <div className="mt-10">
             <ReadinessLab />
@@ -581,7 +583,7 @@ export default function NexezHome() {
             Run a buying scenario before a real buyer does.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            See what an AI assistant can understand about your offer, what details it still needs, how the price follows from the buyer&apos;s choices, and whether the request should move forward.
+            See what an AI assistant understands, what details are missing, and whether the request can move forward.
           </p>
           <div className="mt-8">
             <SimulatorTeaser />

@@ -14,7 +14,11 @@ export const jsonLdForAiAgents: LearnArticle = {
   blocks: [
     {
       type: 'p',
-      text: 'JSON-LD is a block of structured data embedded in a script tag on your page, describing your business in the shared schema.org vocabulary: what you are, what you sell, at what price, when you are open, what customers say. Humans never see it; machines read it first. For AI agents and answer engines it converts your website from prose they must interpret into typed facts they can assert, and that difference shows up in results: pages with structured data are cited roughly three times more often in AI answers, and it is the artifact with the best-documented consumers in the whole readiness stack.',
+      text: 'JSON-LD is a block of structured data embedded in a script tag on your page, describing your business in the shared schema.org vocabulary: what you are, what you sell, at what price, when you are open, what customers say. Humans never see it; machines read it first.',
+    },
+    {
+      type: 'p',
+      text: 'For AI agents and answer engines it converts your website from prose they must interpret into typed facts they can assert, and that difference shows up in results: pages with structured data are cited roughly three times more often in AI answers, and it is the artifact with the best-documented consumers in the whole readiness stack.',
     },
     {
       type: 'p',

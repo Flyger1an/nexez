@@ -78,7 +78,11 @@ export const aiSearchLocalBusinesses: LearnArticle = {
     { type: 'h2', text: 'The restaurant advantage: your menu is structured data' },
     {
       type: 'p',
-      text: 'Restaurants have one input other local businesses do not, and most treat it as an afterthought. Menu data (dish names, dietary tags, price ranges) is a direct AI input, and it is what makes a restaurant matchable for the food-specific queries that now dominate: gluten free, vegan options, good pasta, under $20 a head. Google will even extract menu items and pricing from an uploaded photo or PDF into a structured digital menu, so the effort barrier is genuinely low. An empty or two-year-old menu section is a structural disadvantage against a competitor with a current one, independent of how good the food is.',
+      text: 'Restaurants have one input other local businesses do not, and most treat it as an afterthought. Menu data (dish names, dietary tags, price ranges) is a direct AI input, and it is what makes a restaurant matchable for the food-specific queries that now dominate: gluten free, vegan options, good pasta, under $20 a head.',
+    },
+    {
+      type: 'p',
+      text: 'Google will even extract menu items and pricing from an uploaded photo or PDF into a structured digital menu, so the effort barrier is genuinely low. An empty or two-year-old menu section is a structural disadvantage against a competitor with a current one, independent of how good the food is.',
     },
     {
       type: 'callout',

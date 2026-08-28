@@ -195,7 +195,15 @@ Sitemap: https://yourdomain.com/sitemap.xml`,
     },
     {
       type: 'p',
-      text: 'The check is a log query, not an analytics dashboard, because AI crawlers do not execute JavaScript and Google Analytics therefore reports zero of them no matter how many arrive. [Measuring AI agent traffic](/learn/measure-ai-agent-traffic) covers the full instrument set, but the ninety-second version is: grep your server or CDN logs for the user agents in the table above, and look at the response codes rather than the hit count. A wall of 403s means something in your stack is answering the door and slamming it, and that is worth knowing before you spend another afternoon on structured data nobody is allowed to fetch.',
+      text: 'The check is a log query, not an analytics dashboard, because AI crawlers do not execute JavaScript and Google Analytics therefore reports zero of them no matter how many arrive.',
+    },
+    {
+      type: 'p',
+      text: '[Measuring AI agent traffic](/learn/measure-ai-agent-traffic) covers the full instrument set, but the ninety-second version is: grep your server or CDN logs for the user agents in the table above, and look at the response codes rather than the hit count.',
+    },
+    {
+      type: 'p',
+      text: 'A wall of 403s means something in your stack is answering the door and slamming it, and that is worth knowing before you spend another afternoon on structured data nobody is allowed to fetch.',
     },
     {
       type: 'p',
