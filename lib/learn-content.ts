@@ -72,8 +72,10 @@ import { chatgptInstantCheckoutRetired } from './learn-articles/chatgpt-instant-
 import { whichAiCrawlersToAllow } from './learn-articles/which-ai-crawlers-to-allow'
 import { howAiAgentsPay } from './learn-articles/how-ai-agents-pay'
 import { productFeedsForAiAgents } from './learn-articles/product-feeds-for-ai-agents'
+import { googleAiModeVisibility } from './learn-articles/google-ai-mode-visibility'
 
 export const learnArticles: LearnArticle[] = [
+  googleAiModeVisibility,
   productFeedsForAiAgents,
   howAiAgentsPay,
   whichAiCrawlersToAllow,
