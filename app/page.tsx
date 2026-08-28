@@ -1,9 +1,12 @@
 import {
   ArrowRight,
   Bot,
+  CalendarClock,
+  FileSpreadsheet,
   Globe2,
   TrendingUp,
   ShieldCheck,
+  ShoppingBag,
   Sparkles,
   CheckCircle2,
   Search,
@@ -63,7 +66,7 @@ const workflow = [
   {
     step: '01',
     title: 'Tell Nexez what you sell',
-    copy: 'Bring in your services, prices, and the choices buyers can make. Start with what your business already offers.',
+    copy: 'Connect a store, calendar, payment account, website, or file. Nexez turns what you already sell into editable offers.',
   },
   {
     step: '02',
@@ -134,8 +137,28 @@ const keyFeatures: Feature[] = [
 const stats = [
   { value: '<200ms', label: 'Agent-ready load' },
   { value: '19+', label: 'AI crawlers welcomed' },
-  { value: '5+', label: 'Structured formats' },
+  { value: '10+', label: 'Ways to connect' },
   { value: 'Live', label: 'Conversion analytics' },
+]
+
+const integrationRail = ['Stripe', 'Shopify', 'Square', 'Calendly', 'Acuity', 'Google Calendar']
+
+const integrationGroups: Feature[] = [
+  {
+    title: 'Catalog and payments',
+    copy: 'Bring in products and prices from Stripe, Shopify, or Square.',
+    Icon: ShoppingBag,
+  },
+  {
+    title: 'Scheduling and availability',
+    copy: 'Connect Calendly, Acuity, or Google Calendar so buyers reach a bookable next step.',
+    Icon: CalendarClock,
+  },
+  {
+    title: 'Files and automation',
+    copy: 'Start with your website, CSV, Excel, or Zapier-compatible webhooks when that fits your workflow.',
+    Icon: FileSpreadsheet,
+  },
 ]
 
 // Agents that read structured pages - monogram lockups for the marquee.
@@ -297,6 +320,32 @@ export default function NexezHome() {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* MERCHANT INTEGRATION PROOF */}
+      <section
+        className="relative z-10 border-t border-border"
+        aria-label="Connects with the tools your business already uses"
+        data-section-name="Integration proof"
+      >
+        <div className="mx-auto max-w-7xl px-5 py-8">
+          <p className="text-center font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            Connects with the tools your business already uses
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            {integrationRail.map((provider) => (
+              <span
+                key={provider}
+                className="rounded-full border border-border bg-white/[0.025] px-3 py-1.5 text-xs font-medium text-[var(--fg-muted-2)]"
+              >
+                {provider}
+              </span>
+            ))}
+          </div>
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Plus website, CSV, Excel, and Zapier-compatible workflows.
+          </p>
         </div>
       </section>
       </div>
@@ -534,12 +583,51 @@ export default function NexezHome() {
         </div>
       </section>
 
+      {/* INTEGRATIONS */}
+      <section
+        className="nx-home-static-band border-b border-border"
+        aria-label="Integrations"
+        data-section-name="Integrations"
+        style={{ zIndex: 5 }}
+      >
+        <div className="mx-auto max-w-7xl px-5 py-20">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--signal)]">
+                Integrations
+              </p>
+              <h2 className="mt-4 max-w-xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+                Your existing tools become <span className="nx-accent-text">one clear buying path.</span>
+              </h2>
+              <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+                Bring in your catalog, pricing, scheduling, and availability from the systems you already use. Review every imported offer before it goes live.
+              </p>
+              <a href="/integrations" className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
+                Explore integrations
+                <ArrowRight className="size-4" />
+              </a>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+              {integrationGroups.map(({ title, copy, Icon }) => (
+                <article key={title} className="nx-tile p-5">
+                  <div className="flex size-9 items-center justify-center rounded-md border border-border bg-black">
+                    <Icon className="size-4 text-[var(--signal)]" />
+                  </div>
+                  <h3 className="mt-5 text-sm font-medium tracking-tight">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{copy}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* WORKFLOW */}
       <section
         className="nx-home-static-band border-b border-border"
         aria-label="How it works"
         data-section-name="How it works"
-        style={{ zIndex: 5 }}
+        style={{ zIndex: 6 }}
       >
         <p className="sr-only">How it works</p>
         <div className="mx-auto max-w-7xl px-5 py-20">
@@ -575,7 +663,7 @@ export default function NexezHome() {
         className="nx-home-static-band nx-home-reveal-band--tint-02 border-b border-border py-20"
         aria-label="Agent simulator"
         data-section-name="Agent simulator"
-        style={{ zIndex: 6 }}
+        style={{ zIndex: 7 }}
       >
         <p className="sr-only">Agent simulator</p>
         <div className="mx-auto max-w-4xl px-5 text-center" data-reveal>
