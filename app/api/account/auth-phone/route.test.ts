@@ -9,6 +9,7 @@ const refs = vi.hoisted(() => ({
   checkSmsPhoneVerification: vi.fn(),
   createAdminClient: vi.fn(),
   hasSupabaseAdminEnv: vi.fn(),
+  getUserById: vi.fn(),
   updateUserById: vi.fn(),
 }))
 
@@ -27,7 +28,7 @@ vi.mock('@/utils/supabase/admin', () => ({
   hasSupabaseAdminEnv: refs.hasSupabaseAdminEnv,
 }))
 
-import { POST } from './route'
+import { GET, POST } from './route'
 
 const USER_ID = '36c50eb6-b36a-40de-ae25-a13cecf66d84'
 const PHONE = '+17627445455'
@@ -39,6 +40,10 @@ function request(body: unknown) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
+}
+
+function getRequest() {
+  return new Request('https://app.nexez.ai/api/account/auth-phone')
 }
 
 beforeEach(() => {
@@ -58,11 +63,51 @@ beforeEach(() => {
   refs.hasSupabaseAdminEnv.mockReturnValue(true)
   refs.startSmsPhoneVerification.mockResolvedValue({ ok: true, verificationSid: 'VE123', status: 'pending' })
   refs.checkSmsPhoneVerification.mockResolvedValue({ ok: true, approved: true, verificationSid: 'VE123', status: 'approved' })
+  refs.getUserById.mockResolvedValue({
+    data: { user: { id: USER_ID, phone: PHONE, phone_confirmed_at: '2026-08-28T00:00:00.000Z' } },
+    error: null,
+  })
   refs.updateUserById.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-  refs.createAdminClient.mockReturnValue({ auth: { admin: { updateUserById: refs.updateUserById } } })
+  refs.createAdminClient.mockReturnValue({
+    auth: { admin: { getUserById: refs.getUserById, updateUserById: refs.updateUserById } },
+  })
 })
 
 afterEach(() => vi.unstubAllEnvs())
+
+describe('GET /api/account/auth-phone', () => {
+  it('returns only the masked confirmed phone for the authenticated account', async () => {
+    const response = await GET(getRequest())
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(refs.getUserById).toHaveBeenCalledWith(USER_ID)
+    expect(body).toEqual({ phoneMasked: '+•••••••5455' })
+    expect(JSON.stringify(body)).not.toContain(PHONE)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+  })
+
+  it('returns no phone when the stored number is not confirmed', async () => {
+    refs.getUserById.mockResolvedValue({
+      data: { user: { id: USER_ID, phone: PHONE, phone_confirmed_at: null } },
+      error: null,
+    })
+
+    const response = await GET(getRequest())
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ phoneMasked: null })
+  })
+
+  it('requires an authenticated account without reading Auth admin state', async () => {
+    refs.resolveRequestAuth.mockResolvedValue({ user: null, supabase: {} })
+
+    const response = await GET(getRequest())
+
+    expect(response.status).toBe(401)
+    expect(refs.getUserById).not.toHaveBeenCalled()
+  })
+})
 
 describe('POST /api/account/auth-phone', () => {
   it('requires an authenticated account', async () => {

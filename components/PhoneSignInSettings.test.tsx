@@ -23,14 +23,16 @@ describe('PhoneSignInSettings', () => {
   })
 
   it('sends a possession challenge without changing notification consent', async () => {
-    vi.mocked(fetch).mockImplementation(() => response({ sent: true, phoneMasked: '+•••••••5455' }))
+    vi.mocked(fetch)
+      .mockImplementationOnce(() => response({ phoneMasked: null }))
+      .mockImplementationOnce(() => response({ sent: true, phoneMasked: '+•••••••5455' }))
     render(<PhoneSignInSettings initialPhoneMasked={null} />)
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Mobile number' }), { target: { value: PHONE } })
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Mobile number' }), { target: { value: PHONE } })
     fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }))
 
-    await waitFor(() => expect(fetch).toHaveBeenCalledOnce())
-    expect(fetch).toHaveBeenCalledWith('/api/account/auth-phone', {
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    expect(fetch).toHaveBeenLastCalledWith('/api/account/auth-phone', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ action: 'start', phone: PHONE }),
@@ -41,17 +43,18 @@ describe('PhoneSignInSettings', () => {
 
   it('links the verified phone after the correct code', async () => {
     vi.mocked(fetch)
+      .mockImplementationOnce(() => response({ phoneMasked: null }))
       .mockImplementationOnce(() => response({ sent: true, phoneMasked: '+•••••••5455' }))
       .mockImplementationOnce(() => response({ verified: true, phoneMasked: '+•••••••5455' }))
     render(<PhoneSignInSettings initialPhoneMasked={null} />)
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Mobile number' }), { target: { value: PHONE } })
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Mobile number' }), { target: { value: PHONE } })
     fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }))
     const code = await screen.findByRole('textbox', { name: 'Verification code' })
     fireEvent.change(code, { target: { value: '123 456' } })
     fireEvent.click(screen.getByRole('button', { name: 'Verify login phone' }))
 
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3))
     expect(fetch).toHaveBeenLastCalledWith('/api/account/auth-phone', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -62,12 +65,27 @@ describe('PhoneSignInSettings', () => {
   })
 
   it('blocks malformed phone numbers before a request is sent', async () => {
+    vi.mocked(fetch).mockImplementationOnce(() => response({ phoneMasked: null }))
     render(<PhoneSignInSettings initialPhoneMasked={null} />)
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Mobile number' }), { target: { value: '(762) 744-5455' } })
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Mobile number' }), { target: { value: '(762) 744-5455' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('international format')
-    expect(fetch).not.toHaveBeenCalled()
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
+  it('hydrates a linked phone from authoritative Auth state when server props are stale', async () => {
+    vi.mocked(fetch).mockImplementationOnce(() => response({ phoneMasked: '+•••••••5455' }))
+    render(<PhoneSignInSettings initialPhoneMasked={null} />)
+
+    expect(await screen.findByText('+•••••••5455')).toBeInTheDocument()
+    expect(screen.getByText('Linked')).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith('/api/account/auth-phone', {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+      signal: expect.any(AbortSignal),
+    })
   })
 })

@@ -67,6 +67,37 @@ function genericLinkError(status = 400) {
   return NextResponse.json({ error: 'We could not verify and link that phone number.' }, { status })
 }
 
+function genericStatusError(status = 500) {
+  return NextResponse.json({ error: 'We could not load login phone status.' }, { status })
+}
+
+/**
+ * Return only the current account's masked, confirmed login phone. Reading the
+ * Auth user through the admin API avoids stale phone claims in an existing
+ * session after a server-side link, while never exposing the full number.
+ */
+export async function GET(request: Request): Promise<NextResponse> {
+  const limited = await enforceRateLimit(request, 'account:auth-phone:read', 60, 60_000)
+  if (limited) return limited
+
+  const { user } = await resolveRequestAuth(request)
+  if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 })
+  if (!hasSupabaseAdminEnv()) return unavailableResponse()
+
+  const admin = createAdminClient()
+  const { data, error } = await admin.auth.admin.getUserById(user.id)
+  if (error || !data.user) return genericStatusError(502)
+
+  const phone = data.user.phone_confirmed_at
+    ? normalizeE164PhoneNumber(data.user.phone)
+    : null
+
+  return NextResponse.json(
+    { phoneMasked: phone ? maskE164PhoneNumber(phone) : null },
+    { headers: { 'cache-control': 'no-store' } },
+  )
+}
+
 /**
  * Link a login phone only after the current account proves possession through
  * Nexez's Twilio Verify service. The service-role update avoids Supabase's

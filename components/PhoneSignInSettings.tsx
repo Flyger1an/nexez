@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { CheckCircle2, KeyRound, Loader2, MessageSquareText, Phone, ShieldCheck } from 'lucide-react'
 import { maskE164PhoneNumber, normalizeE164PhoneNumber, normalizePhoneOtp } from '../lib/phone-auth'
 
@@ -10,7 +10,7 @@ type PhoneSignInSettingsProps = {
 
 type AuthPhoneResponse = {
   error?: string
-  phoneMasked?: string
+  phoneMasked?: string | null
   sent?: boolean
   verified?: boolean
 }
@@ -26,12 +26,40 @@ async function readResponse(response: Response): Promise<AuthPhoneResponse> {
 export function PhoneSignInSettings({ initialPhoneMasked }: PhoneSignInSettingsProps) {
   const [linkedPhoneMasked, setLinkedPhoneMasked] = useState(initialPhoneMasked)
   const [phase, setPhase] = useState<'summary' | 'number' | 'code'>(initialPhoneMasked ? 'summary' : 'number')
+  const [loadingLinkedPhone, setLoadingLinkedPhone] = useState(!initialPhoneMasked)
   const [phone, setPhone] = useState('')
   const [verificationPhone, setVerificationPhone] = useState<string | null>(null)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState<'ok' | 'error'>('ok')
+
+  useEffect(() => {
+    if (initialPhoneMasked) return
+
+    const controller = new AbortController()
+    async function loadLinkedPhone() {
+      try {
+        const response = await fetch('/api/account/auth-phone', {
+          method: 'GET',
+          headers: { accept: 'application/json' },
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        const body = await readResponse(response)
+        if (!response.ok || !body.phoneMasked) return
+        setLinkedPhoneMasked(body.phoneMasked)
+        setPhase('summary')
+      } catch {
+        // Keep the number-entry fallback available when status cannot load.
+      } finally {
+        if (!controller.signal.aborted) setLoadingLinkedPhone(false)
+      }
+    }
+
+    void loadLinkedPhone()
+    return () => controller.abort()
+  }, [initialPhoneMasked])
 
   function showError(nextMessage: string) {
     setMessageTone('error')
@@ -143,7 +171,11 @@ export function PhoneSignInSettings({ initialPhoneMasked }: PhoneSignInSettingsP
       </div>
 
       <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        {phase === 'summary' && linkedPhoneMasked ? (
+        {loadingLinkedPhone ? (
+          <div className="flex min-h-16 items-center gap-3 text-sm text-zinc-400" role="status">
+            <Loader2 className="size-4 animate-spin text-[var(--signal)]" /> Checking login phone…
+          </div>
+        ) : phase === 'summary' && linkedPhoneMasked ? (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-medium text-zinc-100">{linkedPhoneMasked}</p>
