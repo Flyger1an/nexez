@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { appUrl, marketingUrl } from '../../lib/site'
 import {
   SMS_CONSENT_CORE_COPY,
+  SMS_PRIVACY_NON_SHARING_COPY,
   SMS_SAMPLE_MESSAGE,
   SMS_SETTINGS_PATH,
 } from '../../lib/sms-consent'
@@ -22,5 +23,6 @@ describe('SMS notifications public disclosure', () => {
     expect(markup).toContain(appUrl(SMS_SETTINGS_PATH))
     expect(markup).toContain('Reply STOP to opt out or HELP for help.')
     expect(markup).toContain('checkbox is always unchecked by default')
+    expect(markup).toContain(SMS_PRIVACY_NON_SHARING_COPY)
   })
 })

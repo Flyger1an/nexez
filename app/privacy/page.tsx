@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import { SMS_PRIVACY_NON_SHARING_COPY } from '../../lib/sms-consent'
 import { marketingUrl } from '../../lib/site'
 
 export const metadata: Metadata = {
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
   },
 }
 
-const LAST_UPDATED = 'August 27, 2026'
+const LAST_UPDATED = 'August 28, 2026'
 
 const sections: { heading: string; body: ReactNode[] }[] = [
   {
@@ -76,7 +77,7 @@ const sections: { heading: string; body: ReactNode[] }[] = [
         Nexez offers optional transactional SMS alerts when a new seller negotiation needs review. To subscribe, you enter a mobile number in account settings, actively select an unchecked consent box, and verify that number. Message frequency varies with your activity. Message and data rates may apply. Reply <strong>STOP</strong> to opt out or <strong>HELP</strong> for help.
       </>,
       <>
-        Consent is not a condition of purchase. Mobile information and SMS opt-in consent are not shared with third parties or affiliates for their marketing or promotional purposes. For support, visit <a href="https://nexez.ai/support" className="text-[var(--signal)] hover:underline">https://nexez.ai/support</a>.
+        Nexez collects the mobile phone number you enter and records your opt-in, verification, and opt-out status solely to provide and administer these transactional alerts. Consent is not a condition of purchase. {SMS_PRIVACY_NON_SHARING_COPY} For support, visit <a href="https://nexez.ai/support" className="text-[var(--signal)] hover:underline">https://nexez.ai/support</a>.
       </>,
     ],
   },
