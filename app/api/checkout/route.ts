@@ -29,7 +29,8 @@ import { calculateApplicationFeeCentsFromBps } from '../../../lib/stripe-billing
 import { resolveSettlementContext } from '../../../lib/commerce/settlement-bridge'
 import type { SettlementContext } from '../../../lib/commerce/checkout-session-core'
 import { billingPlans } from '../../../lib/billing'
-import { getCalendlyPat, integrationCredentialsConfigured } from '../../../lib/server/page-integration-credentials'
+import { integrationCredentialsConfigured } from '../../../lib/server/page-integration-credentials'
+import { getCalendlyCredential } from '../../../lib/server/calendly-credentials'
 import { createCalendlySchedulingLink } from '../../../lib/server/calendly-write'
 import { ownerAllows } from '../../../lib/server/plan'
 import { priceOfferConfiguration } from '../../../lib/offer-configuration-pricing'
@@ -696,10 +697,11 @@ async function maybeMintSingleUseCalendlyLink(
   if (!eventTypeUri) return null
   if (!integrationCredentialsConfigured()) return null
   if (!ownerId || !hasSupabaseAdminEnv()) return null
-  if (!(await ownerAllows(createAdminClient(), ownerId, 'integrations'))) return null
-  const pat = await getCalendlyPat(pageId)
-  if (!pat) return null
-  const minted = await createCalendlySchedulingLink(pat, eventTypeUri)
+  const admin = createAdminClient()
+  if (!(await ownerAllows(admin, ownerId, 'integrations'))) return null
+  const credential = await getCalendlyCredential(admin, pageId)
+  if (!credential) return null
+  const minted = await createCalendlySchedulingLink(credential.accessToken, eventTypeUri)
   return minted || fallback
 }
 

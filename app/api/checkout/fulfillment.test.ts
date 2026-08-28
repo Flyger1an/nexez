@@ -54,7 +54,9 @@ vi.mock('../../../lib/server/log-checkout-event', () => ({
 
 vi.mock('../../../lib/server/page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => false,
-  getCalendlyPat: async () => null,
+}))
+vi.mock('../../../lib/server/calendly-credentials', () => ({
+  getCalendlyCredential: async () => null,
 }))
 
 vi.mock('../../../lib/server/calendly-write', () => ({

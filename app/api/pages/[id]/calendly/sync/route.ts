@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 import { createClient } from '../../../../../../utils/supabase/server'
 import { createAdminClient } from '../../../../../../utils/supabase/admin'
 import { gateIntegrationImport, importCalendlyOffers } from '../../../../../../lib/server/integration-importers'
-import { getCalendlyPat, integrationCredentialsConfigured } from '../../../../../../lib/server/page-integration-credentials'
+import { integrationCredentialsConfigured } from '../../../../../../lib/server/page-integration-credentials'
+import { getCalendlyCredential } from '../../../../../../lib/server/calendly-credentials'
 import { fetchCalendlyEventTypeAvailability } from '../../../../../../lib/server/calendly-write'
 import { smartMergeOffers } from '../../../../../../lib/editor-merge'
 import { applyEventTypeAvailability, buildCalendlyNextAvailable, calendlyEventTypeRefs } from '../../../../../../lib/calendly-availability'
@@ -14,15 +15,16 @@ import { captureEvent } from '../../../../../../lib/observability'
 const HORIZON_DAYS = 7
 
 /**
- * Sync this page's Calendly offers + availability from the STORED per-page PAT -
- * no re-entering the token. Closes the gap where connecting Calendly (Settings)
+ * Sync this page's Calendly offers and availability from its stored managed
+ * OAuth connection or legacy personal token, with no credential re-entry.
+ * Closes the gap where connecting Calendly in Settings
  * stored a credential nothing then used: this pulls the seller's live event types
  * in as `source: 'calendly'` offers (each stamped with its event-type URI, which
  * single-use link minting needs) and refreshes advertised availability from the
  * real event-type availability, exactly like the background cron.
  *
  * Owner/editor + Pro gated (same as every Calendly import surface). Dormant
- * without INTEGRATION_SECRET_KEY; a 400 if no PAT is connected yet.
+ * without INTEGRATION_SECRET_KEY; a 400 if no credential is connected yet.
  */
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const limited = await enforceRateLimit(request, 'calendly-sync', 10, 60_000)
@@ -48,18 +50,19 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   if (!integrationCredentialsConfigured()) {
     return NextResponse.json({ error: 'Calendly credential storage is not configured on this deployment.' }, { status: 503 })
   }
-  const pat = await getCalendlyPat(pageId)
-  if (!pat) {
+  const admin = createAdminClient()
+  const credential = await getCalendlyCredential(admin, pageId)
+  if (!credential) {
     return NextResponse.json({ error: 'Connect Calendly in Settings before syncing.' }, { status: 400 })
   }
+  const token = credential.accessToken
 
   // 1) Live event types → offers, each carrying its event-type URI in metadata.
-  const imported = await importCalendlyOffers(pat)
+  const imported = await importCalendlyOffers(token)
   if (!imported.ok) {
     return NextResponse.json({ error: imported.error }, { status: 502 })
   }
 
-  const admin = createAdminClient()
   const { data: page } = await admin
     .from('pages')
     .select('id, slug, services, next_available')
@@ -94,7 +97,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   // availability untouched (never blanks it).
   const nowIso = new Date().toISOString()
   const eventTypeAvailability = await fetchCalendlyEventTypeAvailability(
-    pat,
+    token,
     calendlyEventTypeRefs(services),
     { days: HORIZON_DAYS },
   )

@@ -1,10 +1,9 @@
 import 'server-only'
 import type { BusyPeriod, DerivedWindow } from '../integrations'
 
-// PAT-powered Calendly write/query operations (the write-side that the stored
-// per-page Calendly credential unlocks). The raw PAT comes from
-// getCalendlyPat() and is used ONLY here to call Calendly's API - never logged,
-// never returned. All calls are bounded (9s) and fail soft (null / false).
+// Calendly write/query operations. The caller resolves a managed OAuth access
+// token or a legacy personal token, then passes it only to these bounded API
+// calls. Credentials are never logged or returned to a browser.
 
 const CALENDLY_API = 'https://api.calendly.com'
 const TIMEOUT_MS = 9000

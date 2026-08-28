@@ -6,13 +6,14 @@ vi.mock('../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(), hasSu
 import { getPageIntegrationConnections } from './integration-connections'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 
-function drive(secrets: any, billing: any, shopifyInstall: any = null) {
+function drive(secrets: any, billing: any, shopifyInstall: any = null, managedConnections: any[] = []) {
   vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
   vi.mocked(createAdminClient).mockReturnValue(
     createSupabaseMock((ctx: any) => {
       if (ctx.table === 'page_secrets') return { data: secrets, error: null }
       if (ctx.table === 'shopify_installs') return { data: shopifyInstall, error: null }
       if (ctx.table === 'billing_subscriptions') return { data: billing, error: null }
+      if (ctx.table === 'merchant_connector_connections') return { data: managedConnections, error: null }
       return { data: null, error: null }
     }) as any,
   )
@@ -36,6 +37,59 @@ describe('getPageIntegrationConnections', () => {
     const c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
     expect(c.calendly).toMatchObject({ connected: true, kind: 'token', autoSync: true, canSync: true, lastSyncedAt: '2026-07-08T18:00:00Z' })
     expect(c.shopify).toMatchObject({ connected: false, kind: 'token', autoSync: false, canSync: true })
+  })
+
+  it('prefers managed Calendly OAuth health while preserving legacy personal-token connections', async () => {
+    drive(
+      { calendly_pat_encrypted: 'legacy-encrypted', shopify_credentials_encrypted: null, calendly_synced_at: '2026-07-08T18:00:00Z' },
+      null,
+      null,
+      [{
+        page_id: 'pg1',
+        provider: 'calendly',
+        status: 'attention',
+        last_synced_at: '2026-08-27T12:00:00Z',
+        last_error: 'Reconnect Calendly.',
+        capabilities: ['catalog', 'availability', 'bookings'],
+      }],
+    )
+
+    const c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+
+    expect(c.calendly).toMatchObject({
+      connected: true,
+      kind: 'oauth',
+      autoSync: true,
+      canSync: true,
+      lastSyncedAt: '2026-08-27T12:00:00Z',
+      syncStatus: 'attention',
+      syncError: 'Reconnect Calendly.',
+    })
+  })
+
+  it('reports managed Calendly OAuth as connected without a legacy personal token', async () => {
+    drive(
+      { calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null },
+      null,
+      null,
+      [{
+        page_id: 'pg1',
+        provider: 'calendly',
+        status: 'connected',
+        last_synced_at: '2026-08-27T13:00:00Z',
+        last_error: null,
+        capabilities: ['catalog', 'availability', 'bookings'],
+      }],
+    )
+
+    const c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+
+    expect(c.calendly).toMatchObject({
+      connected: true,
+      kind: 'oauth',
+      lastSyncedAt: '2026-08-27T13:00:00Z',
+      syncStatus: 'idle',
+    })
   })
 
   it('marks Stripe connected only when account, charges, and payouts are ready', async () => {

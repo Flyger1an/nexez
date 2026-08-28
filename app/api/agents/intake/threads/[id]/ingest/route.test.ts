@@ -21,6 +21,9 @@ vi.mock('../../../../../../../lib/rate-limit', () => ({
 vi.mock('../../../../../../../lib/server/request-auth', () => ({
   resolveRequestAuth: vi.fn(async () => authRef.result),
 }))
+vi.mock('../../../../../../../utils/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({})),
+}))
 vi.mock('../../../../../../../lib/importer', () => ({
   getImportUrlError: vi.fn(() => importerRef.urlError),
   analyzeSite: vi.fn(async (...args: unknown[]) => {
@@ -41,8 +44,10 @@ vi.mock('../../../../../../../lib/server/integration-importers', () => ({
     return integRef.importResult
   }),
 }))
-vi.mock('../../../../../../../lib/server/page-integration-credentials', () => ({
-  getCalendlyPat: vi.fn(async () => credRef.savedPat),
+vi.mock('../../../../../../../lib/server/calendly-credentials', () => ({
+  getCalendlyCredential: vi.fn(async () => credRef.savedPat
+    ? { accessToken: credRef.savedPat, source: 'personal_token' }
+    : null),
 }))
 
 import { POST } from './route'

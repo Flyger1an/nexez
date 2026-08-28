@@ -41,7 +41,7 @@ export const CONNECTOR_MANIFEST = {
   calendly: {
     provider: 'calendly',
     label: 'Calendly',
-    auth: 'token',
+    auth: 'oauth',
     capabilities: ['catalog', 'availability', 'bookings', 'webhooks'],
     syncsOffers: true,
     autoSync: true,

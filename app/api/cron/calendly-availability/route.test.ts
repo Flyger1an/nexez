@@ -8,7 +8,11 @@ const { credRef, planRef } = vi.hoisted(() => ({
 }))
 vi.mock('../../../../lib/server/page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => credRef.configured,
-  getCalendlyPat: vi.fn(async () => credRef.pat),
+}))
+vi.mock('../../../../lib/server/calendly-credentials', () => ({
+  getCalendlyCredential: vi.fn(async () => credRef.pat
+    ? { accessToken: credRef.pat, source: 'personal_token' }
+    : null),
 }))
 vi.mock('../../../../lib/server/calendly-write', () => ({
   fetchCalendlyEventTypeAvailability: vi.fn(async () => credRef.availability),
@@ -18,7 +22,7 @@ vi.mock('../../../../lib/server/plan', () => ({ ownerAllows: vi.fn(async () => p
 import { GET } from './route'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { fetchCalendlyEventTypeAvailability } from '../../../../lib/server/calendly-write'
-import { getCalendlyPat } from '../../../../lib/server/page-integration-credentials'
+import { getCalendlyCredential } from '../../../../lib/server/calendly-credentials'
 import { ownerAllows } from '../../../../lib/server/plan'
 
 const req = (auth?: string) =>
@@ -45,6 +49,7 @@ function drive(page: any | null) {
   vi.mocked(createAdminClient).mockReturnValue(
     createSupabaseMock((ctx) => {
       if (ctx.table === 'page_secrets') return { data: page ? [{ page_id: page.id }] : [], error: null }
+      if (ctx.table === 'merchant_connector_connections') return { data: [], error: null }
       if (ctx.table === 'pages' && ctx.op === 'select') return { data: page ? [page] : [], error: null }
       if (ctx.table === 'pages' && ctx.op === 'update') {
         updates.push({ id: ctx.eqs.id, payload: ctx.payload })
@@ -136,6 +141,7 @@ describe('GET /api/cron/calendly-availability', () => {
           stamps.push({ payload: ctx.payload, calls: ctx.calls })
           return { data: null, error: null }
         }
+        if (ctx.table === 'merchant_connector_connections') return { data: [], error: null }
         if (ctx.table === 'pages' && ctx.op === 'select') return { data: [pageWith()], error: null }
         return { data: null, error: null }
       }) as any,
@@ -163,7 +169,7 @@ describe('GET /api/cron/calendly-availability', () => {
     const json = await (await GET(req())).json()
 
     expect(json).toMatchObject({ ok: true, synced: 0, failed: 0, entitlement_skipped: 1 })
-    expect(getCalendlyPat).not.toHaveBeenCalled()
+    expect(getCalendlyCredential).not.toHaveBeenCalled()
     expect(fetchCalendlyEventTypeAvailability).not.toHaveBeenCalled()
     expect(ownerAllows).toHaveBeenCalledWith(expect.anything(), 'owner-1', 'integrations')
     expect(updates).toHaveLength(0)

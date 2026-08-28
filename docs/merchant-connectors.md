@@ -1,11 +1,11 @@
 # Merchant connector operations
 
-This document is the deployment and support source of truth for the Square,
-Acuity, Google Calendar, WooCommerce, and ServiceM8 connectors.
+This document is the deployment and support source of truth for the Calendly,
+Square, Acuity, Google Calendar, WooCommerce, and ServiceM8 connectors.
 
 ## Shared architecture
 
-All five connectors are listing-scoped. A signed-in owner starts authorization
+All six connectors are listing-scoped. A signed-in owner starts authorization
 from the listing Settings page. Nexez binds the authorization state to the user,
 owner, listing, and provider for ten minutes. OAuth and application credentials
 are encrypted with `INTEGRATION_SECRET_KEY` before they are written to
@@ -44,6 +44,7 @@ credentials makes existing connections unreadable.
 
 | Provider | Environment variables | Registered callback |
 | --- | --- | --- |
+| Calendly | `CALENDLY_CLIENT_ID`, `CALENDLY_CLIENT_SECRET`, reserved `CALENDLY_WEBHOOK_SIGNING_KEY` | `/api/integrations/calendly/callback` |
 | Square | `SQUARE_APPLICATION_ID`, `SQUARE_APPLICATION_SECRET`, optional `SQUARE_ENVIRONMENT=sandbox` | `/api/integrations/square/callback` |
 | Acuity | `ACUITY_CLIENT_ID`, `ACUITY_CLIENT_SECRET` | `/api/integrations/acuity/callback` |
 | Google Calendar | `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` | `/api/integrations/google_calendar/callback` |
@@ -55,6 +56,29 @@ Register the equivalent preview or local callback only in the matching nonproduc
 provider application. Never reuse sandbox credentials in production.
 
 ## Provider capability contract
+
+### Calendly
+
+Calendly requires OAuth for a public application that connects multiple merchant
+accounts. Authorization uses PKCE with S256 and requests only `users:read`,
+`event_types:read`, `availability:read`, `scheduling_links:write`, and
+`scheduled_events:write`. These scopes let Nexez import event types, publish real
+availability, mint a single-use scheduling link at checkout, and cancel the exact
+linked booking after a refunded Nexez order. Nexez does not request contacts,
+invitees, routing forms, organization administration, or webhook management.
+Calendly implicitly includes `scheduled_events:read` with the selected write
+scope. The one-time webhook signing key is retained in production configuration
+but is not consumed until managed webhook subscriptions are introduced.
+
+Access tokens are refreshed only inside their final five minutes. Calendly refresh
+tokens are single-use and rotating, so every successful refresh atomically replaces
+the encrypted access and refresh token before the credential is returned to a
+caller. Existing personal-token connections remain available as a migration path,
+but new multi-merchant connections use OAuth.
+
+Disconnect revokes the latest stored Calendly refresh token before deleting the
+local encrypted connection. If provider revocation fails, Nexez keeps the local
+row so the merchant can retry without losing the only revocable token.
 
 ### Square
 
@@ -143,11 +167,12 @@ to complete provider-side revocation.
 ## Release order
 
 1. Apply `20260825002059_merchant_connector_connections.sql`, then
-   `20260825021918_add_acuity_managed_connector.sql` and
+   `20260825021918_add_acuity_managed_connector.sql`,
+   `20260828032059_add_calendly_managed_connector.sql`, and
    `20260825024553_harden_outbound_webhook_secrets.sql`.
 2. Confirm the service role has CRUD access and browser roles have no access.
 3. Set provider credentials and the stable encryption key in each environment.
-4. Register exact callback URLs in Square, Acuity, Google, and ServiceM8.
+4. Register exact callback URLs in Calendly, Square, Acuity, Google, and ServiceM8.
 5. Deploy the application and confirm the daily credential cron is registered.
 6. Connect one test listing per provider and inspect connection state, first sync,
    manual resync, token refresh where applicable, and disconnect behavior.

@@ -582,10 +582,14 @@ export async function importServiceM8Offers(accessToken: string): Promise<Provid
       fetchProviderRead(jobsUrl, { headers }, 10_000),
     ])
     if (!templatesResponse.ok || !jobsResponse.ok) {
+      const failures = [
+        !templatesResponse.ok ? `job templates (${templatesResponse.status})` : null,
+        !jobsResponse.ok ? `jobs (${jobsResponse.status})` : null,
+      ].filter(Boolean).join(' and ')
       return {
         ok: false,
         status: 502,
-        error: 'ServiceM8 rejected the job-template or jobs request. Reconnect and grant read_jobs.',
+        error: `ServiceM8 rejected the ${failures} request. Reconnect after the add-on is approved if this continues.`,
         upstreamStatus: !templatesResponse.ok ? templatesResponse.status : jobsResponse.status,
       }
     }

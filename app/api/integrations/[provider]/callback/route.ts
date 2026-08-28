@@ -60,7 +60,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ provider: s
   }
   const code = params.get('code') || ''
   if (!code) return NextResponse.json({ error: 'Missing authorization code.' }, { status: 400 })
-  const exchanged = await exchangeConnectorCode(provider, code)
+  const exchanged = await exchangeConnectorCode(provider, code, state.codeVerifier)
   if (!exchanged) {
     return NextResponse.redirect(settingsUrl(state.pageId, { provider, connection: 'failed' }), 302)
   }

@@ -183,4 +183,19 @@ describe('merchant provider importers', () => {
       expect(init?.redirect).toBe('error')
     }
   })
+
+  it('identifies the rejected ServiceM8 endpoint without exposing response data', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL) => String(input).includes('jobtemplate.json')
+      ? new Response(null, { status: 403 })
+      : Response.json([])))
+
+    const result = await importServiceM8Offers('servicem8-access')
+
+    expect(result).toMatchObject({
+      ok: false,
+      upstreamStatus: 403,
+      error: expect.stringMatching(/job templates \(403\)/i),
+    })
+    expect(JSON.stringify(result)).not.toContain('servicem8-access')
+  })
 })

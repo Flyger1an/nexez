@@ -226,6 +226,29 @@ describe('IntegrationsPanel priority emphasis', () => {
     expect(screen.queryByRole('button', { name: 'Disconnect Shopify' })).not.toBeInTheDocument()
   })
 
+  it.each([
+    { provider: 'calendly' as const, label: 'Calendly' },
+    { provider: 'acuity' as const, label: 'Acuity' },
+    { provider: 'woocommerce' as const, label: 'WooCommerce' },
+  ])('labels connected $label OAuth with its own provider', async ({ provider, label }) => {
+    mockContext([{
+      provider,
+      label,
+      connected: true,
+      kind: 'oauth',
+      autoSync: false,
+      canSync: true,
+      lastSyncedAt: '2026-08-14T12:00:00.000Z',
+      syncStatus: 'idle',
+      syncError: null,
+    }])
+
+    render(<IntegrationsPanel pageId="page-1" isPro onMessage={() => {}} />)
+
+    expect(await screen.findByText(`Connected securely through ${label}`, { exact: false })).toBeVisible()
+    expect(screen.queryByText(/Installed securely through Shopify/)).not.toBeInTheDocument()
+  })
+
   it('starts Google Calendar through the server OAuth route without collecting a browser token', async () => {
     mockContext([{
       provider: 'google_calendar',

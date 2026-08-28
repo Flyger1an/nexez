@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 type Provider = 'calendly' | 'shopify' | 'square' | 'acuity' | 'stripe' | 'google_calendar' | 'woocommerce' | 'servicem8'
 type TokenProvider = 'calendly' | 'shopify' | 'square' | 'acuity'
-type ManagedProvider = 'square' | 'acuity' | 'google_calendar' | 'woocommerce' | 'servicem8'
+type ManagedProvider = 'calendly' | 'square' | 'acuity' | 'google_calendar' | 'woocommerce' | 'servicem8'
 type Kind = 'token' | 'oauth' | 'connect'
 type Connection = {
   provider: Provider
@@ -25,7 +25,7 @@ type Connection = {
 }
 
 const HELP: Record<Provider, string> = {
-  calendly: 'Pull your event types in as bookable offers and keep availability in sync with your real calendar.',
+  calendly: 'Connect with Calendly OAuth to import event types and keep availability in sync. Existing private personal-token connections remain supported.',
   shopify: 'Install Nexez from Shopify on any plan, or use manually entered Admin API credentials on Pro.',
   square: 'Connect with Square OAuth, import catalog items, and preserve the live Square Appointments booking path.',
   acuity: 'Import live Acuity appointment types as catalog offers. OAuth is used when the Nexez Acuity app is configured; existing private API connections remain supported.',
@@ -391,7 +391,7 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                       : c.autoSync
                         ? 'Auto-syncs in the background'
                         : c.kind === 'oauth'
-                          ? 'Installed securely through Shopify'
+                          ? `Connected securely through ${c.label}`
                           : 'Manual re-sync'}
                   {last ? ` · last synced ${last}` : ''}
                 </span>
