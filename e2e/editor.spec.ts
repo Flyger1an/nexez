@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { selectPlatformTheme } from './platform-theme'
 
 // Authed smoke. Self-contained login (runs after webServer is up). Skipped when
 // credentials aren't provided - no secrets in the repo. It creates one precisely
@@ -144,7 +145,7 @@ test.describe('authed editor', () => {
     const saveButton = editor.getByRole('button', { name: /save changes/i })
     await expect(saveButton).toBeVisible()
     for (const theme of ['Light', 'Dark']) {
-      await page.getByRole('radio', { name: theme, exact: true }).click()
+      await selectPlatformTheme(page, theme as 'Light' | 'Dark')
       await page.waitForTimeout(500)
       const buttonStyle = await saveButton.evaluate((element) => ({
         backgroundImage: getComputedStyle(element).backgroundImage,

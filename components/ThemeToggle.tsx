@@ -17,15 +17,13 @@ function apply(choice: ThemeChoice) {
   c.add(resolve(choice))
 }
 
-const OPTIONS: { id: ThemeChoice; Icon: typeof Sun; label: string }[] = [
+export const THEME_OPTIONS: { id: ThemeChoice; Icon: typeof Sun; label: string }[] = [
   { id: 'light', Icon: Sun, label: 'Light' },
   { id: 'dark', Icon: Moon, label: 'Dark' },
   { id: 'system', Icon: Monitor, label: 'System' },
 ]
 
-// Platform-wide light / dark / system theme switch. Persists to localStorage,
-// applies the class on <html>, and reacts to OS changes while in system mode.
-export function ThemeToggle({ className = '' }: { className?: string }) {
+export function useThemeChoice() {
   const [choice, setChoice] = useState<ThemeChoice>('dark')
 
   useEffect(() => {
@@ -45,13 +43,21 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
     apply(next)
   }
 
+  return { choice, pick }
+}
+
+// Platform-wide light / dark / system theme switch. Persists to localStorage,
+// applies the class on <html>, and reacts to OS changes while in system mode.
+export function ThemeToggle({ className = '' }: { className?: string }) {
+  const { choice, pick } = useThemeChoice()
+
   return (
     <div
       className={`inline-flex items-center rounded-lg border border-border bg-white/[0.04] p-0.5 ${className}`}
       role="radiogroup"
       aria-label="Color theme"
     >
-      {OPTIONS.map(({ id, Icon, label }) => (
+      {THEME_OPTIONS.map(({ id, Icon, label }) => (
         <button
           key={id}
           type="button"
@@ -61,7 +67,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
           title={`${label} theme`}
           onClick={() => pick(id)}
           className={`flex size-7 items-center justify-center rounded-md transition-colors ${
-            choice === id ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'
+            choice === id ? 'bg-[var(--fill-2)] text-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Icon className="size-3.5" />

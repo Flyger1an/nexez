@@ -6,14 +6,11 @@ import {
   BarChart3,
   Bot,
   Compass,
-  CreditCard,
   FileText,
   Grid2X2,
   Handshake,
-  HelpCircle,
   Layers3,
   Link2,
-  LogOut,
   PackageCheck,
   Pin,
   PinOff,
@@ -21,13 +18,12 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  Sparkles,
   Wallet,
   Wrench,
 } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
-import { ThemeToggle } from './ThemeToggle'
 import { NexezLogo } from './NexezLogo'
+import { PlatformAccountMenu, type PlatformViewer } from './PlatformAccountMenu'
 import { agentRuntimeUrl } from '../lib/site'
 import {
   commerceAttentionBadgeLabel,
@@ -65,9 +61,7 @@ const navItems = [
   { href: '/dashboard/finance', label: 'Finance', icon: Wallet, mobile: true },
   { href: '/dashboard/integrations', label: 'Integrations', icon: Link2 },
   { href: '/dashboard/tools', label: 'Tools', icon: Wrench },
-  { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/admin', label: 'Admin Control', icon: ShieldCheck, adminOnly: true },
-  { href: '/support', label: 'Support', icon: HelpCircle, mobile: true },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -91,6 +85,7 @@ export default function PlatformShell({
   const [pinAnimating, setPinAnimating] = useState(false)
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [authed, setAuthed] = useState<boolean | null>(null)
+  const [viewer, setViewer] = useState<PlatformViewer | null>(null)
   const [platformAdmin, setPlatformAdmin] = useState(false)
 
   useEffect(() => {
@@ -108,21 +103,44 @@ export default function PlatformShell({
       const supabase = createClient()
       const { data } = await supabase.auth.getUser()
       if (cancelled) return
-      setAuthed(Boolean(data.user))
       if (!data.user) {
+        setAuthed(false)
+        setViewer(null)
         setPlatformAdmin(false)
         return
       }
-      const { data: admin } = await supabase
-        .from('platform_admins')
-        .select('user_id')
-        .eq('user_id', data.user.id)
-        .maybeSingle<{ user_id: string }>()
-      if (!cancelled) setPlatformAdmin(Boolean(admin))
+      const metadata = data.user.user_metadata as Record<string, unknown> | undefined
+      const company = typeof metadata?.company === 'string' ? metadata.company.trim() : ''
+      const fullName = typeof metadata?.full_name === 'string' ? metadata.full_name.trim() : ''
+      const email = data.user.email?.trim() || ''
+      const [{ data: admin }, { data: primaryStorefront }] = await Promise.all([
+        supabase
+          .from('platform_admins')
+          .select('user_id')
+          .eq('user_id', data.user.id)
+          .maybeSingle<{ user_id: string }>(),
+        supabase
+          .from('storefronts')
+          .select('logo_url')
+          .eq('owner_id', data.user.id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle<{ logo_url: string | null }>(),
+      ])
+      if (!cancelled) {
+        setViewer({
+          displayName: company || fullName || email.split('@')[0] || 'Nexez account',
+          email,
+          logoUrl: primaryStorefront?.logo_url ?? null,
+        })
+        setPlatformAdmin(Boolean(admin))
+        setAuthed(true)
+      }
     }
     loadViewer().catch(() => {
       if (!cancelled) {
         setAuthed(false)
+        setViewer(null)
         setPlatformAdmin(false)
       }
     })
@@ -219,25 +237,11 @@ export default function PlatformShell({
           </nav>
 
           <div className="mt-auto hidden p-3 md:block">
-            <div className={`rounded-lg border border-border bg-white/[0.03] ${pinned ? 'p-3' : 'p-2 group-hover/sidebar:p-3'}`}>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Sparkles className="size-4 shrink-0 text-[var(--signal)]" />
-                <span
-                  className={`whitespace-nowrap transition-opacity duration-150 ${
-                    pinned ? 'opacity-100' : 'opacity-0 group-hover/sidebar:opacity-100'
-                  }`}
-                >
-                  Agent layer active
-                </span>
-              </div>
-              <p
-                className={`mt-2 text-xs leading-5 text-muted-foreground ${
-                  pinned ? 'block' : 'hidden group-hover/sidebar:block'
-                }`}
-              >
-                Sitemap, llms.txt, agent.json, and MCP stay connected.
-              </p>
-            </div>
+            <PlatformAccountMenu
+              authState={authed === null ? 'loading' : authed ? 'signed-in' : 'signed-out'}
+              viewer={viewer}
+              pinned={pinned}
+            />
           </div>
         </aside>
 
@@ -257,58 +261,34 @@ export default function PlatformShell({
                   <span className="text-sm font-medium">Nexez</span>
                 </a>
                 <div className="flex items-center gap-2">
-                  <ThemeToggle />
                   <a href="/create" className="inline-flex h-8 items-center gap-2 rounded-md bg-white px-3 text-xs font-medium text-black">
                     <Plus className="size-3.5" />
                     New
                   </a>
-                  {authed ? (
-                    <form action="/auth/signout" method="post">
-                      <button
-                        type="submit"
-                        aria-label="Sign out"
-                        title="Sign out"
-                        className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
-                      >
-                        <LogOut className="size-4" />
-                      </button>
-                    </form>
-                  ) : (
+                  {authed === false ? (
                     <a
                       href="/login"
                       className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium text-white hover:bg-white/5"
                     >
                       Sign in
                     </a>
-                  )}
+                  ) : null}
                 </div>
               </div>
               {authed ? <QuickPageSearch /> : <div className="flex-1" />}
               <div className="hidden shrink-0 items-center gap-2 md:flex">
-                <ThemeToggle />
                 <a href="/create" className="inline-flex h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-black hover:bg-zinc-200">
                   <Plus className="size-4" />
                   New Listing
                 </a>
-                {authed ? (
-                  <form action="/auth/signout" method="post">
-                    <button
-                      type="submit"
-                      aria-label="Sign out"
-                      title="Sign out"
-                      className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
-                    >
-                      <LogOut className="size-4" />
-                    </button>
-                  </form>
-                ) : (
+                {authed === false ? (
                   <a
                     href="/login"
                     className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium text-white hover:bg-white/5"
                   >
                     Sign in
                   </a>
-                )}
+                ) : null}
               </div>
             </div>
           </header>

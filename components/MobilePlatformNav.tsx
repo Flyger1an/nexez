@@ -5,13 +5,13 @@ import {
   BarChart3,
   Bot,
   Compass,
-  CreditCard,
   FileText,
   Grid2X2,
   Handshake,
-  HelpCircle,
   Layers3,
   Link2,
+  LogIn,
+  LogOut,
   Menu,
   PackageCheck,
   Plus,
@@ -23,6 +23,13 @@ import {
 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '../utils/supabase/client'
+import {
+  ACCOUNT_PRIMARY_LINKS,
+  ACCOUNT_RESOURCE_LINKS,
+  PlatformAccountAvatar,
+  type PlatformViewer,
+} from './PlatformAccountMenu'
+import { ThemeToggle } from './ThemeToggle'
 import {
   commerceAttentionBadgeLabel,
   commerceAttentionIsIncomplete,
@@ -50,9 +57,7 @@ const mobileNavItems: MobileNavItem[] = [
   { href: '/dashboard/finance', label: 'Finance', icon: Wallet },
   { href: '/dashboard/integrations', label: 'Integrations', icon: Link2 },
   { href: '/dashboard/tools', label: 'Tools', icon: Wrench },
-  { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
   { href: '/admin', label: 'Admin Control', icon: ShieldCheck, adminOnly: true },
-  { href: '/support', label: 'Support', icon: HelpCircle },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -69,6 +74,7 @@ export function MobilePlatformNav({
 }) {
   const pathname = usePathname()
   const [authed, setAuthed] = useState<boolean | null>(null)
+  const [viewer, setViewer] = useState<PlatformViewer | null>(null)
   const [platformAdmin, setPlatformAdmin] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
@@ -83,26 +89,46 @@ export function MobilePlatformNav({
       if (cancelled) return
 
       const user = data.user
-      setAuthed(Boolean(user))
       if (!user) {
+        setAuthed(false)
+        setViewer(null)
         setPlatformAdmin(false)
         return
       }
 
-      const { data: admin } = await supabase
-        .from('platform_admins')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .maybeSingle<{ user_id: string }>()
-
+      const metadata = user.user_metadata as Record<string, unknown> | undefined
+      const company = typeof metadata?.company === 'string' ? metadata.company.trim() : ''
+      const fullName = typeof metadata?.full_name === 'string' ? metadata.full_name.trim() : ''
+      const email = user.email?.trim() || ''
+      const [{ data: admin }, { data: primaryStorefront }] = await Promise.all([
+        supabase
+          .from('platform_admins')
+          .select('user_id')
+          .eq('user_id', user.id)
+          .maybeSingle<{ user_id: string }>(),
+        supabase
+          .from('storefronts')
+          .select('logo_url')
+          .eq('owner_id', user.id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle<{ logo_url: string | null }>(),
+      ])
       if (!cancelled) {
+        setViewer({
+          displayName: company || fullName || email.split('@')[0] || 'Nexez account',
+          email,
+          logoUrl: primaryStorefront?.logo_url ?? null,
+        })
         setPlatformAdmin(Boolean(admin))
+        setAuthed(true)
       }
     }
 
     loadViewer().catch(() => {
       if (!cancelled) {
         setAuthed(false)
+        setViewer(null)
         setPlatformAdmin(false)
       }
     })
@@ -194,6 +220,63 @@ export function MobilePlatformNav({
                 />
               ))}
             </div>
+
+            <div className="mt-3 border-t border-border pt-3">
+              <div className="flex items-center gap-3 px-2 py-2">
+                <PlatformAccountAvatar viewer={viewer} loading={authed === null} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-foreground">
+                    {authed ? viewer?.displayName || 'Nexez account' : 'Nexez'}
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {authed ? viewer?.email || 'Signed in' : authed === null ? 'Loading account' : 'Sign in for your workspace'}
+                  </span>
+                </span>
+              </div>
+
+              <div className="mt-1 grid grid-cols-2 gap-1.5">
+                {[...ACCOUNT_PRIMARY_LINKS, ...ACCOUNT_RESOURCE_LINKS]
+                  .filter((item) => !item.signedInOnly || authed === true)
+                  .map((item) => (
+                    <MobileUtilityLink key={item.href} item={item} onNavigate={() => closeMenu(false)} />
+                  ))}
+              </div>
+
+              <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-border bg-[var(--fill-1)] px-3 py-2">
+                <span className="text-sm text-foreground">Theme</span>
+                <ThemeToggle />
+              </div>
+
+              {authed ? (
+                <form action="/auth/signout" method="post" className="mt-2">
+                  <button
+                    type="submit"
+                    className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground"
+                  >
+                    <LogOut className="size-4" aria-hidden="true" />
+                    Sign out
+                  </button>
+                </form>
+              ) : authed === false ? (
+                <a
+                  href="/login"
+                  onClick={() => closeMenu(false)}
+                  className="mt-2 flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground"
+                >
+                  <LogIn className="size-4" aria-hidden="true" />
+                  Sign in
+                </a>
+              ) : null}
+
+              <a
+                href={authed ? '/dashboard/settings#agent-surfaces' : '/docs'}
+                onClick={() => closeMenu(false)}
+                className="mt-1 flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm text-[var(--signal)] transition-colors hover:bg-[var(--fill-2)]"
+              >
+                <span className="size-2 rounded-full bg-[var(--ready)]" aria-hidden="true" />
+                Agent layer active
+              </a>
+            </div>
           </section>
         </div>
       ) : null}
@@ -231,6 +314,26 @@ export function MobilePlatformNav({
         </button>
       </nav>
     </>
+  )
+}
+
+function MobileUtilityLink({
+  item,
+  onNavigate,
+}: {
+  item: { href: string; label: string; icon: typeof Grid2X2 }
+  onNavigate: () => void
+}) {
+  const Icon = item.icon
+  return (
+    <a
+      href={item.href}
+      onClick={onNavigate}
+      className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground"
+    >
+      <Icon className="size-4 shrink-0" aria-hidden="true" />
+      <span className="min-w-0 truncate">{item.label}</span>
+    </a>
   )
 }
 
