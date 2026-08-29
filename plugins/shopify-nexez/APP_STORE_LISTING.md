@@ -35,7 +35,7 @@ Partner account settings. Confirm that the inbox and phone are actively monitore
 
 ### App card subtitle
 
-Make your catalog legible to AI agents while checkout stays on your store.
+Agent-readable catalogs with checkout on your online store.
 
 ### App introduction
 
