@@ -144,7 +144,7 @@ export function BrandedEmail({
           </Section>
           <Section style={styles.footer}>
             <Text className="nx-faint" style={styles.footerText}>
-              Nexez makes your business easy for people and AI agents to buy from.
+              Nexez makes your business clear, discoverable, and ready to buy from.
             </Text>
             <Text className="nx-faint" style={styles.footerText}>
               © {year} Nexez · Reply to this email for support.

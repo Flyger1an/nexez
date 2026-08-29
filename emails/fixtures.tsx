@@ -91,13 +91,13 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     id: 'merchant-escrow-held',
     element: <EscrowFundedEmail lead="A buyer funded an escrow hold." held rows={merchantRows} inboxUrl={`${APP}/dashboard/negotiations`} />,
     expectedCta: `${APP}/dashboard/negotiations`,
-    expectedState: 'Held for capture',
+    expectedState: 'Waiting for completion',
   },
   {
     id: 'merchant-payment-received',
     element: <EscrowFundedEmail lead="A buyer completed payment." held={false} rows={merchantRows} inboxUrl={`${APP}/dashboard/orders/order_123`} />,
     expectedCta: `${APP}/dashboard/orders/order_123`,
-    expectedState: 'Settled',
+    expectedState: 'Paid',
   },
   {
     id: 'merchant-refund-recorded',
@@ -155,14 +155,14 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     element: <TeamInviteEmail lead="owner@example.com invited you to collaborate." inviteeEmail="teammate@example.com" acceptUrl={`${APP}/login?next=/dashboard`} />,
     expectedCta: `${APP}/login?next=/dashboard`,
     expectedState: null,
-    expectedCopy: 'You have been invited to collaborate',
+    expectedCopy: 'Your workspace invitation is ready',
   },
   {
     id: 'account-growth-invite',
     element: <SellerGrowthInviteEmail inviterBusinessName="Axle Plumbing Co." inviteeEmail="new-owner@example.com" durationLabel="six months" claimUrl={`${APP}/invite/claim/token_123`} />,
     expectedCta: `${APP}/invite/claim/token_123`,
     expectedState: null,
-    expectedCopy: 'Axle Plumbing Co. passed this to you',
+    expectedCopy: 'Your Nexez Launch invitation is ready',
   },
   {
     id: 'account-promotion-expiry',
@@ -183,7 +183,7 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
     id: 'account-stripe-connected',
     element: <StripeConnectedEmail financeUrl={`${APP}/dashboard/finance`} listingsUrl={`${APP}/dashboard/listings`} docsUrl={`${APP}/docs`} />,
     expectedCta: `${APP}/dashboard/finance`,
-    expectedState: 'Charges enabled',
+    expectedState: 'Ready for payments',
   },
   {
     id: 'campaign-founding-cohort',
@@ -198,14 +198,14 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
       senderTitle="Founder"
     />,
     expectedCta: `${SITE}/texas/claim/token_123`,
-    expectedState: '50 spots left',
+    expectedState: '50 founding spots left',
   },
   {
     id: 'merchant-stale-listing',
     element: <StaleListingEmail businessName="Axle Plumbing Co." listingName="Emergency Plumbing" freshnessLabel="Last reviewed 90 days ago" reinterviewUrl={`${APP}/dashboard/listings/listing_123/reinterview`} editUrl={`${APP}/dashboard/listings/listing_123/edit`} />,
     expectedCta: `${APP}/dashboard/listings/listing_123/reinterview`,
     expectedState: null,
-    expectedCopy: 'Keep this listing accurate',
+    expectedCopy: 'Bring this listing up to date',
   },
   {
     id: 'account-launch-access-started',
@@ -253,6 +253,6 @@ export const emailPreviewFixtures: EmailPreviewFixture[] = [
       unsubscribeUrl={`${SITE}/u/scan_123`}
     />,
     expectedCta: `${SITE}/texas/claim/scan_123`,
-    expectedState: 'Hard to read',
+    expectedState: 'Hard to understand',
   },
 ]

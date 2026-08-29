@@ -92,5 +92,22 @@ describe('transactional email preview fixtures', () => {
       expect(html).toContain('Welcome to Nexez.')
       expect(html).not.toContain('Welcome, ')
     })
+
+    it('starts with a decisive first step and keeps infrastructure terms out of the message', async () => {
+      const html = (await render(<WelcomeEmail name="Taio" {...urls} />)).replaceAll('<!-- -->', '')
+      expect(html).toContain('Your first Nexez listing starts with what you already sell.')
+      expect(html).toContain('Nexez carries a customer from discovery to booking and checkout.')
+      expect(html).not.toMatch(/agent\.json|MCP endpoint|protocol endpoint/i)
+    })
+  })
+
+  it('presents the founding cohort as a selective invitation', async () => {
+    const fixture = emailPreviewFixtures.find((item) => item.id === 'campaign-founding-cohort')
+    expect(fixture).toBeTruthy()
+    const html = (await render(fixture!.element)).replaceAll('<!-- -->', '')
+    expect(html).toContain('We want Aqua Clear Pool Care in the founding cohort')
+    expect(html).toContain('Aqua Clear Pool Care</strong> stood out')
+    expect(html).toContain('Accept your invitation')
+    expect(html).not.toMatch(/Howdy neighbor|came up|we are building/i)
   })
 })

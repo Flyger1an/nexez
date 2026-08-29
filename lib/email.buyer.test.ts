@@ -17,9 +17,10 @@ describe('buildTeamInviteEmail', () => {
     expect(m.text).toContain('edit their listings')
     expect(m.text.toLowerCase()).not.toContain('negotiations')
   })
-  it('uses read-only copy for a viewer role', async () => {
+  it('explains viewer access without technical permission language', async () => {
     const m = await buildTeamInviteEmail({ inviterEmail: 'o@x.com', inviteeEmail: 'v@x.com', role: 'viewer', acceptUrl: 'u' })
-    expect(m.html.toLowerCase()).toContain('read-only')
+    expect(m.html).toContain('view their listings without making changes')
+    expect(m.html.toLowerCase()).not.toContain('read-only')
   })
 })
 
@@ -79,9 +80,9 @@ describe('buildBuyerStatusEmail', () => {
       manageUrl: 'u',
     })
     expect(m.subject).toContain('Acme Merchant')
-    expect(m.text).toContain("passed your request to Acme Merchant")
+    expect(m.text).toContain('Your request is now with Acme Merchant')
     expect(m.text).toContain('Item: Weekend Plumbing Special')
-    expect(m.text).not.toContain('passed your request to Weekend Plumbing Special')
+    expect(m.text).not.toContain('Your request is now with Weekend Plumbing Special')
   })
 
   it('partial_refund has its own subject', async () => {
@@ -91,7 +92,7 @@ describe('buildBuyerStatusEmail', () => {
 })
 
 describe('buildBuyerRequestEmail', () => {
-  it('refund_request drives the seller to order operations and surfaces the buyer', async () => {
+  it('refund_request drives the seller to review the request and surfaces the buyer', async () => {
     const m = await buildBuyerRequestEmail({
       kind: 'refund_request',
       businessName: 'Acme',
@@ -105,7 +106,7 @@ describe('buildBuyerRequestEmail', () => {
     expect(m.html).toContain('buyer@example.com')
     expect(m.html).toContain('wrong item')
     expect(m.text).toContain('https://app.nexez.ai/dashboard/orders/order_123')
-    expect(m.text).toContain('order operations')
+    expect(m.text).toContain('Review request')
   })
 
   it('problem_report uses problem copy', async () => {

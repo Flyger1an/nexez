@@ -53,13 +53,13 @@ describe('buildPublishNudgeEmail', () => {
 
   it('says the clock has not started, which is the whole point of the email', async () => {
     const mail = await buildPublishNudgeEmail(base)
-    expect(mail.text).toContain('Time used so far: None')
-    expect(stripTags(mail.html)).toContain('Time used so far')
+    expect(mail.text).toContain('Time used: None')
+    expect(stripTags(mail.html)).toContain('Time used')
   })
 
   it('falls back to a truthful hold when the campaign has no closing date', async () => {
     const mail = await buildPublishNudgeEmail({ ...base, reservedUntil: null })
-    expect(mail.text).toContain('The cohort fills')
+    expect(mail.text).toContain('The group fills')
   })
 
   it('formats a closing date rather than printing an ISO timestamp', async () => {
@@ -80,7 +80,7 @@ describe('buildScanResultsEmail', () => {
 
   it('agrees with the badge the reader sees', async () => {
     // Subject and badge are both derived from the score. A "34/100" subject over an
-    // "Agent ready" badge is the failure this guards.
+    // "Easy to understand" badge is the failure this guards.
     const mail = await buildScanResultsEmail(base)
     const band = scanReadinessBand(base.score)
     expect(mail.subject).toContain('34/100')
