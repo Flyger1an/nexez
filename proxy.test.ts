@@ -65,6 +65,36 @@ describe('proxy: dual-surface APIs', () => {
   )
 })
 
+describe('proxy: tools host split', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    supabaseRef.respond = rows([])
+    supabaseRef.eqs = []
+  })
+
+  it('keeps the authenticated website importer same-origin on the app host', async () => {
+    const res = await proxy(request(`https://${APP_HOST}/api/tools/import-site`, APP_HOST))
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('location')).toBeNull()
+    expect(updateSession).toHaveBeenCalledOnce()
+  })
+
+  it('redirects website import attempts from the marketing host to the app host', async () => {
+    const res = await proxy(request(`https://${MARKETING_HOST}/api/tools/import-site`, MARKETING_HOST))
+
+    expect(res.status).toBe(308)
+    expect(res.headers.get('location')).toBe(`https://${APP_HOST}/api/tools/import-site`)
+  })
+
+  it('keeps the public llms.txt generator canonical on the marketing host', async () => {
+    const res = await proxy(request(`https://${APP_HOST}/api/tools/llms-txt`, APP_HOST))
+
+    expect(res.status).toBe(308)
+    expect(res.headers.get('location')).toBe(`https://${MARKETING_HOST}/api/tools/llms-txt`)
+  })
+})
+
 describe('proxy: staged settlement host split', () => {
   beforeEach(() => {
     vi.clearAllMocks()

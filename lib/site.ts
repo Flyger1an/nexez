@@ -71,7 +71,10 @@ const MARKETING_API_PREFIXES = [
   '/api/directory',
   '/api/public-simulate',
   '/api/scan',
-  '/api/tools',
+  // The public llms.txt generator belongs to the marketing host. Do not claim
+  // the broader /api/tools prefix here: the authenticated website importer is
+  // called same-origin from /create on the app host and must retain its session.
+  '/api/tools/llms-txt',
   '/api/simulate-llm',
   '/api/simulate-url',
   '/api/support',

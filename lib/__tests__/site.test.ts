@@ -85,6 +85,7 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/sms-notifications')).toBe(MARKETING_HOST)
     expect(canonicalHostFor('/api/directory')).toBe(MARKETING_HOST)
     expect(canonicalHostFor('/api/simulate-url')).toBe(MARKETING_HOST)
+    expect(canonicalHostFor('/api/tools/llms-txt')).toBe(MARKETING_HOST)
 
     expect(canonicalHostFor('/dashboard')).toBe(APP_HOST)
     expect(canonicalHostFor('/admin')).toBe(ADMIN_HOST)
@@ -96,6 +97,7 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/api/shopify/session')).toBe(APP_HOST)
     expect(canonicalHostFor('/invite/claim')).toBe(APP_HOST)
     expect(canonicalHostFor('/api/growth-invites/claim')).toBe(APP_HOST)
+    expect(canonicalHostFor('/api/tools/import-site')).toBe(APP_HOST)
 
     expect(canonicalHostFor('/some-slug')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/agent-pages.json')).toBe(AGENT_RUNTIME_HOST)
