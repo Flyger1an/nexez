@@ -256,6 +256,95 @@ describe('CreatePage guided import review', () => {
     expect(screen.getByDisplayValue('Agent Offer 12')).toBeInTheDocument()
   })
 
+  it('keeps starter suggestions unselected and labels them as unsupported until the owner accepts one', async () => {
+    const payload = {
+      ...guidedImportPayload(),
+      structuredOffers: [],
+      confidence: 0,
+      suggestedOffers: [{
+        name: 'Discovery Session',
+        price: '$150',
+        description: 'A starter structure the merchant must confirm.',
+        url: 'https://example.com',
+        confidence: 0,
+        source: 'template',
+        metadata: { evidenceStatus: 'suggested' },
+      }],
+    }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })))
+
+    render(<CreatePage />)
+
+    fireEvent.change(screen.getByLabelText('Business page URL'), { target: { value: 'https://example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate draft' }))
+
+    expect(await screen.findByText('Optional starter suggestions')).toBeInTheDocument()
+    expect(screen.getByText(/not found on the website/i)).toBeInTheDocument()
+    expect(screen.getByText(/Suggested by Nexez, not detected/i)).toBeInTheDocument()
+    const suggestionName = screen.getByText('Discovery Session')
+    const suggestionCheckbox = suggestionName.closest('label')?.querySelector('input[type="checkbox"]') as HTMLInputElement
+    expect(suggestionCheckbox).not.toBeChecked()
+
+    fireEvent.click(suggestionCheckbox)
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to builder' }))
+
+    await waitFor(() => expect(screen.getByText(/1 owner-selected starter suggestion included/i)).toBeInTheDocument())
+    expect(screen.getByDisplayValue('Discovery Session')).toBeInTheDocument()
+  })
+
+  it('shows cited evidence and keeps drafted FAQs optional until owner confirmation', async () => {
+    const payload = {
+      ...guidedImportPayload(),
+      structuredOffers: [{
+        name: 'Field Kit',
+        price: '$149',
+        description: 'A stocked field kit.',
+        url: 'https://example.com/products/field-kit',
+        confidence: 0.92,
+        metadata: { offerKind: 'product', evidenceIds: ['ev_product'] },
+      }],
+      suggestedPage: { ...guidedImportPayload().suggestedPage, faqs: [] },
+      suggestedFaqs: [{ question: 'Can teams order in bulk?', answer: 'Contact the business to confirm bulk ordering.' }],
+      evidence: [{
+        id: 'ev_product',
+        field: 'offers.0.name',
+        value: 'Field Kit',
+        sourceUrl: 'https://example.com/products/field-kit',
+        sourceLabel: 'Product page',
+        sourceText: 'Field Kit $149',
+        method: 'schema.org JSON-LD',
+        confidence: 0.92,
+        status: 'detected',
+      }],
+    }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })))
+
+    render(<CreatePage />)
+    fireEvent.change(screen.getByLabelText('Business page URL'), { target: { value: 'https://example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate draft' }))
+
+    expect(await screen.findByText('Evidence ledger')).toBeInTheDocument()
+    expect(screen.getByText('1 detected')).toBeInTheDocument()
+    expect(screen.getByText('Optional FAQ suggestions')).toBeInTheDocument()
+    expect(screen.getByText('Product')).toBeInTheDocument()
+    const faqLabel = screen.getByText('Can teams order in bulk?').closest('label')
+    const faqCheckbox = faqLabel?.querySelector('input[type="checkbox"]') as HTMLInputElement
+    expect(faqCheckbox).not.toBeChecked()
+
+    fireEvent.click(faqCheckbox)
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to builder' }))
+
+    expect(await screen.findByDisplayValue('Field Kit')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(screen.getByPlaceholderText('Can agents book directly? | Yes, use the booking URL on this page.')).toHaveValue('Can teams order in bulk? | Contact the business to confirm bulk ordering.')
+  })
+
   it('sends answered clarifying questions when refining an import draft', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(guidedImportPayload()), {
       status: 200,
@@ -393,7 +482,8 @@ describe('CreatePage guided import review', () => {
     fireEvent.change(answerField, { target: { value: scenario.answer } })
     fireEvent.click(screen.getByRole('button', { name: 'Refine draft' }))
 
-    expect(await screen.findByText(scenario.refinedOffer)).toBeInTheDocument()
+    expect((await screen.findAllByText(scenario.refinedOffer)).length).toBeGreaterThan(0)
+    expect(screen.getByText('What changed after refinement')).toBeInTheDocument()
     expect(await screen.findByText(/AI extraction used agent-draft-v1/i)).toBeInTheDocument()
     await waitFor(() => expect(importCalls(fetchMock)).toHaveLength(2))
 

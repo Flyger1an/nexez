@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import dns from 'node:dns/promises'
-import { getImportUrlError, getResolvedImportUrlError } from '../importer'
+import { getImportUrlError, getResolvedImportUrlError, isPathAllowedByRobots } from '../importer'
 
 vi.mock('node:dns/promises', () => ({
   default: { lookup: vi.fn() },
@@ -66,5 +66,19 @@ describe('importer URL safety', () => {
   it('still allows a mapped IPv6 that decodes to a PUBLIC v4', async () => {
     vi.mocked(dns.lookup).mockResolvedValue([{ address: '::ffff:93.184.216.34', family: 6 }] as any)
     await expect(getResolvedImportUrlError('https://mapped-public.example.com/x')).resolves.toBeNull()
+  })
+
+  it('applies the most specific robots rule without lowercasing the requested path', () => {
+    const robots = [
+      'User-agent: *',
+      'Disallow: /private',
+      'Allow: /private/public-offer',
+      'Disallow: /CaseSensitive',
+    ].join('\n')
+
+    expect(isPathAllowedByRobots(robots, '/private/internal')).toBe(false)
+    expect(isPathAllowedByRobots(robots, '/private/public-offer/today')).toBe(true)
+    expect(isPathAllowedByRobots(robots, '/casesensitive')).toBe(true)
+    expect(isPathAllowedByRobots(robots, '/CaseSensitive')).toBe(false)
   })
 })
