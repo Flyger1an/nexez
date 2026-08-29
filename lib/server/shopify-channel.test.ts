@@ -66,6 +66,7 @@ describe('ensureShopifySalesChannel', () => {
       'PRODUCT_FEEDS_INCREMENTAL_SYNC',
       'PRODUCT_FEEDS_UPDATE',
     ])
+    expect(bodies.slice(2, 6).every((body) => body.query.includes('$uri: String!'))).toBe(true)
     expect(bodies[6].variables.channelId).toBe('gid://shopify/Channel/1')
     expect(admin.update).toHaveBeenCalledWith(expect.objectContaining({
       channel_id: 'gid://shopify/Channel/1',

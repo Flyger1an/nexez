@@ -123,7 +123,7 @@ async function ensureProductFeedSubscriptions(credentials: ShopifyInstallCredent
       }
     }>(
       credentials,
-      `mutation NexezProductFeedWebhook($topic: WebhookSubscriptionTopic!, $uri: URL!) {
+      `mutation NexezProductFeedWebhook($topic: WebhookSubscriptionTopic!, $uri: String!) {
         webhookSubscriptionCreate(
           topic: $topic
           webhookSubscription: { uri: $uri, format: JSON }
