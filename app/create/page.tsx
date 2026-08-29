@@ -60,15 +60,31 @@ type GuidedImportReview = {
     logo_url?: string | null
     audience?: string | null
     location?: string | null
+    contact_email?: string | null
     cta_url?: string | null
     cta_label?: string | null
     faqs?: Array<{ question: string; answer: string }>
   }
   structuredOffers?: OfferItem[]
+  suggestedOffers?: OfferItem[]
+  suggestedFaqs?: Array<{ question: string; answer: string }>
   pagesAnalyzed?: number
+  agentDocumentsAnalyzed?: number
   confidence?: number
   reviewNotes?: string[]
   sources?: Array<{ url: string; label: string; type: string; method: string }>
+  evidence?: Array<{
+    id: string
+    field: string
+    value: string
+    sourceUrl: string
+    sourceLabel: string
+    sourceText: string
+    method: string
+    confidence: number
+    status: 'detected' | 'inferred' | 'suggested' | 'owner_confirmed'
+  }>
+  fieldDiffs?: Array<{ field: string; before: string; after: string }>
   clarifyingQuestions?: Array<{ id: string; field: string; question: string; why: string }>
   readiness?: { score: number; strengths: string[]; gaps: string[] }
   aiStatus?: {
@@ -84,6 +100,26 @@ type GuidedImportReview = {
   }
   aiAssisted?: boolean
   message?: string
+}
+
+function guidedImportDiffs(before: GuidedImportReview | null, after: GuidedImportReview): Array<{ field: string; before: string; after: string }> {
+  if (!before) return []
+  const beforePage = before.suggestedPage || {}
+  const afterPage = after.suggestedPage || {}
+  const fields: Array<[string, unknown, unknown]> = [
+    ['Name', beforePage.name, afterPage.name],
+    ['Description', beforePage.description, afterPage.description],
+    ['Audience', beforePage.audience, afterPage.audience],
+    ['Location', beforePage.location, afterPage.location],
+    ['Primary action', beforePage.cta_label, afterPage.cta_label],
+    ['Action URL', beforePage.cta_url, afterPage.cta_url],
+    ['Detected offers', before.structuredOffers?.map((offer) => offer.name).join(', '), after.structuredOffers?.map((offer) => offer.name).join(', ')],
+  ]
+  return fields.flatMap(([field, previous, next]) => {
+    const previousText = String(previous || '').trim()
+    const nextText = String(next || '').trim()
+    return previousText !== nextText ? [{ field, before: previousText || 'Not set', after: nextText || 'Not set' }] : []
+  })
 }
 
 export default function CreatePage() {
@@ -134,6 +170,8 @@ export default function CreatePage() {
   const [guidedNotes, setGuidedNotes] = useState('')
   const [guidedReview, setGuidedReview] = useState<GuidedImportReview | null>(null)
   const [selectedImportOffers, setSelectedImportOffers] = useState<Record<string, boolean>>({})
+  const [selectedSuggestedOffers, setSelectedSuggestedOffers] = useState<Record<string, boolean>>({})
+  const [selectedSuggestedFaqs, setSelectedSuggestedFaqs] = useState<Record<number, boolean>>({})
   const [guidedAnswers, setGuidedAnswers] = useState<Record<string, string>>({})
   const [showAllGuidedOffers, setShowAllGuidedOffers] = useState(false)
   const [guidedImporting, setGuidedImporting] = useState(false)
@@ -183,6 +221,10 @@ export default function CreatePage() {
     if (!guidedReview?.structuredOffers?.length) return 0
     return guidedReview.structuredOffers.filter((offer, index) => selectedImportOffers[offerImportKey(offer, index)]).length
   }, [guidedReview, selectedImportOffers])
+  const selectedSuggestedOfferCount = useMemo(() => {
+    if (!guidedReview?.suggestedOffers?.length) return 0
+    return guidedReview.suggestedOffers.filter((offer, index) => selectedSuggestedOffers[offerImportKey(offer, index)]).length
+  }, [guidedReview, selectedSuggestedOffers])
   const guidedOfferRows = useMemo(() => {
     const offers = guidedReview?.structuredOffers ?? []
     const visibleOffers = showAllGuidedOffers ? offers : offers.slice(0, 8)
@@ -443,10 +485,15 @@ export default function CreatePage() {
     }
 
     const isRefine = Boolean(options?.refine)
+    const previousReview = guidedReview
     setGuidedImporting(true)
     setGuidedReview(null)
     setShowAllGuidedOffers(false)
-    if (!isRefine) setGuidedAnswers({})
+    if (!isRefine) {
+      setGuidedAnswers({})
+      setSelectedSuggestedOffers({})
+      setSelectedSuggestedFaqs({})
+    }
     setImportMessage(isRefine ? 'Refining draft with your answers...' : 'Analyzing website and preparing a draft...')
 
     try {
@@ -464,7 +511,7 @@ export default function CreatePage() {
           clarifyingAnswers: options?.clarifyingAnswers || null,
         }),
       })
-      const data = await res.json()
+      const data = await res.json() as GuidedImportReview & { error?: string }
 
       if (!res.ok || !data.suggestedPage) {
         setImportMessage(data.error || 'Could not analyze that site. Try a services or pricing page, or enter offers manually.')
@@ -473,12 +520,15 @@ export default function CreatePage() {
 
       const offers = (data.structuredOffers || []) as OfferItem[]
       const selected = offers.reduce<Record<string, boolean>>((acc, offer, index) => {
-        acc[offerImportKey(offer, index)] = true
+        const key = offerImportKey(offer, index)
+        acc[key] = isRefine ? selectedImportOffers[key] ?? true : true
         return acc
       }, {})
 
+      data.fieldDiffs = isRefine ? guidedImportDiffs(previousReview, data) : []
       setGuidedReview(data)
       setSelectedImportOffers(selected)
+      setSelectedSuggestedOffers({})
       setGuidedAnswers({})
       setImportMessage(isRefine
         ? `Refined draft ready. ${offers.length} offer${offers.length === 1 ? '' : 's'} found.`
@@ -505,6 +555,15 @@ export default function CreatePage() {
     const keptOffers = (guidedReview.structuredOffers || []).filter((offer, index) => (
       selectedImportOffers[offerImportKey(offer, index)]
     ))
+    const acceptedSuggestions = (guidedReview.suggestedOffers || []).filter((offer, index) => (
+      selectedSuggestedOffers[offerImportKey(offer, index)]
+    ))
+    const appliedOffers: OfferItem[] = [...keptOffers, ...acceptedSuggestions].map((offer) => ({
+      ...offer,
+      metadata: { ...(offer.metadata || {}), reviewState: 'owner_confirmed' } as OfferItem['metadata'],
+    }))
+    const appliedProducts = appliedOffers.filter((offer) => offer.metadata?.offerKind === 'product')
+    const appliedServices = appliedOffers.filter((offer) => offer.metadata?.offerKind !== 'product')
 
     if (page.name) {
       setName(page.name)
@@ -518,20 +577,30 @@ export default function CreatePage() {
     if (page.industry && !industry) setIndustry(page.industry)
     if (page.audience) setAudience(page.audience)
     if (page.location) setLocation(page.location)
-    if (page.faqs?.length) {
-      setFaqs(page.faqs.map((faq) => `${faq.question} | ${faq.answer}`).join('\n'))
+    if (page.contact_email) setContactEmail(page.contact_email)
+    const acceptedFaqs = [
+      ...(page.faqs || []),
+      ...(guidedReview.suggestedFaqs || []).filter((_, index) => selectedSuggestedFaqs[index]),
+    ]
+    if (acceptedFaqs.length) {
+      setFaqs(acceptedFaqs.map((faq) => `${faq.question} | ${faq.answer}`).join('\n'))
     }
 
-    if (keptOffers.length > 0) {
-      setServicesOffers(keptOffers)
-      setServices(formatOfferLines(keptOffers))
+    if (appliedOffers.length > 0) {
+      setProductsOffers(appliedProducts)
+      setProducts(formatOfferLines(appliedProducts))
+      setServicesOffers(appliedServices)
+      setServices(formatOfferLines(appliedServices))
     } else if (page.services) {
       setServices(page.services)
       setServicesOffers(parseOfferLines(page.services))
     }
 
     if (step < 2) setStep(2)
-    setImportMessage(`Guided import applied. ${keptOffers.length} offer${keptOffers.length === 1 ? ' is' : 's are'} ready in the Visual Builder.`)
+    const suggestionNote = acceptedSuggestions.length
+      ? ` ${acceptedSuggestions.length} owner-selected starter suggestion${acceptedSuggestions.length === 1 ? '' : 's'} included.`
+      : ''
+    setImportMessage(`Guided import applied. ${appliedOffers.length} offer${appliedOffers.length === 1 ? ' is' : 's are'} ready in the Visual Builder.${suggestionNote}`)
   }
 
   function applyCatalogImport(imported: ImportedAgentCatalog, fileName: string) {
@@ -847,6 +916,8 @@ export default function CreatePage() {
                     onClick={() => {
                       setGuidedReview(null)
                       setSelectedImportOffers({})
+                      setSelectedSuggestedOffers({})
+                      setSelectedSuggestedFaqs({})
                       setGuidedAnswers({})
                       setShowAllGuidedOffers(false)
                       setImportMessage('')
@@ -949,6 +1020,7 @@ export default function CreatePage() {
                             </span>
                             <span className="mt-1 block line-clamp-2 text-xs leading-5 text-zinc-400">{offer.description}</span>
                             <span className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-wider text-zinc-500">
+                              <span>{offer.metadata?.offerKind === 'product' ? 'Product' : 'Service'}</span>
                               <span>{Math.round((offer.confidence || 0.7) * 100)}% confidence</span>
                               {offerProvenanceLabel(offer) ? <span>{offerProvenanceLabel(offer)}</span> : null}
                             </span>
@@ -961,9 +1033,76 @@ export default function CreatePage() {
               ) : (
                 <div className="mt-5 flex items-start gap-3 rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/10 p-4 text-sm text-[var(--amber)]">
                   <AlertCircle className="mt-0.5 size-4" />
-                  No structured offers were detected. Apply the page details, then add offers manually in the builder.
+                  No offers were labeled as detected because the source did not provide enough evidence.
                 </div>
               )}
+
+              {guidedReview.suggestedOffers?.length ? (
+                <div className="mt-5 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.07] p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wider text-[var(--amber)]">Optional starter suggestions</p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-400">
+                        These ideas were not found on the website. Select one only if it accurately describes the business, then confirm its price and details in the builder.
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-[var(--amber)]/20 px-2.5 py-1 text-xs text-[var(--amber)]">
+                      {selectedSuggestedOfferCount} selected
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {guidedReview.suggestedOffers.map((offer, index) => {
+                      const key = offerImportKey(offer, index)
+                      return (
+                        <label key={key} className="flex cursor-pointer gap-3 rounded-lg border border-[var(--amber)]/20 bg-black/20 p-3 hover:border-[var(--amber)]/40">
+                          <input
+                            type="checkbox"
+                            checked={!!selectedSuggestedOffers[key]}
+                            onChange={(event) => {
+                              setSelectedSuggestedOffers((current) => ({ ...current, [key]: event.target.checked }))
+                            }}
+                            className="mt-1 size-4 accent-[var(--amber)]"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center justify-between gap-3">
+                              <span className="truncate text-sm font-medium text-white">{offer.name}</span>
+                              <span className="shrink-0 text-xs text-[var(--amber)]">Confirm details</span>
+                            </span>
+                            <span className="mt-1 block line-clamp-2 text-xs leading-5 text-zinc-400">{offer.description}</span>
+                            <span className="mt-2 block text-[10px] uppercase tracking-wider text-zinc-500">Suggested by Nexez, not detected</span>
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {guidedReview.suggestedFaqs?.length ? (
+                <div className="mt-5 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.07] p-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-[var(--amber)]">Optional FAQ suggestions</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">
+                    These answers were drafted for review, not found on the website. Select only the ones that are accurate.
+                  </p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {guidedReview.suggestedFaqs.map((faq, index) => (
+                      <label key={`${faq.question}-${index}`} className="flex cursor-pointer gap-3 rounded-lg border border-[var(--amber)]/20 bg-black/20 p-3 hover:border-[var(--amber)]/40">
+                        <input
+                          type="checkbox"
+                          checked={!!selectedSuggestedFaqs[index]}
+                          onChange={(event) => setSelectedSuggestedFaqs((current) => ({ ...current, [index]: event.target.checked }))}
+                          className="mt-1 size-4 accent-[var(--amber)]"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium text-white">{faq.question}</span>
+                          <span className="mt-1 block text-xs leading-5 text-zinc-400">{faq.answer}</span>
+                          <span className="mt-2 block text-[10px] uppercase tracking-wider text-zinc-500">Suggested by Nexez, not detected</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               {guidedReview.clarifyingQuestions?.length ? (
                 <div className="mt-5 rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/[0.06] p-4">
@@ -1005,6 +1144,21 @@ export default function CreatePage() {
                 </div>
               ) : null}
 
+              {guidedReview.fieldDiffs?.length ? (
+                <div className="mt-5 rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/[0.06] p-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-[var(--signal)]">What changed after refinement</p>
+                  <div className="mt-3 space-y-3">
+                    {guidedReview.fieldDiffs.map((change) => (
+                      <div key={change.field} className="grid gap-2 rounded-lg border border-white/10 bg-black/20 p-3 text-xs md:grid-cols-[8rem_1fr_1fr]">
+                        <span className="font-medium text-zinc-200">{change.field}</span>
+                        <span className="text-zinc-500"><span className="mr-2 uppercase tracking-wider">Before</span>{change.before}</span>
+                        <span className="text-zinc-200"><span className="mr-2 uppercase tracking-wider text-[var(--signal)]">After</span>{change.after}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               {guidedReview.readiness?.gaps?.length ? (
                 <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4">
                   <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Readiness gaps</p>
@@ -1013,6 +1167,51 @@ export default function CreatePage() {
                       <span key={gap} className="rounded-full border border-[var(--amber)]/20 bg-[var(--amber)]/10 px-3 py-1 text-xs text-[var(--amber)]">
                         {gap}
                       </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {guidedReview.evidence?.length ? (
+                <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Evidence ledger</p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-400">Every imported fact stays linked to the source that supports it.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-wider">
+                      {(['detected', 'inferred', 'owner_confirmed', 'suggested'] as const).map((status) => {
+                        const count = guidedReview.evidence?.filter((item) => item.status === status).length || 0
+                        return count ? (
+                          <span key={status} className="rounded-full border border-white/10 px-2.5 py-1 text-zinc-400">
+                            {count} {status.replace('_', ' ')}
+                          </span>
+                        ) : null
+                      })}
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                    {guidedReview.evidence.filter((item) => item.status !== 'suggested').slice(0, 12).map((item) => (
+                      <a
+                        key={item.id}
+                        href={item.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-3 hover:border-[var(--signal)]/30"
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="truncate text-xs font-medium text-zinc-100">{item.field}</span>
+                          <span className={item.status === 'detected'
+                            ? 'shrink-0 text-[10px] uppercase tracking-wider text-[var(--signal)]'
+                            : item.status === 'owner_confirmed'
+                              ? 'shrink-0 text-[10px] uppercase tracking-wider text-[var(--amber)]'
+                              : 'shrink-0 text-[10px] uppercase tracking-wider text-zinc-500'}>
+                            {item.status.replace('_', ' ')}
+                          </span>
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-zinc-300">{item.value}</span>
+                        <span className="mt-2 block line-clamp-2 text-[11px] leading-4 text-zinc-500">{item.sourceText}</span>
+                      </a>
                     ))}
                   </div>
                 </div>

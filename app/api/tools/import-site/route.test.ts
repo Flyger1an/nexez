@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mutable refs so each test can steer auth, plan-gating, and access resolution.
-const { userRef, accessRef, ownerAllowsRef, analyzeRef } = vi.hoisted(() => ({
+const { userRef, accessRef, ownerAllowsRef, analyzeRef, rateLimitRef } = vi.hoisted(() => ({
   userRef: { user: { id: 'logged-in-user', email: 'editor@example.com' } as any },
   // resolvePageAccess: by default the page's own owner. Tests override per-case.
   accessRef: { fn: (_opts: any) => null as any },
@@ -11,6 +11,7 @@ const { userRef, accessRef, ownerAllowsRef, analyzeRef } = vi.hoisted(() => ({
     calls: [] as Array<{ clientTag: string; ownerId: string | null | undefined; feature: string }>,
   },
   analyzeRef: { skipLlm: undefined as boolean | undefined },
+  rateLimitRef: { response: null as Response | null, calls: [] as any[] },
 }))
 
 // Session client (createClient(cookies)) - only auth.getUser() is exercised here.
@@ -48,6 +49,12 @@ vi.mock('../../../../lib/llm', () => ({
 }))
 
 vi.mock('../../../../lib/observability', () => ({ captureError: vi.fn() }))
+vi.mock('../../../../lib/rate-limit', () => ({
+  enforceRateLimit: vi.fn(async (...args: any[]) => {
+    rateLimitRef.calls.push(args)
+    return rateLimitRef.response
+  }),
+}))
 
 // analyzeSite is the heavy importer - stub it and capture the skipLlm option.
 const importResult = {
@@ -63,10 +70,16 @@ const importResult = {
   cta_label: 'Buy',
   faqs: [],
   structuredOffers: [],
+  suggestedOffers: [],
+  suggestedFaqs: [],
   pagesAnalyzed: 3,
+  agentDocumentsAnalyzed: 1,
   confidence: 0.9,
   reviewNotes: [],
   sources: [],
+  evidence: [],
+  businessDetails: {},
+  telemetry: { importerVersion: '2.0.0', cacheHit: false, durationMs: 1, pagesConsidered: 1, pagesUsed: 1, sourceFingerprint: 'fixture', extractionMethods: {}, skippedPages: [] },
   clarifyingQuestions: [],
   readiness: {},
   aiStatus: { used: false },
@@ -95,7 +108,16 @@ describe('POST /api/tools/import-site', () => {
     ownerAllowsRef.fn = () => true
     ownerAllowsRef.calls = []
     analyzeRef.skipLlm = undefined
+    rateLimitRef.response = null
+    rateLimitRef.calls = []
     llmConfiguredRef.value = false
+  })
+
+  it('413 before auth when the declared request body is too large', async () => {
+    const req = post({ url: 'https://acme.test' })
+    req.headers.set('content-length', '32001')
+    expect((await POST(req)).status).toBe(413)
+    expect(rateLimitRef.calls).toHaveLength(0)
   })
 
   it('401 when there is no session user', async () => {
@@ -107,11 +129,23 @@ describe('POST /api/tools/import-site', () => {
     expect((await POST(post({}))).status).toBe(400)
   })
 
+  it('rate limits by authenticated user before importer work', async () => {
+    rateLimitRef.response = new Response(JSON.stringify({ error: 'Rate limit exceeded.' }), { status: 429 })
+    const res = await POST(post({ url: 'https://acme.test' }))
+    expect(res.status).toBe(429)
+    expect(rateLimitRef.calls[0]?.[4]).toEqual({ subject: 'logged-in-user' })
+  })
+
   // --- Legacy self-gate (no pageId) ---------------------------------------
 
   it('no pageId: gates aiFeatures on the LOGGED-IN user via the session client', async () => {
     const res = await POST(post({ url: 'https://acme.test' }))
     expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({
+      evidence: [],
+      businessDetails: {},
+      telemetry: { importerVersion: '2.0.0', cacheHit: false },
+    })
     // The plan gate ran against the logged-in user, with the SESSION client.
     expect(ownerAllowsRef.calls).toEqual([
       { clientTag: 'session', ownerId: 'logged-in-user', feature: 'aiFeatures' },

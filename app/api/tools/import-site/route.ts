@@ -7,11 +7,16 @@ import { createClient } from '../../../../utils/supabase/server'
 import { ownerAllows } from '../../../../lib/server/plan'
 import { resolvePageAccess } from '../../../../lib/server/page-access'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 // Multi-page crawl (+ optional LLM extraction); allow headroom.
 export const maxDuration = 45
 
 export async function POST(request: Request) {
+  if (Number(request.headers.get('content-length') || 0) > 32_000) {
+    return NextResponse.json({ error: 'Request body too large.' }, { status: 413 })
+  }
+
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const {
@@ -22,8 +27,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Sign in to import a website.' }, { status: 401 })
   }
 
+  const limited = await enforceRateLimit(request, 'tools:import-site', 10, 60_000, { subject: user.id })
+  if (limited) return limited
+
   // Phase 1 A: Thin production wrapper (full logic now in lib/importer.ts with multi-path, industry awareness, rich OfferItem output)
-  const body = await request.json().catch(() => ({} as any))
+  let body: Record<string, unknown> = {}
+  try {
+    const rawBody = await request.text()
+    if (new TextEncoder().encode(rawBody).byteLength > 32_000) {
+      return NextResponse.json({ error: 'Request body too large.' }, { status: 413 })
+    }
+    body = rawBody ? JSON.parse(rawBody) as Record<string, unknown> : {}
+  } catch {
+    body = {}
+  }
   const {
     url,
     pageId,
@@ -136,22 +153,29 @@ export async function POST(request: Request) {
         logo_url: result.logo_url || null,
         audience: result.audience,
         location: result.location,
+        contact_email: result.businessDetails?.email || null,
         cta_url: result.cta_url,
         cta_label: result.cta_label,
         faqs: result.faqs,
       },
       structuredOffers: result.structuredOffers,
+      suggestedOffers: result.suggestedOffers,
+      suggestedFaqs: result.suggestedFaqs,
       pagesAnalyzed: result.pagesAnalyzed,
+      agentDocumentsAnalyzed: result.agentDocumentsAnalyzed,
       confidence: result.confidence,
       // Auto on import: LLM-generated memory suggestion if key configured (user can accept in settings)
       autoMemorySuggestion,
       reviewNotes: result.reviewNotes,
       sources: result.sources,
+      evidence: result.evidence,
+      businessDetails: result.businessDetails,
+      telemetry: result.telemetry,
       clarifyingQuestions: result.clarifyingQuestions,
       readiness: result.readiness,
       aiStatus: result.aiStatus,
       aiAssisted: result.aiStatus.used,
-      message: `Website analyzed across ${result.pagesAnalyzed} page(s). Rich structured offers ready for the Visual Builder.`,
+      message: `Website analyzed across ${result.pagesAnalyzed} web page(s) and ${result.agentDocumentsAnalyzed} agent document(s).`,
     })
   } catch (error: any) {
     captureError(error, { route: 'import-site' })

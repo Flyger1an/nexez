@@ -745,6 +745,11 @@ describe('helpers', () => {
       description: 'Desc',
       website_url: 'https://b.example',
       structuredOffers: [{ name: 'A', description: '', price: '$1', url: '', confidence: 0.9 }],
+      suggestedOffers: [],
+      suggestedFaqs: [],
+      evidence: [],
+      businessDetails: {},
+      telemetry: { importerVersion: '2.0.0', cacheHit: false, durationMs: 1, pagesConsidered: 1, pagesUsed: 1, sourceFingerprint: 'fixture', extractionMethods: {}, skippedPages: [] },
       servicesText: 'A | $1 |  | ',
       faqs: [{ question: 'Q', answer: 'A' }],
       industry: 'Plumbing',
@@ -756,6 +761,7 @@ describe('helpers', () => {
       confidence: 0.8,
       aiStatus: { configured: false, attempted: false, used: false, status: 'deterministic', provider: '', model: '', reason: '' },
       pagesAnalyzed: 3,
+      agentDocumentsAnalyzed: 0,
     })
     expect(extraction).toMatchObject({
       sourceId: 'src-9',

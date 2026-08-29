@@ -1,50 +1,15 @@
 import 'server-only'
 import { getImportUrlError, getResolvedImportUrlError, safeFetch } from '../importer'
 import { parseRobotsForAgentBots, type AgentBot, type CrawlabilitySignals } from '../crawlability'
+import { readBodyCapped } from './read-body-capped'
+
+export { readBodyCapped } from './read-body-capped'
 
 const SCAN_UA = 'Nexez Agent Readiness Scanner/2.0 (+https://nexez.ai/scan)'
 
 export const HTML_BYTE_CAP = 512 * 1024
 export const ROBOTS_BYTE_CAP = 64 * 1024
 export const JSON_BYTE_CAP = 256 * 1024
-
-export async function readBodyCapped(res: Response, maxBytes: number): Promise<string | null> {
-  const body = res.body
-  if (!body) {
-    try {
-      const text = await res.text()
-      return text.length > maxBytes ? text.slice(0, maxBytes) : text
-    } catch {
-      return null
-    }
-  }
-
-  const reader = body.getReader()
-  const decoder = new TextDecoder('utf-8', { fatal: false })
-  let out = ''
-  let bytes = 0
-  try {
-    while (bytes < maxBytes) {
-      const { done, value } = await reader.read()
-      if (done) break
-      if (!value) continue
-      const remaining = maxBytes - bytes
-      const chunk = value.byteLength > remaining ? value.subarray(0, remaining) : value
-      bytes += chunk.byteLength
-      out += decoder.decode(chunk, { stream: true })
-    }
-    out += decoder.decode()
-    return out
-  } catch {
-    return null
-  } finally {
-    try {
-      await reader.cancel()
-    } catch {
-      // The stream may already be closed.
-    }
-  }
-}
 
 export function stripHtmlToText(html: string, maxChars = 8000): string {
   const text = html
