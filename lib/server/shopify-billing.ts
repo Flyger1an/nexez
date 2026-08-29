@@ -7,6 +7,7 @@ import type { ShopifyInstallCredentials } from './shopify-install'
 const SHOPIFY_PARTNER_TIMEOUT_MS = 10_000
 const SHOPIFY_APP_HANDLE_FALLBACK = 'nexez-agent-ready'
 const SELF_SERVE_PLAN_IDS = new Set<PlanId>(['free', 'launch', 'pro', 'scale'])
+const TERMINAL_STRIPE_SUBSCRIPTION_STATUSES = new Set(['canceled', 'incomplete_expired'])
 
 type ShopifyBillingInstall = {
   shop_domain: string
@@ -157,7 +158,11 @@ async function writeOwnerPlan(
       account_origin: string | null
     }>()
   if (readError) throw new Error('Could not inspect the Nexez billing record.')
-  if (existing?.stripe_subscription_id && existing.account_origin !== 'shopify') {
+  if (
+    existing?.stripe_subscription_id
+    && existing.account_origin !== 'shopify'
+    && !TERMINAL_STRIPE_SUBSCRIPTION_STATUSES.has(existing.status || '')
+  ) {
     throw new Error('This Nexez account still has direct subscription billing and must be migrated before Shopify can manage its plan.')
   }
 

@@ -104,6 +104,31 @@ describe('Shopify App Pricing verification', () => {
     )).rejects.toThrow('must be migrated')
   })
 
+  it('migrates a canceled legacy Stripe record to Shopify billing', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(Response.json({ data: { shop: { id: 'gid://shopify/Shop/1' } } }))
+      .mockResolvedValueOnce(Response.json({ data: { activeSubscription: null } })))
+    const admin = adminMock({
+      owner_id: 'owner-1',
+      stripe_subscription_id: 'sub_canceled',
+      status: 'canceled',
+      account_origin: 'legacy',
+    })
+
+    await expect(verifyShopifyBilling(
+      admin.client,
+      { shop_domain: 'demo.myshopify.com', owner_id: 'owner-1' },
+      { shop: 'demo.myshopify.com', accessToken: 'offline-token' },
+    )).resolves.toMatchObject({ status: 'free', planId: 'free' })
+
+    expect(admin.billingUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      owner_id: 'owner-1',
+      plan_id: 'free',
+      status: 'active',
+      account_origin: 'shopify',
+    }), { onConflict: 'owner_id' })
+  })
+
   it('builds the Shopify-hosted plan selection URL', () => {
     expect(shopifyPricingUrl('demo.myshopify.com')).toBe(
       'https://admin.shopify.com/store/demo/charges/nexez-agent-ready/pricing_plans',
