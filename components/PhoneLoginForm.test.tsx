@@ -3,77 +3,77 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../test/dom'
 import { PhoneLoginForm } from './PhoneLoginForm'
 
-const { auth } = vi.hoisted(() => ({
-  auth: {
-    verifyOtp: vi.fn(),
-  },
-}))
-
-vi.mock('../utils/supabase/client', () => ({ createClient: () => ({ auth }) }))
-
-const PHONE = '+14155550123'
+const EMAIL = 'person@example.com'
+const CHALLENGE = 'v1.opaque-challenge'
 
 function openPhoneLogin() {
   const onAuthenticated = vi.fn()
   render(<PhoneLoginForm onAuthenticated={onAuthenticated} />)
-  fireEvent.click(screen.getByRole('button', { name: 'Continue with phone' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Continue with a text code' }))
   return onAuthenticated
 }
 
 describe('PhoneLoginForm', () => {
   beforeEach(() => {
-    auth.verifyOtp.mockReset()
-    auth.verifyOtp.mockResolvedValue({ data: {}, error: null })
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ sent: true }), { status: 202 }))))
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(
+      JSON.stringify({ sent: true, challenge: CHALLENGE }),
+      { status: 202 },
+    ))))
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('does not send malformed phone numbers', async () => {
+  it('does not send malformed email addresses', async () => {
     openPhoneLogin()
-    fireEvent.change(screen.getByRole('textbox', { name: 'Login phone' }), { target: { value: '(762) 744-5455' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Account email' }), { target: { value: 'person@example' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send sign-in code' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('international format')
+    expect(await screen.findByRole('alert')).toHaveTextContent('email address attached')
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('sends an SMS only for an existing account', async () => {
+  it('starts SMS login with the normalized account email without asking for a phone', async () => {
     openPhoneLogin()
-    fireEvent.change(screen.getByRole('textbox', { name: 'Login phone' }), { target: { value: PHONE } })
+    expect(screen.queryByRole('textbox', { name: 'Login phone' })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Account email' }), { target: { value: ' Person@Example.com ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send sign-in code' }))
 
     await waitFor(() => expect(fetch).toHaveBeenCalledOnce())
     expect(fetch).toHaveBeenCalledWith('/api/auth/phone/start', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ phone: PHONE }),
+      body: JSON.stringify({ email: EMAIL }),
     })
     expect(await screen.findByRole('textbox', { name: 'Verification code' })).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('If this number is linked')
+    expect(screen.getByRole('status')).toHaveTextContent('If this email has a verified login phone')
   })
 
-  it('verifies the SMS code and completes authentication', async () => {
+  it('submits the opaque challenge and code to the server, then completes authentication', async () => {
     const onAuthenticated = openPhoneLogin()
-    fireEvent.change(screen.getByRole('textbox', { name: 'Login phone' }), { target: { value: PHONE } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Account email' }), { target: { value: EMAIL } })
     fireEvent.click(screen.getByRole('button', { name: 'Send sign-in code' }))
 
     const code = await screen.findByRole('textbox', { name: 'Verification code' })
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ verified: true }), { status: 200 }))
     fireEvent.change(code, { target: { value: '123 456' } })
     fireEvent.click(screen.getByRole('button', { name: 'Verify and sign in' }))
 
-    await waitFor(() => expect(auth.verifyOtp).toHaveBeenCalledOnce())
-    expect(auth.verifyOtp).toHaveBeenCalledWith({ phone: PHONE, token: '123456', type: 'sms' })
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    expect(fetch).toHaveBeenNthCalledWith(2, '/api/auth/phone/verify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ challenge: CHALLENGE, code: '123456' }),
+    })
     expect(onAuthenticated).toHaveBeenCalledOnce()
   })
 
-  it('does not expose whether an unlinked account exists', async () => {
+  it('does not expose server or provider details', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ error: 'provider detail' }), { status: 503 }))
     openPhoneLogin()
-    fireEvent.change(screen.getByRole('textbox', { name: 'Login phone' }), { target: { value: PHONE } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Account email' }), { target: { value: EMAIL } })
     fireEvent.click(screen.getByRole('button', { name: 'Send sign-in code' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Confirm this number is linked to your Nexez account')
+    expect(alert).toHaveTextContent('could not start text sign-in')
     expect(alert).not.toHaveTextContent('provider detail')
   })
 })

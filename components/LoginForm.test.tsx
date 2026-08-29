@@ -50,11 +50,11 @@ describe('LoginForm passkeys', () => {
   it('does not show passkey sign-in during password recovery', () => {
     render(<LoginForm initialMode="reset" />)
     expect(screen.queryByRole('button', { name: 'Continue with a passkey' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Continue with phone' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Continue with a text code' })).toBeNull()
   })
 
   it('offers phone sign-in only in sign-in mode', async () => {
     render(<LoginForm />)
-    expect(await screen.findByRole('button', { name: 'Continue with phone' })).toBeEnabled()
+    expect(await screen.findByRole('button', { name: 'Continue with a text code' })).toBeEnabled()
   })
 })

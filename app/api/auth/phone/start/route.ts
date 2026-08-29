@@ -1,31 +1,32 @@
-import { createHmac } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { normalizeE164PhoneNumber } from '@/lib/phone-auth'
 import { enforceRateLimit, hasSharedRateLimitBackend } from '@/lib/rate-limit'
+import {
+  createSmsLoginChallenge,
+  isSmsLoginChallengeConfigured,
+  smsLoginRateLimitSubject,
+} from '@/lib/server/sms-login-challenge'
+import { createAdminClient, hasSupabaseAdminEnv } from '@/utils/supabase/admin'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 15
 
-const RATE_LIMIT_SECRET_MIN_LENGTH = 32
-
-function phoneRateLimitSubject(phone: string): string | null {
-  const secret = process.env.NEXEZ_SMS_RATE_LIMIT_SECRET?.trim()
-  if (!secret || secret.length < RATE_LIMIT_SECRET_MIN_LENGTH) return null
-  return createHmac('sha256', secret).update(`nexez:phone-login:${phone}`).digest('base64url')
+function normalizeLoginEmail(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const email = value.trim().toLowerCase()
+  return email.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? email : null
 }
 
-function acceptedResponse() {
-  // Always return the same response after a provider attempt. The caller must
-  // not be able to distinguish an unlinked number from an SMS delivery issue.
-  return NextResponse.json({ sent: true }, { status: 202, headers: { 'cache-control': 'no-store' } })
+function acceptedResponse(challenge: string) {
+  // Existing and unknown emails receive the same response shape. The encrypted
+  // challenge contains either a verified account binding or a dummy binding.
+  return NextResponse.json({ sent: true, challenge }, { status: 202, headers: { 'cache-control': 'no-store' } })
 }
 
 /**
- * Start existing-account phone login behind Nexez's shared IP and per-number
- * limits. Supabase still owns the OTP and session, while this boundary prevents
- * the normal UI from becoming an unmetered SMS trigger.
+ * Resolve an existing account's verified phone from its email, then start SMS
+ * login without returning the phone to the browser. Supabase still owns the OTP.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const limited = await enforceRateLimit(request, 'auth:phone:start:ip', 10, 10 * 60_000, {
@@ -38,48 +39,72 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     rawBody = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Enter a valid phone number.' }, { status: 400 })
+    return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })
   }
 
   if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
-    return NextResponse.json({ error: 'Enter a valid phone number.' }, { status: 400 })
+    return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })
   }
   const input = rawBody as Record<string, unknown>
-  if (Object.keys(input).some((key) => key !== 'phone')) {
-    return NextResponse.json({ error: 'Enter a valid phone number.' }, { status: 400 })
+  if (Object.keys(input).some((key) => key !== 'email')) {
+    return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })
   }
-  const phone = typeof input.phone === 'string' ? normalizeE164PhoneNumber(input.phone) : null
-  if (!phone) return NextResponse.json({ error: 'Enter a valid phone number.' }, { status: 400 })
+  const email = normalizeLoginEmail(input.email)
+  if (!email) return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })
 
-  const phoneSubject = phoneRateLimitSubject(phone)
-  if (!phoneSubject || !hasSharedRateLimitBackend()) {
-    return NextResponse.json({ error: 'Phone sign-in is temporarily unavailable.' }, { status: 503 })
+  const emailSubject = smsLoginRateLimitSubject('email', email)
+  if (!emailSubject
+    || !isSmsLoginChallengeConfigured()
+    || !hasSharedRateLimitBackend()
+    || !hasSupabaseAdminEnv()) {
+    return NextResponse.json({ error: 'Text sign-in is temporarily unavailable.' }, { status: 503 })
   }
-  const phoneLimited = await enforceRateLimit(request, 'auth:phone:start:number', 3, 10 * 60_000, {
-    subject: phoneSubject,
+  const emailLimited = await enforceRateLimit(request, 'auth:phone:start:email', 3, 10 * 60_000, {
+    subject: emailSubject,
     failClosed: true,
     requireShared: true,
   })
-  if (phoneLimited) return phoneLimited
+  if (emailLimited) return emailLimited
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim()
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json({ error: 'Phone sign-in is temporarily unavailable.' }, { status: 503 })
+    return NextResponse.json({ error: 'Text sign-in is temporarily unavailable.' }, { status: 503 })
+  }
+
+  const admin = createAdminClient()
+  const { data: identifier, error: lookupError } = await admin
+    .from('sms_login_identifiers')
+    .select('user_id, phone_e164')
+    .eq('email_normalized', email)
+    .maybeSingle()
+  if (lookupError) {
+    console.warn('[phone-auth] Verified login identifier lookup failed.', { code: lookupError.code })
+    return NextResponse.json({ error: 'Text sign-in is temporarily unavailable.' }, { status: 503 })
+  }
+
+  const account = identifier
+    ? { userId: identifier.user_id as string, phone: identifier.phone_e164 as string }
+    : null
+  const challenge = createSmsLoginChallenge(account)
+  if (!challenge) {
+    return NextResponse.json({ error: 'Text sign-in is temporarily unavailable.' }, { status: 503 })
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-    const { error } = await supabase.auth.signInWithOtp({
-      phone,
-      options: { channel: 'sms', shouldCreateUser: false },
-    })
-    if (error) console.warn('[phone-auth] Supabase OTP start was not accepted.', { code: error.code, status: error.status })
+    if (account) {
+      const supabase = createClient(supabaseUrl, supabaseKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: account.phone,
+        options: { channel: 'sms', shouldCreateUser: false },
+      })
+      if (error) console.warn('[phone-auth] Supabase OTP start was not accepted.', { code: error.code, status: error.status })
+    }
   } catch {
     console.warn('[phone-auth] Supabase OTP start failed before a provider response.')
   }
 
-  return acceptedResponse()
+  return acceptedResponse(challenge)
 }

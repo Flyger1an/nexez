@@ -2,8 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowLeft, Loader2, MessageSquareText, Phone } from 'lucide-react'
-import { maskE164PhoneNumber, normalizeE164PhoneNumber, normalizePhoneOtp } from '../lib/phone-auth'
-import { createClient } from '../utils/supabase/client'
+import { normalizePhoneOtp } from '../lib/phone-auth'
 
 type PhoneLoginFormProps = {
   disabled?: boolean
@@ -11,13 +10,27 @@ type PhoneLoginFormProps = {
   onBusyChange?: (busy: boolean) => void
 }
 
-const SEND_ERROR = 'We could not send a code. Confirm this number is linked to your Nexez account, then try again.'
+const SEND_ERROR = 'We could not start text sign-in. Check the email and try again.'
 const VERIFY_ERROR = 'That code could not be verified. Check the code and try again.'
+
+type SmsLoginResponse = {
+  challenge?: string
+  sent?: boolean
+  verified?: boolean
+}
+
+async function readResponse(response: Response): Promise<SmsLoginResponse> {
+  try {
+    return (await response.json()) as SmsLoginResponse
+  } catch {
+    return {}
+  }
+}
 
 export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange }: PhoneLoginFormProps) {
   const [expanded, setExpanded] = useState(false)
-  const [phone, setPhone] = useState('')
-  const [verificationPhone, setVerificationPhone] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [challenge, setChallenge] = useState<string | null>(null)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
@@ -51,9 +64,9 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
     event?.preventDefault()
     if (busy || disabled) return
 
-    const normalizedPhone = normalizeE164PhoneNumber(verificationPhone ?? phone)
-    if (!normalizedPhone) {
-      showError('Enter a mobile number in international format, such as +14155550123.')
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) {
+      showError('Enter the email address attached to your Nexez account.')
       return
     }
 
@@ -63,17 +76,19 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
       const response = await fetch('/api/auth/phone/start', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ phone: normalizedPhone }),
+        body: JSON.stringify({ email: normalizedEmail }),
       })
-      if (!response.ok) {
+      const body = await readResponse(response)
+      if (!response.ok || !body.sent || !body.challenge) {
         showError(SEND_ERROR)
         return
       }
 
-      setVerificationPhone(normalizedPhone)
+      setEmail(normalizedEmail)
+      setChallenge(body.challenge)
       setCode('')
       setResendAfter(60)
-      showInfo(`If this number is linked, a sign-in code is on its way to ${maskE164PhoneNumber(normalizedPhone)}.`)
+      showInfo('If this email has a verified login phone, a sign-in code is on its way.')
     } catch {
       showError(SEND_ERROR)
     } finally {
@@ -83,7 +98,7 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
 
   async function verifyCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (busy || disabled || !verificationPhone) return
+    if (busy || disabled || !challenge) return
 
     const normalizedCode = normalizePhoneOtp(code)
     if (!normalizedCode) {
@@ -94,12 +109,13 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
     updateBusy(true)
     setMessage('')
     try {
-      const { error } = await createClient().auth.verifyOtp({
-        phone: verificationPhone,
-        token: normalizedCode,
-        type: 'sms',
+      const response = await fetch('/api/auth/phone/verify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ challenge, code: normalizedCode }),
       })
-      if (error) {
+      const body = await readResponse(response)
+      if (!response.ok || !body.verified) {
         showError(VERIFY_ERROR)
         return
       }
@@ -111,9 +127,9 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
     }
   }
 
-  function changeNumber() {
+  function changeEmail() {
     if (busy) return
-    setVerificationPhone(null)
+    setChallenge(null)
     setCode('')
     setResendAfter(0)
     setMessage('')
@@ -128,7 +144,7 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
         className="nx-auth-oauth"
       >
         <Phone className="size-[18px]" />
-        Continue with phone
+        Continue with a text code
       </button>
     )
   }
@@ -142,12 +158,12 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-[var(--nx-auth-text)]">Sign in by text</p>
           <p className="mt-1 text-xs leading-5 text-[var(--nx-auth-muted)]">
-            Available only after you verify a login phone in Account Settings.
+            Enter your account email. We will text the verified login phone saved in Account Settings.
           </p>
         </div>
       </div>
 
-      {verificationPhone ? (
+      {challenge ? (
         <form onSubmit={verifyCode} className="mt-4 space-y-3">
           <label className="nx-auth-field">
             <span>Verification code</span>
@@ -172,11 +188,11 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
             </button>
             <button
               type="button"
-              onClick={changeNumber}
+              onClick={changeEmail}
               disabled={disabled || busy}
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-xs font-medium text-[var(--nx-auth-muted)] outline-none transition hover:bg-white/5 hover:text-[var(--nx-auth-text)] focus-visible:ring-2 focus-visible:ring-[var(--nx-auth-signal)] disabled:opacity-50"
             >
-              <ArrowLeft className="size-3.5" /> Change number
+              <ArrowLeft className="size-3.5" /> Change email
             </button>
           </div>
           <button
@@ -191,16 +207,16 @@ export function PhoneLoginForm({ disabled = false, onAuthenticated, onBusyChange
       ) : (
         <form onSubmit={sendCode} className="mt-4 space-y-3">
           <label className="nx-auth-field">
-            <span>Login phone</span>
+            <span>Account email</span>
             <input
-              name="phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
+              name="smsLoginEmail"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               className="nx-auth-input"
-              placeholder="+14155550123"
+              placeholder="you@example.com"
               disabled={disabled || busy}
               autoFocus
             />

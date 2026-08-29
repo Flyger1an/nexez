@@ -60,7 +60,7 @@ describe('PhoneSignInSettings', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ action: 'verify', phone: PHONE, code: '123456' }),
     })
-    expect(await screen.findByText('Login phone verified. You can now use it from the Nexez login screen.')).toBeInTheDocument()
+    expect(await screen.findByText('Login phone verified. You can now enter your account email to sign in by text.')).toBeInTheDocument()
     expect(screen.getByText('Linked')).toBeInTheDocument()
   })
 

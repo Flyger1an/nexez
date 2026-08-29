@@ -141,7 +141,7 @@ export function PhoneSignInSettings({ initialPhoneMasked }: PhoneSignInSettingsP
       setCode('')
       setPhase('summary')
       setMessageTone('ok')
-      setMessage('Login phone verified. You can now use it from the Nexez login screen.')
+      setMessage('Login phone verified. You can now enter your account email to sign in by text.')
     } catch {
       showError('That verification code could not be checked. Please try again.')
     } finally {
@@ -160,7 +160,7 @@ export function PhoneSignInSettings({ initialPhoneMasked }: PhoneSignInSettingsP
             </h2>
           </div>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-400">
-            Add a verified mobile number as a secure backup sign-in method. Passkeys remain the recommended primary method.
+            Add a verified mobile number as a secure backup sign-in method. At login, enter your account email and we will text this number. Passkeys remain the recommended primary method.
           </p>
         </div>
         {linkedPhoneMasked ? (
