@@ -6,6 +6,7 @@ import {
   buildSellerGrowthInviteEmail,
   buildSupportReplyEmail,
   buildSupportRequesterReplyEmail,
+  buildWelcomeEmail,
   hasEmailEnv,
   sendEmail,
 } from '../email'
@@ -41,9 +42,9 @@ describe('buildNegotiationEmail', () => {
       buyerAgent: 'ChatGPT',
       inboxUrl: 'https://nexez.app/dashboard/negotiations',
     })
-    expect(mail.subject).toBe('New negotiation request for Strategy Session')
+    expect(mail.subject).toBe('A buyer is ready to discuss Strategy Session')
     expect(mail.text).toContain('Budget: $400')
-    expect(mail.text).toContain('From agent: ChatGPT')
+    expect(mail.text).toContain('Buyer assistant: ChatGPT')
     expect(mail.html).toContain('Strategy Session')
     expect(mail.html).toContain('https://nexez.app/dashboard/negotiations')
   })
@@ -61,7 +62,7 @@ describe('buildNegotiationEmail', () => {
 })
 
 describe('buildEscrowFundedEmail', () => {
-  it('held: subject + status reflect an escrow hold awaiting capture', async () => {
+  it('held: subject + status explain that payment is secured until completion', async () => {
     const mail = await buildEscrowFundedEmail({
       businessName: 'Apex Advisory',
       offerName: 'Strategy Session',
@@ -70,9 +71,9 @@ describe('buildEscrowFundedEmail', () => {
       buyerAgent: 'ChatGPT',
       inboxUrl: 'https://nexez.app/dashboard/negotiations',
     })
-    expect(mail.subject).toBe('Payment held in escrow: Strategy Session')
+    expect(mail.subject).toBe('Payment secured: Strategy Session')
     expect(mail.text).toContain('Amount: ¥1,000')
-    expect(mail.text).toContain('Held in escrow')
+    expect(mail.text).toContain('Status: Payment secured, waiting for completion')
     expect(mail.html).toContain('https://nexez.app/dashboard/negotiations')
   })
 
@@ -85,7 +86,7 @@ describe('buildEscrowFundedEmail', () => {
       inboxUrl: 'https://nexez.app/dashboard/negotiations',
     })
     expect(mail.subject).toBe('Payment received: Audit')
-    expect(mail.text).toContain('Status: Captured')
+    expect(mail.text).toContain('Status: Paid')
     expect(mail.html).toContain('A &amp; B &lt;Co&gt;') // escaped
   })
 })
@@ -95,13 +96,13 @@ describe('buildMoneyEventEmail', () => {
     const mail = await buildMoneyEventEmail({ kind: 'refund', businessName: 'Apex', offerName: 'Audit', amount: '$50', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
     expect(mail.subject).toBe('Refund processed: Audit')
     expect(mail.text).toContain('Amount: $50')
-    expect(mail.text).toContain('refunded to the buyer')
+    expect(mail.text).toContain('refunded the payment for "Audit" to the buyer')
   })
 
-  it('dispute_opened: urgent subject + the time-sensitive evidence warning', async () => {
+  it('dispute_opened: urgent subject + a clear evidence deadline warning', async () => {
     const mail = await buildMoneyEventEmail({ kind: 'dispute_opened', businessName: 'Apex', offerName: 'Audit', amount: '$50', detail: 'Reason: fraudulent', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
     expect(mail.subject).toContain('Payment disputed: Audit')
-    expect(mail.text).toContain('time-sensitive')
+    expect(mail.text).toContain('submit your evidence before the deadline')
     expect(mail.text).toContain('Reason: fraudulent')
   })
 
@@ -121,9 +122,27 @@ describe('buildSellerGrowthInviteEmail', () => {
       claimUrl: 'https://app.nexez.ai/invite/claim/token',
     })
 
-    expect(mail.text).toContain('for six months at no subscription cost')
-    expect(mail.html.replaceAll('<!-- -->', '')).toContain('for six months')
+    expect(mail.text).toContain('reserved six months of Nexez Launch')
+    expect(mail.html.replaceAll('<!-- -->', '')).toContain('reserved six months of Nexez Launch')
     expect(`${mail.subject}\n${mail.text}\n${mail.html}`).not.toMatch(/180 days|Launch year|promotional year/i)
+  })
+})
+
+describe('buildWelcomeEmail', () => {
+  it('gives a new merchant a clear first path in both email versions', async () => {
+    const mail = await buildWelcomeEmail({
+      name: 'Taio Okonkwo',
+      createUrl: 'https://app.nexez.ai/create',
+      financeUrl: 'https://app.nexez.ai/dashboard/finance',
+      docsUrl: 'https://app.nexez.ai/docs',
+    })
+
+    for (const body of [mail.text, mail.html.replaceAll('<!-- -->', '')]) {
+      expect(body).toContain('Welcome, Taio.')
+      expect(body).toContain('Three steps to your first listing')
+      expect(body).toContain('discovery to booking and checkout')
+      expect(body).not.toMatch(/agent\.json|MCP endpoint|protocol endpoint/i)
+    }
   })
 })
 
@@ -150,7 +169,7 @@ describe('support conversation emails', () => {
     })
 
     expect(mail.subject).toBe('[Support reply] Checkout incident')
-    expect(mail.text).toContain('owner@example.com replied')
+    expect(mail.text).toContain('owner@example.com added a new message')
     expect(mail.html).toContain('https://admin.nexez.ai/admin/support/12345678-0000-4000-8000-000000000001')
   })
 })

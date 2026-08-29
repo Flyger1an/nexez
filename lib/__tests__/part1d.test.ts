@@ -69,7 +69,7 @@ describe('buildBookingEmail', () => {
       source: 'Calendly',
       inboxUrl: 'https://nexez.app/dashboard',
     })
-    expect(mail.subject).toBe('New booking: Strategy Session')
+    expect(mail.subject).toBe('Booking confirmed: Strategy Session')
     expect(mail.text).toContain('Jane')
     expect(mail.html).toContain('Apex &lt;b&gt;Advisory&lt;/b&gt;') // escaped
     expect(mail.html).not.toContain('<b>Advisory</b>')

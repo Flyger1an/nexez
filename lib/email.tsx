@@ -159,7 +159,7 @@ export async function buildSupportTicketEmail(opts: {
   ]
   const subject = `[Support ${opts.priority}] ${opts.subject}`
   const text = textBody(
-    `${opts.requesterEmail} submitted a Nexez support request.`,
+    `${opts.requesterEmail} submitted "${opts.subject}". Review the message and send the next response.`,
     rows,
     'Open support request',
     opts.adminUrl,
@@ -186,7 +186,7 @@ export async function buildSupportReplyEmail(opts: {
   // The reply is prose, so it gets its own block rather than a "Message: ..."
   // row that folds a multi-paragraph answer onto one line.
   const text = [
-    `Nexez Support replied to “${opts.ticketSubject}”.`,
+    `Your Nexez support request has an answer: “${opts.ticketSubject}”.`,
     '',
     quoteBlock(opts.replyBody),
     '',
@@ -211,7 +211,7 @@ export async function buildSupportRequesterReplyEmail(opts: {
 }): Promise<Built> {
   const subject = `[Support reply] ${opts.ticketSubject}`
   const text = [
-    `${opts.requesterEmail} replied to “${opts.ticketSubject}”.`,
+    `${opts.requesterEmail} added a new message to “${opts.ticketSubject}”. The next response is yours.`,
     '',
     quoteBlock(opts.replyBody),
     '',
@@ -255,7 +255,7 @@ export async function buildBookingEmail(opts: {
   inboxUrl: string
 }): Promise<Built> {
   const { businessName, eventName, inviteeName, inviteeEmail, startTime, source, inboxUrl } = opts
-  const subject = `New booking: ${eventName}`
+  const subject = `Booking confirmed: ${eventName}`
   const when = startTime ? new Date(startTime).toLocaleString() : null
   const rows: Row[] = [
     ['Booking', eventName],
@@ -264,7 +264,12 @@ export async function buildBookingEmail(opts: {
     ['When', when],
     ['Source', source],
   ]
-  const text = textBody(`You have a new booking on your Nexez listing "${businessName}".`, rows, 'Manage it', inboxUrl)
+  const text = textBody(
+    `A customer booked with ${businessName}. The guest and schedule details we received are below.`,
+    rows,
+    'Review booking',
+    inboxUrl,
+  )
   const html = await renderHtml(<BookingEmail businessName={businessName} rows={rows} inboxUrl={inboxUrl} />, text)
   return { subject, html, text }
 }
@@ -279,17 +284,17 @@ export async function buildEscrowFundedEmail(opts: {
   inboxUrl: string
 }): Promise<Built> {
   const { businessName, offerName, amount, held, buyerAgent, inboxUrl } = opts
-  const subject = held ? `Payment held in escrow: ${offerName}` : `Payment received: ${offerName}`
+  const subject = held ? `Payment secured: ${offerName}` : `Payment received: ${offerName}`
   const lead = held
-    ? `A buyer funded an escrow hold on your Nexez listing "${businessName}". Capture it from your inbox once you've delivered.`
-    : `A buyer paid for an agreement on your Nexez listing "${businessName}".`
+    ? `Payment for "${offerName}" from ${businessName} is secured. Complete the agreed work, then collect it from your Nexez inbox.`
+    : `Payment for "${offerName}" from ${businessName} is complete and recorded.`
   const rows: Row[] = [
     ['Offer', offerName],
     ['Amount', amount],
-    ['Status', held ? 'Held in escrow (awaiting your capture)' : 'Captured'],
-    ['From agent', buyerAgent],
+    ['Status', held ? 'Payment secured, waiting for completion' : 'Paid'],
+    ['Buyer assistant', buyerAgent],
   ]
-  const text = textBody(lead, rows, 'Manage it', inboxUrl)
+  const text = textBody(lead, rows, held ? 'Complete the order' : 'View payment', inboxUrl)
   const html = await renderHtml(<EscrowFundedEmail lead={lead} held={held} rows={rows} inboxUrl={inboxUrl} />, text)
   return { subject, html, text }
 }
@@ -308,7 +313,7 @@ export async function buildMoneyEventEmail(opts: {
     refund: {
       subject: `Refund processed: ${offerName}`,
       heading: 'Refund processed',
-      lead: `A payment on your Nexez listing "${businessName}" was refunded to the buyer.`,
+      lead: `${businessName} refunded the payment for "${offerName}" to the buyer.`,
       tone: 'neutral' as const,
       statusLabel: 'Refund recorded',
       cta: 'Review payment',
@@ -316,7 +321,7 @@ export async function buildMoneyEventEmail(opts: {
     dispute_opened: {
       subject: `Payment disputed: ${offerName}`,
       heading: 'A payment is disputed',
-      lead: `A buyer disputed a payment on your Nexez listing "${businessName}". Disputes are time-sensitive - respond with evidence in your Stripe dashboard before the deadline, or the dispute is auto-lost.`,
+      lead: `The buyer disputed the payment for "${offerName}" from ${businessName}. Open Stripe and submit your evidence before the deadline.`,
       tone: 'danger' as const,
       statusLabel: 'Action required',
       cta: 'Review dispute',
@@ -324,7 +329,7 @@ export async function buildMoneyEventEmail(opts: {
     dispute_closed: {
       subject: `Dispute resolved: ${offerName}`,
       heading: 'Dispute resolved',
-      lead: `A dispute on your Nexez listing "${businessName}" has closed.`,
+      lead: `The dispute for "${offerName}" from ${businessName} is closed. Review the recorded outcome.`,
       tone: 'positive' as const,
       statusLabel: 'Dispute closed',
       cta: 'Review outcome',
@@ -362,18 +367,18 @@ export async function buildNegotiationEmail(opts: {
   inboxUrl: string
 }): Promise<Built> {
   const { businessName, offerName, budget, timeline, query, buyerAgent, inboxUrl } = opts
-  const subject = `New negotiation request for ${offerName}`
+  const subject = `A buyer is ready to discuss ${offerName}`
   const rows: Row[] = [
     ['Offer', offerName],
     ['Budget', budget],
     ['Timeline', timeline],
-    ['From agent', buyerAgent],
+    ['Buyer assistant', buyerAgent],
     ['Message', query],
   ]
   const text = textBody(
-    `You have a new negotiation request on your Nexez listing "${businessName}".`,
+    `A buyer opened a negotiation for "${offerName}" from ${businessName}. Review their budget, timing, and message, then respond with terms you can honor.`,
     rows,
-    'Respond in your inbox',
+    'Respond to buyer',
     inboxUrl,
   )
   const html = await renderHtml(<NegotiationEmail businessName={businessName} rows={rows} inboxUrl={inboxUrl} />, text)
@@ -389,13 +394,13 @@ export async function buildBuyerReceiptEmail(opts: {
 }): Promise<Built> {
   const { businessName, offerName, amount, manageUrl } = opts
   const subject = `Your receipt from ${businessName}`
-  const lead = `Payment is confirmed for your order from ${businessName}. Keep this private link to track verified status or get help.`
+  const lead = `Your payment to ${businessName} is confirmed. This private order link keeps your receipt, status, and seller updates in one place.`
   const rows: Row[] = [
     ['Seller', businessName],
     ['Item', offerName],
     ['Amount', amount],
   ]
-  const text = textBody(lead, rows, 'Manage your order', manageUrl)
+  const text = textBody(lead, rows, 'View your order', manageUrl)
   const html = await renderHtml(<BuyerReceiptEmail lead={lead} rows={rows} manageUrl={manageUrl} />, text)
   return { subject, html, text }
 }
@@ -414,7 +419,7 @@ export async function buildBuyerStatusEmail(opts: {
     refunded: {
       subject: `Your refund from ${businessName} is on its way`,
       heading: 'Refund processed',
-      lead: `Your payment to ${businessName} was refunded in full. Depending on your bank, it can take a few business days to appear.`,
+      lead: `${businessName} issued your full refund. Your bank may take a few business days to post it.`,
       cta: 'View your order',
       statusLabel: 'Refund processed',
       tone: 'positive' as const,
@@ -422,7 +427,7 @@ export async function buildBuyerStatusEmail(opts: {
     partial_refund: {
       subject: `A partial refund from ${businessName}`,
       heading: 'Partial refund processed',
-      lead: `Part of your payment to ${businessName} was refunded. Depending on your bank, it can take a few business days to appear.`,
+      lead: `${businessName} issued a partial refund. Your bank may take a few business days to post it.`,
       cta: 'View your order',
       statusLabel: 'Partial refund',
       tone: 'positive' as const,
@@ -430,7 +435,7 @@ export async function buildBuyerStatusEmail(opts: {
     dispute_update: {
       subject: `Update on your order from ${businessName}`,
       heading: 'Dispute update',
-      lead: `There's an update on the dispute for your order from ${businessName}.`,
+      lead: `The dispute for your order from ${businessName} has a new update. Open the order to review it.`,
       cta: 'View your order',
       statusLabel: 'Dispute update',
       tone: 'caution' as const,
@@ -438,7 +443,7 @@ export async function buildBuyerStatusEmail(opts: {
     request_received: {
       subject: `We received your request - ${businessName}`,
       heading: 'Request received',
-      lead: `Thanks - we've passed your request to ${businessName}. You'll get an update here as soon as the seller responds.`,
+      lead: `Your request is now with ${businessName}. We will update this order when the seller responds.`,
       cta: 'Track your request',
       statusLabel: 'Sent to seller',
       tone: 'neutral' as const,
@@ -481,15 +486,15 @@ export async function buildBuyerRequestEmail(opts: {
   const subject = isRefund ? `Refund requested: ${offerName}` : `Buyer reported a problem: ${offerName}`
   const heading = isRefund ? 'A buyer requested a refund' : 'A buyer reported a problem'
   const lead = isRefund
-    ? `A buyer on your Nexez listing "${businessName}" requested a refund. Review the request and decide the next step in order operations.`
-    : `A buyer on your Nexez listing "${businessName}" reported a problem with their order. Review the report and resolve it in order operations.`
+    ? `A buyer requested a refund for "${offerName}" from ${businessName}. Review their reason and record your decision.`
+    : `A buyer reported a problem with "${offerName}" from ${businessName}. Review their message and choose the resolution.`
   const rows: Row[] = [
     ['Offer', offerName],
     ['Amount', amount],
     ['Buyer', buyerEmail],
     ['Message', message],
   ]
-  const text = textBody(lead, rows, 'Open order operations', inboxUrl)
+  const text = textBody(lead, rows, 'Review request', inboxUrl)
   const html = await renderHtml(
     <BuyerRequestEmail
       heading={heading}
@@ -510,9 +515,9 @@ export async function buildOrderLookupEmail(opts: { count: number; findUrl: stri
   const subject = 'Your Nexez orders'
   const lead =
     count === 1
-      ? 'Here is the order linked to this email. Use the secure link below to view it, track its status, or get help. The link expires in 24 hours.'
-      : `Here are the ${count} orders linked to this email. Use the secure link below to view them, track status, or get help. The link expires in 24 hours.`
-  const text = [lead, '', `View your orders: ${findUrl}`, '', "If you didn't request this, you can ignore this email."].join('\n')
+      ? 'We found the order linked to this email. The secure link stays active for 24 hours and keeps its status, seller updates, and support in one place.'
+      : `We found ${count} orders linked to this email. The secure link stays active for 24 hours and keeps their status, seller updates, and support in one place.`
+  const text = [lead, '', `${count === 1 ? 'View your order' : 'View your orders'}: ${findUrl}`, '', "If you didn't request this, you can ignore this email."].join('\n')
   const html = await renderHtml(<OrderLookupEmail lead={lead} count={count} findUrl={findUrl} />, text)
   return { subject, html, text }
 }
@@ -525,13 +530,13 @@ export async function buildTeamInviteEmail(opts: {
   acceptUrl: string
 }): Promise<Built> {
   const { inviterEmail, inviteeEmail, role, acceptUrl } = opts
-  const roleCopy = role === 'editor' ? 'edit their listings' : 'view their listings (read-only)'
+  const roleCopy = role === 'editor' ? 'edit their listings' : 'view their listings without making changes'
   const subject = `${inviterEmail} invited you to collaborate on Nexez`
-  const lead = `${inviterEmail} invited you to their Nexez workspace as a ${role}. You'll be able to ${roleCopy}.`
+  const lead = `${inviterEmail} invited you to their Nexez workspace as a ${role}. You can ${roleCopy}.`
   const text = [
     lead,
     '',
-    `Important: sign in or create your account using THIS email address (${inviteeEmail}) - that's how your access is granted.`,
+    `Use this email address to accept the invitation: ${inviteeEmail}. The invitation will not work with a different address.`,
     '',
     `Accept the invite: ${acceptUrl}`,
   ].join('\n')
@@ -548,16 +553,18 @@ export async function buildSellerGrowthInviteEmail(opts: {
 }): Promise<Built> {
   const { inviterBusinessName, inviteeEmail, durationDays, claimUrl } = opts
   const durationLabel = durationDays === 180 ? 'six months' : `${durationDays} days`
-  const subject = `${inviterBusinessName} sent your business complimentary Nexez Launch access`
+  const subject = `Your Nexez Launch invitation from ${inviterBusinessName}`
   const text = [
-    `${inviterBusinessName} invited your business to use Nexez Launch for ${durationLabel} at no subscription cost.`,
+    `${inviterBusinessName} reserved ${durationLabel} of Nexez Launch for your business at no cost. Your access starts when your first listing goes live.`,
     '',
-    'Publish an agent-ready listing and verify your business to activate the pass. No card is required.',
+    `Invitation: Nexez Launch for ${durationLabel}`,
+    'Cost: $0, with no card required',
+    'Access starts: When your first listing goes live',
     '',
-    `Claim it using this exact email address (${inviteeEmail}): ${claimUrl}`,
+    `Accept the invitation with ${inviteeEmail}: ${claimUrl}`,
     '',
-    "This invitation creates a separate business account. It does not grant access to the sender's workspace.",
-    'When complimentary access ends, the account returns to Free unless you choose a paid plan.',
+    `This invitation creates a separate business account. It never shares access with ${inviterBusinessName}.`,
+    'When the free period ends, your account moves to Free. There is no automatic charge.',
   ].join('\n')
   const html = await renderHtml(
     <SellerGrowthInviteEmail
@@ -587,15 +594,14 @@ export async function buildPromotionExpiryEmail(opts: {
     year: 'numeric',
     timeZone: 'UTC',
   }).format(new Date(endsAt))
-  const subject = `Your complimentary Nexez Launch access ends ${timing}`
+  const subject = `Your free Nexez Launch access ends ${timing}`
   const text = [
-    `${businessName} will return to the Free plan on ${endsOn}.`,
+    `On ${endsOn}, ${businessName} moves to the Free plan. Your business stays live on Nexez, and no automatic charge occurs.`,
     '',
-    'There is no automatic charge and your business stays on Nexez.',
     `Listing kept published: ${fallbackListingName || 'your oldest published listing'}`,
-    'Drafts and extra listings are preserved.',
+    'We keep every draft and extra listing. Publish them again whenever your plan allows.',
     '',
-    `Review plans and your fallback listing: ${billingUrl}`,
+    `Review your plan: ${billingUrl}`,
   ].join('\n')
   const html = await renderHtml(
     <PromotionExpiryEmail
@@ -616,24 +622,24 @@ export async function buildWelcomeEmail(opts: {
 }): Promise<Built> {
   const { name, createUrl, financeUrl, docsUrl } = opts
   const first = firstNameOnly(name)
-  const subject = 'Welcome to Nexez'
+  const subject = 'Welcome to Nexez. Your first listing starts here.'
   const text = [
     first ? `Welcome, ${first}.` : 'Welcome to Nexez.',
     '',
-    'Nexez turns your business into something an AI agent can read, quote, and buy from. It sits alongside your website rather than replacing it.',
+    'Nexez turns what you already sell into a clear, actionable listing for customers and AI assistants. It works alongside your website, so your existing presence stays intact.',
     '',
     'Three steps to your first listing:',
-    '1. Point us at your website. We draft the listing from what is already there.',
-    '2. Check every price, claim, and policy. Nothing goes live until you say it is right.',
-    '3. Publish. From that moment agents can read your offer, quote it, and book it.',
+    '1. Share your website or start from scratch. Nexez builds the first draft from what you already have.',
+    '2. Confirm your services, prices, and policies. You approve every detail before it goes live.',
+    '3. Publish. Customers and AI assistants can immediately understand your offer and take the next step.',
     '',
     `Create your first listing: ${createUrl}`,
     '',
-    'Then, when you are ready:',
-    `Connect Stripe, so payments land in your own account: ${financeUrl}`,
-    `See what the agents see, an agent.json file and an MCP endpoint: ${docsUrl}`,
+    'Build your full setup:',
+    `Connect Stripe to accept payments directly through eligible Nexez listings: ${financeUrl}`,
+    `See how Nexez carries a customer from discovery to booking and checkout: ${docsUrl}`,
     '',
-    'Stuck anywhere? Reply to this email and a person will help.',
+    'Reply to this email whenever you need help. A real person will answer.',
   ].join('\n')
   const html = await renderHtml(
     <WelcomeEmail name={name} createUrl={createUrl} financeUrl={financeUrl} docsUrl={docsUrl} />,
@@ -647,15 +653,17 @@ export async function buildStripeConnectedEmail(opts: {
   financeUrl: string; listingsUrl: string; docsUrl: string
 }): Promise<Built> {
   const { financeUrl, listingsUrl, docsUrl } = opts
-  const subject = 'Stripe is connected - you can accept agent payments'
+  const subject = 'Stripe is connected. Payments are ready.'
   const text = [
-    'Your Stripe account is linked and charges are enabled. You can now accept card payments from AI agents - payouts go straight to your Stripe, and Nexez only takes its fee when you get paid.',
+    'Eligible Nexez listings can now accept customer payments directly into your Stripe account. Nexez charges a fee only when you get paid.',
     '',
     `Open your Finance dashboard: ${financeUrl}`,
     '',
-    'What this unlocks:',
-    `Check a listing is live, because payments only reach you through one: ${listingsUrl}`,
-    `See the checkout an agent runs: ${docsUrl}`,
+    'Put it to work:',
+    `Publish a listing with a payment option so customers can check out: ${listingsUrl}`,
+    `See exactly what happens from checkout through confirmation: ${docsUrl}`,
+    '',
+    'No payment has been made yet. Your Finance dashboard will record each one.',
   ].join('\n')
   const html = await renderHtml(
     <StripeConnectedEmail financeUrl={financeUrl} listingsUrl={listingsUrl} docsUrl={docsUrl} />,
@@ -673,14 +681,14 @@ export async function buildStaleListingEmail(opts: {
   editUrl: string
 }): Promise<Built> {
   const { businessName, listingName, freshnessLabel, reinterviewUrl, editUrl } = opts
-  const subject = `Keep “${listingName}” accurate for AI agents`
+  const subject = `Bring “${listingName}” up to date`
   const text = [
-    `Your Nexez listing "${listingName}" hasn't changed in a while (${freshnessLabel}), so AI agents may be quoting stale prices or offers.`,
+    `"${listingName}" has not been reviewed recently (${freshnessLabel}). Confirm its prices, availability, and service details so every customer gets a current answer.`,
     '',
-    'A short re-interview asks only about what is missing or could be stronger - most people finish in a couple of minutes.',
+    'The guided review focuses on details that may be missing or out of date. Most people finish in a couple of minutes.',
     '',
-    `Re-interview this listing: ${reinterviewUrl}`,
-    `Or edit it by hand: ${editUrl}`,
+    `Review this listing: ${reinterviewUrl}`,
+    `Or open the full editor: ${editUrl}`,
   ].join('\n')
   const html = await renderHtml(
     <StaleListingEmail
@@ -717,11 +725,11 @@ export async function buildLaunchAccessStartedEmail(opts: {
   const rows: Row[] = [
     ['Business', businessName],
     ['Plan', `Nexez Launch, ${durationLabel}`],
-    ['Started by', listingName],
+    ['First live listing', listingName],
     ['Runs until', endsOn],
   ]
   const text = textBody(
-    `"${listingName}" is published, which is what starts your complimentary Launch access. Nothing was charged and there is no card on file.\n\nOn ${endsOn} you move to Free automatically. We will write once more before then.`,
+    `Publishing "${listingName}" activated your free Nexez Launch access. Nothing was charged, and no card is on file.\n\nOn ${endsOn}, your account moves to Free automatically. No charge occurs. We will remind you before the plan changes.`,
     rows,
     'Open your dashboard',
     dashboardUrl,
@@ -751,14 +759,14 @@ export async function buildPublishNudgeEmail(opts: {
   const subject = 'Your Nexez Launch spot is still reserved'
   const rows: Row[] = [
     ['Access', `Nexez Launch, ${durationLabel}`],
-    ['Time used so far', 'None'],
+    ['Time used', 'None'],
     ['Starts when', 'Your first listing is published'],
-    ['Held until', heldUntil || 'The cohort fills'],
+    ['Reserved until', heldUntil || 'The group fills'],
   ]
   const text = textBody(
-    `${businessName} has a place in the cohort and none of it has been used. Your ${durationLabel} begins the day your first listing goes live, not the day you signed up.\n\nThere is no cost to taking another week over the details.`,
+    `Your free ${durationLabel} for ${businessName} remains fully unused. The clock starts only when your first listing goes live.\n\nConfirm the details, then publish when the offer is accurate. Your access begins immediately.`,
     rows,
-    'Finish your listing',
+    'Publish your first listing',
     publishUrl,
   )
   const html = await renderHtml(
@@ -785,13 +793,13 @@ export async function buildScanResultsEmail(opts: {
   // A scanner bug must not produce "scored NaN out of 100" in a stranger's inbox.
   const score = Number.isFinite(opts.score) ? Math.max(0, Math.min(100, Math.round(opts.score))) : 0
   const band = scanReadinessBand(score)
-  const subject = `${domain} scored ${score}/100 for agent readability`
+  const subject = `AI clarity score for ${domain}: ${score}/100`
   const text = textBody(
-    `${domain} scored ${score} out of 100: ${band.label.toLowerCase()}.\n\nThat is not a marketing grade. It is how much of your business an AI assistant can parse when a customer asks it to find someone who does what you do. Every line below is something an assistant looks for and either finds or does not.`,
+    `We tested whether an AI assistant can find the services, prices, policies, and next steps on ${domain}. The score is ${score} out of 100: ${band.label.toLowerCase()}.\n\nEvery result below maps to a detail customers need before they can act.`,
     findings,
-    'Fix this on Nexez',
+    'Close the gaps with Nexez',
     claimUrl,
-  ) + `\n\nSix months of Nexez Launch, no card. Access starts the day your listing goes live.\n\nUnsubscribe: ${unsubscribeUrl}`
+  ) + `\n\nYour six months of Nexez Launch costs $0 and requires no card. Access starts when your listing goes live.\n\nUnsubscribe: ${unsubscribeUrl}`
   const html = await renderHtml(
     <ScanResultsEmail
       domain={domain}
