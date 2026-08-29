@@ -60,7 +60,13 @@ async function resolveStoredInput(
   }
   if (provider === 'shopify') {
     if (options.shopifyCredentials) {
-      return { provider: 'shopify', shop: options.shopifyCredentials.shop, accessToken: options.shopifyCredentials.accessToken, limit: 250 }
+      return {
+        provider: 'shopify',
+        shop: options.shopifyCredentials.shop,
+        accessToken: options.shopifyCredentials.accessToken,
+        limit: 250,
+        channelPublishedOnly: true,
+      }
     }
     const creds = await getShopifyCreds(pageId)
     return creds ? { provider: 'shopify', shop: creds.shop, accessToken: creds.token, limit: 250 } : null

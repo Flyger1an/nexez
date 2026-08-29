@@ -8,6 +8,10 @@ export const SHOPIFY_CATALOG_TOPICS = [
   'products/create',
   'products/update',
   'products/delete',
+  'product_feeds/full_sync',
+  'product_feeds/full_sync_finish',
+  'product_feeds/incremental_sync',
+  'product_feeds/update',
 ] as const
 
 export type ShopifyCatalogTopic = (typeof SHOPIFY_CATALOG_TOPICS)[number]

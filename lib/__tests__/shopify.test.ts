@@ -18,7 +18,7 @@ beforeEach(() => vi.unstubAllEnvs())
 describe('shopify config + HMAC', () => {
   it('uses the current stable API and includes the app-proxy scope', () => {
     expect(SHOPIFY_API_VERSION).toBe('2026-07')
-    expect(SHOPIFY_SCOPES.split(',')).toEqual(['read_products', 'write_app_proxy'])
+    expect(SHOPIFY_SCOPES.split(',')).toEqual(['read_products', 'read_product_listings', 'write_app_proxy'])
   })
 
   it('shopifyConfigured requires BOTH key and secret', () => {

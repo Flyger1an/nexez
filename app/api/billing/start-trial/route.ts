@@ -10,6 +10,7 @@ import {
   isEntitlementAllocationRetry,
 } from '../../../../lib/entitlement-allocation-error'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { getOwnerShopifyBillingContext } from '../../../../lib/server/shopify-billing'
 
 const TRIAL_DAYS = 7
 
@@ -32,6 +33,16 @@ export async function GET() {
   }
 
   const admin = createAdminClient()
+  const shopifyBilling = await getOwnerShopifyBillingContext(admin, user.id)
+  if (shopifyBilling) {
+    return NextResponse.json({
+      hasBilling: true,
+      provider: 'shopify',
+      pricingUrl: shopifyBilling.pricingUrl,
+      planHandle: shopifyBilling.planHandle,
+      status: shopifyBilling.status,
+    })
+  }
   const { data, error } = await admin
     .from('billing_subscriptions')
     .select('plan_id, status')
@@ -76,6 +87,17 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient()
+  const shopifyBilling = await getOwnerShopifyBillingContext(admin, user.id)
+  if (shopifyBilling) {
+    return NextResponse.json(
+      {
+        error: 'This account uses Shopify App Pricing. Choose a plan in Shopify admin.',
+        provider: 'shopify',
+        pricingUrl: shopifyBilling.pricingUrl,
+      },
+      { status: 409 },
+    )
+  }
   const { data: existing } = await admin
     .from('billing_subscriptions')
     .select('account_origin, status, plan_id, trial_ends_at')

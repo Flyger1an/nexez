@@ -5,6 +5,7 @@ import { appUrl } from '../../../../lib/site'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { getOwnerShopifyBillingContext } from '../../../../lib/server/shopify-billing'
 
 /**
  * Stripe Billing Portal for Nexez subscriptions.
@@ -15,9 +16,6 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 export async function POST(request: Request) {
   const rateLimited = await enforceRateLimit(request, 'billing-portal', 12, 60_000, { failClosed: true })
   if (rateLimited) return rateLimited
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return NextResponse.redirect(appUrl('/dashboard/billing?setup=stripe'), 303)
-  }
 
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
@@ -27,6 +25,14 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.redirect(appUrl('/login?next=/dashboard/billing'), 303)
+  }
+
+  if (hasSupabaseAdminEnv()) {
+    const shopifyBilling = await getOwnerShopifyBillingContext(createAdminClient(), user.id)
+    if (shopifyBilling) return NextResponse.redirect(shopifyBilling.pricingUrl, 303)
+  }
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.redirect(appUrl('/dashboard/billing?setup=stripe'), 303)
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)

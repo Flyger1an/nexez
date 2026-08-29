@@ -34,7 +34,7 @@ function shell(apiKey: string) {
     .btn.primary { border-color:var(--accent); background:var(--accent); color:#fff; }
     .btn.primary:hover { border-color:var(--accent-hover); background:var(--accent-hover); }
     .btn:disabled { cursor:not-allowed; opacity:.58; transform:none; }
-    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin-top:20px; border-top:1px solid var(--line); }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:20px; border-top:1px solid var(--line); }
     .step { min-width:0; padding:20px 22px; border-right:1px solid var(--line); }
     .step:last-child { border-right:0; }
     .step-label { margin:0 0 6px; color:var(--muted); font-size:12px; font-weight:650; text-transform:uppercase; }
@@ -97,11 +97,14 @@ function shell(apiKey: string) {
         const sync = data.sync || {};
         appStatus.textContent = sync.error ? 'Needs attention' : sync.pending ? 'Sync queued' : 'Connected';
         shopLabel.textContent = data.shop;
-        app.innerHTML = '<div class="hero"><h1>'+escapeHtml(listingName)+'</h1><p>Your Shopify catalog is linked to Nexez. Keep the catalog current, enable storefront discovery, and inspect the same endpoint AI agents receive.</p>'+(sync.error?'<div class="notice warning" id="sync-notice">'+escapeHtml(sync.error)+'</div>':'<div class="notice" id="sync-notice">Last catalog sync: '+escapeHtml(formatDate(sync.lastSyncedAt))+'</div>')+'<div class="actions"><button class="btn" id="change-listing">Change listing</button></div></div><div class="grid"><section class="step"><p class="step-label">Catalog</p><h2>Keep offers current</h2><p>Active product details, prices, variants, and availability sync into the linked listing.</p><div class="actions"><button class="btn" id="sync">Sync now</button></div></section><section class="step"><p class="step-label">Storefront</p><h2>Enable discovery links</h2><p>Activate the theme app embed so agents can find the manifest from your storefront.</p><div class="actions"><button class="btn" id="theme">Open theme editor</button></div></section><section class="step"><p class="step-label">Agent endpoint</p><h2>Inspect the live artifact</h2><p>'+escapeHtml(data.storefrontArtifactUrl)+'</p><div class="actions"><button class="btn" id="artifact">Open endpoint</button></div></section></div>';
+        const billingLabel = data.billing?.planHandle ? 'Plan: '+data.billing.planHandle : data.billing?.status === 'free' ? 'Free plan' : 'Choose or verify a plan';
+        const channelLabel = data.channel?.id ? 'Connected as a Shopify sales channel.' : 'Sales channel setup needs attention.';
+        app.innerHTML = '<div class="hero"><h1>'+escapeHtml(listingName)+'</h1><p>Your Shopify catalog is linked to Nexez. Keep the catalog current, enable storefront discovery, and inspect the same endpoint AI agents receive.</p>'+(sync.error?'<div class="notice warning" id="sync-notice">'+escapeHtml(sync.error)+'</div>':'<div class="notice" id="sync-notice">Last catalog sync: '+escapeHtml(formatDate(sync.lastSyncedAt))+'</div>')+'<div class="actions"><button class="btn" id="change-listing">Change listing</button></div></div><div class="grid"><section class="step"><p class="step-label">Sales channel</p><h2>Channel connection</h2><p>'+escapeHtml(channelLabel)+'</p></section><section class="step"><p class="step-label">Catalog</p><h2>Keep offers current</h2><p>Products published to the Nexez channel stay current through Shopify product feeds.</p><div class="actions"><button class="btn" id="sync">Sync now</button></div></section><section class="step"><p class="step-label">Storefront</p><h2>Enable discovery links</h2><p>Activate the theme app embed so agents can find the manifest from your storefront.</p><div class="actions"><button class="btn" id="theme">Open theme editor</button></div></section><section class="step"><p class="step-label">Agent endpoint</p><h2>Inspect the live artifact</h2><p>'+escapeHtml(data.storefrontArtifactUrl)+'</p><div class="actions"><button class="btn" id="artifact">Open endpoint</button></div></section><section class="step"><p class="step-label">Plan</p><h2>Shopify App Pricing</h2><p>'+escapeHtml(billingLabel)+'. Charges appear on your Shopify invoice.</p><div class="actions"><button class="btn" id="billing">Manage plan in Shopify</button></div></section></div>';
         document.getElementById('theme').addEventListener('click', () => openExternal(data.themeEditorUrl));
         document.getElementById('artifact').addEventListener('click', () => openExternal(data.storefrontArtifactUrl));
         document.getElementById('sync').addEventListener('click', syncNow);
         document.getElementById('change-listing').addEventListener('click', changeListing);
+        document.getElementById('billing').addEventListener('click', () => openTopLevel(data.billing.pricingUrl));
       }
 
       async function changeListing() {
@@ -146,7 +149,7 @@ function shell(apiKey: string) {
       async function load() {
         appStatus.textContent = 'Checking';
         try {
-          const response = await fetch('/api/shopify/session', { method:'POST' });
+          const response = await fetch('/api/shopify/session'+window.location.search, { method:'POST' });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data.error || 'Shopify could not authenticate this app session.');
           context = data;

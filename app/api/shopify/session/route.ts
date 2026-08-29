@@ -3,7 +3,9 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { appUrl } from '../../../../lib/site'
 import { hasSecretCryptoKey } from '../../../../lib/server/secret-crypto'
 import { shopifyApiKey, shopifyConfigured, verifyShopifySessionToken } from '../../../../lib/server/shopify'
-import { ensureShopifySessionInstall, issueShopifyLinkToken } from '../../../../lib/server/shopify-install'
+import { ensureShopifySessionInstall, getShopifyInstallCredentialsByShop, issueShopifyLinkToken } from '../../../../lib/server/shopify-install'
+import { ensureShopifySalesChannel } from '../../../../lib/server/shopify-channel'
+import { shopifyPartnerBillingConfigured, shopifyPricingUrl, verifyShopifyBilling } from '../../../../lib/server/shopify-billing'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
 function bearerToken(request: Request): string {
@@ -52,6 +54,44 @@ export async function POST(request: Request) {
       listing = data ?? null
     }
 
+    const returnedPlanHandle = new URL(request.url).searchParams.get('plan_handle')
+    let billing = {
+      provider: 'shopify' as const,
+      pricingUrl: shopifyPricingUrl(session.shop),
+      planHandle: install.shopify_plan_handle ?? null,
+      status: install.shopify_billing_status ?? (shopifyPartnerBillingConfigured() ? 'checking' : 'attention'),
+      verifiedAt: install.shopify_billing_verified_at ?? null,
+    }
+    let channel = install.channel_id
+      ? {
+          id: install.channel_id,
+          handle: install.channel_handle,
+          specificationHandle: install.channel_specification_handle,
+          connectedAt: install.channel_connected_at,
+        }
+      : null
+    const credentials = listing
+      ? await getShopifyInstallCredentialsByShop(admin, session.shop)
+      : null
+    if (listing && credentials) {
+      if (!channel) {
+        channel = await ensureShopifySalesChannel(admin, install, credentials, {
+          pageId: listing.id,
+          accountName: listing.name || listing.slug,
+        })
+      }
+      if (shopifyPartnerBillingConfigured()) {
+        const verified = await verifyShopifyBilling(admin, install, credentials, returnedPlanHandle)
+        billing = {
+          provider: 'shopify',
+          pricingUrl: verified.pricingUrl,
+          planHandle: verified.planHandle,
+          status: verified.status,
+          verifiedAt: verified.verifiedAt,
+        }
+      }
+    }
+
     let connectUrl: string | null = null
     if (!listing) {
       const token = await issueShopifyLinkToken(admin, session.shop)
@@ -64,6 +104,8 @@ export async function POST(request: Request) {
       state: listing ? 'linked' : 'link_required',
       listing,
       connectUrl,
+      billing,
+      channel,
       themeEditorUrl: `https://${session.shop}/admin/themes/current/editor?context=apps&template=index&activateAppId=${encodeURIComponent(shopifyApiKey())}/agent-ready`,
       storefrontArtifactUrl: `https://${session.shop}/apps/nexez/agent.json`,
       sync: {

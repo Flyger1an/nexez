@@ -31,6 +31,6 @@ describe('GET /api/shopify/auth (inert until configured)', () => {
     expect(location.origin).toBe('https://demo.myshopify.com')
     expect(location.pathname).toBe('/admin/oauth/authorize')
     expect(location.searchParams.get('client_id')).toBe('k')
-    expect(location.searchParams.get('scope')?.split(',')).toEqual(['read_products', 'write_app_proxy'])
+    expect(location.searchParams.get('scope')?.split(',')).toEqual(['read_products', 'read_product_listings', 'write_app_proxy'])
   })
 })

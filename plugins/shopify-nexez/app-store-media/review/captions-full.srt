@@ -83,8 +83,7 @@ which keeps catalog ownership and attribution clear.
 
 20
 00:01:04,302 --> 00:01:07,896
-The catalog sync reads active, published products and
-imports
+Nexez is a Shopify sales channel. Catalog sync imports
 
 21
 00:01:07,896 --> 00:01:11,491
@@ -102,7 +101,7 @@ store,
 
 24
 00:01:19,079 --> 00:01:21,875
-the sync completes with thirteen active products.
+only products published to Nexez.
 
 25
 00:01:21,875 --> 00:01:25,469
@@ -152,12 +151,12 @@ state
 
 35
 00:01:58,219 --> 00:02:01,414
-remains available for routine management. Product
-create, update,
+remains available for routine management. Shopify
+contextual product-feed
 
 36
 00:02:01,414 --> 00:02:04,609
-and delete webhooks queue a bounded catalog refresh,
+events queue a bounded catalog refresh,
 
 37
 00:02:04,609 --> 00:02:08,603
@@ -166,7 +165,8 @@ control.
 
 38
 00:02:08,603 --> 00:02:12,597
-The app requests only read products and write app proxy.
+The app requests read products, read product listings,
+and write app proxy.
 
 39
 00:02:12,597 --> 00:02:16,192
@@ -198,11 +198,11 @@ and the public page gives human reviewers a clear
 
 45
 00:02:33,765 --> 00:02:37,359
-view of the same catalog. Here, all thirteen imported
+view of the same catalog. Open endpoint returns HTTP 200,
 
 46
 00:02:37,359 --> 00:02:40,954
-products are visible after the sync. Each product
+and Shopify App Pricing manages the plan. Each product
 preserves
 
 47
@@ -233,12 +233,12 @@ record for the product and the place where checkout
 
 53
 00:03:02,920 --> 00:03:06,515
-is completed. To recap, Nexez Agent-Ready is a free
+is completed. To recap, Nexez Agent-Ready is a Shopify
 
 54
 00:03:06,515 --> 00:03:10,109
-catalog connector for agent discovery. It reads products
-only,
+sales channel for agent discovery. It imports only
+channel-published products,
 
 55
 00:03:10,109 --> 00:03:13,304

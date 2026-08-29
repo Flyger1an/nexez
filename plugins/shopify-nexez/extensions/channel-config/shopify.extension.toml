@@ -1,0 +1,5 @@
+[[extensions]]
+uid = "541d3558-7101-4b87-b479-a316a9fbc5c8"
+type = "channel_config"
+handle = "nexez-channel-config"
+name = "Nexez sales channel"

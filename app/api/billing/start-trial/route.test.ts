@@ -20,8 +20,12 @@ vi.mock('../../../../utils/supabase/admin', () => ({
   hasSupabaseAdminEnv: vi.fn(() => true),
   createAdminClient: vi.fn(() => createSupabaseMock(refs.adminHandler)),
 }))
+vi.mock('../../../../lib/server/shopify-billing', () => ({
+  getOwnerShopifyBillingContext: vi.fn(async () => null),
+}))
 
 import { POST } from './route'
+import { getOwnerShopifyBillingContext } from '../../../../lib/server/shopify-billing'
 
 const request = () => new Request('https://nexez.test/api/billing/start-trial', {
   method: 'POST',
@@ -33,6 +37,7 @@ describe('POST /api/billing/start-trial', () => {
   beforeEach(() => {
     rateLimitRef.response = null
     vi.clearAllMocks()
+    vi.mocked(getOwnerShopifyBillingContext).mockResolvedValue(null)
     refs.adminHandler.mockImplementation((query) => {
       if (query.op === 'select') return { data: null, error: null }
       return { data: { plan_id: 'pro', status: 'trialing', trial_ends_at: '2026-08-29T00:00:00.000Z' }, error: null }
@@ -56,5 +61,21 @@ describe('POST /api/billing/start-trial', () => {
       code: 'entitlement_allocation_retry',
       retryable: true,
     })
+  })
+
+  it('blocks Nexez trial allocation for Shopify-linked owners', async () => {
+    vi.mocked(getOwnerShopifyBillingContext).mockResolvedValue({
+      provider: 'shopify',
+      shop: 'review.myshopify.com',
+      pricingUrl: 'https://admin.shopify.com/store/review/charges/nexez-agent-ready/pricing_plans',
+      planHandle: 'free',
+      status: 'free',
+      verifiedAt: '2026-08-28T00:00:00.000Z',
+    })
+
+    const response = await POST(request())
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toMatchObject({ provider: 'shopify' })
   })
 })

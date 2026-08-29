@@ -1,6 +1,6 @@
 # Shopify App Store readiness
 
-Last reviewed against Shopify's public requirements: 2026-07-13.
+Last reviewed against Shopify's public requirements: 2026-08-28.
 
 ## Code-backed requirements
 
@@ -20,9 +20,12 @@ Last reviewed against Shopify's public requirements: 2026-07-13.
   pointers remain only until Shopify sends `shop/redact`.
 - [x] `customers/data_request`, `customers/redact`, and `shop/redact` are declared,
   HMAC verified, and handled. Nexez stores no Shopify customer data.
-- [x] Product create/update/delete webhooks queue bounded background reconciliation.
+- [x] Contextual full and incremental product-feed webhooks queue bounded background reconciliation.
+- [x] A channel config extension declares the sales channel and its US English specification.
+- [x] OAuth requests `read_product_listings`, and installed-app imports keep only products published to Nexez.
+- [x] Account linking creates a channel connection and triggers a Shopify full product-feed sync.
 - [x] Catalog reads use the versioned GraphQL Admin API, not the legacy REST Admin API.
-- [x] Requested scopes are limited to `read_products,write_app_proxy`.
+- [x] Requested scopes are limited to `read_products,read_product_listings,write_app_proxy`.
 - [x] Synced Shopify offers retain Shopify storefront URLs as their purchase path.
 - [x] One active Shopify store can feed a listing at a time, enforced in both the
   link route and the database.
@@ -37,30 +40,32 @@ Last reviewed against Shopify's public requirements: 2026-07-13.
   uninstalling the app. Nexez authentication and listing edit access are checked
   again before the move, and only the old Shopify-imported catalog is removed.
 
-## Submission blocker requiring Shopify confirmation
+## Rejection remediation
 
-### 1. Distribution classification
+### 1. Sales Channel classification
 
-Nexez publishes a merchant's Shopify products to an external agent-discovery
-network. Shopify describes apps that publish products from Shopify to another
-platform as sales channels. Confirm classification with Shopify before review.
-If Shopify requires the Sales Channel model, the app will also need the channel
-flag, channel-specific scopes, Shopify checkout/order handling, account controls,
-and the full Sales Channel review checklist.
+- [x] Nexez is implemented as a Shopify Sales Channel.
+- [x] The channel specification identifies Shopify merchants as merchant of
+  record and requires Online Store parity.
+- [x] Merchants can control publication to Nexez through Shopify's channel model.
+- [x] Products return to the merchant's Shopify storefront for checkout.
 
-### 2. Billing source: resolved as a free connector
+### 2. Shopify billing
 
-- [x] Account linking and first catalog import are not plan gated.
-- [x] Embedded manual sync is not plan gated.
-- [x] Product-webhook reconciliation is not plan gated.
-- [x] Listing-settings sync bypasses the plan gate only for a verified OAuth app
-  installation; manually supplied Shopify tokens retain Nexez plan controls.
-- [x] Theme discovery links and the storefront proxy are free app functionality.
+- [x] Shopify-linked accounts cannot start or manage a Stripe app subscription.
+- [x] Embedded pricing and billing actions open Shopify App Pricing.
+- [x] Partner API subscription state maps Shopify plan handles to Nexez entitlements.
+- [x] Create the Free, Launch, Pro, and Scale plans in Shopify App Pricing.
+- [x] Add the Partner API billing variables to the production deployment.
+- [ ] Verify each Shopify plan on a development store.
 
-The embedded Shopify app does not present off-platform pricing or withhold its
-Shopify functionality behind a Nexez subscription.
+### 3. Live artifact reliability
 
-### 3. Checkout boundary
+- [x] `Open endpoint` returns the allowlisted artifact body with HTTP 200.
+- [x] Upstream artifact failures return a controlled 502 instead of redirecting
+  the reviewer to an error page.
+
+### 4. Checkout boundary
 
 The current importer keeps each Shopify product's storefront URL as its preferred
 purchase action. Preserve this invariant. A regular Shopify app must not route a
@@ -87,11 +92,12 @@ Validation evidence from 2026-07-13:
   App Store registration declarations and one-time $19 payment before the listing
   editor and submission checklist are available.
 
-- [ ] Confirm regular-app versus Sales Channel classification with Shopify.
-- [x] Implement and test the free-connector billing path.
-- [ ] Complete Shopify App Store registration with truthful business/account
+- [x] Implement the Sales Channel extension, connection, publication filtering,
+  contextual feed subscriptions, and full-sync trigger.
+- [x] Route Shopify app subscriptions through Shopify App Pricing.
+- [x] Complete Shopify App Store registration with truthful business/account
   declarations and the one-time registration payment.
-- [ ] Mark the Online Store sales channel as required because the theme app embed
+- [x] Mark the Online Store sales channel as required because the theme app embed
   and app proxy depend on a storefront.
 - [ ] Add an emergency developer contact.
 - [x] Verify current privacy-policy, terms, and support URLs resolve publicly.
@@ -102,8 +108,9 @@ Validation evidence from 2026-07-13:
 - [ ] Capture the required mobile-admin screenshot set.
 - [x] Prepare the English onboarding screencast script and complete reviewer flow
   in `REVIEWER_GUIDE.md`.
-- [ ] Record the onboarding screencast: install, connect account, choose listing,
-  sync catalog, enable app embed, inspect agent endpoint.
+- [ ] Record the onboarding screencast: install, select a Shopify plan, connect
+  account, choose listing, publish products, sync catalog, enable app embed, and
+  inspect the HTTP 200 agent endpoint.
 - [ ] Provide durable review credentials with access to the complete feature set.
 - [ ] Run the Partner Dashboard automated quality checks and mandatory-webhook test.
 - [ ] Test fresh install, uninstall, reinstall, token refresh, link expiry, webhook
@@ -122,4 +129,4 @@ npx @shopify/cli app deploy
 ```
 
 Release the generated version only after the matching Nexez server deployment is
-READY and the Supabase one-active-shop-per-listing migration has been applied.
+READY and migration `20260828210519_shopify_sales_channel_billing.sql` is applied.

@@ -10,7 +10,7 @@ import crypto from 'node:crypto'
  */
 
 export const SHOPIFY_API_VERSION = '2026-07'
-export const SHOPIFY_SCOPES = 'read_products,write_app_proxy'
+export const SHOPIFY_SCOPES = 'read_products,read_product_listings,write_app_proxy'
 
 /** True only when both the client id + secret are present. */
 export function shopifyConfigured(): boolean {

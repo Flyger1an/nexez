@@ -1,12 +1,11 @@
 # Nexez Agent-Ready: App Store listing
 
-Prepared against Shopify's public App Store guidance on 2026-07-13.
+Prepared against Shopify's public App Store guidance on 2026-08-28.
 
 ## Submission status
 
-Do not submit until Shopify confirms whether Nexez must use the Sales Channel
-model. Nexez publishes Shopify products to an external agent-discovery network,
-which closely matches Shopify's marketplace and product-feed definitions.
+Submit Nexez as a Sales Channel. The channel sends buyers back to the merchant's
+Shopify storefront, where Shopify remains the checkout and payment surface.
 
 References:
 
@@ -18,8 +17,8 @@ References:
 
 - App name: `Nexez Agent-Ready`
 - Primary language: `English`
-- Pricing method: `Free to install`
-- App charges: `None`
+- Pricing method: `Shopify App Pricing`
+- Plans: `Free $0`, `Launch $19/month`, `Pro $49/month`, `Scale $149/month`
 - Online Store required: `Yes`
 - Protected customer data: `Not required`
 - Geographic requirements: `None`
@@ -40,24 +39,23 @@ Make your catalog legible to AI agents while checkout stays on your store.
 
 ### App introduction
 
-Publish an agent-readable catalog while keeping every product checkout on your Shopify store.
+Publish selected products to AI agents. Keep every checkout on your online store.
 
-Character count: 93 of 100.
+Character count: 81 of 100.
 
 ### App details
 
-Nexez syncs active products into an agent-readable listing, keeps catalog details current after product changes, and serves signed discovery artifacts from your storefront. Connect a listing, refresh products, enable a lightweight theme app embed, and inspect the endpoint AI agents receive. Product links return buyers to your Shopify storefront for checkout. The connector reads products only and does not access customer or order data.
+Nexez publishes selected products to an agent-readable sales channel, keeps catalog details current through Shopify product feeds, and serves signed discovery artifacts from your storefront. Connect a listing, choose which products appear on Nexez, enable a lightweight theme app embed, and inspect the endpoint AI agents receive. Product links return buyers to your Shopify storefront for checkout. Nexez does not access customer or order data.
 
-Character count: 438 of 500.
+Character count: 445 of 500.
 
 ### Feature list
 
-1. Sync active products, variants, prices, and availability into one listing
-2. Refresh catalog details automatically after product changes
+1. Publish selected products, variants, prices, and availability to Nexez
+2. Keep channel-published products current with Shopify product feeds
 3. Add agent discovery links with a lightweight theme app embed
 4. Serve signed agent-readable artifacts from your storefront domain
 5. Inspect and refresh the catalog inside Shopify admin
-6. Keep imported product checkout on your Shopify storefront
 
 Each feature is 80 characters or fewer.
 
@@ -77,17 +75,13 @@ Use up to five terms, one idea per term:
 4. `agent commerce`
 5. `machine readable`
 
-## Category decision
-
-Most likely classification if Shopify confirms Sales Channel requirements:
+## Category
 
 - Primary: `Sales channels > Selling online > Product feeds`
 - Secondary: `Sales channels > Selling online > Marketplaces`
 
-Do not select a regular-app category solely to avoid Sales Channel requirements.
-If Shopify confirms in writing that Nexez can remain a regular app, ask Shopify
-which of `SEO`, `Product content`, or `Advertising - Other` best represents the
-agent-discovery use case before submitting.
+Do not select a regular-app category. Shopify review has explicitly classified
+this product-distribution behavior as a Sales Channel.
 
 ## Media package
 

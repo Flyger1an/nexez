@@ -1,0 +1,13 @@
+handle = "nexez-us"
+label = "Nexez AI discovery"
+icon = "nexez-channel-icon.svg"
+productFeedManagement = "automatic"
+
+[requirements]
+expectsOnlineStoreParity = true
+merchantOfRecord = "merchant"
+
+[[countries]]
+code = "US"
+languages = ["en"]
+currency = "USD"

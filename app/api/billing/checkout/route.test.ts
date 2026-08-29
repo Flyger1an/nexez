@@ -37,10 +37,15 @@ vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({
   retireSupersededBillingObject: billingAttempt.retire,
   stripeBillingIdempotencyKey: (attempt: string, operation: string) => `nexez-billing:${operation}:${attempt}`,
 }))
+vi.mock('../../../../lib/server/shopify-billing', () => ({
+  getOwnerShopifyBillingContext: vi.fn(async () => null),
+}))
 
 import { POST } from './route'
 import { createClient } from '../../../../utils/supabase/server'
 import { getBillingPlan, getPlanPriceId, isUniqueSelfServePlanPrice } from '../../../../lib/billing'
+import { hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { getOwnerShopifyBillingContext } from '../../../../lib/server/shopify-billing'
 
 const form = (plan: string) =>
   new Request('https://nexez.test/api/billing/checkout', {
@@ -52,6 +57,8 @@ const form = (plan: string) =>
 describe('POST /api/billing/checkout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getOwnerShopifyBillingContext).mockResolvedValue(null)
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(false)
     vi.mocked(isUniqueSelfServePlanPrice).mockReturnValue(true)
     // Default: no live subscription -> a first purchase creates a Checkout Session.
     subscriptionsList.mockResolvedValue({ data: [] })
@@ -109,6 +116,26 @@ describe('POST /api/billing/checkout', () => {
     const res = await POST(form('pro'))
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toContain('/login')
+  })
+
+  it('redirects Shopify-linked owners to Shopify App Pricing before Stripe', async () => {
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(createClient).mockReturnValue(createSupabaseMock(() => ({ data: null }), { user: { id: 'u1', email: 'a@b.c' } }) as any)
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+    vi.mocked(getOwnerShopifyBillingContext).mockResolvedValue({
+      provider: 'shopify',
+      shop: 'review.myshopify.com',
+      pricingUrl: 'https://admin.shopify.com/store/review/charges/nexez-agent-ready/pricing_plans',
+      planHandle: 'pro',
+      status: 'active',
+      verifiedAt: '2026-08-28T00:00:00.000Z',
+    })
+
+    const res = await POST(form('pro'))
+
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toContain('admin.shopify.com/store/review/charges')
+    expect(checkoutSessionsCreate).not.toHaveBeenCalled()
   })
 
   it('redirects to Stripe setup when Stripe / price ID is not configured', async () => {
