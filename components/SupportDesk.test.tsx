@@ -26,6 +26,13 @@ vi.mock('../utils/supabase/client', () => ({
 }))
 
 describe('SupportDesk support service', () => {
+  it('accepts a preselected feedback destination from the account menu', async () => {
+    render(<SupportDesk initialCategory="general" initialSubject="Product feedback" />)
+
+    expect(screen.getByLabelText('Issue area')).toHaveValue('general')
+    expect(screen.getByLabelText('Subject')).toHaveValue('Product feedback')
+  })
+
   afterEach(() => {
     cleanup()
     vi.unstubAllGlobals()

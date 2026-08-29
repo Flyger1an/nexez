@@ -56,15 +56,24 @@ const categories = [
   { value: 'general', label: 'General' },
 ]
 
-export function SupportDesk() {
+export function SupportDesk({
+  initialCategory = 'agent_visibility',
+  initialSubject = '',
+}: {
+  initialCategory?: string
+  initialSubject?: string
+}) {
+  const startingCategory = categories.some((item) => item.value === initialCategory)
+    ? initialCategory
+    : 'agent_visibility'
   const [pages, setPages] = useState<PageOption[]>([])
   const [loadingPages, setLoadingPages] = useState(true)
   const [supportService, setSupportService] = useState<SupportService | null>(null)
   const [tickets, setTickets] = useState<TicketSummary[]>([])
   const [target, setTarget] = useState('workspace')
-  const [category, setCategory] = useState('agent_visibility')
+  const [category, setCategory] = useState(startingCategory)
   const [severity, setSeverity] = useState('normal')
-  const [subject, setSubject] = useState('')
+  const [subject, setSubject] = useState(initialSubject.slice(0, 160))
   const [query, setQuery] = useState('')
   const [reference, setReference] = useState('')
   const [assist, setAssist] = useState<AssistResult | null>(null)

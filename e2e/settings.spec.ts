@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { selectPlatformTheme } from './platform-theme'
 
 const email = process.env.E2E_EMAIL
 const password = process.env.E2E_PASSWORD
@@ -257,7 +258,7 @@ test.describe('page settings', () => {
     const endpointCards = page.getByTestId('settings-endpoint-card')
     await expect(endpointCards).toHaveCount(6)
     for (const theme of ['Light', 'Dark']) {
-      await page.getByRole('radio', { name: theme, exact: true }).click()
+      await selectPlatformTheme(page, theme as 'Light' | 'Dark')
       await expect(page.locator('html')).toHaveClass(new RegExp(theme.toLowerCase()))
       const endpointStyles = await endpointCards.evaluateAll((cards) => {
         const expectedSurface = document.createElement('span')

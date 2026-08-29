@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { selectPlatformTheme } from './platform-theme'
 
 const email = process.env.E2E_EMAIL
 const password = process.env.E2E_PASSWORD
@@ -86,7 +87,7 @@ test('commercial command cards remain readable in light and dark platform themes
   const backgrounds: string[] = []
 
   for (const theme of ['Light', 'Dark']) {
-    await page.getByRole('radio', { name: theme, exact: true }).click()
+    await selectPlatformTheme(page, theme as 'Light' | 'Dark')
     await expect(page.locator('html')).toHaveClass(new RegExp(theme.toLowerCase()))
 
     const styles = await demandCard.evaluate((card) => {

@@ -23,7 +23,16 @@ export const metadata = {
   },
 }
 
-export default function SupportPage() {
+type SupportPageProps = {
+  searchParams: Promise<{ category?: string | string[]; subject?: string | string[] }>
+}
+
+function firstSearchValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value
+}
+
+export default async function SupportPage({ searchParams }: SupportPageProps) {
+  const query = await searchParams
   return (
     <main className="min-h-screen bg-background text-white">
       <div className="mx-auto max-w-7xl px-5 py-8 md:px-8">
@@ -37,7 +46,10 @@ export default function SupportPage() {
           </p>
         </section>
 
-        <SupportDesk />
+        <SupportDesk
+          initialCategory={firstSearchValue(query.category)}
+          initialSubject={firstSearchValue(query.subject)}
+        />
       </div>
     </main>
   )

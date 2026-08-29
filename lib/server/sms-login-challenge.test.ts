@@ -38,9 +38,13 @@ describe('SMS login challenges', () => {
 
   it('rejects expired, tampered, and incorrectly configured challenges', () => {
     const challenge = createSmsLoginChallenge(ACCOUNT, NOW)!
+    const parts = challenge.split('.')
+    const ciphertext = parts[3]!
+    parts[3] = `${ciphertext.startsWith('A') ? 'B' : 'A'}${ciphertext.slice(1)}`
+    const tamperedChallenge = parts.join('.')
 
     expect(readSmsLoginChallenge(challenge, NOW + 10 * 60_000)).toBeNull()
-    expect(readSmsLoginChallenge(`${challenge.slice(0, -1)}x`, NOW + 60_000)).toBeNull()
+    expect(readSmsLoginChallenge(tamperedChallenge, NOW + 60_000)).toBeNull()
     vi.stubEnv('NEXEZ_SMS_RATE_LIMIT_SECRET', 'too-short')
     expect(readSmsLoginChallenge(challenge, NOW + 60_000)).toBeNull()
   })

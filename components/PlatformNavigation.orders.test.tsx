@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '../test/dom'
+import { fireEvent, render, screen, within } from '../test/dom'
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard/orders',
@@ -28,7 +28,6 @@ vi.mock('../utils/supabase/client', () => ({
   },
 }))
 
-vi.mock('./ThemeToggle', () => ({ ThemeToggle: () => null }))
 vi.mock('./NexezLogo', () => ({ NexezLogo: () => <span>Nexez</span> }))
 
 import PlatformShell from './PlatformShell'
@@ -67,6 +66,29 @@ describe('platform Orders navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }))
     const commerce = await screen.findByRole('link', { name: 'Commerce' })
     expect(commerce).toHaveAttribute('href', '/dashboard/commerce')
+  })
+
+  it('moves low-frequency account utilities into the mobile menu', async () => {
+    render(<MobilePlatformNav />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }))
+
+    expect(await screen.findByRole('link', { name: 'Home Page' })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: 'Billing & plan' })).toHaveAttribute('href', '/dashboard/billing')
+    expect(screen.getByRole('link', { name: 'Help & support' })).toHaveAttribute('href', '/support')
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+  })
+
+  it('moves Billing and Support out of the desktop work rail and into the account menu', async () => {
+    render(<PlatformShell><div>Content</div></PlatformShell>)
+
+    const accountTrigger = await screen.findByRole('button', { name: 'Open account menu' })
+    expect(screen.queryByRole('link', { name: 'Billing' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Support' })).not.toBeInTheDocument()
+
+    fireEvent.pointerDown(accountTrigger, { button: 0, ctrlKey: false })
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getByRole('menuitem', { name: 'Billing & plan' })).toHaveAttribute('href', '/dashboard/billing')
+    expect(within(menu).getByRole('menuitem', { name: 'Help & support' })).toHaveAttribute('href', '/support')
   })
 
   it('moves the persistent desktop attention badge from Negotiations to Commerce', async () => {
