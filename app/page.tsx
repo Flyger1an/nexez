@@ -20,7 +20,7 @@ import { appUrl, marketingUrl } from '../lib/site'
 import { buildPlatformStructuredData } from '../lib/platform-agent-manifest'
 import { SimulatorTeaser } from '../components/SimulatorTeaser'
 import { AgentXray } from '../components/home/AgentXray'
-import { KnowledgeGraph } from '../components/home/KnowledgeGraph'
+import { HeroScan } from '../components/home/HeroScan'
 import { ReadinessLab } from '../components/home/ReadinessLab'
 import { LiveAgentFeed } from '../components/home/LiveAgentFeed'
 import { ScrollProgress } from '../components/home/ScrollProgress'
@@ -250,7 +250,7 @@ export default function NexezHome() {
       {/* HERO + MARQUEE share one smoke field that bleeds across both */}
       <div className="relative overflow-hidden" style={{ background: 'var(--bg)' }}>
         <ShaderBackdrop />
-        {/* HERO - text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}
+        {/* HERO - text + CTAs on the left, the live agent-readiness scanner on the right */}
         <section
           className="nx-home-hero relative z-10"
           aria-label="Hero"
@@ -269,16 +269,17 @@ export default function NexezHome() {
                 Get found by the agents <span className="nx-accent-text">doing the buying.</span>
               </h1>
               <p className="nx-home-hero-lead mt-6 max-w-xl text-base leading-7 text-muted-foreground md:text-lg">
-                Nexez helps AI find, understand, and buy what your business sells.
+                AI assistants are already shopping on behalf of your customers. Scan your site and
+                see what they can actually read, price, and buy today.
               </p>
               <div className="nx-home-hero-actions mt-7 flex flex-col gap-3 sm:flex-row">
-                <a href={appUrl('/create')} className="btn-primary h-11 px-5">
+                <a href={appUrl('/create')} className="btn-secondary h-11 px-5">
                   List your offers
                 </a>
                 <a href="/how-it-works" className="nx-home-hero-secondary btn-secondary h-11 px-5">See how it works</a>
               </div>
 
-              {/* stat ticker - compact, tucked under the CTAs beside the X-Ray */}
+              {/* stat ticker - compact, tucked under the CTAs beside the scanner */}
               <div className="nx-home-proof-grid mt-7 flex max-w-xl overflow-hidden rounded-[11px] border border-border" style={{ background: 'var(--ov-02)' }}>
                 {stats.map((s, i) => (
                   <div key={s.label} className={`flex-1 px-3 py-2.5 ${i < stats.length - 1 ? 'border-r border-border' : ''}`}>
@@ -289,9 +290,9 @@ export default function NexezHome() {
               </div>
             </div>
 
-            {/* RIGHT - the draggable X-Ray gets its own prominent space */}
-            <div className="nx-home-xray">
-              <AgentXray />
+            {/* RIGHT - the live scanner: free, anonymous, and the fastest proof we have */}
+            <div className="nx-home-hero-scan mt-[0.15rem] md:mt-0">
+              <HeroScan />
             </div>
           </div>
         </div>
@@ -364,13 +365,14 @@ export default function NexezHome() {
         <div className="nx-home-section-inner nx-home-problem-layout mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start" data-reveal>
           <div>
             <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              AI can help someone buy from you. <span className="nx-accent-text">It still needs your rules.</span>
+              Your site was built for eyes. <span className="nx-accent-text">Agents read it differently.</span>
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              AI can help a buyer, but it still needs your offers, prices, and rules.
+              A person fills in the gaps without noticing. An agent cannot. It needs the exact price,
+              the exact options, the requirement, and a safe next step. Here is the same business, twice.
             </p>
-            <div className="mt-10 hidden aspect-square w-full lg:block">
-              <KnowledgeGraph />
+            <div className="nx-home-problem-xray hidden w-full md:mt-9 md:block">
+              <AgentXray />
             </div>
           </div>
           <div className="grid gap-4">
@@ -424,7 +426,7 @@ export default function NexezHome() {
                 ))}
               </div>
             </div>
-            <div className="nx-home-problem-mobile nx-tile divide-y divide-border px-4 sm:hidden">
+            <div className="nx-home-problem-mobile nx-tile hidden divide-y divide-border px-4">
               {problemCards.map(({ title, copy }) => (
                 <div key={title} className="py-3.5">
                   <h3 className="text-sm font-medium tracking-tight">{title}</h3>
@@ -548,10 +550,11 @@ export default function NexezHome() {
         <p className="sr-only">Why it matters</p>
         <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20" data-reveal>
           <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-            Every AI sale should <span className="nx-accent-text">follow your rules.</span>
+            Six signals decide whether <span className="nx-accent-text">an agent can buy from you.</span>
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Nexez keeps the request, offer, details, price, and rules together.
+            Each one unlocks a specific ability. This is the number the scan at the top of this page
+            gives you, and the number Nexez moves.
           </p>
           <div className="nx-home-readiness mt-10">
             <ReadinessLab />
