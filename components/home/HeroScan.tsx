@@ -44,6 +44,11 @@ const IDLE_ROWS: Array<[string, string]> = [
   ['Trust', 'Do your details hold up when verified?'],
 ]
 
+// A visitor who will not type their own domain still needs to see a real result.
+// example.com is IANA-reserved for exactly this purpose, so the homepage never
+// publishes an unconsenting real business's low score as marketing.
+const EXAMPLE_URL = 'https://example.com'
+
 function scoreTone(score: number): { color: string; label: string } {
   if (score >= 85) return { color: 'var(--ready)', label: 'Agent-ready' }
   if (score >= 60) return { color: 'var(--amber)', label: 'Needs a few fixes' }
@@ -128,6 +133,7 @@ export function HeroScan() {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [retryAfter, setRetryAfter] = useState(0)
   const [result, setResult] = useState<ScanResult | null>(null)
 
   const runScan = useCallback(async (rawValue: string) => {
@@ -135,14 +141,25 @@ export function HeroScan() {
     if (!value) return
     setLoading(true)
     setError('')
+    setRetryAfter(0)
     setResult(null)
     try {
       const response = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: value }),
+        // `source` lets observability separate hero scans from /scan scans, so the
+        // homepage change is measurable on its own.
+        body: JSON.stringify({ url: value, source: 'hero' }),
       })
       const data = await response.json().catch(() => ({}))
+      if (response.status === 429) {
+        // The scanner is shared and rate limited. On the homepage this is a normal
+        // busy signal, not the visitor's fault, so it never shows the raw API string.
+        const wait = Number(data?.retryAfter) || Number(response.headers.get('Retry-After')) || 0
+        setRetryAfter(wait)
+        setError('The scanner is busy right now.')
+        return
+      }
       if (!response.ok) {
         setError(data?.error || 'Could not scan that URL. Try another.')
         return
@@ -158,6 +175,12 @@ export function HeroScan() {
   function onSubmit(event: FormEvent) {
     event.preventDefault()
     if (!loading) void runScan(url)
+  }
+
+  function runExample() {
+    if (loading) return
+    setUrl(EXAMPLE_URL)
+    void runScan(EXAMPLE_URL)
   }
 
   // Worst-first, so the panel leads with what is actually costing the visitor sales.
@@ -201,7 +224,23 @@ export function HeroScan() {
       </form>
 
       {error ? (
-        <p role="alert" className="mt-3 text-sm text-red-400">{error}</p>
+        <div role="alert" className="mt-3">
+          <p className="text-sm text-[var(--amber)]">
+            {error}
+            {retryAfter ? ` Try again in ${retryAfter}s.` : ''}
+          </p>
+          <p className="mt-1.5 text-[12px] leading-5 text-[var(--fg-muted)]">
+            {retryAfter
+              ? 'Nothing is wrong with your site. The free scanner is shared, so it throttles during busy periods.'
+              : 'Check the address, or '}
+            {retryAfter ? null : (
+              <button type="button" onClick={runExample} className="underline underline-offset-2 hover:text-[var(--fg)]">
+                try the example
+              </button>
+            )}
+            {retryAfter ? null : '.'}
+          </p>
+        </div>
       ) : null}
 
       {!result && !loading && !error ? (
@@ -218,7 +257,15 @@ export function HeroScan() {
             ))}
           </ul>
           <p className="mt-4 text-[11px] leading-4 text-[var(--fg-muted)]">
-            Deterministic checks on your public pages. Takes a few seconds.
+            Deterministic checks on your public pages. Takes a few seconds.{' '}
+            <button
+              type="button"
+              onClick={runExample}
+              className="underline underline-offset-2 hover:text-[var(--fg)]"
+            >
+              Or try an example
+            </button>
+            .
           </p>
         </div>
       ) : null}
@@ -264,7 +311,10 @@ export function HeroScan() {
           ) : null}
 
           <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
-            <a href={appUrl('/create')} className="btn-primary min-h-[44px] flex-1 px-4">
+            <a
+              href={appUrl(`/create?url=${encodeURIComponent(result.url)}`)}
+              className="btn-primary min-h-[44px] flex-1 px-4"
+            >
               List your offers
             </a>
             <a
