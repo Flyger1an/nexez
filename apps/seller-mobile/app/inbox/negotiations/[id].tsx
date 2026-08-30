@@ -12,6 +12,7 @@ import { getNegotiationMessages } from '@/src/lib/data'
 import { escrowAction, transitionNegotiation, type DealActionResult } from '@/src/lib/api'
 import { formatCurrency, formatDateTime } from '@/src/lib/format'
 import { webPath } from '@/src/lib/api'
+import { mobileRuleEvaluation } from '@/src/lib/rule-evaluation'
 import { colors, fonts, radii } from '@/src/theme/colors'
 
 export default function NegotiationDetailRoute() {
@@ -43,6 +44,7 @@ export default function NegotiationDetailRoute() {
   const page = listings.data?.find((p) => p.id === item.page_id)
   const offers = page ? [...(page.services ?? []), ...(page.products ?? [])] : []
   const floor = (offers.find((o) => o.name === item.offer_name && o.rules?.minPrice) || offers.find((o) => o.rules?.minPrice))?.rules?.minPrice
+  const ruleEvaluation = mobileRuleEvaluation(item.metadata)
 
   async function run(fn: () => Promise<DealActionResult>) {
     setBusy(true)
@@ -100,10 +102,39 @@ export default function NegotiationDetailRoute() {
         {item.refunded_cents ? <Text style={{ color: colors.warning, fontFamily: fonts.bodySemibold, fontSize: 13 }}>{formatCurrency(item.refunded_cents, item.currency)} refunded</Text> : null}
       </Card>
 
+      {ruleEvaluation ? (
+        <Card>
+          <View style={st.evaluationHeader}>
+            <Text style={st.threadLabel}>Proposal rule evaluation</Text>
+            <Badge tone={ruleEvaluation.outcome === 'meets_rules' ? 'success' : ruleEvaluation.outcome === 'outside_rules' ? 'warn' : 'info'}>
+              {ruleEvaluation.outcome.replace(/_/g, ' ')}
+            </Badge>
+          </View>
+          <Text style={st.evaluationSummary}>{ruleEvaluation.summary}</Text>
+          {ruleEvaluation.checks.map((check) => (
+            <View key={check.key} style={st.evaluationCheck}>
+              <Text style={[
+                st.evaluationStatus,
+                check.status === 'pass' ? st.evaluationPass : check.status === 'fail' ? st.evaluationFail : st.evaluationReview,
+              ]}>
+                {check.status}
+              </Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={st.evaluationLabel}>{check.label}</Text>
+                <Text style={st.evaluationMessage}>{check.message}</Text>
+              </View>
+            </View>
+          ))}
+          {ruleEvaluation.reasons.length ? (
+            <Text style={st.evaluationReasons}>Signals: {ruleEvaluation.reasons.join(', ')}</Text>
+          ) : null}
+        </Card>
+      ) : null}
+
       {!terminal && item.page_id ? (
         <Pressable onPress={() => router.push({ pathname: '/listing/[id]/autorules', params: { id: item.page_id as string } })} style={st.autoBanner}>
           <Gavel size={18} color={colors.steelLight} />
-          <Text style={st.autoText}>Let Nexez auto-counter offers</Text>
+          <Text style={st.autoText}>Edit this listing’s offer rules</Text>
           <Text style={st.autoEdit}>Edit rules →</Text>
         </Pressable>
       ) : null}
@@ -255,6 +286,16 @@ function msgText(content: Record<string, unknown> | null): string {
 }
 
 const st = {
+  evaluationHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, gap: 10 },
+  evaluationSummary: { color: colors.body, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  evaluationCheck: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 10, borderTopWidth: 1, borderTopColor: colors.glassBorder, paddingTop: 10 },
+  evaluationStatus: { minWidth: 48, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.5, textTransform: 'uppercase' as const, paddingTop: 2 },
+  evaluationPass: { color: colors.success },
+  evaluationFail: { color: colors.danger },
+  evaluationReview: { color: colors.warning },
+  evaluationLabel: { color: colors.text, fontFamily: fonts.bodyBold, fontSize: 12 },
+  evaluationMessage: { color: colors.textSecondary, fontFamily: fonts.body, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  evaluationReasons: { color: colors.textTertiary, fontFamily: fonts.mono, fontSize: 10, lineHeight: 16 },
   autoBanner: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, backgroundColor: 'rgba(124,147,196,0.08)', borderWidth: 1, borderColor: 'rgba(124,147,196,0.22)', borderRadius: 13, paddingHorizontal: 13, paddingVertical: 11 },
   autoText: { flex: 1, color: colors.body, fontFamily: fonts.bodySemibold, fontSize: 12 },
   autoEdit: { color: colors.steelLight, fontFamily: fonts.bodyBold, fontSize: 12 },

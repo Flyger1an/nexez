@@ -12,7 +12,7 @@ const ACTION_TILES = [
   { key: 'readiness', label: 'Readiness', icon: Gauge, tone: colors.ember },
   { key: 'simulator', label: 'Simulator', icon: Send, tone: colors.steel },
   { key: 'offers', label: 'Offers', icon: ShoppingBag, tone: colors.ember },
-  { key: 'competitor', label: 'Compare', icon: BarChart3, tone: colors.steel },
+  { key: 'competitor', label: 'Portfolio', icon: BarChart3, tone: colors.steel },
   { key: 'trust', label: 'Trust', icon: Shield, tone: colors.ember },
   { key: 'preview', label: 'Preview', icon: ExternalLink, tone: colors.steel },
   // Re-interview: the intake conversation seeded from THIS listing, asking only

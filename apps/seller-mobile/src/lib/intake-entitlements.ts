@@ -1,5 +1,5 @@
-import type { OwnerPlanEntitlements } from '@/src/types/nexez'
-import type { IntakeGap, IntakeGapAnswer } from '@/src/types/intake'
+import type { OwnerPlanEntitlements } from '../types/nexez'
+import type { IntakeGap, IntakeGapAnswer } from '../types/intake'
 import { isCurrentMobileEntitlementSnapshot } from './entitlement-snapshot'
 
 /** Treat only a self-consistent, owner-bound RPC snapshot as an unlock. */

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Nexez Seller Hub",
     "slug": "nexez-seller-hub",
+    "owner": "nexez-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,14 +10,18 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.nexez.sellerhub"
+      "bundleIdentifier": "app.nexez.sellerhub",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "app.nexez.sellerhub",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#0a0e16",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -32,15 +37,29 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
+          "imageWidth": 180,
           "resizeMode": "contain",
           "backgroundColor": "#0a0e16"
         }
       ],
       "expo-secure-store",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#E45F38",
+          "defaultChannel": "seller-events"
+        }
+      ],
       "expo-web-browser",
       "expo-font",
       "expo-status-bar"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0ebc7964-9099-4b42-b569-da181c30d155"
+      }
+    }
   }
 }

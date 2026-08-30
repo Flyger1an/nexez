@@ -1,3 +1,5 @@
+import { MOBILE_NOTIFICATION_PAYLOAD_TYPES } from './platform-contract-snapshot'
+
 export type SellerRoute =
   | '/overview'
   | '/listings'
@@ -40,6 +42,7 @@ const STATIC_ROUTES = new Set<SellerRoute>([
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
 const NEXEZ_WEB_HOSTS = new Set(['app.nexez.ai'])
+const NOTIFICATION_PAYLOAD_TYPES = new Set<string>(MOBILE_NOTIFICATION_PAYLOAD_TYPES)
 
 function cleanIdentifier(value: unknown): string | null {
   if (typeof value !== 'string') return null
@@ -120,6 +123,7 @@ export function sellerNotificationDestination(data: unknown): SellerRoute {
   if (explicitRoute) return explicitRoute
 
   const type = typeof payload.type === 'string' ? payload.type.trim().toLowerCase() : ''
+  if (!NOTIFICATION_PAYLOAD_TYPES.has(type)) return '/notifications'
   if (type === 'negotiation') {
     const id = firstIdentifier(payload, ['negotiationId', 'negotiation_id', 'id'])
     return id ? `/inbox/negotiations/${id}` : '/inbox/negotiations'

@@ -22,6 +22,18 @@ describe('mobile listing write errors', () => {
     })).toBe('Published listing limit reached for your plan. Upgrade or unpublish another listing.')
   })
 
+  it.each([
+    [{ message: 'PUBLIC_IDENTIFIER_REQUIRED' }, /choose a public name/i],
+    [{ message: 'PUBLIC_IDENTIFIER_TOO_SHORT' }, /at least 5/i],
+    [{ message: 'PUBLIC_IDENTIFIER_TOO_LONG' }, /no more than 63/i],
+    [{ message: 'PUBLIC_IDENTIFIER_INVALID_FORMAT' }, /lowercase letters/i],
+    [{ message: 'PUBLIC_IDENTIFIER_RESERVED' }, /reserved/i],
+    [{ message: 'PUBLIC_IDENTIFIER_TAKEN' }, /already taken/i],
+    [{ code: '23505', message: 'pages_slug_key' }, /already taken/i],
+  ])('maps the public identifier database contract for %o', (error, expected) => {
+    expect(listingWriteErrorMessage(error)).toMatch(expected)
+  })
+
   it('turns plain PostgREST objects into displayable Errors', () => {
     expect(toListingWriteError({ message: 'Write failed' })).toEqual(new Error('Write failed'))
     expect(listingWriteErrorMessage(null)).toBe('Could not update this listing.')

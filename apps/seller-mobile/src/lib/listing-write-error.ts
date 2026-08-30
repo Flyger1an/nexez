@@ -1,4 +1,5 @@
 import { isEntitlementAllocationRetry } from './entitlement-allocation-error'
+import { publicIdentifierDatabaseMessage } from './public-identifier'
 
 type DatabaseWriteError = {
   code?: string | null
@@ -19,6 +20,8 @@ export function toListingWriteError(value: unknown): Error {
   if (isEntitlementAllocationRetry(databaseError)) {
     return new Error('Your plan allocation changed while this update was running. Please try again.')
   }
+  const publicIdentifierMessage = publicIdentifierDatabaseMessage(databaseError)
+  if (publicIdentifierMessage) return new Error(publicIdentifierMessage)
   if (databaseError?.code === '23514') {
     return new Error([databaseError.message, databaseError.hint].filter(Boolean).join(' ') || 'Your plan limit was reached.')
   }

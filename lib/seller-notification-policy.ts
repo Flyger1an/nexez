@@ -19,22 +19,43 @@ export const MUTABLE_SELLER_NOTIFICATION_CATEGORIES = [
 export type SellerNotificationPreferences = Record<SellerNotificationCategory, boolean>
 export type SellerNotificationPreferencePatch = Partial<Record<MutableSellerNotificationCategory, boolean>>
 
-export type SellerNotificationEvent =
-  | 'transaction.payment_received'
-  | 'transaction.payment_held'
-  | 'transaction.booking_confirmed'
-  | 'transaction.capture_completed'
-  | 'transaction.refund_updated'
-  | 'transaction.dispute_updated'
-  | 'negotiation.created'
-  | 'negotiation.buyer_accepted'
-  | 'integration.failed'
-  | 'integration.recovered'
-  | 'review.created'
-  | 'review.moderated'
-  | 'marketing.readiness_changed'
-  | 'marketing.traffic_spike'
-  | 'marketing.product_update'
+export const SELLER_NOTIFICATION_EVENTS = [
+  'transaction.payment_received',
+  'transaction.payment_held',
+  'transaction.booking_confirmed',
+  'transaction.capture_completed',
+  'transaction.refund_updated',
+  'transaction.dispute_updated',
+  'negotiation.created',
+  'negotiation.buyer_accepted',
+  'integration.failed',
+  'integration.recovered',
+  'review.created',
+  'review.moderated',
+  'marketing.readiness_changed',
+  'marketing.traffic_spike',
+  'marketing.product_update',
+] as const
+
+export type SellerNotificationEvent = (typeof SELLER_NOTIFICATION_EVENTS)[number]
+
+export const SELLER_NOTIFICATION_PAYLOAD_TYPES = [
+  'negotiation',
+  'order',
+  'listing',
+  'page',
+  'review',
+  'request',
+  'buyer_request',
+  'refund_request',
+  'problem_report',
+  'finance',
+  'refund',
+  'dispute',
+  'payout',
+] as const
+
+export type SellerNotificationPayloadType = (typeof SELLER_NOTIFICATION_PAYLOAD_TYPES)[number]
 
 const EVENT_CATEGORIES: Record<SellerNotificationEvent, SellerNotificationCategory> = {
   'transaction.payment_received': 'transactions',

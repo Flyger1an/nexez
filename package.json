@@ -13,6 +13,7 @@
     "lint:dead": "knip --include files",
     "lint:dead:all": "knip --include files,exports,types",
     "check:agent-sdk-versions": "node scripts/check-agent-sdk-versions.mjs",
+    "check:mobile-platform-contracts": "vitest run lib/seller-mobile-platform-contracts.test.ts lib/public-identifier.mobile-parity.test.ts lib/integration-capabilities.mobile-parity.test.ts lib/negotiation-rules.mobile-parity.test.ts lib/seller-mobile-feature-boundaries.test.ts lib/seller-mobile-web-handoffs.test.ts lib/server/seller-mobile-access-contract.test.ts",
     "certify:commerce": "node scripts/certify-commerce.mjs",
     "certify:protocol-adapters": "vitest run lib/__tests__/protocol-conformance.test.ts lib/__tests__/acp-wire.test.ts lib/__tests__/ucp-wire.test.ts lib/__tests__/settlement-bridge.test.ts 'app/api/acp/checkout_sessions/[id]/complete/route.test.ts' 'app/api/ucp/checkout-sessions/[id]/complete/route.test.ts'",
     "certify:party-rentals:setup": "node scripts/setup-party-rentals-certification.mjs",

@@ -2,7 +2,7 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, hasSupabaseAdminEnv } from '../utils/supabase/admin'
 import { shouldDeliverSellerNotification } from './server/seller-notification-preferences'
-import type { SellerNotificationEvent } from './seller-notification-policy'
+import type { SellerNotificationEvent, SellerNotificationPayloadType } from './seller-notification-policy'
 
 // Expo push delivery for Nexie. The mobile app registers an Expo push token per
 // device (RLS-scoped to the user); async server flows (negotiation decisions, the
@@ -26,6 +26,9 @@ export type PushMessage = {
 }
 
 export type BuyerPushMessage = PushMessage & { category: PushCategory }
+export type SellerPushMessage = Omit<PushMessage, 'data'> & {
+  data?: Record<string, unknown> & { type: SellerNotificationPayloadType }
+}
 
 /** Upsert a device's Expo push token. Pass the USER-SCOPED client (RLS enforces ownership). */
 export async function registerPushToken(
@@ -184,7 +187,7 @@ export async function sendPushToEmail(email: string | null, message: BuyerPushMe
 export async function sendSellerPushToUser(
   userId: string | null,
   event: SellerNotificationEvent,
-  message: PushMessage,
+  message: SellerPushMessage,
 ): Promise<{ sent: number }> {
   if (!userId || !hasSupabaseAdminEnv()) return { sent: 0 }
   const admin = createAdminClient()

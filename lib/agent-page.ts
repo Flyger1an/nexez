@@ -179,6 +179,19 @@ export type OfferRules = {
   autoSettleMax?: string
 }
 
+/** Canonical rule fields shared by the web and mobile seller authoring surfaces. */
+export const NEGOTIATION_RULE_AUTHORING_KEYS = [
+  'minPrice',
+  'maxDiscountPercent',
+  'autoAccept',
+  'autoAcceptWithinPercent',
+  'autoCounter',
+  'includedScope',
+  'excludedScope',
+  'maxRevisions',
+  'maxProjectWeeks',
+] as const satisfies readonly (keyof OfferRules)[]
+
 /** Map our availability to a schema.org ItemAvailability URL (for JSON-LD). */
 export function schemaAvailability(status: OfferItem['availability']): string {
   if (status === 'sold_out') return 'https://schema.org/SoldOut'

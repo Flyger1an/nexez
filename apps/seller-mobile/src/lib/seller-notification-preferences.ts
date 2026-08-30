@@ -71,6 +71,6 @@ export function sellerNotificationPatchFromLegacyStorage(raw: string | null): Se
   }
 }
 
-function categoryValue(values: Array<boolean | undefined>): boolean {
+function categoryValue(values: (boolean | undefined)[]): boolean {
   return !values.some((value) => value === false)
 }

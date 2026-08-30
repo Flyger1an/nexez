@@ -54,47 +54,49 @@ consistent back affordance.
   problem reports, with an open-count badge) - all from RLS-safe reads.
 - Pull-to-refresh on Overview, Listings, Analytics, Inbox, and the detail screens (silent
   background reload, content stays mounted).
-- Negotiation and order detail screens are read-only in app and hand off to the web dashboard
-  (`/dashboard/negotiations/:id`, `/dashboard/finance`) for accept/counter/decline and refunds.
+- Negotiation and order details use the platform's server-authoritative accept, counter, decline,
+  escrow, request-status, and refund routes. Web links remain available as a fallback.
+- Per-offer negotiation rule authoring mirrors the platform fields, preserves advanced and future
+  rule metadata, and shows stored rule-evaluation checks and reasons in negotiation details.
+- The former competitor ranking is now an explicitly owner-only portfolio-readiness comparison.
+  Real external competitor analysis opens the signed-in Agent Lab web experience.
 - Billing summary reads `billing_subscriptions`, pages, and checkout events.
 - Expo Notifications registration foundation writes to `user_push_tokens` (keyed by `user_id`) through RLS.
 - Foreground and cold-start notification taps route to allowlisted seller screens after auth is ready. Paid-order and negotiation pushes open their exact records when the server includes a durable ID; older payloads fall back to the relevant inbox list.
 
 ## Scaffolded / Web Handoff
 
-- Google OAuth is not active in the current web auth flow; mobile is prepared for email/password first.
-- Stripe customer portal, Connect onboarding, refunds, review moderation, API keys, custom domains, and account export/delete hand off to existing secure web routes.
-- Complex importers and integration OAuth flows hand off to the web dashboard.
-- In-app deal actions (negotiation detail + order detail): Accept / Counter / Decline / Approve / Capture / Cancel and full/partial Refunds, each behind a confirm. These call `/api/negotiations/transition`, `/api/negotiations/escrow`, and `/api/orders/refund`, which now accept either the web cookie session or an `Authorization: Bearer <token>` (via `lib/server/request-auth.ts`) - all Stripe/ownership/ledger logic is unchanged server-side. **Requires the web app to be deployed** for the bearer routes to be live; until then the kept "View on web" link is the working path.
+- Native mobile authentication uses email and password in this release. Google, passkey, and verified-phone sign-in remain available on the web.
+- Stripe customer portal, Connect onboarding, review moderation, API keys, custom domains, team access, login-phone settings, and account data controls hand off to existing secure web routes.
+- The mobile integration catalog mirrors all platform connectors: Calendly, Shopify, Square, Acuity, Stripe, Google Calendar, WooCommerce, and ServiceM8. Listing-scoped connection flows finish on the web dashboard.
+- Integration OAuth, sync management, live connector status, and team administration remain explicitly web-managed. Mobile summarizes the connector catalog, plan availability, and Stripe payout readiness without implying native management.
+- Website imports preserve the entered source in the canonical `/create?url=<encoded-url>` web handoff. File and provider imports continue to the web Tools page.
+- In-app deal actions cover accept, counter, decline, approve, capture, cancel, buyer-request resolution, and full or partial refunds, each behind a confirmation. They call `/api/negotiations/transition`, `/api/negotiations/escrow`, `/api/orders/request-status`, and `/api/orders/refund`. These production routes accept either the web cookie session or an `Authorization: Bearer <token>` through `lib/server/request-auth.ts`, while retaining the platform's Stripe, ownership, transition, and ledger authority. "View on web" remains available as a fallback.
 
 ## Build & release (EAS)
 
-The app is build-ready: `eas.json` defines `development` / `preview` / `production` profiles, and
-`app.json` carries the `app.nexez.sellerhub` bundle identifier + Android package.
+The app is linked to `@nexez-ai/nexez-seller-hub`. `eas.json` defines physical-device,
+simulator, preview, and production profiles, and `app.json` carries the
+`app.nexez.sellerhub` bundle identifier and Android package. The complete device matrix and
+evidence requirements are in [RELEASE_CERTIFICATION.md](./RELEASE_CERTIFICATION.md).
 
-**One-time owner setup** (needs an Expo account; iOS store/TestFlight also needs an Apple Developer account):
+The four required public client values are registered in the EAS development, preview, and
+production environments. Review their names without printing values:
 
 ```bash
 cd apps/seller-mobile
-npm i -g eas-cli            # or use `npx eas-cli@latest …`
-eas login
-eas init                   # links the project + writes extra.eas.projectId into app.json
-
-# Build-time env. EXPO_PUBLIC_* are inlined into the bundle; the Supabase publishable
-# values are NOT committed (they live only in gitignored .env.local), so register them
-# with EAS so cloud builds can see them:
-eas env:create --name EXPO_PUBLIC_SUPABASE_URL --value "https://<project>.supabase.co" --visibility plaintext --environment preview --environment production
-eas env:create --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value "<publishable key>" --visibility plaintext --environment preview --environment production
+npx eas-cli whoami
+npx eas-cli env:list --environment development --environment preview --environment production
 ```
 
 **Builds**
 
 ```bash
-eas build --profile development --platform ios     # dev client for the simulator (no Apple acct; needs expo-dev-client)
-eas build --profile preview --platform android     # installable APK (no Apple acct) - fastest device test
-eas build --profile preview --platform ios          # internal iOS (registers ad-hoc devices)
-eas build --profile production --platform all       # store builds
-eas submit --profile production --platform ios       # → TestFlight / App Store
+npx eas-cli build --profile development-simulator --platform ios  # local simulator dev client
+npx eas-cli build --profile development --platform ios            # registered physical iOS device
+npx eas-cli build --profile preview --platform android             # installable Android APK
+npx eas-cli build --profile production --platform all              # store binaries
+npx eas-cli submit --profile production --platform ios             # TestFlight / App Store
 ```
 
 The `preview` Android profile (`buildType: apk`) is the quickest way onto a real device - it needs
@@ -104,17 +106,30 @@ in-app deal actions + pushes work against prod once the **web app is deployed**.
 
 ## Verification
 
+Run the cross-app drift gate from the repository root whenever a platform contract or the seller
+app changes:
+
 ```bash
+npm run check:mobile-platform-contracts
+```
+
+Then run the mobile-owned gates from `apps/seller-mobile`:
+
+```bash
+npm run check:release-config
+npm run certify:distribution
 npm run typecheck
 npm test
 npm run lint
 npm run check:expo-deps
 ```
 
-The paths-filtered `Nexie Mobile` workflow runs typecheck, the mobile-owned Vitest suite, Expo lint,
-and the SDK compatibility check on every mobile PR. The route suite covers custom-scheme and Nexez
-web links, notification payload fallbacks, foreign hosts, malformed inputs, traversal attempts, and
-unsafe record IDs.
+The root contract gate checks every mobile API Route Handler plus public-name rules, seller
+notification payloads, connector capabilities, entitlement schema and feature keys, negotiation
+statuses and rules, secure feature boundaries, and web handoffs. The paths-filtered `Nexie Mobile`
+workflow runs typecheck, the mobile-owned Vitest suite, Expo lint, and the SDK compatibility check
+on every mobile PR. The route suite covers custom-scheme and Nexez web links, notification payload
+fallbacks, foreign hosts, malformed inputs, traversal attempts, and unsafe record IDs.
 
 ## Notes
 

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'expo-router'
-import { Calendar, CalendarDays, CreditCard, Globe, Lock, ShoppingBag, Square } from 'lucide-react-native'
+import { Calendar, CalendarDays, CreditCard, ExternalLink, Globe, Lock, ShoppingBag, Square, Store, Wrench } from 'lucide-react-native'
 import type { LucideIcon } from 'lucide-react-native'
 import * as WebBrowser from 'expo-web-browser'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { ErrorState, LoadingState, Screen, StackHeader } from '@/src/components/ui'
+import { Badge, Card, ErrorState, LoadingState, Screen, StackHeader } from '@/src/components/ui'
 import { useBilling } from '@/src/hooks/useBilling'
 import { useSession } from '@/src/hooks/useSession'
 import { webPath } from '@/src/lib/api'
@@ -25,6 +25,8 @@ const INTEGRATION_ICONS: Record<MobileIntegrationId, LucideIcon> = {
   'shopify-admin': ShoppingBag,
   square: Square,
   acuity: CalendarDays,
+  woocommerce: Store,
+  servicem8: Wrench,
   'website-importer': Globe,
 }
 
@@ -54,6 +56,20 @@ export function IntegrationsScreen() {
 
   return (
     <Screen header={<StackHeader title="Integrations" onBack={() => router.back()} />}>
+      <Card>
+        <View style={st.boundaryHeader}>
+          <View style={st.iconTile}>
+            <ExternalLink size={20} color={colors.steelLight} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={st.boundaryTitle}>Connections are managed on web</Text>
+            <Text style={st.boundaryText}>
+              This catalog shows plan availability. OAuth approval, sync controls, and live connector status open in the web dashboard. Stripe payout readiness is summarized here.
+            </Text>
+          </View>
+          <Badge tone="info">Web</Badge>
+        </View>
+      </Card>
       {rows.map((row) => {
         const Icon = INTEGRATION_ICONS[row.id]
         return (
@@ -80,14 +96,17 @@ export function IntegrationsScreen() {
         )
       })}
       <Text style={st.note}>
-        Stripe payout setup and the installed Shopify App Store connector are available on every plan. Manually entered
-        catalog and scheduling credentials require Pro or higher and are managed on the web dashboard.
+        Stripe payout setup and the installed Shopify App Store connector are available on every plan. Other live
+        catalog, calendar, booking, and job connectors require Pro or higher and finish on the web dashboard.
       </Text>
     </Screen>
   )
 }
 
 const st = StyleSheet.create({
+  boundaryHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  boundaryTitle: { color: colors.text, fontFamily: fonts.bodyBold, fontSize: 14 },
+  boundaryText: { color: colors.textSecondary, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, marginTop: 3 },
   card: { backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.glassBorder, borderRadius: radii.cardSm, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 14 },
   iconTile: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center' },

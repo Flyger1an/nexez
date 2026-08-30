@@ -3,6 +3,10 @@ import {
   isCurrentMobileEntitlementSnapshot,
   MOBILE_ENTITLEMENT_SNAPSHOT_MAX_AGE_MS,
 } from './entitlement-snapshot'
+import {
+  MOBILE_CONNECTOR_CATALOG,
+  type MobileConnectorProvider,
+} from './mobile-connector-catalog'
 
 export type MobileIntegrationId =
   | 'stripe-payouts'
@@ -13,17 +17,20 @@ export type MobileIntegrationId =
   | 'shopify-admin'
   | 'square'
   | 'acuity'
+  | 'woocommerce'
+  | 'servicem8'
   | 'website-importer'
 
 export type MobileIntegrationRow = {
   id: MobileIntegrationId
+  provider: MobileConnectorProvider | null
   name: string
   description: string
   webPath: string
   premium: boolean
   locked: boolean
   ready: boolean
-  actionLabel: 'Connect' | 'Finish setup' | 'Import' | 'Manage' | 'Open listings' | 'Set up' | 'Upgrade'
+  actionLabel: 'Connect' | 'Finish setup' | 'Import' | 'Manage' | 'Set up' | 'Upgrade'
 }
 
 type MobileIntegrationDefinition = Omit<MobileIntegrationRow, 'locked' | 'ready' | 'actionLabel'>
@@ -33,6 +40,7 @@ export const MOBILE_INTEGRATION_ENTITLEMENT_MAX_AGE_MS = MOBILE_ENTITLEMENT_SNAP
 const PREMIUM_INTEGRATIONS: readonly MobileIntegrationDefinition[] = [
   {
     id: 'stripe-catalog',
+    provider: 'stripe',
     name: 'Stripe catalog',
     description: 'Import and sync Stripe products and prices',
     webPath: '/dashboard/tools',
@@ -40,38 +48,59 @@ const PREMIUM_INTEGRATIONS: readonly MobileIntegrationDefinition[] = [
   },
   {
     id: 'calendly',
-    name: 'Calendly',
-    description: 'Import event types and booking links',
-    webPath: '/dashboard/integrations',
-    premium: true,
+    provider: 'calendly',
+    name: MOBILE_CONNECTOR_CATALOG.calendly.label,
+    description: MOBILE_CONNECTOR_CATALOG.calendly.description,
+    webPath: MOBILE_CONNECTOR_CATALOG.calendly.webPath,
+    premium: MOBILE_CONNECTOR_CATALOG.calendly.premium,
   },
   {
     id: 'google-calendar',
-    name: 'Google Calendar',
-    description: 'Generate sample availability windows; no Google Calendar connection or sync',
-    webPath: '/dashboard',
-    premium: true,
+    provider: 'google_calendar',
+    name: MOBILE_CONNECTOR_CATALOG.google_calendar.label,
+    description: MOBILE_CONNECTOR_CATALOG.google_calendar.description,
+    webPath: MOBILE_CONNECTOR_CATALOG.google_calendar.webPath,
+    premium: MOBILE_CONNECTOR_CATALOG.google_calendar.premium,
   },
   {
     id: 'shopify-admin',
+    provider: 'shopify',
     name: 'Shopify manual credentials',
     description: 'Manual Admin API import requires Pro; the installed Shopify app is available on every plan',
-    webPath: '/dashboard/integrations',
+    webPath: '/dashboard/tools',
     premium: true,
   },
   {
     id: 'square',
-    name: 'Square',
-    description: 'Import POS and inventory context',
-    webPath: '/dashboard/integrations',
-    premium: true,
+    provider: 'square',
+    name: MOBILE_CONNECTOR_CATALOG.square.label,
+    description: MOBILE_CONNECTOR_CATALOG.square.description,
+    webPath: MOBILE_CONNECTOR_CATALOG.square.webPath,
+    premium: MOBILE_CONNECTOR_CATALOG.square.premium,
   },
   {
     id: 'acuity',
-    name: 'Acuity Scheduling',
-    description: 'Import appointment types and durations',
-    webPath: '/dashboard/integrations',
-    premium: true,
+    provider: 'acuity',
+    name: MOBILE_CONNECTOR_CATALOG.acuity.label,
+    description: MOBILE_CONNECTOR_CATALOG.acuity.description,
+    webPath: MOBILE_CONNECTOR_CATALOG.acuity.webPath,
+    premium: MOBILE_CONNECTOR_CATALOG.acuity.premium,
+  },
+  {
+    id: 'woocommerce',
+    provider: 'woocommerce',
+    name: MOBILE_CONNECTOR_CATALOG.woocommerce.label,
+    description: MOBILE_CONNECTOR_CATALOG.woocommerce.description,
+    webPath: MOBILE_CONNECTOR_CATALOG.woocommerce.webPath,
+    premium: MOBILE_CONNECTOR_CATALOG.woocommerce.premium,
+  },
+  {
+    id: 'servicem8',
+    provider: 'servicem8',
+    name: MOBILE_CONNECTOR_CATALOG.servicem8.label,
+    description: MOBILE_CONNECTOR_CATALOG.servicem8.description,
+    webPath: MOBILE_CONNECTOR_CATALOG.servicem8.webPath,
+    premium: MOBILE_CONNECTOR_CATALOG.servicem8.premium,
   },
 ]
 
@@ -123,6 +152,7 @@ export function buildMobileIntegrationRows(input: {
 
   const payouts: MobileIntegrationRow = {
     id: 'stripe-payouts',
+    provider: 'stripe',
     name: 'Stripe payouts',
     description: payoutReadiness.ready
       ? 'Charges and payouts are enabled'
@@ -143,9 +173,7 @@ export function buildMobileIntegrationRows(input: {
     actionLabel: premiumAllowed
       ? integration.id === 'stripe-catalog'
         ? 'Import'
-        : integration.id === 'google-calendar'
-          ? 'Open listings'
-          : 'Connect'
+        : 'Connect'
       : 'Upgrade',
   }))
 
@@ -153,10 +181,11 @@ export function buildMobileIntegrationRows(input: {
     payouts,
     {
       id: 'shopify-app',
-      name: 'Shopify App Store',
-      description: 'Install Nexez from Shopify admin for catalog sync on every plan',
-      webPath: '/dashboard/shopify',
-      premium: false,
+      provider: 'shopify',
+      name: MOBILE_CONNECTOR_CATALOG.shopify.label,
+      description: MOBILE_CONNECTOR_CATALOG.shopify.description,
+      webPath: MOBILE_CONNECTOR_CATALOG.shopify.webPath,
+      premium: MOBILE_CONNECTOR_CATALOG.shopify.premium,
       locked: false,
       ready: false,
       actionLabel: 'Set up',
@@ -164,6 +193,7 @@ export function buildMobileIntegrationRows(input: {
     ...premiumRows,
     {
       id: 'website-importer',
+      provider: null,
       name: 'Website importer',
       description: 'Build a draft from your public website',
       webPath: '/create',

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router'
-import { Bell, ChevronRight, CreditCard, ExternalLink, Globe, KeyRound, LogOut, Plug, SlidersHorizontal, Upload, Users, WalletCards } from 'lucide-react-native'
+import { Bell, ChevronRight, CreditCard, Download, ExternalLink, Globe, KeyRound, LogOut, Plug, ShieldCheck, SlidersHorizontal, Trash2, Upload, Users, WalletCards } from 'lucide-react-native'
 import { useState } from 'react'
 import { Switch, Text, View } from 'react-native'
 import * as WebBrowser from 'expo-web-browser'
@@ -8,6 +8,7 @@ import { useSession } from '@/src/hooks/useSession'
 import { useBilling } from '@/src/hooks/useBilling'
 import { registerForPushNotifications } from '@/src/lib/notifications'
 import { webPath } from '@/src/lib/api'
+import { ACCOUNT_WEB_HANDOFFS } from '@/src/lib/web-handoffs'
 import { colors, fonts } from '@/src/theme/colors'
 
 function Meta({ text, chevron = true }: { text?: string; chevron?: boolean }) {
@@ -17,6 +18,10 @@ function Meta({ text, chevron = true }: { text?: string; chevron?: boolean }) {
       {chevron ? <ChevronRight size={18} color="rgba(255,255,255,0.3)" /> : null}
     </View>
   )
+}
+
+function openWebHandoff(path: string) {
+  return WebBrowser.openBrowserAsync(webPath(path))
 }
 
 export function SettingsScreen() {
@@ -72,13 +77,16 @@ export function SettingsScreen() {
           right={<Switch value={notif} onValueChange={onToggleNotif} trackColor={{ false: 'rgba(255,255,255,0.15)', true: colors.ember }} thumbColor={colors.white} ios_backgroundColor="rgba(255,255,255,0.15)" />}
         />
         <GroupRow icon={SlidersHorizontal} iconTone="muted" title="Notification settings" detail="Cross-device push controls" onPress={() => router.push('/notifications/settings')} right={<Meta />} />
-        <GroupRow icon={KeyRound} iconTone="muted" title="API keys" onPress={() => void WebBrowser.openBrowserAsync(webPath('/dashboard/settings'))} right={<Meta text="Web ↗" chevron={false} />} />
-        <GroupRow icon={Globe} iconTone="muted" title="Custom domains" onPress={() => void WebBrowser.openBrowserAsync(webPath('/dashboard/settings'))} right={<Meta text="Web ↗" chevron={false} />} />
-        <GroupRow icon={Users} iconTone="muted" title="Team access" right={<Meta text="Coming soon" chevron={false} />} last />
+        <GroupRow icon={ShieldCheck} iconTone="muted" title="Profile & login security" detail="Passkeys and verified login phone" onPress={() => void openWebHandoff(ACCOUNT_WEB_HANDOFFS.profileSecurity)} right={<Meta text="Web ↗" chevron={false} />} />
+        <GroupRow icon={Users} iconTone="muted" title="Team access" detail="Managed on web: invitations, roles, and access" onPress={() => void openWebHandoff(ACCOUNT_WEB_HANDOFFS.team)} right={<Meta text="Web ↗" chevron={false} />} />
+        <GroupRow icon={KeyRound} iconTone="muted" title="API keys" onPress={() => void openWebHandoff(ACCOUNT_WEB_HANDOFFS.apiKeys)} right={<Meta text="Web ↗" chevron={false} />} />
+        <GroupRow icon={Globe} iconTone="muted" title="Custom domains" onPress={() => void openWebHandoff(ACCOUNT_WEB_HANDOFFS.customDomains)} right={<Meta text="Web ↗" chevron={false} />} />
+        <GroupRow icon={Download} iconTone="muted" title="Export account data" detail="Download a verified JSON archive" onPress={() => void openWebHandoff(ACCOUNT_WEB_HANDOFFS.data)} right={<Meta text="Web ↗" chevron={false} />} />
+        <GroupRow icon={Trash2} iconTone="muted" title="Data deletion & workspace closure" detail="Review scope before confirming" onPress={() => void openWebHandoff(ACCOUNT_WEB_HANDOFFS.data)} right={<Meta text="Web ↗" chevron={false} />} last />
       </GroupCard>
       {pushMessage ? <Text style={st.pushMsg}>{pushMessage}</Text> : null}
 
-      <AppButton label="Open web dashboard" icon={ExternalLink} variant="secondary" onPress={() => void WebBrowser.openBrowserAsync(webPath('/dashboard'))} />
+      <AppButton label="Open web dashboard" icon={ExternalLink} variant="secondary" onPress={() => void openWebHandoff('/dashboard')} />
       <AppButton label="Help & support" variant="ghost" onPress={() => router.push('/tools/support')} />
       <AppButton label="Sign out" icon={LogOut} variant="danger" onPress={() => void signOut()} />
     </Screen>

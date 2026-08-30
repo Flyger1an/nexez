@@ -9,6 +9,7 @@ import type {
   IntakeTurnResponse,
 } from '@/src/types/intake'
 import type { OwnerNegotiationDecision } from '../../../../lib/contracts/negotiation-types'
+import { MOBILE_PLATFORM_API_PATHS, mobilePlatformApiPath } from './platform-contract-snapshot'
 
 type ApiOptions = RequestInit & {
   auth?: boolean
@@ -40,7 +41,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
 }
 
 export function runSimulation(input: { slug: string; query: string }) {
-  return apiFetch<SimulationResult>('/api/simulate-llm', {
+  return apiFetch<SimulationResult>(MOBILE_PLATFORM_API_PATHS.simulateLlm, {
     auth: false,
     method: 'POST',
     body: JSON.stringify(input),
@@ -48,7 +49,7 @@ export function runSimulation(input: { slug: string; query: string }) {
 }
 
 export function runDemoSimulation(query: string) {
-  return apiFetch<SimulationResult>('/api/public-simulate', {
+  return apiFetch<SimulationResult>(MOBILE_PLATFORM_API_PATHS.publicSimulate, {
     auth: false,
     method: 'POST',
     body: JSON.stringify({ query }),
@@ -78,13 +79,40 @@ export type SellerNotificationPreferencePatch = Partial<
 >
 
 export function getSellerNotificationPreferences() {
-  return apiFetch<SellerNotificationPreferencesResponse>('/api/seller/notification-preferences')
+  return apiFetch<SellerNotificationPreferencesResponse>(MOBILE_PLATFORM_API_PATHS.sellerNotificationPreferences)
 }
 
 export function updateSellerNotificationPreferences(preferences: SellerNotificationPreferencePatch) {
-  return apiFetch<SellerNotificationPreferencesResponse>('/api/seller/notification-preferences', {
+  return apiFetch<SellerNotificationPreferencesResponse>(MOBILE_PLATFORM_API_PATHS.sellerNotificationPreferences, {
     method: 'PATCH',
     body: JSON.stringify({ preferences }),
+  })
+}
+
+export type PublicIdentifierAvailabilityResponse = {
+  value: string
+  available: boolean
+  reason: string
+  message: string
+  grandfathered?: boolean
+  suggestions: string[]
+}
+
+export function checkPageSlugAvailability(input: { value: string; subjectId?: string | null }) {
+  const params = new URLSearchParams({ namespace: 'page_slug', value: input.value })
+  if (input.subjectId) params.set('subjectId', input.subjectId)
+  return apiFetch<PublicIdentifierAvailabilityResponse>(
+    `${MOBILE_PLATFORM_API_PATHS.publicIdentifierAvailability}?${params.toString()}`,
+  )
+}
+
+export function updateOrderRequestStatus(input: {
+  id: string
+  status: 'acknowledged' | 'resolved' | 'declined'
+}) {
+  return apiFetch<{ ok: true; status: string }>(MOBILE_PLATFORM_API_PATHS.orderRequestStatus, {
+    method: 'POST',
+    body: JSON.stringify(input),
   })
 }
 
@@ -110,7 +138,7 @@ export function transitionNegotiation(input: {
   decision?: OwnerNegotiationDecision
   amountCents?: number
 }) {
-  return apiFetch<DealActionResult>('/api/negotiations/transition', {
+  return apiFetch<DealActionResult>(MOBILE_PLATFORM_API_PATHS.negotiationTransition, {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -123,7 +151,7 @@ export function escrowAction(input: {
   action: 'approve' | 'capture' | 'cancel' | 'refund'
   amount?: number
 }) {
-  return apiFetch<DealActionResult>('/api/negotiations/escrow', {
+  return apiFetch<DealActionResult>(MOBILE_PLATFORM_API_PATHS.negotiationEscrow, {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -131,7 +159,7 @@ export function escrowAction(input: {
 
 // Refund a direct checkout order. `amount` (major units) optional - omit for full remainder.
 export function refundOrder(input: { orderId: string; amount?: number }) {
-  return apiFetch<DealActionResult>('/api/orders/refund', {
+  return apiFetch<DealActionResult>(MOBILE_PLATFORM_API_PATHS.orderRefund, {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -143,26 +171,26 @@ export function refundOrder(input: { orderId: string; amount?: number }) {
 // invention firewall) lives server-side.
 
 export function listIntakeSessions() {
-  return apiFetch<{ ok: boolean; sessions: IntakeSessionSummary[] }>('/api/agents/intake/threads')
+  return apiFetch<{ ok: boolean; sessions: IntakeSessionSummary[] }>(MOBILE_PLATFORM_API_PATHS.intakeThreads)
 }
 
 export function startIntakeSession(input: { source_url?: string; page_id?: string } = {}) {
   return apiFetch<{ ok: boolean; id: string; status: string; phase: string; state: IntakeSessionState }>(
-    '/api/agents/intake/threads',
+    MOBILE_PLATFORM_API_PATHS.intakeThreads,
     { method: 'POST', body: JSON.stringify(input) },
   )
 }
 
 export function getIntakeSession(id: string) {
   return apiFetch<{ ok: boolean; id: string; status: string; phase: string; pageId: string | null; state: IntakeSessionState }>(
-    `/api/agents/intake/threads/${id}`,
+    mobilePlatformApiPath(MOBILE_PLATFORM_API_PATHS.intakeThread, { id }),
   )
 }
 
 /** One interview turn: free text (`content`) or structured quick-answers
  *  (`answers`, e.g. Skip / posture chips) - the latter needs no LLM at all. */
 export function sendIntakeTurn(id: string, input: { content?: string; answers?: IntakeGapAnswer[] }) {
-  return apiFetch<IntakeTurnResponse>(`/api/agents/intake/threads/${id}/messages`, {
+  return apiFetch<IntakeTurnResponse>(mobilePlatformApiPath(MOBILE_PLATFORM_API_PATHS.intakeMessages, { id }), {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -171,5 +199,7 @@ export function sendIntakeTurn(id: string, input: { content?: string; answers?: 
 /** REVIEW_HANDOFF: materialize the draft (new draft listing, or staged onto an
  *  existing one). Idempotent - safe to retry. */
 export function commitIntakeSession(id: string) {
-  return apiFetch<IntakeCommitResponse>(`/api/agents/intake/threads/${id}/commit`, { method: 'POST' })
+  return apiFetch<IntakeCommitResponse>(mobilePlatformApiPath(MOBILE_PLATFORM_API_PATHS.intakeCommit, { id }), {
+    method: 'POST',
+  })
 }

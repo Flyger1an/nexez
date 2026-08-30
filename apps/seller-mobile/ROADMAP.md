@@ -1,6 +1,6 @@
 # Nexez Seller Hub - Roadmap
 
-Status of the iOS/Android seller app (`apps/seller-mobile`). Last updated 2026-08-23.
+Status of the iOS/Android seller app (`apps/seller-mobile`). Last updated 2026-08-29.
 
 Design source of truth: `design_handoff_seller_hub/` (Ink & Ember + Liquid Glass v2).
 Architecture: Expo Router + RN + TS; direct RLS Supabase reads (`owner_id`); privileged/money
@@ -76,14 +76,19 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
 ## 🚀 Next up - release / deploy (owner actions)
 
 1. ~~**Deploy the web app**~~ - ✅ **Shipped 2026-07-06** (deploy of `c0a5e4c`, Vercel prod Ready in 56s). The Bearer-auth deal-action routes (`/api/negotiations/transition` + `/escrow`, `/api/orders/refund`) + seller push sends are now **live on prod** (no longer 401 / no-op). Not yet exercised e2e against a real mobile token + live deal.
-2. **EAS build + TestFlight** - ✅ pipeline configured (`eas.json` profiles dev/preview/production + `app.nexez.sellerhub` bundle id/package; build steps in README). RUN is an owner action: `eas login && eas init`, register the Supabase publishable env vars (`eas env:create`), then `eas build`. Fastest device test = `eas build -p android --profile preview` (APK, no Apple account).
+2. **EAS build + TestFlight** - EAS project `@nexez-ai/nexez-seller-hub` is linked, the four
+   public client variables are registered for every build environment, Expo SDK patch versions are
+   aligned, managed Android signing is configured, and Android preview plus iOS simulator builds
+   finished successfully. The iOS artifact installed and launched on an iPhone 16e simulator. A
+   production iOS build, App Store Connect setup, and TestFlight submission remain gated on
+   completing physical-device certification from clean, reviewed source.
 3. **Physical-device push + deep-link test** - Expo push tokens can't be issued on the simulator. Exercise foreground, background, and terminated notification taps for a negotiation and direct order, plus `nexez-seller://inbox/orders/<id>` on both platforms.
 
 ## 🔧 Backend-gated features (need server work)
 
-4. **Competitor cross-market data** - the screen currently ranks the seller's *own* listings (real). True "businesses agents weigh against you" needs a backend competitor/category dataset + an authed read route.
+4. ~~**Misleading competitor comparison**~~ - complete for launch behavior. The native view is now labeled as an owner-only portfolio-readiness comparison and explicitly states that it does not use external market data. Real competitor URL analysis opens the signed-in Agent Lab web lens. A native bearer client, saved research history, collaborator-owned listing support, and live connector sync status remain follow-on parity work.
 5. ~~**Server-enforced per-event push**~~ - complete in code. A dedicated seller preference table, owner RLS, strict authenticated API, typed event taxonomy, mandatory money-state policy, and cross-device web/mobile settings now form the notification authority. Buyer `user_agents` preferences remain isolated. Production migration rollout and the physical-device matrix remain release checks.
-6. **Auto-rules fine-grained bands** - only the toggle + floor persist today. "Auto-accept at/above" + "auto-decline below" + default terms need mapping to per-offer `rules` (autoAcceptWithinPercent / maxDiscountPercent) using each offer's listed price.
+6. ~~**Per-offer negotiation rules**~~ - complete in code. Mobile now authors the same minimum-price, maximum-discount, auto-accept-band, automatic-counter, scope, revision, and project-length fields as the platform. Saves preserve booking, settlement, integration, and forward-compatible rules. Negotiation details also render stored rule-evaluation evidence. Physical-device editing remains a release certification check.
 
 ## 📱 Coverage / polish
 
@@ -97,10 +102,16 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
    KeyboardAvoidingView pad, so the intake composer hid under the keyboard - the screen now tracks
    keyboard height (`Keyboard.addListener`) and pads manually on Android; verified live. Still open:
    Switch styling in Settings not eyeballed; a real-device pass (push etc.) remains an owner action.
-8. **Google OAuth** - blocked on the web auth flow not exposing it; email/password only today.
-9. **App icon → Ink & Ember** - splash/adaptive-icon backgrounds updated to `#0a0e16`; the icon/splash *artwork* is still the create-expo-app default - needs a branded asset.
+8. **Native mobile federated sign-in** - the web flow supports Google, passkeys, and verified-phone sign-in. This mobile release intentionally keeps native authentication to email and password until deep-link callback, cancellation, session-refresh, and device-matrix tests are in place.
+9. ~~**App icon to Ink and Ember**~~ - branded store, splash, Android adaptive, themed monochrome,
+   notification, and favicon assets now replace the create-expo-app artwork and are checked by the
+   distribution certificate.
 10. **Negotiation thread content** - `seller_llm` messages fall back to "Message" when their jsonb shape has no `message`/`reasoning`/`query`/`text`; map the real LLM-decision shape.
 11. **EAS Update (OTA)** channel for shipping JS fixes without a store round-trip; offline/error-resilience polish.
+12. ~~**Platform drift gate**~~ - the root `check:mobile-platform-contracts` command now locks mobile
+    API paths, public-name rules, seller notification payloads, connector capabilities, entitlement
+    schema and features, negotiation statuses and rules, feature boundaries, and web handoffs to
+    their platform contracts. The PR template calls out reconciliation whenever those contracts move.
 
 ---
 
