@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextResponse } from 'next/server'
 
-const { authRef, rateRef, delRef } = vi.hoisted(() => ({
+const { authRef, claimsRef, rateRef, delRef } = vi.hoisted(() => ({
   authRef: { result: null as any },
+  claimsRef: { result: { data: { claims: { amr: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) }] } }, error: null } as any },
   rateRef: { response: null as any },
   delRef: { result: { ok: true, authUserDeleted: true, sellerRetained: false, errors: [] as any[] }, calls: [] as any[] },
 }))
@@ -27,7 +28,15 @@ const req = (body: unknown = { confirm: true }) =>
 
 beforeEach(() => {
   rateRef.response = null
-  authRef.result = { ok: true, user: { id: 'owner-Z', email: 'z@acme.com' }, db: {} }
+  claimsRef.result = {
+    data: { claims: { amr: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) }] } },
+    error: null,
+  }
+  authRef.result = {
+    ok: true,
+    user: { id: 'owner-Z', email: 'z@acme.com' },
+    db: { auth: { getClaims: vi.fn(async () => claimsRef.result) } },
+  }
   delRef.result = { ok: true, authUserDeleted: true, sellerRetained: false, errors: [] }
   delRef.calls.length = 0
 })
@@ -41,6 +50,31 @@ describe('POST /api/account/delete', () => {
   it('401s when unauthenticated', async () => {
     authRef.result = { ok: false, response: NextResponse.json({ code: 'auth_required' }, { status: 401 }) }
     expect((await POST(req())).status).toBe(401)
+  })
+
+  it('requires a recent interactive authentication before deletion', async () => {
+    claimsRef.result = {
+      data: { claims: { amr: [{ method: 'password', timestamp: 1 }] } },
+      error: null,
+    }
+
+    const res = await POST(req())
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ code: 'recent_auth_required' })
+    expect(delRef.calls).toEqual([])
+  })
+
+  it('checks the presented mobile bearer token rather than a refreshed-token timestamp', async () => {
+    const getClaims = authRef.result.db.auth.getClaims as ReturnType<typeof vi.fn>
+    const request = new Request('https://nexez.test/api/account/delete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer mobile-token' },
+      body: JSON.stringify({ confirm: true }),
+    }) as any
+
+    expect((await POST(request)).status).toBe(200)
+    expect(getClaims).toHaveBeenCalledWith('mobile-token')
   })
 
   it('deletes the session user (id + email passed; target never from the body) and returns ok', async () => {

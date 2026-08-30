@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
 }
 
-const LAST_UPDATED = 'August 27, 2026'
+const LAST_UPDATED = 'August 30, 2026'
 
 const sections: { heading: string; body: ReactNode[] }[] = [
   {
@@ -41,6 +41,13 @@ const sections: { heading: string; body: ReactNode[] }[] = [
     body: [
       'Nexez provides tools for businesses to create and publish structured offers, make those offers readable by people and software agents, connect supported providers, receive analytics, and operate supported discovery and transaction workflows. Features, limits, availability, and pricing vary by plan and can change prospectively.',
       'Beta, preview, experimental, partner-gated, or enrollment-dependent features can be incomplete, unavailable, or changed without notice. Protocol feeds or routes do not guarantee that a third-party platform has enrolled Nexez or will display, recommend, or transact with a listing.',
+    ],
+  },
+  {
+    heading: '3A. Mobile Apps & App Stores',
+    body: [
+      'If you download the Nexxi mobile app through Apple or Google, your use of the store, device platform, and store account is also governed by that provider’s terms. Nexez, not the store operator, is responsible for the app, its support, and any warranty obligations that cannot lawfully be disclaimed. The store operator is not responsible for the underlying transactions between buyers and sellers.',
+      'You may receive app updates through the store or supported over-the-air update channels. Continued compatibility can require a supported device, operating-system version, network connection, or updated app. Apple and its subsidiaries are third-party beneficiaries of these Terms for an app downloaded from Apple and may enforce the applicable mobile-app provisions against you.',
     ],
   },
   {

@@ -21,6 +21,7 @@ import {
   validStagedSettlementAccessToken,
 } from '../../../../../lib/server/staged-settlement-agreement'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/supabase/admin'
+import { checkoutReturnUrls } from '../../../../../lib/nexxi-checkout-return'
 
 export const runtime = 'nodejs'
 type Context = { params: Promise<{ token: string }> }
@@ -42,6 +43,7 @@ type Agreement = {
   commission_source: string | null
   buyer_email: string | null
   buyer_reference: string | null
+  buyer_agent: string | null
 }
 
 type Obligation = {
@@ -71,7 +73,7 @@ export async function POST(request: Request, context: Context) {
   const admin = createAdminClient()
   const { data: agreement } = await admin
     .from('staged_settlement_agreements')
-    .select('id, owner_id, page_id, slug, offer_key, offer_name, status, contract_fingerprint, currency, stripe_connect_account_id, commission_bps, plan_id_at_purchase, commission_source, buyer_email, buyer_reference')
+    .select('id, owner_id, page_id, slug, offer_key, offer_name, status, contract_fingerprint, currency, stripe_connect_account_id, commission_bps, plan_id_at_purchase, commission_source, buyer_email, buyer_reference, buyer_agent')
     .eq('access_token_sha256', tokenHash)
     .maybeSingle<Agreement>()
   if (!agreement) return NextResponse.json({ error: 'Staged settlement agreement not found.' }, { status: 404 })
@@ -225,6 +227,12 @@ export async function POST(request: Request, context: Context) {
     idempotency.key,
   )
   const baseUrl = getRequestBaseUrl(request)
+  const returns = checkoutReturnUrls({
+    baseUrl,
+    buyerAgent: agreement.buyer_agent,
+    webSuccessUrl: `${baseUrl}/checkout/${agreement.slug || ''}/success?session_id={CHECKOUT_SESSION_ID}&offer=${encodeURIComponent(agreement.offer_key)}`,
+    webCancelUrl: `${baseUrl}/checkout/${agreement.slug || ''}?offer=${encodeURIComponent(agreement.offer_key)}`,
+  })
   try {
     const session = await stripe.checkout.sessions.create(
       {
@@ -241,8 +249,9 @@ export async function POST(request: Request, context: Context) {
           },
           quantity: 1,
         }],
-        success_url: `${baseUrl}/checkout/${agreement.slug || ''}/success?session_id={CHECKOUT_SESSION_ID}&offer=${encodeURIComponent(agreement.offer_key)}`,
-        cancel_url: `${baseUrl}/checkout/${agreement.slug || ''}?offer=${encodeURIComponent(agreement.offer_key)}`,
+        success_url: returns.successUrl,
+        cancel_url: returns.cancelUrl,
+        ...(returns.mobile ? { origin_context: 'mobile_app' } : {}),
         metadata: {
           ...metadata,
           nexez_source: 'staged_settlement_checkout',

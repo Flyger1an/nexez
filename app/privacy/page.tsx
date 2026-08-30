@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   },
 }
 
-const LAST_UPDATED = 'August 28, 2026'
+const LAST_UPDATED = 'August 30, 2026'
 
 const sections: { heading: string; body: ReactNode[] }[] = [
   {
@@ -59,6 +59,7 @@ const sections: { heading: string; body: ReactNode[] }[] = [
     body: [
       'When people, applications, or AI agents use the Service, we process device and request information such as browser or client type, user-agent, referrer, pages or API routes requested, timestamps, approximate network information, authentication events, errors, rate-limit events, and security signals.',
       'When published listings are viewed or used, we record events such as page views, searches, discovery clicks, validation attempts, checkout intents, and transaction-funnel events. We can classify requests as human or agent traffic using request signals. We use a first-party experiment cookie to keep a visitor in a consistent product or page variation.',
+      'For signed-in Nexxi users, we record a limited activation funnel such as app open, onboarding completion, completed agent turn, checkout start or return, and feedback opening. These events are linked to the account and include platform and release identifiers so we can evaluate beta reliability and activation. They do not include message or search text, email, raw IP address, payment details, advertising identifiers, or arbitrary event metadata.',
       'Website readiness scanner: when you submit a public URL, we fetch a limited portion of the public page and its public agent-discovery files to produce a report. We do not retain the fetched page content. We record the submitted domain, score, timing, and service telemetry needed to operate, secure, and improve the scanner. If you choose the model-assisted analysis, up to 8,000 characters of public page text are sent to our configured large-language-model provider.',
       'The mobile app can process a device push-notification token so we can send enabled order and account notifications. If diagnostic reporting is enabled, we and our monitoring provider process crash and performance information needed to investigate problems.',
       'IP addresses may be processed transiently for security and rate limiting. Where an identifier is retained for analytics or de-duplication, we use a salted hash instead of the raw address.',
@@ -126,7 +127,7 @@ const sections: { heading: string; body: ReactNode[] }[] = [
     heading: '14. Retention & Deletion',
     body: [
       'We retain account, workspace, listing, and configuration data while the applicable account or business relationship remains active. We retain transaction, billing, dispute, security, audit, and fraud-prevention records for the period reasonably needed to complete the transaction, enforce agreements, maintain financial records, prevent abuse, and satisfy legal obligations. Logs, diagnostics, and backups are retained for limited operational cycles and then deleted or overwritten. Public content can remain in third-party caches or indexes after Nexez removes it.',
-      'Buyer-account deletion removes the buyer-agent profile, conversations, preferences, saved items, tasks, notifications, and push tokens, and anonymizes buyer details in seller-owned transaction records where supported. If the same login also operates a seller business, buyer deletion preserves the seller account, login, listings, billing, API keys, and other business records so a buyer-side request does not accidentally destroy the business. A seller can separately request closure of the retained business account. A buyer-only account is deleted after the buyer data is removed, subject to required retention.',
+      'Buyer-account deletion removes the buyer-agent profile, conversations, preferences, saved items, tasks, notifications, launch-funnel events, and push tokens, and anonymizes buyer details in seller-owned transaction records where supported. If the same login also operates a seller business, buyer deletion preserves the seller account, login, listings, billing, API keys, and other business records so a buyer-side request does not accidentally destroy the business. A seller can separately request closure of the retained business account. A buyer-only account is deleted after the buyer data is removed, subject to required retention.',
       'Promotional grant, invitation, and verified-business claim records can be retained while needed to administer the program and prevent duplicate or abusive claims. Deletion from provider backups and downstream systems follows their normal deletion cycles and legal obligations.',
     ],
   },

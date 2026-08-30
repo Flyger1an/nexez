@@ -311,6 +311,15 @@ describe('POST /api/checkout - buyer identity propagation', () => {
     expect(params.metadata.nexez_buyer_agent).toBe('shopbot/2')
   })
 
+  it('uses path-scoped mobile returns only for the trusted Nexxi buyer agent', async () => {
+    const res = await POST(post({ slug: 'demo', offer: 'services-0', buyerAgent: 'Nexxi' }))
+    expect(res.status).toBe(200)
+    const { params } = stripeCalls[0]
+    expect(params.success_url).toBe('https://nexez.test/nexxi/checkout/return?status=success&session_id={CHECKOUT_SESSION_ID}')
+    expect(params.cancel_url).toBe('https://nexez.test/nexxi/checkout/return?status=cancelled')
+    expect(params.origin_context).toBe('mobile_app')
+  })
+
   it('scopes and hashes the retry key before forwarding it to Stripe', async () => {
     const rawKey = 'buyer-order-1234567890'
     const res = await POST(post(

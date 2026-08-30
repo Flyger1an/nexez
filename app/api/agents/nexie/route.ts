@@ -3,6 +3,7 @@ import { handleNexieTurn, type NexieApprovalInput, type NexieMode } from '../../
 import { authenticateNexieRequest } from '../../../../lib/agents/nexie-auth'
 import { createNexieTurnDb } from '../../../../lib/agents/nexie-turn-db'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { NEXIE_CONTRACT_VERSION, NexieTurnResponseSchema } from '../../../../contracts/nexie/v1'
 
 export const maxDuration = 60
 
@@ -62,10 +63,12 @@ export async function POST(request: NextRequest) {
       approval: body.approval ?? null,
     })
 
-    return NextResponse.json({
+    const response = NexieTurnResponseSchema.parse({
       ok: true,
+      contractVersion: NEXIE_CONTRACT_VERSION,
       ...result,
     })
+    return NextResponse.json(response)
   } catch (error) {
     console.error('[Nexie] agent turn failed', error)
     return NextResponse.json(
@@ -82,6 +85,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     service: 'nexie-agent',
+    contractVersion: NEXIE_CONTRACT_VERSION,
     capabilities: [
       'voice_input',
       'text_chat',

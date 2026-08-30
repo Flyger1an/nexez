@@ -8,7 +8,7 @@ vi.mock('../../utils/supabase/admin', () => ({
   createAdminClient: vi.fn(() => createSupabaseMock((c: QueryContext) => refs.handler(c))),
 }))
 
-import { findOrdersByEmail } from './load-order'
+import { checkoutCommerceKind, findOrdersByEmail } from './load-order'
 
 stubBearerTokenKey()
 
@@ -56,5 +56,12 @@ describe('findOrdersByEmail', () => {
 
   it('returns [] for a blank email without querying', async () => {
     expect(await findOrdersByEmail('   ')).toEqual([])
+  })
+
+  it('classifies advanced checkout orders for native buyer presentation', () => {
+    expect(checkoutCommerceKind({ service_agreement_id: 'service-1' })).toBe('recurring')
+    expect(checkoutCommerceKind({ staged_settlement_agreement_id: 'staged-1' })).toBe('staged')
+    expect(checkoutCommerceKind({ resource_hold_id: 'hold-1' })).toBe('reservation')
+    expect(checkoutCommerceKind({})).toBe('one_time')
   })
 })

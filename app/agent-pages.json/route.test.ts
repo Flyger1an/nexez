@@ -78,6 +78,23 @@ const pages = [
     is_published: true,
     marketplace_discoverable: false,
   },
+  {
+    name: 'Nexez Party Rentals Certification',
+    slug: 'nexez-party-rentals-certification',
+    description: 'Internal certification fixture.',
+    location: 'Remote',
+    products: [],
+    services: [{ name: 'Certification run', price: '$1', description: 'Internal.', url: '' }],
+    created_at: '2026-01-01T00:00:00Z',
+    currency: 'usd',
+    website_url: 'https://nexez.test',
+    cta_url: 'https://nexez.test',
+    audience: 'operators',
+    industry: 'Testing',
+    contact_email: 'test@nexez.test',
+    faqs: [],
+    is_published: true,
+  },
 ]
 
 describe('GET /agent-pages.json', () => {
@@ -100,11 +117,13 @@ describe('GET /agent-pages.json', () => {
 
     expect(loadStorefrontHandlesForSlugs).toHaveBeenCalledWith(['demo', 'solo'])
     expect(body.pages[0].slug).toBe('demo')
+    expect(body.pages[0].consumer_visible).toBe(true)
     expect(body.pages[0].storefront_handle).toBe('demo-store')
     expect(body.pages[0].storefront_url).toMatch(/^https:\/\/.+\/store\/demo-store$/)
     expect(body.pages[0].storefront_agent_json_url).toMatch(/^https:\/\/.+\/store\/demo-store\/agent\.json$/)
     expect(body.pages[1].storefront_handle).toBeUndefined()
     expect(body.pages.map((page: { slug: string }) => page.slug)).not.toContain('direct-only-co')
+    expect(body.pages.map((page: { slug: string }) => page.slug)).not.toContain('nexez-party-rentals-certification')
   })
 
   it('adds rating summaries when verified reviews exist', async () => {
@@ -157,7 +176,6 @@ describe('GET /agent-pages.json', () => {
       provider_url: shopifyUrl,
       prefer_original_for_this: true,
     })
-    expect(body.pages[0].checkout_urls[0].action.endpoint).toMatch(/^https:\/\/.+\/api\/checkout$/)
-    expect(body.pages[0].checkout_urls[0].action.endpoint).not.toBe(shopifyUrl)
+    expect(body.pages[0].checkout_urls[0].action).toBeNull()
   })
 })

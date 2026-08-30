@@ -22,6 +22,8 @@ import {
 import { getPageLocationMatch, type LocationMatch } from './location-filter'
 import type { ReviewSummary } from './reviews'
 import { commerceIdentityTokenFamily } from './commerce-templates/curation/simulation'
+import { buildAgentOfferConfiguration } from './agent-offer-configuration'
+import type { NexieCommerceRail } from '../contracts/nexie/v1'
 
 export type AgentSearchResult = {
   score: number
@@ -61,6 +63,7 @@ export type AgentSearchResult = {
      * null; this field is reserved for executable Nexez POST contracts. */
     action: {
       type: 'nexez_checkout' | 'negotiation'
+      rail: NexieCommerceRail
       method: 'POST'
       endpoint: string
       content_type: 'application/json'
@@ -73,6 +76,11 @@ export type AgentSearchResult = {
         offer: string
         dryRun: true
       }
+      /** Merchant-authored buyer inputs. The agent must collect every required
+       * value verbatim before it calls trigger_booking. */
+      input_schema: Record<string, unknown> | null
+      required_input_fields: string[]
+      idempotency_key_required: boolean
     } | null
   } | null
 }
@@ -234,11 +242,15 @@ function buildOfferExecution(
       checkoutUrl: `${baseUrl}/${page.slug}?negotiate=${encodeURIComponent(offerKey)}#negotiate`,
       action: {
         type: 'negotiation',
+        rail: 'negotiation',
         method: 'POST',
         endpoint: `${baseUrl}/api/negotiations`,
         content_type: 'application/json',
         body,
         dry_run_body: dryRunBody,
+        input_schema: null,
+        required_input_fields: [],
+        idempotency_key_required: false,
       },
     }
   }
@@ -247,15 +259,35 @@ function buildOfferExecution(
     return null
   }
 
+  const configuration = buildAgentOfferConfiguration(offer)
+  const checkoutPath = configuration?.checkout.path ?? '/api/checkout'
+  const rail: NexieCommerceRail = checkoutPath === '/api/service-agreements/checkout'
+    ? 'recurring'
+    : checkoutPath === '/api/staged-settlements/checkout'
+      ? 'staged'
+      : checkoutPath === '/api/reservable-resources/checkout'
+        ? 'reservable'
+        : configuration?.input_schema
+          ? 'configured'
+          : 'one_time'
+  const inputSchema = configuration?.input_schema ?? null
+  const requiredInputFields = Array.isArray(inputSchema?.required)
+    ? inputSchema.required.filter((value): value is string => typeof value === 'string')
+    : []
+
   return {
     checkoutUrl: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
     action: {
       type: 'nexez_checkout',
+      rail,
       method: 'POST',
-      endpoint: `${baseUrl}/api/checkout`,
+      endpoint: `${baseUrl}${checkoutPath}`,
       content_type: 'application/json',
       body,
       dry_run_body: dryRunBody,
+      input_schema: inputSchema,
+      required_input_fields: requiredInputFields,
+      idempotency_key_required: configuration?.checkout.idempotency_key_required === true,
     },
   }
 }

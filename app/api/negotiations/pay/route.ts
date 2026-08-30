@@ -11,6 +11,7 @@ import { hashBearerToken } from '../../../../lib/server/bearer-token'
 import { resolveSettlementContext } from '../../../../lib/commerce/settlement-bridge'
 import { getOfferStagedSettlementTerms } from '../../../../lib/configured-offer'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
+import { checkoutReturnUrls } from '../../../../lib/nexxi-checkout-return'
 
 function paymentFingerprint(input: {
   amountCents: number
@@ -194,6 +195,13 @@ export async function POST(request: Request) {
   }
 
   try {
+    const returns = checkoutReturnUrls({
+      baseUrl: getBaseUrl(),
+      buyerAgent: negotiation.buyer_agent,
+      webSuccessUrl: `${getBaseUrl()}/negotiate/${negotiation.id}?token=${token}&paid=1`,
+      webCancelUrl: `${getBaseUrl()}/negotiate/${negotiation.id}?token=${token}&pay=cancelled`,
+      context: { kind: 'negotiation', token },
+    })
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: 'payment',
       line_items: [
@@ -213,8 +221,8 @@ export async function POST(request: Request) {
         capture_method: autoSettle ? 'automatic' : 'manual',
         ...(applicationFeeAmount && applicationFeeAmount > 0 ? { application_fee_amount: applicationFeeAmount } : {}),
       },
-      success_url: `${getBaseUrl()}/negotiate/${negotiation.id}?token=${token}&paid=1`,
-      cancel_url: `${getBaseUrl()}/negotiate/${negotiation.id}?token=${token}&pay=cancelled`,
+      success_url: returns.successUrl,
+      cancel_url: returns.cancelUrl,
       metadata: {
         nexez_kind: 'negotiation_escrow',
         nexez_negotiation_id: negotiation.id,
@@ -229,6 +237,9 @@ export async function POST(request: Request) {
         nexez_commission_source: money.commissionSource,
         nexez_payment_fingerprint: fingerprint,
       },
+    }
+    if (returns.mobile) {
+      ;(sessionParams as Stripe.Checkout.SessionCreateParams & { origin_context: 'mobile_app' }).origin_context = 'mobile_app'
     }
 
     // Parity with direct checkout: prefill + lock Stripe's email field from the buyer

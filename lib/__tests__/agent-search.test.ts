@@ -52,6 +52,71 @@ describe('searchAgentPages', () => {
     expect(res[0].marketplace?.supports_checkout).toBe(true)
   })
 
+  it('publishes the exact configured checkout rail instead of the generic endpoint', () => {
+    const staged = mk({
+      slug: 'staged-studio',
+      name: 'Staged Studio',
+      services: [{
+        name: 'Design project',
+        description: 'A two-stage project.',
+        price: '$2,000',
+        url: '',
+        stagedSettlementTerms: {
+          schemaVersion: 1,
+          paymentModel: 'staged-fixed-total',
+          approvalPolicy: 'buyer-approves-each-stage',
+          mutationPolicy: 'immutable-after-first-payment',
+          stages: [
+            { id: 'deposit', label: 'Deposit', kind: 'commitment', allocationBps: 5000 },
+            { id: 'final', label: 'Final', kind: 'completion', allocationBps: 5000 },
+          ],
+        },
+      } as any],
+    })
+
+    const result = searchAgentPages([staged], '', 10, 'https://nexez.test', {
+      checkoutReadySlugs: new Set(['staged-studio']),
+    })[0]
+
+    expect(result.offer?.action).toMatchObject({
+      rail: 'staged',
+      endpoint: 'https://nexez.test/api/staged-settlements/checkout',
+    })
+    expect(result.offer?.action?.endpoint).not.toBe('https://nexez.test/api/checkout')
+  })
+
+  it('publishes required buyer inputs with the selected action', () => {
+    const configured = mk({
+      slug: 'configured-care',
+      name: 'Configured Care',
+      services: [{
+        name: 'Pet care',
+        description: 'Configured visit.',
+        price: '$100',
+        url: '',
+        customerInputs: [{
+          key: 'pet_count',
+          label: 'Pet count',
+          askBuyer: 'How many pets need care?',
+          valueType: 'quantity',
+          required: true,
+        }],
+      } as any],
+    })
+
+    const action = searchAgentPages([configured], '', 10, 'https://nexez.test', {
+      checkoutReadySlugs: new Set(['configured-care']),
+    })[0].offer?.action
+
+    expect(action?.rail).toBe('configured')
+    expect(action?.required_input_fields).toEqual(['pet_count'])
+    expect(action?.input_schema).toMatchObject({
+      type: 'object',
+      required: ['pet_count'],
+      properties: { pet_count: { type: 'integer', title: 'Pet count' } },
+    })
+  })
+
   it('returns Shopify imports as products with their preferred provider checkout', () => {
     const shopifyUrl = 'https://nexez-tester.myshopify.com/products/agent-ready-cap'
     const shopify = mk({

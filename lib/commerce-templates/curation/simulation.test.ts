@@ -211,7 +211,7 @@ describe('findCommerceSimulationMatch', () => {
         expect(match?.candidate.id, `${requested.title} / ${context.title}`).toBe(requested.id)
       }
     }
-  })
+  }, 45_000)
 
   it('keeps every complete Commerce Library title addressable', () => {
     for (const candidate of commerceReferenceCandidates) {

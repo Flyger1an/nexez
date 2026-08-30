@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { authenticateNexieRequest } from '../../../../lib/agents/nexie-auth'
+import { hasRecentInteractiveAuthentication } from '../../../../lib/auth-recent'
 import { deleteUserAccount } from '../../../../lib/server/delete-account'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 
@@ -32,6 +33,20 @@ export async function POST(request: NextRequest) {
 
   const auth = await authenticateNexieRequest(request)
   if (!auth.ok) return auth.response
+
+  const bearerToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()
+  const { data: claimsData, error: claimsError } = bearerToken
+    ? await auth.db.auth.getClaims(bearerToken)
+    : await auth.db.auth.getClaims()
+  if (claimsError || !hasRecentInteractiveAuthentication(claimsData?.claims)) {
+    return NextResponse.json(
+      {
+        error: 'Confirm your identity again before deleting your Nexxi buyer data.',
+        code: 'recent_auth_required',
+      },
+      { status: 403, headers: { 'cache-control': 'no-store' } },
+    )
+  }
 
   const result = await deleteUserAccount(auth.user.id, auth.user.email ?? null)
   if (!result.ok) {

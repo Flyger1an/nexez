@@ -41,6 +41,7 @@ export function buildOfferConfigurationInputSchema(offer: OfferItem): JsonSchema
   for (const field of customerInputs) {
     const common = {
       title: field.label,
+      'x-nexez-value-type': field.valueType,
       'x-nexez-ask-buyer': field.askBuyer,
       ...(field.affects?.length ? { 'x-nexez-affects': [...field.affects] } : {}),
     }

@@ -54,6 +54,7 @@ import {
   scopedIdempotencyHash,
   verifyActionApprovalToken,
 } from '../../../lib/action-approval'
+import { checkoutReturnUrls } from '../../../lib/nexxi-checkout-return'
 
 type CheckoutInput = {
   slug: string
@@ -254,7 +255,12 @@ export async function POST(request: Request) {
 
   const baseUrl = getRequestBaseUrl(request)
   const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
-  const successUrl = `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${offerKey}`
+  const returns = checkoutReturnUrls({
+    baseUrl,
+    buyerAgent: buyer.agent,
+    webSuccessUrl: `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${offerKey}`,
+    webCancelUrl: checkoutUrl,
+  })
   const preferredOriginalUrl = getPreferredOriginalOfferUrl(page, offer)
   const forceProviderHandoff = Boolean(preferredOriginalUrl)
   let destination = getOfferDestination(page, offer)
@@ -394,8 +400,9 @@ export async function POST(request: Request) {
             quantity: 1,
           },
         ],
-        success_url: successUrl,
-        cancel_url: checkoutUrl,
+        success_url: returns.successUrl,
+        cancel_url: returns.cancelUrl,
+        ...(returns.mobile ? { origin_context: 'mobile_app' } : {}),
         metadata: {
           nexez_page_id: page.id,
           nexez_page_slug: page.slug,

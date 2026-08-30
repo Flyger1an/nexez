@@ -35,6 +35,7 @@ import {
   serviceAgreementStripeMetadata,
 } from '../../../../lib/server/service-agreement'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { checkoutReturnUrls } from '../../../../lib/nexxi-checkout-return'
 
 export const runtime = 'nodejs'
 
@@ -222,6 +223,12 @@ export async function POST(request: Request) {
   })
   const baseUrl = getRequestBaseUrl(request)
   const actionUrl = `${baseUrl}/api/service-agreements/checkout`
+  const returns = checkoutReturnUrls({
+    baseUrl,
+    buyerAgent: buyer.agent,
+    webSuccessUrl: `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${encodeURIComponent(offerKey)}`,
+    webCancelUrl: `${baseUrl}/checkout/${page.slug}?offer=${encodeURIComponent(offerKey)}`,
+  })
 
   if (input.dryRun) {
     const approval = issueActionApprovalToken('checkout', approvalInput(approvalPayload))
@@ -379,8 +386,9 @@ export async function POST(request: Request) {
           },
           quantity: 1,
         }],
-        success_url: `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${encodeURIComponent(offerKey)}`,
-        cancel_url: `${baseUrl}/checkout/${page.slug}?offer=${encodeURIComponent(offerKey)}`,
+        success_url: returns.successUrl,
+        cancel_url: returns.cancelUrl,
+        ...(returns.mobile ? { origin_context: 'mobile_app' } : {}),
         metadata: sessionMetadata,
         subscription_data: {
           metadata,

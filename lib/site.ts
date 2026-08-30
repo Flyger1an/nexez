@@ -131,7 +131,7 @@ const APP_API_PREFIXES = [
 // on the agent runtime next to `/checkout` (where the buyer already is).
 // `/acp` + `/ucp` = the OpenAI ACP + Google UCP product feeds (agent-ingested flat
 // files); they belong on the agent runtime next to /checkout, canonical on nexez.app.
-const AGENT_RUNTIME_PREFIXES = ['/checkout', '/negotiate', '/orders', '/store', '/acp', '/ucp', '/.well-known'] as const
+const AGENT_RUNTIME_PREFIXES = ['/checkout', '/negotiate', '/orders', '/store', '/acp', '/ucp', '/nexxi', '/.well-known'] as const
 
 const AGENT_RUNTIME_API_PREFIXES = [
   '/api/agent-search',

@@ -3,6 +3,7 @@ import { handleNexieTurn, type NexieApprovalInput, type NexieMode } from '../../
 import { authenticateNexieRequest } from '../../../../../lib/agents/nexie-auth'
 import { createNexieTurnDb } from '../../../../../lib/agents/nexie-turn-db'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
+import { NEXIE_CONTRACT_VERSION, NexieTurnResponseSchema } from '../../../../../contracts/nexie/v1'
 
 export const maxDuration = 60
 
@@ -80,7 +81,12 @@ export async function POST(request: NextRequest) {
         if (streamedChars === 0 && result.message) {
           for (const chunk of chunkText(result.message)) send({ type: 'token', value: chunk })
         }
-        send({ type: 'done', ...result })
+        const response = NexieTurnResponseSchema.parse({
+          ok: true,
+          contractVersion: NEXIE_CONTRACT_VERSION,
+          ...result,
+        })
+        send({ type: 'done', ...response })
       } catch (error) {
         console.error('[Nexie] streamed turn failed', error)
         send({ type: 'error', error: error instanceof Error ? error.message : 'Nexxi hit a snag before completing that turn.' })

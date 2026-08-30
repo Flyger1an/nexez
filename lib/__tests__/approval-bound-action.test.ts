@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   ApprovalBoundActionError,
   executeApprovalBoundAction,
+  executePreparedApprovalBoundAction,
+  prepareApprovalBoundAction,
 } from '../approval-bound-action'
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -12,6 +14,41 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 }
 
 describe('executeApprovalBoundAction', () => {
+  it('can persist the dry-run boundary and execute it later without validating twice', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        ok: true,
+        approvalTokenRequired: true,
+        approvalToken: 'v1.payload.signature',
+        amountCents: 2500,
+        currency: 'usd',
+      }))
+      .mockResolvedValueOnce(jsonResponse({ ok: true, url: 'https://checkout.example/session' }))
+
+    const prepared = await prepareApprovalBoundAction({
+      url: 'https://nexez.app/api/checkout',
+      input: { slug: 'acme', offer: 'services-0', offerConfiguration: { quantity: 2 } },
+      idempotencyKey: 'test:prepared-action:123456',
+      fetchImpl: fetchImpl as typeof fetch,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(prepared.validation).toMatchObject({ amountCents: 2500, currency: 'usd' })
+
+    await executePreparedApprovalBoundAction(prepared, { fetchImpl: fetchImpl as typeof fetch })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(String(fetchImpl.mock.calls[1][1]?.body))).toEqual({
+      slug: 'acme',
+      offer: 'services-0',
+      offerConfiguration: { quantity: 2 },
+      dryRun: false,
+      approvalToken: 'v1.payload.signature',
+    })
+    expect(new Headers(fetchImpl.mock.calls[1][1]?.headers).get('idempotency-key'))
+      .toBe('test:prepared-action:123456')
+  })
+
   it('validates first, binds the issued token to the unchanged payload, and adds duplicate protection', async () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(jsonResponse({

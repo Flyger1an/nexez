@@ -29,6 +29,15 @@ type ExecuteApprovalBoundActionOptions = {
   signal?: AbortSignal
 }
 
+export type PreparedApprovalBoundAction = {
+  url: string
+  input: ApprovalActionPayload
+  validation: ApprovalActionResponse
+  approvalToken: string | null
+  idempotencyKey: string
+  headers?: HeadersInit
+}
+
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9._~:-]{16,255}$/
 
 /**
@@ -43,6 +52,31 @@ export async function executeApprovalBoundAction({
   idempotencyKey = createActionIdempotencyKey(),
   signal,
 }: ExecuteApprovalBoundActionOptions) {
+  const prepared = await prepareApprovalBoundAction({
+    url,
+    input,
+    fetchImpl,
+    headers,
+    idempotencyKey,
+    signal,
+  })
+  const result = await executePreparedApprovalBoundAction(prepared, { fetchImpl, signal })
+  return { validation: prepared.validation, result, idempotencyKey: prepared.idempotencyKey }
+}
+
+/**
+ * Perform the side-effect-free validation half of an approval-bound action.
+ * The returned object is the exact payload/token/key tuple that must be stored
+ * behind the buyer approval and replayed unchanged after consent.
+ */
+export async function prepareApprovalBoundAction({
+  url,
+  input,
+  fetchImpl = fetch,
+  headers,
+  idempotencyKey = createActionIdempotencyKey(),
+  signal,
+}: ExecuteApprovalBoundActionOptions): Promise<PreparedApprovalBoundAction> {
   if (!IDEMPOTENCY_KEY_RE.test(idempotencyKey)) {
     throw new ApprovalBoundActionError('The action idempotency key is invalid.', 0, {
       code: 'invalid_idempotency_key',
@@ -63,21 +97,47 @@ export async function executeApprovalBoundAction({
     )
   }
 
-  const liveHeaders = new Headers(headers)
-  liveHeaders.set('idempotency-key', idempotencyKey)
-  const result = await postAction(
-    fetchImpl,
+  return {
     url,
+    input: payload,
+    validation,
+    approvalToken: approvalToken || null,
+    idempotencyKey,
+    ...(headers ? { headers } : {}),
+  }
+}
+
+/** Execute only a previously validated action. No second dry-run is performed. */
+export async function executePreparedApprovalBoundAction(
+  prepared: PreparedApprovalBoundAction,
+  options: { fetchImpl?: typeof fetch; signal?: AbortSignal } = {},
+) {
+  if (!IDEMPOTENCY_KEY_RE.test(prepared.idempotencyKey)) {
+    throw new ApprovalBoundActionError('The action idempotency key is invalid.', 0, {
+      code: 'invalid_idempotency_key',
+    })
+  }
+  if (prepared.validation.approvalTokenRequired === true && !prepared.approvalToken) {
+    throw new ApprovalBoundActionError(
+      'The action could not be approved because the stored approval token is missing.',
+      502,
+      { ...prepared.validation, code: 'approval_token_missing' },
+    )
+  }
+
+  const liveHeaders = new Headers(prepared.headers)
+  liveHeaders.set('idempotency-key', prepared.idempotencyKey)
+  return postAction(
+    options.fetchImpl ?? fetch,
+    prepared.url,
     {
-      ...payload,
+      ...commercialActionPayload(prepared.input),
       dryRun: false,
-      ...(approvalToken ? { approvalToken } : {}),
+      ...(prepared.approvalToken ? { approvalToken: prepared.approvalToken } : {}),
     },
     liveHeaders,
-    signal,
+    options.signal,
   )
-
-  return { validation, result, idempotencyKey }
 }
 
 export function createActionIdempotencyKey(scope = 'nexez-action') {

@@ -154,7 +154,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
     },
     ...(configuration ? { configuration } : {}),
     action: {
-          available: isOfferActionAvailable(offer),
+          available: isOfferActionAvailable(offer) && !preferredOriginalUrl,
           method: 'POST',
           endpoint: `${platformBase}${actionPath}`,
           content_type: 'application/json',

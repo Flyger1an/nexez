@@ -63,6 +63,7 @@ export async function GET(request: Request) {
           currency,
           readiness: cert.readiness,
           certified: cert.certified,
+          consumer_visible: true,
           rating_summary: reviewSummary?.count
             ? {
                 average: reviewSummary.average,
@@ -77,15 +78,16 @@ export async function GET(request: Request) {
           checkout_urls: getCheckoutOffers(page).map((offer) => {
             const configuration = buildAgentOfferConfiguration(offer)
             const actionPath = configuration?.checkout.path ?? '/api/checkout'
+            const preferredProviderUrl = getPreferredOriginalOfferUrl(page, offer)
             return {
               offer: offer.name,
               type: getAgentOfferType(offer),
               price: offer.price || null,
               currency,
-              url: getPreferredOriginalOfferUrl(page, offer) || `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
+              url: preferredProviderUrl || `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
               provider_url: getOfferDestination(page, offer) || null,
               prefer_original_for_this: Boolean(offer.prefer_original_for_this),
-              action: {
+              action: preferredProviderUrl ? null : {
                 method: 'POST',
                 endpoint: `${baseUrl}${actionPath}`,
                 body: {

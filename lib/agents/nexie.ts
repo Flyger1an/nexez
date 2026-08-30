@@ -10,11 +10,30 @@ import { searchAllSources } from './source-adapters'
 import { agentRuntimeUrl } from '../site'
 import { executeApprovalBoundAction } from '../approval-bound-action'
 import { negotiationTermsSchema } from '../negotiation-terms-schema'
+import type {
+  NexieApprovalDecision,
+  NexieCard,
+  NexieCommerceCapability,
+  NexieMode,
+} from '../../contracts/nexie/v1'
+import {
+  approvalCommerce,
+  attachApprovalCommerce,
+  commerceCapabilityForSearchResult,
+  resolveNexieBookingCapability,
+} from './nexie-commerce'
+import {
+  executePreparedNexieBookingAction,
+  hasPreparedNexieBookingAction,
+  NexieCommercePreparationError,
+  prepareNexieBookingAction,
+  publicApprovalPayload,
+  validatePreparedNexieBookingAction,
+} from './nexie-commerce-action'
 
 type Db = SupabaseClient
 
-export type NexieMode = 'text' | 'voice'
-export type NexieApprovalDecision = 'approved' | 'rejected'
+export type { NexieApprovalDecision, NexieCard, NexieMode } from '../../contracts/nexie/v1'
 
 export type NexieApprovalInput = {
   id: string
@@ -41,43 +60,6 @@ export type NexieTurnInput = {
 
 /** Authenticated buyer identity injected into money-path actions (never from the LLM). */
 type NexieBuyer = { email: string | null; userId: string }
-
-export type NexieCard =
-  | {
-      type: 'page_result'
-      id: string
-      title: string
-      subtitle: string
-      description: string | null
-      price: string | null
-      slug: string
-      url: string
-      agentJsonUrl: string
-      offerKey: string | null
-      offerName: string | null
-      checkoutUrl: string | null
-      score: number
-      /** Which source surfaced this (absent/`nexez` = the marketplace; others are discovery-only). */
-      source?: { id: string; label: string }
-    }
-  | {
-      type: 'approval'
-      id: string
-      status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'FAILED'
-      toolName: 'initiate_negotiation' | 'trigger_booking'
-      title: string
-      summary: string
-      payload: Record<string, unknown>
-    }
-  | {
-      type: 'action_result'
-      id: string
-      title: string
-      status: 'success' | 'error'
-      description: string
-      url?: string
-      metadata?: Record<string, unknown>
-    }
 
 export type NexieTurnResult = {
   threadId: string
@@ -157,6 +139,9 @@ Operating rules:
 - Use the search_pages tool for discovery and comparison.
 - Use initiate_negotiation only when the buyer wants to make an offer, ask for custom terms, request a discount, or negotiate scope/timing.
 - Use trigger_booking only when the buyer clearly wants to book, buy, reserve, or proceed with checkout.
+- Before trigger_booking, inspect the selected search result's offer.action.input_schema. Ask concise follow-up questions for every required_input_fields value the buyer has not supplied. Never infer or invent buyer configuration, dates, quantities, selections, locations, or asset references.
+- Pass buyer configuration only in offerConfiguration, keyed exactly as input_schema declares. For oneOf choices, submit the declared const value rather than its display title. Preserve the buyer's exact values.
+- Configured, recurring, staged-payment, and reservable offers use the same approval gate as standard checkout. The server performs the authoritative dry-run and the approval card contains the exact amount, cadence, schedule, hold expiry, and fulfillment decision when applicable.
 - Never claim you booked, paid, purchased, or submitted an offer until an approval result confirms it.
 - Negotiation and booking tools require explicit buyer approval. If a tool returns an approval card, explain what will happen and wait.
 - Seller is merchant of record where Stripe Connect is used. Nexez/Nexxi facilitates discovery, negotiation, and checkout handoff.
@@ -218,6 +203,11 @@ const NEXIE_TOOLS = [
           slug: { type: 'string', description: 'Public Nexez listing slug.' },
           offer: { type: 'string', description: 'Offer key such as services-0 or products-1.' },
           query: { type: 'string', description: 'Buyer booking context.' },
+          offerConfiguration: {
+            type: 'object',
+            description: 'Buyer-provided values keyed by the offer input schema. Never invent missing required values.',
+            additionalProperties: true,
+          },
         },
         required: ['slug', 'offer'],
       },
@@ -277,7 +267,7 @@ export async function handleNexieTurn(input: NexieTurnInput): Promise<NexieTurnR
   let fellBack = false
   if (isLlmConfigured()) {
     try {
-      result = await runLlmAgent(input.db, { userId: input.userId, agent, thread, message: cleanMessage, recentMessages, mode, onToken: input.onToken })
+      result = await runLlmAgent(input.db, { userId: input.userId, userEmail: input.userEmail ?? null, agent, thread, message: cleanMessage, recentMessages, mode, onToken: input.onToken })
     } catch (error) {
       fellBack = true
       // The fallback rate + model errors are the key agent-health signal.
@@ -319,6 +309,7 @@ async function runLlmAgent(
   db: Db,
   ctx: {
     userId: string
+    userEmail: string | null
     agent: UserAgentRow
     thread: AgentThreadRow
     message: string
@@ -393,11 +384,82 @@ Current mode: ${ctx.mode}.`,
       continue
     }
 
+    const commerce: NexieCommerceCapability = call.function.name === 'trigger_booking'
+      ? await resolveNexieBookingCapability(db, args)
+      : {
+          state: 'actionable',
+          rail: 'negotiation',
+          reasonCode: 'supported',
+          message: 'Nexxi can prepare this negotiation for your approval.',
+        }
+    if (commerce.state !== 'actionable') {
+      const blocked: NexieCard = {
+        type: 'action_result',
+        id: call.id,
+        title: 'Action unavailable',
+        status: 'error',
+        description: commerce.message,
+        metadata: { commerce },
+      }
+      cards.push(blocked)
+      toolMessages.push({
+        role: 'tool',
+        tool_call_id: call.id,
+        name: call.function.name,
+        content: JSON.stringify({ requiresApproval: false, blocked: true, reason: commerce.reasonCode }),
+      })
+      continue
+    }
+
+    let approvalPayload = attachApprovalCommerce(args, commerce)
+    if (call.function.name === 'trigger_booking') {
+      try {
+        const prepared = await prepareNexieBookingAction(
+          db,
+          approvalPayload,
+          { email: ctx.userEmail, userId: ctx.userId },
+          { baseUrl: agentRuntimeBaseUrl() },
+        )
+        approvalPayload = prepared.storedPayload
+      } catch (error) {
+        const description = error instanceof Error ? error.message : 'This checkout could not be prepared.'
+        if (error instanceof NexieCommercePreparationError && error.code === 'buyer_inputs_required') {
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            name: call.function.name,
+            content: JSON.stringify({
+              requiresApproval: false,
+              needsBuyerInput: true,
+              questions: error.buyerInputPrompts,
+              instruction: 'Ask the buyer these concise questions now. Do not create an approval until every value is supplied.',
+            }),
+          })
+          continue
+        }
+        const blocked: NexieCard = {
+          type: 'action_result',
+          id: call.id,
+          title: 'Action unavailable',
+          status: 'error',
+          description,
+        }
+        cards.push(blocked)
+        toolMessages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          name: call.function.name,
+          content: JSON.stringify({ requiresApproval: false, blocked: true, reason: description }),
+        })
+        continue
+      }
+    }
+
     const approval = await createApproval(db, {
       userId: ctx.userId,
       threadId: ctx.thread.id,
       toolName: call.function.name,
-      payload: args,
+      payload: approvalPayload,
     })
     approvalCards.push(approval)
     toolMessages.push({
@@ -461,7 +523,7 @@ async function runDeterministicAgent(
   return {
     message: `I found ${cards.length} possible match${cards.length === 1 ? '' : 'es'}. The strongest one is ${top.title}${top.price ? ` at ${top.price}` : ''}.`,
     cards,
-    suggestions: ['Negotiate this', 'Book this', 'Show more like this'],
+    suggestions: searchSuggestions(cards),
     toolsUsed: ['search_pages'],
   }
 }
@@ -505,6 +567,31 @@ async function handleApprovalDecision(
     const message = 'Got it. I will not run that action.'
     await appendMessage(db, { threadId: ctx.thread.id, userId: ctx.userId, role: 'ASSISTANT', content: message, metadata: { approvalId: approval.id } })
     return baseResult(ctx, message, [{ ...approvalToCard(approval), status: 'REJECTED' }])
+  }
+
+  if (approval.tool_name === 'trigger_booking') {
+    try {
+      const commerce = await resolveNexieBookingCapability(db, approval.payload)
+      if (commerce.state !== 'actionable') throw new Error(commerce.message)
+      await validatePreparedNexieBookingAction(db, approval.payload)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'This checkout is no longer available.'
+      await db
+        .from('agent_action_approvals')
+        .update({ status: 'FAILED', error: message, completed_at: new Date().toISOString() })
+        .eq('id', approval.id)
+        .eq('user_id', ctx.userId)
+        .eq('status', 'PENDING')
+      return baseResult(ctx, 'I could not complete that action. Nothing was charged or booked.', [
+        {
+          type: 'action_result',
+          id: approval.id,
+          title: 'Action unavailable',
+          status: 'error',
+          description: message,
+        },
+      ], [approval.tool_name])
+    }
   }
 
   // Atomically CLAIM the approval: the status guard makes PENDING→APPROVED a compare-and-swap, so
@@ -762,6 +849,14 @@ export async function executeBooking(
   buyer: NexieBuyer,
   idempotencyKey?: string,
 ) {
+  if (hasPreparedNexieBookingAction(payload)) {
+    const json = await executePreparedNexieBookingAction(payload, { baseUrl: agentRuntimeBaseUrl() })
+    return {
+      ...json,
+      message: stringValue(json.url) ? 'Checkout or booking handoff created.' : 'Booking request prepared.',
+      url: stringValue(json.url),
+    }
+  }
   const input = {
     slug: stringValue(payload.slug),
     offer: stringValue(payload.offer),
@@ -933,10 +1028,24 @@ function resultToCard(result: AgentSearchResult): Extract<NexieCard, { type: 'pa
     checkoutUrl: result.offer?.checkout_url || null,
     score: result.score,
     source: result.source,
+    commerce: commerceCapabilityForSearchResult(result),
   }
 }
 
 function approvalToCard(row: ApprovalRow): Extract<NexieCard, { type: 'approval' }> {
+  const commerce = approvalCommerce(row.payload) ?? (row.tool_name === 'initiate_negotiation'
+    ? {
+        state: 'actionable' as const,
+        rail: 'negotiation' as const,
+        reasonCode: 'supported' as const,
+        message: 'This negotiation uses the established buyer-approval flow.',
+      }
+    : {
+        state: 'view_only' as const,
+        rail: 'unknown' as const,
+        reasonCode: 'legacy_contract' as const,
+        message: 'Refresh this booking request before approving it.',
+      })
   return {
     type: 'approval',
     id: row.id,
@@ -944,7 +1053,8 @@ function approvalToCard(row: ApprovalRow): Extract<NexieCard, { type: 'approval'
     toolName: row.tool_name,
     title: row.tool_name === 'initiate_negotiation' ? 'Approve negotiation' : 'Approve booking handoff',
     summary: row.summary,
-    payload: row.payload,
+    payload: publicApprovalPayload(row.payload),
+    commerce,
   }
 }
 
@@ -952,11 +1062,29 @@ function summarizeApproval(toolName: 'initiate_negotiation' | 'trigger_booking',
   const slug = stringValue(payload.slug)
   const offer = stringValue(payload.offer)
   if (toolName === 'trigger_booking') {
-    return `Nexxi will open the booking or checkout handoff for /${slug}${offer ? ` (${offer})` : ''}. No payment is made inside this approval step.`
+    const action = objectValue(payload.commerceAction)
+    const dryRun = objectValue(action.dryRun)
+    const rail = stringValue(action.rail).replace(/_/g, ' ')
+    const amount = moneyFromDryRun(dryRun)
+    const total = moneyValue(dryRun.agreedTotalCents, dryRun.currency)
+    const cadence = action.rail === 'recurring' ? ' per billing period' : ''
+    const totalCopy = total && total !== amount ? ` against an agreed total of ${total}` : ''
+    return `Nexxi will open the ${rail || 'booking'} checkout for /${slug}${offer ? ` (${offer})` : ''}.${amount ? ` The validated amount is ${amount}${cadence}${totalCopy}.` : ''} No payment is made inside this approval step.`
   }
   const budget = stringValue(payload.budget)
   const timeline = stringValue(payload.timeline)
   return `Nexxi will submit a negotiation proposal for /${slug}${offer ? ` (${offer})` : ''}${budget ? ` at ${budget}` : ''}${timeline ? `, timeline: ${timeline}` : ''}.`
+}
+
+function moneyFromDryRun(dryRun: Record<string, unknown>) {
+  return moneyValue(dryRun.amountCents, dryRun.currency)
+}
+
+function moneyValue(amount: unknown, currency: unknown) {
+  if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < 0) return ''
+  const code = stringValue(currency).toUpperCase()
+  if (!/^[A-Z]{3}$/.test(code)) return ''
+  return `${(amount / 100).toFixed(2)} ${code}`
 }
 
 function baseResult(
@@ -1009,8 +1137,14 @@ function titleFromMessage(value?: string) {
 }
 
 function searchSuggestions(cards: NexieCard[]) {
-  const hasOffer = cards.some((card) => card.type === 'page_result' && card.offerKey)
-  return hasOffer ? ['Negotiate the top option', 'Book the top option', 'Compare another niche'] : defaultSuggestions()
+  const pageCards = cards.filter((card): card is Extract<NexieCard, { type: 'page_result' }> => card.type === 'page_result')
+  if (pageCards.some((card) => card.commerce.state === 'actionable' && card.commerce.rail === 'one_time')) {
+    return ['Book the top option', 'Compare another option', 'Show more like this']
+  }
+  if (pageCards.some((card) => card.commerce.state === 'actionable' && card.commerce.rail === 'negotiation')) {
+    return ['Negotiate the top option', 'Compare another option', 'Show more like this']
+  }
+  return pageCards.length ? ['View the top option', 'Compare another option', 'Show more like this'] : defaultSuggestions()
 }
 
 function defaultSuggestions() {
@@ -1025,6 +1159,8 @@ function stringValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function objectValue(value: unknown) {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
 }

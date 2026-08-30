@@ -6,6 +6,7 @@ const refs = vi.hoisted(() => ({
   hasSharedRateLimitBackend: vi.fn(),
   cookies: vi.fn(),
   createClient: vi.fn(),
+  createNativeClient: vi.fn(),
   verifyOtp: vi.fn(),
   signOut: vi.fn(),
 }))
@@ -16,6 +17,7 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 vi.mock('next/headers', () => ({ cookies: refs.cookies }))
 vi.mock('@/utils/supabase/server', () => ({ createClient: refs.createClient }))
+vi.mock('@supabase/supabase-js', () => ({ createClient: refs.createNativeClient }))
 
 import { POST } from './route'
 
@@ -39,11 +41,17 @@ beforeEach(() => {
   refs.hasSharedRateLimitBackend.mockReturnValue(true)
   refs.cookies.mockResolvedValue({ cookieStore: true })
   refs.verifyOtp.mockResolvedValue({
-    data: { user: { id: ACCOUNT.userId }, session: { access_token: 'session' } },
+    data: {
+      user: { id: ACCOUNT.userId },
+      session: { access_token: 'access-token', refresh_token: 'refresh-token', expires_at: 2_000_000_000 },
+    },
     error: null,
   })
   refs.signOut.mockResolvedValue({ error: null })
   refs.createClient.mockReturnValue({ auth: { verifyOtp: refs.verifyOtp, signOut: refs.signOut } })
+  refs.createNativeClient.mockReturnValue({ auth: { verifyOtp: refs.verifyOtp, signOut: refs.signOut } })
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co')
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test')
 })
 
 afterEach(() => vi.unstubAllEnvs())
@@ -69,6 +77,26 @@ describe('POST /api/auth/phone/verify', () => {
     expect(challengeLimit?.[4]?.subject).not.toContain(ACCOUNT.phone)
   })
 
+  it('returns a refreshable session only for the native client after verifying the bound account', async () => {
+    const challenge = createSmsLoginChallenge(ACCOUNT)!
+    const response = await POST(request({ challenge, code: '123456', client: 'native' }))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      verified: true,
+      userId: ACCOUNT.userId,
+      session: {
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresAt: 2_000_000_000,
+      },
+    })
+    expect(refs.createNativeClient).toHaveBeenCalledWith('https://project.supabase.co', 'sb_publishable_test', {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+    expect(refs.cookies).not.toHaveBeenCalled()
+  })
+
   it('rejects dummy and tampered challenges without calling Supabase', async () => {
     const dummy = createSmsLoginChallenge(null)!
 
@@ -87,7 +115,7 @@ describe('POST /api/auth/phone/verify', () => {
     const response = await POST(request({ challenge, code: '123456' }))
 
     expect(response.status).toBe(400)
-    expect(refs.signOut).toHaveBeenCalledOnce()
+    expect(refs.signOut).toHaveBeenCalledWith({ scope: 'local' })
   })
 
   it('keeps provider errors generic', async () => {

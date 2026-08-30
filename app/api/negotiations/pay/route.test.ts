@@ -174,6 +174,17 @@ describe('POST /api/negotiations/pay', () => {
     expect(opts.idempotencyKey).toBe('escrow-n1-90000:usd:auto:acct_1:4500')
   })
 
+  it('returns Nexxi-funded negotiations to their exact native deal', async () => {
+    const mobile = { ...NEG, status_token: 'portal_token_123', buyer_agent: 'Nexxi' }
+    db(mobile)
+    const res = await POST(post({ negotiationId: 'n1', token: mobile.status_token }))
+    expect(res.status).toBe(200)
+    const [params] = (stripeRef.create as any).mock.calls[0]
+    expect(params.success_url).toBe('https://nexez.test/nexxi/checkout/return?status=success&kind=negotiation&token=portal_token_123')
+    expect(params.cancel_url).toBe('https://nexez.test/nexxi/checkout/return?status=cancelled&kind=negotiation&token=portal_token_123')
+    expect(params.origin_context).toBe('mobile_app')
+  })
+
   it('zero-decimal currency: charges Stripe smallest unit, not amount_cents (JPY 100x bug)', async () => {
     // amount_cents is stored as major×100 (¥1,000 → 100000); JPY is zero-decimal so
     // Stripe must be charged 1000, not 100000, and the app fee scales with it.

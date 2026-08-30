@@ -21,6 +21,7 @@ export const BUYER_USER_ID_TABLES = [
   'agent_tasks',
   'agent_threads',
   'notifications',
+  'nexxi_launch_events',
   'referral_codes',
   'saved_pages',
   'saved_searches',

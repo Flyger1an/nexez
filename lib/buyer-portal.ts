@@ -56,6 +56,9 @@ export type BuyerOrderView = {
 // its own per-order portal token so the row links straight into the full view.
 export type BuyerOrderSummary = {
   kind: BuyerOrderKind
+  /** Native presentation hint. The token still resolves through the established
+   * checkout receipt path, preserving recourse and provider handoffs. */
+  commerceKind?: 'one_time' | 'recurring' | 'staged' | 'reservation'
   token: string
   offerName: string | null
   amountCents: number | null

@@ -46,6 +46,7 @@ import {
 } from '../../../../lib/server/checkout-configuration-handoff'
 import { calculateApplicationFeeCentsFromBps } from '../../../../lib/stripe-billing'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { checkoutReturnUrls } from '../../../../lib/nexxi-checkout-return'
 
 export const runtime = 'nodejs'
 
@@ -328,6 +329,12 @@ export async function POST(request: Request) {
   }
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
   const baseUrl = getRequestBaseUrl(request)
+  const returns = checkoutReturnUrls({
+    baseUrl,
+    buyerAgent: buyer.agent,
+    webSuccessUrl: `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${encodeURIComponent(offerKey)}`,
+    webCancelUrl: `${baseUrl}/checkout/${page.slug}?offer=${encodeURIComponent(offerKey)}`,
+  })
   let session: Stripe.Checkout.Session
   try {
     session = await stripe.checkout.sessions.create({
@@ -346,8 +353,9 @@ export async function POST(request: Request) {
         },
         quantity: 1,
       }],
-      success_url: `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${encodeURIComponent(offerKey)}`,
-      cancel_url: `${baseUrl}/checkout/${page.slug}?offer=${encodeURIComponent(offerKey)}`,
+      success_url: returns.successUrl,
+      cancel_url: returns.cancelUrl,
+      ...(returns.mobile ? { origin_context: 'mobile_app' } : {}),
       metadata: sessionMetadata,
       payment_intent_data: {
         metadata: resourceMetadata,

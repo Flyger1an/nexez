@@ -180,7 +180,7 @@ describe('POST /api/reservable-resources/checkout', () => {
 
   it('uses the same hold for approval and an immediate card Checkout session', async () => {
     const key = 'resource-checkout-key-0002'
-    const input = { slug: 'private-dinner', offer: 'services-0', offerConfiguration: { guest_count: 12 } }
+    const input = { slug: 'private-dinner', offer: 'services-0', offerConfiguration: { guest_count: 12 }, buyerAgent: 'Nexxi' }
     const preview = await POST(request({ ...input, dryRun: true }, key))
     const { approvalToken } = await preview.json()
     const response = await POST(request({ ...input, approvalToken }, key))
@@ -200,6 +200,9 @@ describe('POST /api/reservable-resources/checkout', () => {
       nexez_source: 'reservable_resource_checkout',
     })
     expect(params.payment_intent_data.application_fee_amount).toBe(500)
+    expect(params.success_url).toBe('https://nexez.test/nexxi/checkout/return?status=success&session_id={CHECKOUT_SESSION_ID}')
+    expect(params.cancel_url).toBe('https://nexez.test/nexxi/checkout/return?status=cancelled')
+    expect(params.origin_context).toBe('mobile_app')
     expect(options).toMatchObject({ stripeAccount: 'acct_resource_1' })
     expect(options.idempotencyKey).toMatch(/^nexez_resources_[a-f0-9]{64}$/)
     expect(rpcCalls.some((call) => call.fn === 'attach_resource_hold_payment')).toBe(true)

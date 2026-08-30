@@ -407,12 +407,32 @@ export async function loadOrderTokenBySession(sessionId: string): Promise<Sessio
   if (!clean || !hasSupabaseAdminEnv()) return null
   const { data } = await createAdminClient()
     .from('checkout_orders')
-    .select('access_token_encrypted, status')
+    .select('access_token, access_token_encrypted, status')
     .eq('stripe_session_id', clean)
-    .maybeSingle<{ access_token_encrypted: string | null; status: string }>()
-  const token = recoverBearerToken({ encrypted: data?.access_token_encrypted })
+    .maybeSingle<{ access_token: string | null; access_token_encrypted: string | null; status: string }>()
+  const token = recoverBearerToken({ encrypted: data?.access_token_encrypted, plaintext: data?.access_token })
   if (!token) return null
   return { token, status: data!.status }
+}
+
+/** Resolve a checkout return for one authenticated Nexxi buyer. The Stripe session
+ * id is high entropy, but it is never treated as authorization: buyer_reference must
+ * still match the signed-in account before the bearer token is recovered. */
+export async function loadBuyerOrderTokenBySession(
+  sessionId: string,
+  buyerReference: string,
+): Promise<SessionLookup> {
+  const cleanSession = (sessionId || '').trim()
+  const cleanBuyer = (buyerReference || '').trim()
+  if (!cleanSession || cleanSession.length > 255 || !cleanBuyer || !hasSupabaseAdminEnv()) return null
+  const { data } = await createAdminClient()
+    .from('checkout_orders')
+    .select('access_token, access_token_encrypted, status')
+    .eq('stripe_session_id', cleanSession)
+    .eq('buyer_reference', cleanBuyer)
+    .maybeSingle<{ access_token: string | null; access_token_encrypted: string | null; status: string }>()
+  const token = recoverBearerToken({ encrypted: data?.access_token_encrypted, plaintext: data?.access_token })
+  return token ? { token, status: data!.status } : null
 }
 
 // Batch-resolve seller display names for a set of slugs (one query, not N).
@@ -445,11 +465,11 @@ export async function findOrdersByEmail(email: string): Promise<import('../buyer
   const [orders, negs] = await Promise.all([
     admin
       .from('checkout_orders')
-      .select('access_token_encrypted, slug, offer_name, amount_cents, currency, status, metadata, created_at')
+      .select('access_token_encrypted, slug, offer_name, amount_cents, currency, status, metadata, service_agreement_id, staged_settlement_agreement_id, resource_hold_id, created_at')
       .ilike('buyer_email', pattern)
       .order('created_at', { ascending: false })
       .limit(FIND_ORDERS_CAP)
-      .returns<{ access_token: string | null; access_token_encrypted: string | null; slug: string | null; offer_name: string | null; amount_cents: number; currency: string; status: string; metadata: Record<string, unknown> | null; created_at: string }[]>(),
+      .returns<{ access_token: string | null; access_token_encrypted: string | null; slug: string | null; offer_name: string | null; amount_cents: number; currency: string; status: string; metadata: Record<string, unknown> | null; service_agreement_id: string | null; staged_settlement_agreement_id: string | null; resource_hold_id: string | null; created_at: string }[]>(),
     admin
       .from('agent_negotiations')
       .select('status_token_encrypted, slug, offer_name, amount_cents, currency, status, metadata, created_at')
@@ -473,6 +493,7 @@ export async function findOrdersByEmail(email: string): Promise<import('../buyer
   const summaries: import('../buyer-portal').BuyerOrderSummary[] = [
     ...orderRows.map((r) => ({
       kind: 'checkout' as const,
+      commerceKind: checkoutCommerceKind(r),
       token: r.token as string,
       offerName: r.offer_name,
       amountCents: r.amount_cents,
@@ -496,4 +517,15 @@ export async function findOrdersByEmail(email: string): Promise<import('../buyer
   ]
 
   return summaries.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, FIND_ORDERS_CAP)
+}
+
+export function checkoutCommerceKind(row: {
+  service_agreement_id?: string | null
+  staged_settlement_agreement_id?: string | null
+  resource_hold_id?: string | null
+}): NonNullable<import('../buyer-portal').BuyerOrderSummary['commerceKind']> {
+  if (row.service_agreement_id) return 'recurring'
+  if (row.staged_settlement_agreement_id) return 'staged'
+  if (row.resource_hold_id) return 'reservation'
+  return 'one_time'
 }

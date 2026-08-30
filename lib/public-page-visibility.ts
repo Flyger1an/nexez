@@ -5,6 +5,7 @@ const INTERNAL_SEED_SLUGS = [
   /^(qa|test|seed|gauntlet|red[-_]?team|adversarial)([-_]|$)/i,
   /^(simulation|simulated|synthetic)([-_]|$)/i,
   /^nexez-agent-negotiation-lab$/i,
+  /^nexez-party-rentals-certification$/i,
   /^shopify-review-catalog$/i,
 ]
 

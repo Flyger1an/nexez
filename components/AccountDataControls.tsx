@@ -8,6 +8,8 @@ import { createClient } from '../utils/supabase/client'
 export function AccountDataControls({ email }: { email: string }) {
   const router = useRouter()
   const [confirmText, setConfirmText] = useState('')
+  const [password, setPassword] = useState('')
+  const [showIdentityCheck, setShowIdentityCheck] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState<'success' | 'error'>('success')
@@ -15,10 +17,18 @@ export function AccountDataControls({ email }: { email: string }) {
   const canDelete = confirmText.trim().toLowerCase() === email.trim().toLowerCase() && !!email
 
   async function deleteBuyerProfile() {
-    if (!canDelete) return
+    if (!canDelete || !password) return
     setDeleting(true)
     setMessage('')
     try {
+      const supabase = createClient()
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      if (authError) {
+        setMessageTone('error')
+        setMessage('That password could not confirm your identity.')
+        setDeleting(false)
+        return
+      }
       const res = await fetch('/api/account/delete', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -33,6 +43,8 @@ export function AccountDataControls({ email }: { email: string }) {
       }
       if (data.sellerRetained) {
         setConfirmText('')
+        setPassword('')
+        setShowIdentityCheck(false)
         setMessageTone('success')
         setMessage('Buyer profile removed. Your Nexez seller workspace and sign-in were kept.')
         setDeleting(false)
@@ -41,7 +53,6 @@ export function AccountDataControls({ email }: { email: string }) {
 
       // Pure buyer accounts have no retained seller workspace, so the auth user
       // is gone and the local session should be cleared before leaving.
-      const supabase = createClient()
       await supabase.auth.signOut().catch(() => {})
       router.replace('/')
       router.refresh()
@@ -100,7 +111,12 @@ export function AccountDataControls({ email }: { email: string }) {
           <input
             id="buyer-data-confirmation"
             value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
+            onChange={(e) => {
+              setConfirmText(e.target.value)
+              setShowIdentityCheck(false)
+              setPassword('')
+              setMessage('')
+            }}
             placeholder={email}
             autoComplete="off"
             className="min-h-11 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted-2)] focus-visible:ring-2 focus-visible:ring-[var(--control-focus)]"
@@ -108,13 +124,48 @@ export function AccountDataControls({ email }: { email: string }) {
           <button
             type="button"
             disabled={!canDelete || deleting}
-            onClick={deleteBuyerProfile}
+            onClick={() => setShowIdentityCheck(true)}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--danger)]/40 bg-[var(--danger)]/10 px-4 text-sm font-medium text-red-200 outline-none transition hover:bg-[var(--danger)]/15 focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {deleting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Trash2 className="size-4" aria-hidden="true" />}
-            {deleting ? 'Removing buyer data…' : 'Remove buyer data'}
+            <Trash2 className="size-4" aria-hidden="true" />
+            Continue to identity check
           </button>
         </div>
+        {showIdentityCheck ? (
+          <div className="mt-3 rounded-xl border border-[var(--danger)]/25 bg-[var(--surface)] p-3">
+            <p className="text-xs leading-5 text-[var(--fg-muted)]">
+              Sign in again before buyer data can be removed. If this account uses Google, passkey, or text sign-in, use the login page and return here.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <label htmlFor="buyer-data-password" className="sr-only">Account password for deletion confirmation</label>
+              <input
+                id="buyer-data-password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                placeholder="Account password"
+                disabled={deleting}
+                className="min-h-11 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted-2)] focus-visible:ring-2 focus-visible:ring-[var(--control-focus)]"
+              />
+              <button
+                type="button"
+                disabled={!password || deleting}
+                onClick={deleteBuyerProfile}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--danger)]/40 bg-[var(--danger)]/10 px-4 text-sm font-medium text-red-200 outline-none transition hover:bg-[var(--danger)]/15 focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deleting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Trash2 className="size-4" aria-hidden="true" />}
+                {deleting ? 'Removing buyer data…' : 'Confirm password and remove'}
+              </button>
+            </div>
+            <a
+              href="/login?next=%2Fdashboard%2Fsettings"
+              className="mt-3 inline-flex text-xs font-medium text-[var(--link)] underline underline-offset-4"
+            >
+              Confirm with another sign-in method
+            </a>
+          </div>
+        ) : null}
         {message ? (
           <p role={messageTone === 'error' ? 'alert' : 'status'} className={`mt-3 text-xs ${messageTone === 'error' ? 'text-red-300' : 'text-[var(--ready)]'}`}>
             {message}

@@ -30,13 +30,36 @@ async function readEvents(res: Response): Promise<any[]> {
     .map((b) => JSON.parse(b.slice(5).trim()))
 }
 
+const model = { configured: true, provider: 'x', name: 'test-model' }
+const pageResult = {
+  type: 'page_result' as const,
+  id: 'p',
+  title: 'Consultation',
+  subtitle: 'Demo',
+  description: null,
+  price: '$100',
+  slug: 'demo',
+  url: 'https://nexez.test/demo',
+  agentJsonUrl: 'https://nexez.test/demo/agent.json',
+  offerKey: 'services-0',
+  offerName: 'Consultation',
+  checkoutUrl: 'https://nexez.test/checkout/demo?offer=services-0',
+  score: 10,
+  commerce: {
+    state: 'actionable' as const,
+    rail: 'one_time' as const,
+    reasonCode: 'supported' as const,
+    message: 'Nexxi can prepare this checkout handoff for your approval.',
+  },
+}
+
 beforeEach(() => {
   rateRef.response = null
   authRef.result = { ok: true, user: { id: 'u1', email: 'b@x.com' }, db: {} }
   turnRef.impl = async (input: any) => {
     input.onToken?.('Found ')
     input.onToken?.('one.')
-    return { threadId: 't1', agentId: 'a1', message: 'Found one.', cards: [{ type: 'page_result', id: 'p' }], suggestions: ['s'], toolsUsed: ['search_pages'], memory: {}, model: { provider: 'x' } }
+    return { threadId: 't1', agentId: 'a1', message: 'Found one.', cards: [pageResult], suggestions: ['s'], toolsUsed: ['search_pages'], memory: {}, model }
   }
 })
 
@@ -61,7 +84,7 @@ describe('POST /api/agents/nexie/stream', () => {
   })
 
   it('replays the message in chunks when the turn streams nothing (deterministic/approval)', async () => {
-    turnRef.impl = async () => ({ threadId: 't2', agentId: 'a1', message: 'Two words', cards: [], suggestions: [], toolsUsed: [], memory: {}, model: {} })
+    turnRef.impl = async () => ({ threadId: 't2', agentId: 'a1', message: 'Two words', cards: [], suggestions: [], toolsUsed: [], memory: {}, model })
     const events = await readEvents(await POST(req()))
     const streamed = events.filter((e) => e.type === 'token').map((e) => e.value).join('')
     expect(streamed).toBe('Two words') // chunk-replayed

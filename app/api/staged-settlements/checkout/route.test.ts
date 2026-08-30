@@ -141,10 +141,10 @@ describe('POST /api/staged-settlements/checkout', () => {
   })
 
   it('charges only the approved first obligation and fingerprints its provenance', async () => {
-    const preview = await POST(request({ slug: 'staged-design', offer: 'services-0', dryRun: true }))
+    const preview = await POST(request({ slug: 'staged-design', offer: 'services-0', buyerAgent: 'Nexxi', dryRun: true }))
     const { approvalToken } = await preview.json()
     const response = await POST(request(
-      { slug: 'staged-design', offer: 'services-0', approvalToken },
+      { slug: 'staged-design', offer: 'services-0', buyerAgent: 'Nexxi', approvalToken },
       'staged-checkout-test-key-0001',
     ))
     expect(response.status).toBe(200)
@@ -160,6 +160,9 @@ describe('POST /api/staged-settlements/checkout', () => {
     expect(params.mode).toBe('payment')
     expect(params.line_items[0].price_data.unit_amount).toBe(3000)
     expect(params.payment_intent_data.application_fee_amount).toBe(150)
+    expect(params.success_url).toBe('https://nexez.test/nexxi/checkout/return?status=success&session_id={CHECKOUT_SESSION_ID}')
+    expect(params.cancel_url).toBe('https://nexez.test/nexxi/checkout/return?status=cancelled')
+    expect(params.origin_context).toBe('mobile_app')
     expect(params.metadata.nexez_kind).toBe('staged_settlement')
     expect(params.payment_intent_data.metadata).toMatchObject({
       nexez_kind: 'staged_settlement',
