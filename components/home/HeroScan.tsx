@@ -225,9 +225,16 @@ export function HeroScan() {
           value={url}
           onChange={(event) => setUrl(collapseScheme(event.target.value))}
           onFocus={(event) => {
-            // Caret lands after the scheme rather than in front of it.
-            const end = event.target.value.length
-            event.target.setSelectionRange(end, end)
+            const input = event.currentTarget
+            // Only reposition while the field is still just the scheme, so clicking
+            // to edit mid-domain later is never hijacked.
+            if (hostPart(input.value)) return
+            // The browser sets its own selection after the focus handler, so this
+            // has to run on the next frame to survive.
+            requestAnimationFrame(() => {
+              const end = input.value.length
+              input.setSelectionRange(end, end)
+            })
           }}
           placeholder="yourwebsite.com"
           disabled={loading}
