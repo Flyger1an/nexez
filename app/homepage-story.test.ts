@@ -61,6 +61,16 @@ describe('homepage commerce story', () => {
     expect(heroScanSource).toContain('appUrl(`/create?url=${encodeURIComponent(result.url)}`)')
   })
 
+  it('prefills the scheme so visitors only type their domain', () => {
+    expect(heroScanSource).toContain("const URL_PREFIX = 'https://'")
+    expect(heroScanSource).toContain('useState(URL_PREFIX)')
+    // The bare prefix is not scannable, so it must not enable submit.
+    expect(heroScanSource).toContain('disabled={loading || !hostPart(url)}')
+    expect(heroScanSource).toContain('!loading && hostPart(url)')
+    // Pasting a full url onto the prefix must not yield https://https://...
+    expect(heroScanSource).toContain('collapseScheme')
+  })
+
   it('offers a one-click example for visitors who will not type a url', () => {
     expect(heroScanSource).toContain('Or try an example')
     // IANA-reserved, so the homepage never publishes a real business's low score.
