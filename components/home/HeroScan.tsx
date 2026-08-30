@@ -230,11 +230,12 @@ export function HeroScan() {
             // to edit mid-domain later is never hijacked.
             if (hostPart(input.value)) return
             // The browser sets its own selection after the focus handler, so this
-            // has to run on the next frame to survive.
-            requestAnimationFrame(() => {
+            // has to run in a later task to survive. setTimeout rather than
+            // requestAnimationFrame, which does not fire while a tab is hidden.
+            setTimeout(() => {
               const end = input.value.length
               input.setSelectionRange(end, end)
-            })
+            }, 0)
           }}
           placeholder="yourwebsite.com"
           disabled={loading}
