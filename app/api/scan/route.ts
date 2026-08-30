@@ -20,12 +20,18 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, 'scan', 6, 60_000)
   if (limited) return limited
 
-  let body: { url?: string }
+  let body: { url?: string; source?: string }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
+
+  // Caller label, allowlisted so arbitrary client input never reaches telemetry.
+  const SCAN_SOURCES = ['hero', 'scan-page'] as const
+  const scanSource = (SCAN_SOURCES as readonly string[]).includes(body.source || '')
+    ? (body.source as string)
+    : 'unknown'
 
   const normalized = normalizeScanUrl(body.url || '')
   if (normalized) {
@@ -44,7 +50,12 @@ export async function POST(request: Request) {
     }
 
     const report = evaluateCrawlability(result.signals)
-    captureEvent('scan.run', { host: new URL(result.origin).host, score: report.score, ms: result.elapsedMs })
+    captureEvent('scan.run', {
+      host: new URL(result.origin).host,
+      score: report.score,
+      ms: result.elapsedMs,
+      source: scanSource,
+    })
 
     // Anonymized aggregate persistence, scheduled after the response is sent so
     // scan latency is untouched. Failures log via captureError, never surface.
