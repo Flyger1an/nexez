@@ -52,8 +52,8 @@ describe('resolveRequestAuth', () => {
     expect(result).toEqual({ supabase: refs.tokenClient, user: refs.tokenUser })
     expect(refs.tokenGetUser).toHaveBeenCalledWith('mobile-access-token')
     expect(createTokenClient).toHaveBeenCalledWith(
-      'https://test.supabase.co',
-      'sb_publishable_test',
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       {
         global: { headers: { Authorization: 'Bearer mobile-access-token' } },
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

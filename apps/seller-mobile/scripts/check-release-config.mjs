@@ -47,6 +47,15 @@ check(eas.build?.preview?.android?.buildType === 'apk', 'Android preview must pr
 check(eas.build?.production?.environment === 'production', 'Production profile environment is missing')
 check(eas.build?.production?.autoIncrement === true, 'Production builds must auto-increment')
 
+const localTsconfigBase = JSON.parse(readFileSync(resolve(root, 'tsconfig.expo-base.json'), 'utf8'))
+const installedExpoTsconfigBase = JSON.parse(
+  readFileSync(resolve(root, 'node_modules/expo/tsconfig.base.json'), 'utf8'),
+)
+check(
+  JSON.stringify(localTsconfigBase) === JSON.stringify(installedExpoTsconfigBase),
+  'The committed Expo tsconfig base must match the pinned Expo package',
+)
+
 png('assets/images/icon.png', 1024)
 png('assets/images/splash-icon.png', 1024, true)
 png('assets/images/android-icon-foreground.png', 1024, true)
