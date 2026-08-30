@@ -49,20 +49,10 @@ const IDLE_ROWS: Array<[string, string]> = [
 // publishes an unconsenting real business's low score as marketing.
 const EXAMPLE_URL = 'https://example.com'
 
-// Visitors should only have to type their domain, so the field starts with the
-// scheme already in place.
-const URL_PREFIX = 'https://'
-
-// Everything after the scheme. Empty means there is nothing to scan yet, so the
-// prefix alone must not enable the button.
+// A scheme with nothing after it is not a scannable value, so it must not enable
+// the button even if someone types it by hand.
 function hostPart(value: string): string {
   return value.replace(/^https?:\/\//i, '').trim()
-}
-
-// Pasting a full URL on top of the prefilled scheme would otherwise produce
-// https://https://example.com.
-function collapseScheme(value: string): string {
-  return value.replace(/^https?:\/\/(?=https?:\/\/)/i, '')
 }
 
 function scoreTone(score: number): { color: string; label: string } {
@@ -146,7 +136,7 @@ function FixRow({ check }: { check: ScanCheck }) {
 }
 
 export function HeroScan() {
-  const [url, setUrl] = useState(URL_PREFIX)
+  const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [retryAfter, setRetryAfter] = useState(0)
@@ -223,21 +213,8 @@ export function HeroScan() {
           type="text"
           inputMode="url"
           value={url}
-          onChange={(event) => setUrl(collapseScheme(event.target.value))}
-          onFocus={(event) => {
-            const input = event.currentTarget
-            // Only reposition while the field is still just the scheme, so clicking
-            // to edit mid-domain later is never hijacked.
-            if (hostPart(input.value)) return
-            // The browser sets its own selection after the focus handler, so this
-            // has to run in a later task to survive. setTimeout rather than
-            // requestAnimationFrame, which does not fire while a tab is hidden.
-            setTimeout(() => {
-              const end = input.value.length
-              input.setSelectionRange(end, end)
-            }, 0)
-          }}
-          placeholder="yourwebsite.com"
+          onChange={(event) => setUrl(event.target.value)}
+          placeholder="https://yourwebsite.com"
           disabled={loading}
           className="min-h-[48px] flex-1 rounded-[14px] border border-[var(--bd-10)] bg-[var(--ov-03)] px-4 text-sm outline-none transition focus:border-[var(--signal)]"
         />
