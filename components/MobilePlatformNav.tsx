@@ -21,6 +21,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '../utils/supabase/client'
 import {
@@ -43,6 +44,8 @@ type MobileNavItem = {
   match?: string[]
   adminOnly?: boolean
 }
+
+type MobilePanel = 'navigation' | 'account'
 
 const mobileNavItems: MobileNavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: Grid2X2 },
@@ -76,8 +79,9 @@ export function MobilePlatformNav({
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [viewer, setViewer] = useState<PlatformViewer | null>(null)
   const [platformAdmin, setPlatformAdmin] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [activePanel, setActivePanel] = useState<MobilePanel | null>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const accountButtonRef = useRef<HTMLButtonElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -139,20 +143,21 @@ export function MobilePlatformNav({
   }, [])
 
   useEffect(() => {
-    setMenuOpen(false)
+    setActivePanel(null)
   }, [pathname])
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!activePanel) return
 
     const previousOverflow = document.body.style.overflow
+    const trigger = activePanel === 'account' ? accountButtonRef.current : menuButtonRef.current
     document.body.style.overflow = 'hidden'
     const frame = window.requestAnimationFrame(() => closeButtonRef.current?.focus())
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        setMenuOpen(false)
-        window.requestAnimationFrame(() => menuButtonRef.current?.focus())
+        setActivePanel(null)
+        window.requestAnimationFrame(() => trigger?.focus())
       }
     }
 
@@ -162,7 +167,7 @@ export function MobilePlatformNav({
       window.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = previousOverflow
     }
-  }, [menuOpen])
+  }, [activePanel])
 
   const visibleItems = useMemo(
     () =>
@@ -174,109 +179,78 @@ export function MobilePlatformNav({
     [authed, platformAdmin],
   )
 
-  function closeMenu(restoreFocus = false) {
-    setMenuOpen(false)
+  function closePanel(restoreFocus = false) {
+    const trigger = activePanel === 'account' ? accountButtonRef.current : menuButtonRef.current
+    setActivePanel(null)
     if (restoreFocus) {
-      window.requestAnimationFrame(() => menuButtonRef.current?.focus())
+      window.requestAnimationFrame(() => trigger?.focus())
     }
   }
 
+  function togglePanel(panel: MobilePanel) {
+    setActivePanel((current) => current === panel ? null : panel)
+  }
+
+  const signedIn = authed === true
+  const accountName = signedIn ? viewer?.displayName || 'Nexez account' : 'Nexez'
+  const accountDetail = authed === null
+    ? 'Loading account'
+    : signedIn
+      ? viewer?.email || 'Signed in'
+      : 'Sign in for your workspace'
+  const panelTitle = activePanel === 'account' ? 'Account' : 'Navigate'
+  const panelLabelId = activePanel ? `mobile-platform-${activePanel}-title` : undefined
+  const closeLabel = activePanel === 'account' ? 'Close account menu' : 'Close navigation menu'
+
   return (
     <>
-      {menuOpen ? (
-        <div className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true" aria-labelledby="mobile-platform-nav-title">
+      {activePanel ? (
+        <div className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true" aria-labelledby={panelLabelId}>
           <button
             type="button"
             className="absolute inset-0 bg-zinc-950/50 backdrop-blur-[2px]"
-            aria-label="Close navigation menu"
-            onClick={() => closeMenu(true)}
+            aria-label={closeLabel}
+            onClick={() => closePanel(true)}
           />
           <section
-            id="mobile-platform-nav-sheet"
-            className="absolute inset-x-3 mx-auto max-h-[min(72vh,620px)] max-w-md overflow-y-auto rounded-2xl border border-border bg-[var(--bg-2)] p-3 shadow-2xl"
-            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 82px)' }}
+            id={`mobile-platform-${activePanel}-sheet`}
+            className="absolute inset-x-3 mx-auto max-h-[min(72vh,520px)] max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-border bg-[var(--bg-2)] p-3 shadow-2xl shadow-black/35"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 78px)' }}
           >
             <div className="mb-2 flex items-center justify-between px-1 py-1">
-              <p id="mobile-platform-nav-title" className="text-sm font-medium text-white">Navigate</p>
+              <p id={panelLabelId} className="text-sm font-semibold text-foreground">{panelTitle}</p>
               <button
                 ref={closeButtonRef}
                 type="button"
-                onClick={() => closeMenu(true)}
-                className="inline-flex size-9 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-white"
-                aria-label="Close navigation menu"
+                onClick={() => closePanel(true)}
+                className="inline-flex size-9 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground"
+                aria-label={closeLabel}
               >
                 <X className="size-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-1.5">
-              {visibleItems.map((item) => (
-                <MobileSheetLink
-                  key={item.href}
-                  item={item}
-                  pathname={pathname}
-                  attention={item.href === '/dashboard/commerce' ? commerceAttention : null}
-                  onNavigate={() => closeMenu(false)}
-                />
-              ))}
-            </div>
-
-            <div className="mt-3 border-t border-border pt-3">
-              <div className="flex items-center gap-3 px-2 py-2">
-                <PlatformAccountAvatar viewer={viewer} loading={authed === null} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-foreground">
-                    {authed ? viewer?.displayName || 'Nexez account' : 'Nexez'}
-                  </span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {authed ? viewer?.email || 'Signed in' : authed === null ? 'Loading account' : 'Sign in for your workspace'}
-                  </span>
-                </span>
+            {activePanel === 'navigation' ? (
+              <div className="grid grid-cols-2 gap-1.5">
+                {visibleItems.map((item) => (
+                  <MobileSheetLink
+                    key={item.href}
+                    item={item}
+                    pathname={pathname}
+                    attention={item.href === '/dashboard/commerce' ? commerceAttention : null}
+                    onNavigate={() => closePanel(false)}
+                  />
+                ))}
               </div>
-
-              <div className="mt-1 grid grid-cols-2 gap-1.5">
-                {[...ACCOUNT_PRIMARY_LINKS, ...ACCOUNT_RESOURCE_LINKS]
-                  .filter((item) => !item.signedInOnly || authed === true)
-                  .map((item) => (
-                    <MobileUtilityLink key={item.href} item={item} onNavigate={() => closeMenu(false)} />
-                  ))}
-              </div>
-
-              <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-border bg-[var(--fill-1)] px-3 py-2">
-                <span className="text-sm text-foreground">Theme</span>
-                <ThemeToggle />
-              </div>
-
-              {authed ? (
-                <form action="/auth/signout" method="post" className="mt-2">
-                  <button
-                    type="submit"
-                    className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground"
-                  >
-                    <LogOut className="size-4" aria-hidden="true" />
-                    Sign out
-                  </button>
-                </form>
-              ) : authed === false ? (
-                <a
-                  href="/login"
-                  onClick={() => closeMenu(false)}
-                  className="mt-2 flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground"
-                >
-                  <LogIn className="size-4" aria-hidden="true" />
-                  Sign in
-                </a>
-              ) : null}
-
-              <a
-                href={authed ? '/dashboard/settings#agent-surfaces' : '/docs'}
-                onClick={() => closeMenu(false)}
-                className="mt-1 flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm text-[var(--signal)] transition-colors hover:bg-[var(--fill-2)]"
-              >
-                <span className="size-2 rounded-full bg-[var(--ready)]" aria-hidden="true" />
-                Agent layer active
-              </a>
-            </div>
+            ) : (
+              <MobileAccountPanel
+                authed={authed}
+                viewer={viewer}
+                accountName={accountName}
+                accountDetail={accountDetail}
+                onNavigate={() => closePanel(false)}
+              />
+            )}
           </section>
         </div>
       ) : null}
@@ -284,36 +258,138 @@ export function MobilePlatformNav({
       <nav
         className="fixed left-1/2 z-[70] -translate-x-1/2 md:hidden"
         style={{ bottom: 'calc(env(safe-area-inset-bottom) + 14px)' }}
-        aria-label="Mobile platform navigation"
+        aria-label="Mobile platform controls"
       >
-        <button
-          ref={menuButtonRef}
-          type="button"
-          onClick={() => setMenuOpen((current) => !current)}
-          className={`relative inline-flex h-12 items-center justify-center gap-2 rounded-full border-2 px-4 text-sm font-medium shadow-2xl backdrop-blur-xl transition-[background-color,color,transform] active:scale-[0.98] ${
-            menuOpen
-              ? 'bg-[var(--inverse-bg)] text-[var(--inverse-fg)]'
-              : 'bg-[var(--bg-2)] text-white hover:bg-white/[0.05]'
-          }`}
+        <div
+          className="flex h-14 items-center gap-1 rounded-full border-2 bg-[var(--bg-2)] p-1 shadow-2xl shadow-black/30 backdrop-blur-xl"
           style={{ borderColor: '#FF6A33' }}
-          aria-expanded={menuOpen}
-          aria-controls="mobile-platform-nav-sheet"
-          aria-label={menuOpen
-            ? 'Close navigation menu'
-            : commerceAttention
-              ? `Open navigation menu, ${commerceAttentionBadgeLabel(commerceAttention)}`
-              : 'Open navigation menu'}
         >
-          <span className="relative">
-            {menuOpen ? <X className="size-[18px]" /> : <Menu className="size-[18px]" />}
-            {commerceAttention && (commerceAttention.visibleCount > 0 || commerceAttention.status !== 'complete')
-              ? <Badge summary={commerceAttention} />
-              : null}
-          </span>
-          <span>Menu</span>
-        </button>
+          <button
+            ref={menuButtonRef}
+            type="button"
+            onClick={() => togglePanel('navigation')}
+            className={`relative inline-flex h-11 items-center justify-center gap-2 rounded-full px-3 text-sm font-medium transition-[background-color,color,transform] active:scale-[0.98] ${
+              activePanel === 'navigation'
+                ? 'bg-[var(--inverse-bg)] text-[var(--inverse-fg)]'
+                : 'text-foreground hover:bg-[var(--fill-2)]'
+            }`}
+            aria-expanded={activePanel === 'navigation'}
+            aria-controls="mobile-platform-navigation-sheet"
+            aria-label={activePanel === 'navigation'
+              ? 'Close navigation menu'
+              : commerceAttention
+                ? `Open navigation menu, ${commerceAttentionBadgeLabel(commerceAttention)}`
+                : 'Open navigation menu'}
+          >
+            <span className="relative">
+              {activePanel === 'navigation' ? <X className="size-[18px]" /> : <Menu className="size-[18px]" />}
+              {commerceAttention && (commerceAttention.visibleCount > 0 || commerceAttention.status !== 'complete')
+                ? <Badge summary={commerceAttention} />
+                : null}
+            </span>
+            <span>Menu</span>
+          </button>
+
+          <span className="h-6 w-px bg-border" aria-hidden="true" />
+
+          <button
+            ref={accountButtonRef}
+            type="button"
+            onClick={() => togglePanel('account')}
+            className={`flex size-11 items-center justify-center rounded-full transition-[background-color,transform] active:scale-[0.96] ${
+              activePanel === 'account' ? 'bg-[var(--fill-2)]' : 'hover:bg-[var(--fill-2)]'
+            }`}
+            aria-expanded={activePanel === 'account'}
+            aria-controls="mobile-platform-account-sheet"
+            aria-label={activePanel === 'account' ? 'Close account menu' : 'Open account menu'}
+          >
+            <PlatformAccountAvatar viewer={viewer} loading={authed === null} />
+          </button>
+        </div>
       </nav>
     </>
+  )
+}
+
+function MobileAccountPanel({
+  authed,
+  viewer,
+  accountName,
+  accountDetail,
+  onNavigate,
+}: {
+  authed: boolean | null
+  viewer: PlatformViewer | null
+  accountName: string
+  accountDetail: string
+  onNavigate: () => void
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-[var(--fill-1)] p-3">
+        <PlatformAccountAvatar viewer={viewer} loading={authed === null} size="large" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-foreground">{accountName}</span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">{accountDetail}</span>
+        </span>
+        {authed ? (
+          <Link
+            href="/dashboard/settings#workspace"
+            onClick={onNavigate}
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground"
+            aria-label="Open platform settings"
+          >
+            <Settings className="size-4" aria-hidden="true" />
+          </Link>
+        ) : null}
+      </div>
+
+      <nav
+        aria-label="Account shortcuts"
+        className="mt-2 grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-1"
+      >
+        {[...ACCOUNT_PRIMARY_LINKS, ...ACCOUNT_RESOURCE_LINKS]
+          .filter((item) => !item.signedInOnly || authed === true)
+          .map((item) => (
+            <MobileUtilityLink key={item.href} item={item} onNavigate={onNavigate} />
+          ))}
+      </nav>
+
+      <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-border bg-[var(--fill-1)] px-3 py-2">
+        <span className="text-sm font-medium text-foreground">Theme</span>
+        <ThemeToggle />
+      </div>
+
+      {authed ? (
+        <form action="/auth/signout" method="post" className="mt-1">
+          <button
+            type="submit"
+            className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+            Sign out
+          </button>
+        </form>
+      ) : authed === false ? (
+        <Link
+          href="/login"
+          onClick={onNavigate}
+          className="mt-1 flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground"
+        >
+          <LogIn className="size-4" aria-hidden="true" />
+          Sign in
+        </Link>
+      ) : null}
+
+      <Link
+        href={authed ? '/dashboard/settings#agent-surfaces' : '/docs'}
+        onClick={onNavigate}
+        className="mt-0.5 flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-[var(--signal)] transition-colors hover:bg-[var(--fill-2)]"
+      >
+        <span className="size-2 rounded-full bg-[var(--ready)]" aria-hidden="true" />
+        Agent layer active
+      </Link>
+    </div>
   )
 }
 
@@ -326,14 +402,14 @@ function MobileUtilityLink({
 }) {
   const Icon = item.icon
   return (
-    <a
+    <Link
       href={item.href}
       onClick={onNavigate}
-      className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground"
+      className="flex min-h-11 items-center gap-2 rounded-xl px-2 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-[var(--fill-2)] hover:text-foreground sm:gap-3 sm:px-3 sm:text-sm"
     >
       <Icon className="size-4 shrink-0" aria-hidden="true" />
       <span className="min-w-0 truncate">{item.label}</span>
-    </a>
+    </Link>
   )
 }
 
@@ -353,13 +429,13 @@ function MobileSheetLink({
   const attentionLabel = attention ? commerceAttentionBadgeLabel(attention) : null
 
   return (
-    <a
+    <Link
       href={item.href}
       onClick={onNavigate}
-      className={`flex min-h-14 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+      className={`flex min-h-12 items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
         active
           ? 'bg-[var(--inverse-bg)] text-[var(--inverse-fg)]'
-          : 'text-muted-foreground hover:bg-white/[0.05] hover:text-white'
+          : 'text-muted-foreground hover:bg-[var(--fill-2)] hover:text-foreground'
       }`}
       aria-current={active ? 'page' : undefined}
       title={attentionLabel ? `${item.label} (${attentionLabel})` : item.label}
@@ -372,7 +448,7 @@ function MobileSheetLink({
           : null}
       </span>
       <span className="min-w-0 truncate">{item.label}</span>
-    </a>
+    </Link>
   )
 }
 

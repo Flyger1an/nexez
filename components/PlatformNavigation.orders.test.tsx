@@ -68,14 +68,22 @@ describe('platform Orders navigation', () => {
     expect(commerce).toHaveAttribute('href', '/dashboard/commerce')
   })
 
-  it('moves low-frequency account utilities into the mobile menu', async () => {
+  it('keeps account utilities in a dedicated mobile panel', async () => {
     render(<MobilePlatformNav />)
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }))
 
-    expect(await screen.findByRole('link', { name: 'Home Page' })).toHaveAttribute('href', '/')
-    expect(screen.getByRole('link', { name: 'Billing & plan' })).toHaveAttribute('href', '/dashboard/billing')
-    expect(screen.getByRole('link', { name: 'Help & support' })).toHaveAttribute('href', '/support')
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+    const navigation = await screen.findByRole('dialog', { name: 'Navigate' })
+    expect(within(navigation).getByRole('link', { name: 'Orders' })).toBeInTheDocument()
+    expect(within(navigation).queryByRole('link', { name: 'Home Page' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open account menu' }))
+
+    const account = await screen.findByRole('dialog', { name: 'Account' })
+    expect(within(account).getByRole('link', { name: 'Home Page' })).toHaveAttribute('href', '/')
+    expect(within(account).getByRole('link', { name: 'Billing & plan' })).toHaveAttribute('href', '/dashboard/billing')
+    expect(within(account).getByRole('link', { name: 'Help & support' })).toHaveAttribute('href', '/support')
+    expect(within(account).getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+    expect(within(account).queryByRole('link', { name: 'Orders' })).not.toBeInTheDocument()
   })
 
   it('moves Billing and Support out of the desktop work rail and into the account menu', async () => {
