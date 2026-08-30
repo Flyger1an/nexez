@@ -371,7 +371,7 @@ export default function NexezHome() {
               A person fills in the gaps without noticing. An agent cannot. It needs the exact price,
               the exact options, the requirement, and a safe next step. Here is the same business, twice.
             </p>
-            <div className="nx-home-problem-xray mt-6 w-full md:mt-9">
+            <div className="nx-home-problem-xray hidden w-full md:mt-9 md:block">
               <AgentXray />
             </div>
           </div>
@@ -426,7 +426,7 @@ export default function NexezHome() {
                 ))}
               </div>
             </div>
-            <div className="nx-home-problem-mobile nx-tile divide-y divide-border px-4 sm:hidden">
+            <div className="nx-home-problem-mobile nx-tile hidden divide-y divide-border px-4">
               {problemCards.map(({ title, copy }) => (
                 <div key={title} className="py-3.5">
                   <h3 className="text-sm font-medium tracking-tight">{title}</h3>
