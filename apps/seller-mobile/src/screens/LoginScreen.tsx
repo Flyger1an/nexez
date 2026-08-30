@@ -87,7 +87,9 @@ export function LoginScreen() {
             onPress={submit}
           />
         </Card>
-        <Text style={styles.oauthNote}>Google OAuth is not enabled in the current web auth flow, so Phase 1 starts with email and password.</Text>
+        <Text style={styles.oauthNote}>
+          This mobile release uses email and password. Google, passkey, and verified-phone sign-in are available on Nexez web.
+        </Text>
       </Screen>
     </KeyboardAvoidingView>
   )

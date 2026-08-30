@@ -399,7 +399,7 @@ export function TextField({
   placeholder?: string
   multiline?: boolean
   secureTextEntry?: boolean
-  keyboardType?: 'default' | 'email-address' | 'url'
+  keyboardType?: 'default' | 'email-address' | 'url' | 'decimal-pad' | 'number-pad'
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'
   mono?: boolean
   editable?: boolean

@@ -1,0 +1,79 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+const root = resolve(import.meta.dirname, '..')
+const app = JSON.parse(readFileSync(resolve(root, 'app.json'), 'utf8')).expo
+const eas = JSON.parse(readFileSync(resolve(root, 'eas.json'), 'utf8'))
+const failures = []
+const easProjectId = '0ebc7964-9099-4b42-b569-da181c30d155'
+
+function check(condition, message) {
+  if (!condition) failures.push(message)
+}
+
+function png(path, expectedSize, alphaRequired = false) {
+  const absolute = resolve(root, path)
+  check(existsSync(absolute), `${path} is missing`)
+  if (!existsSync(absolute)) return
+
+  const data = readFileSync(absolute)
+  const signature = data.subarray(0, 8).toString('hex')
+  check(signature === '89504e470d0a1a0a', `${path} is not a PNG`)
+  if (signature !== '89504e470d0a1a0a') return
+
+  const width = data.readUInt32BE(16)
+  const height = data.readUInt32BE(20)
+  const colorType = data[25]
+  check(width === expectedSize && height === expectedSize, `${path} must be ${expectedSize}x${expectedSize}`)
+  if (alphaRequired) check(colorType === 4 || colorType === 6, `${path} must include an alpha channel`)
+}
+
+check(app.name === 'Nexez Seller Hub', 'Unexpected Expo app name')
+check(app.slug === 'nexez-seller-hub', 'Unexpected Expo slug')
+check(app.owner === 'nexez-ai', 'EAS owner must be nexez-ai')
+check(app.scheme === 'nexez-seller', 'Unexpected deep-link scheme')
+check(app.ios?.bundleIdentifier === 'app.nexez.sellerhub', 'Unexpected iOS bundle identifier')
+check(/^\d+$/.test(app.ios?.buildNumber ?? ''), 'iOS build number must be numeric')
+check(app.android?.package === 'app.nexez.sellerhub', 'Unexpected Android package')
+check(Number.isInteger(app.android?.versionCode) && app.android.versionCode > 0, 'Android version code must be a positive integer')
+check(app.extra?.eas?.projectId === easProjectId, 'Unexpected EAS project ID')
+check(!app.android?.adaptiveIcon?.backgroundImage, 'Adaptive icon must use the branded solid background color')
+
+check(eas.build?.development?.environment === 'development', 'Development profile environment is missing')
+check(eas.build?.development?.developmentClient === true, 'Development profile must build a dev client')
+check(eas.build?.['development-simulator']?.ios?.simulator === true, 'iOS simulator profile is missing')
+check(eas.build?.preview?.environment === 'preview', 'Preview profile environment is missing')
+check(eas.build?.preview?.android?.buildType === 'apk', 'Android preview must produce an APK')
+check(eas.build?.production?.environment === 'production', 'Production profile environment is missing')
+check(eas.build?.production?.autoIncrement === true, 'Production builds must auto-increment')
+
+png('assets/images/icon.png', 1024)
+png('assets/images/splash-icon.png', 1024, true)
+png('assets/images/android-icon-foreground.png', 1024, true)
+png('assets/images/android-icon-monochrome.png', 1024, true)
+png('assets/images/favicon.png', 48)
+
+const localEnvPath = resolve(root, '.env.local')
+if (existsSync(localEnvPath)) {
+  const names = readFileSync(localEnvPath, 'utf8')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => line.split('=', 1)[0])
+  const allowed = new Set([
+    'EXPO_PUBLIC_SUPABASE_URL',
+    'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+    'EXPO_PUBLIC_NEXEZ_API_URL',
+    'EXPO_PUBLIC_AGENT_RUNTIME_URL',
+  ])
+  check(new Set(names).size === names.length, '.env.local contains a duplicate variable')
+  check(names.every((name) => allowed.has(name)), '.env.local contains a non-public or unexpected variable')
+  check([...allowed].every((name) => names.includes(name)), '.env.local is missing a required public variable')
+}
+
+if (failures.length) {
+  console.error(failures.map((failure) => `- ${failure}`).join('\n'))
+  process.exit(1)
+}
+
+console.log('Release configuration is valid.')

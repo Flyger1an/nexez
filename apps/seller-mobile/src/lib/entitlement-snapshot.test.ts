@@ -4,6 +4,7 @@ import type { OwnerPlanEntitlements, PlanId } from '@/src/types/nexez'
 import {
   isCurrentMobileEntitlementSnapshot,
   MOBILE_ENTITLEMENT_FEATURE_KEYS,
+  MOBILE_ENTITLEMENT_SCHEMA_VERSION,
   MOBILE_ENTITLEMENT_SNAPSHOT_MAX_AGE_MS,
   MOBILE_PLAN_RANK,
   mobileEntitlementSnapshotExpiresAt,
@@ -48,6 +49,7 @@ function entitlements(planId: PlanId = 'pro'): OwnerPlanEntitlements {
 
 describe('shared mobile entitlement snapshot validation', () => {
   it('keeps the mobile plan ranks and feature schema synchronized with the web catalog', () => {
+    expect(MOBILE_ENTITLEMENT_SCHEMA_VERSION).toBe(1)
     expect(MOBILE_PLAN_RANK).toEqual(Object.fromEntries(billingPlans.map((plan) => [plan.id, plan.rank])))
     expect([...MOBILE_ENTITLEMENT_FEATURE_KEYS].sort()).toEqual([...PLAN_FEATURES].sort())
   })

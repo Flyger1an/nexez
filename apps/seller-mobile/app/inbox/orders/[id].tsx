@@ -6,10 +6,8 @@ import { Alert, Text, TextInput, View } from 'react-native'
 import { AppButton, Badge, Card, ErrorState, LoadingState, Screen, StackHeader } from '@/src/components/ui'
 import { useInbox } from '@/src/hooks/useInbox'
 import { useToast } from '@/src/components/Toast'
-import { refundOrder, type DealActionResult } from '@/src/lib/api'
-import { resolveOrderRequest } from '@/src/lib/data'
+import { refundOrder, updateOrderRequestStatus, webPath, type DealActionResult } from '@/src/lib/api'
 import { formatCurrency, formatDateTime } from '@/src/lib/format'
-import { webPath } from '@/src/lib/api'
 import { colors, fonts, radii } from '@/src/theme/colors'
 
 export default function OrderDetailRoute() {
@@ -41,7 +39,11 @@ export default function OrderDetailRoute() {
     try {
       const r: DealActionResult = await refundOrder({ orderId: item!.id })
       if (r?.error) { setMsg(r.error); return }
-      if (refundReq) await resolveOrderRequest(refundReq.id, 'resolved').catch(() => {})
+      if (refundReq) {
+        await updateOrderRequestStatus({ id: refundReq.id, status: 'resolved' }).catch(() => {
+          setMsg('The refund succeeded, but the request status could not be updated. Refresh and try resolving it again.')
+        })
+      }
       toast('Refund approved', 'success')
       await reload()
     } catch (e) {
@@ -56,7 +58,7 @@ export default function OrderDetailRoute() {
     setBusy(true)
     setMsg('')
     try {
-      await resolveOrderRequest(refundReq.id, 'declined')
+      await updateOrderRequestStatus({ id: refundReq.id, status: 'declined' })
       toast('Refund request denied')
       await reload()
     } catch (e) {

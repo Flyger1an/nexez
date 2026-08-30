@@ -1,5 +1,6 @@
 import { Platform } from 'react-native'
 import { supabase } from './supabase'
+import { resolveExpoProjectId } from './expo-project'
 
 export async function registerForPushNotifications(userId: string, email: string | null) {
   if (Platform.OS === 'web') {
@@ -8,6 +9,7 @@ export async function registerForPushNotifications(userId: string, email: string
 
   const Device = await import('expo-device')
   const Notifications = await import('expo-notifications')
+  const Constants = (await import('expo-constants')).default
 
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -37,7 +39,17 @@ export async function registerForPushNotifications(userId: string, email: string
     return { ok: false, message: 'Notifications permission was not granted.' }
   }
 
-  const token = (await Notifications.getExpoPushTokenAsync()).data
+  const projectId = resolveExpoProjectId(Constants)
+  if (!projectId) {
+    return { ok: false, message: 'Push registration is unavailable because the EAS project ID is missing.' }
+  }
+
+  let token: string
+  try {
+    token = (await Notifications.getExpoPushTokenAsync({ projectId })).data
+  } catch {
+    return { ok: false, message: 'Push registration could not reach Expo. Check your connection and retry.' }
+  }
   const { error } = await supabase.from('user_push_tokens').upsert(
     {
       user_id: userId,

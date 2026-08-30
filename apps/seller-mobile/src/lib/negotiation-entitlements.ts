@@ -1,4 +1,4 @@
-import type { OfferItem, OfferRules, OwnerPlanEntitlements } from '@/src/types/nexez'
+import type { OfferItem, OfferRules, OwnerPlanEntitlements } from '../types/nexez'
 import { mobileIntakeNegotiationAllowed } from './intake-entitlements'
 
 /** Keep this list in lock-step with the database negotiation projection. Booking,

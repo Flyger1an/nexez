@@ -5,12 +5,24 @@ import * as WebBrowser from 'expo-web-browser'
 import { Pressable, Text, TextInput, View } from 'react-native'
 import { AppButton, Screen, StackHeader } from '@/src/components/ui'
 import { webPath } from '@/src/lib/api'
+import { buildImporterHandoff } from '@/src/lib/web-handoffs'
 import { colors, fonts, radii } from '@/src/theme/colors'
 
 export default function ImporterRoute() {
   const router = useRouter()
   const [url, setUrl] = useState('')
-  const openWeb = () => void WebBrowser.openBrowserAsync(webPath('/dashboard/tools'))
+  const [message, setMessage] = useState('')
+  const openTools = () => void WebBrowser.openBrowserAsync(webPath('/dashboard/tools'))
+
+  function openImporter() {
+    const handoff = buildImporterHandoff(url)
+    if (!handoff.ok) {
+      setMessage(handoff.message)
+      return
+    }
+    setMessage('')
+    void WebBrowser.openBrowserAsync(webPath(handoff.path))
+  }
 
   return (
     <Screen header={<StackHeader title="Import a business" onBack={() => router.back()} />}>
@@ -20,15 +32,20 @@ export default function ImporterRoute() {
         <Link2 size={20} color={colors.textTertiary} />
         <TextInput
           value={url}
-          onChangeText={setUrl}
+          onChangeText={(value) => {
+            setUrl(value)
+            if (message) setMessage('')
+          }}
           placeholder="Paste your website URL"
           placeholderTextColor={colors.textTertiary}
           autoCapitalize="none"
           keyboardType="url"
+          onSubmitEditing={openImporter}
           style={st.urlInput}
         />
       </View>
-      <AppButton full label="Import from URL" onPress={openWeb} />
+      {message ? <Text accessibilityRole="alert" style={st.error}>{message}</Text> : null}
+      <AppButton full label="Import from URL" onPress={openImporter} />
 
       <View style={st.orRow}>
         <View style={st.line} />
@@ -37,11 +54,11 @@ export default function ImporterRoute() {
       </View>
 
       <View style={st.grid}>
-        <Pressable onPress={openWeb} style={st.tile}>
+        <Pressable onPress={openTools} style={st.tile}>
           <FileText size={22} color={colors.persimmonText} />
           <Text style={st.tileLabel}>Upload CSV</Text>
         </Pressable>
-        <Pressable onPress={openWeb} style={st.tile}>
+        <Pressable onPress={openTools} style={st.tile}>
           <Store size={22} color={colors.persimmonText} />
           <Text style={st.tileLabel}>Shopify / Square</Text>
         </Pressable>
@@ -55,6 +72,7 @@ const st = {
   intro: { color: colors.textSecondary, fontFamily: fonts.body, fontSize: 13, lineHeight: 20 },
   urlField: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radii.control, paddingHorizontal: 14, height: 50 },
   urlInput: { flex: 1, color: colors.text, fontFamily: fonts.body, fontSize: 14, padding: 0 },
+  error: { color: colors.danger, fontFamily: fonts.body, fontSize: 12, marginTop: -4 },
   orRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 },
   line: { flex: 1, height: 1, backgroundColor: colors.glassBorder },
   or: { color: colors.textFaint, fontFamily: fonts.body, fontSize: 11 },

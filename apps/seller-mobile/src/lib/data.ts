@@ -22,8 +22,7 @@ import type {
   OwnerPlanEntitlements,
   SellerOverview,
 } from '@/src/types/nexez'
-
-const OPEN_NEGOTIATION_STATUSES = ['negotiation', 'agreement_proposed', 'paused', 'held']
+import { MOBILE_ENTITLEMENT_SCHEMA_VERSION, MOBILE_OPEN_NEGOTIATION_STATUSES } from './platform-contract-snapshot'
 
 const FREE_FEATURES: OwnerPlanEntitlements['features'] = {
   customDomain: false,
@@ -42,7 +41,7 @@ const FREE_FEATURES: OwnerPlanEntitlements['features'] = {
 
 function freeEntitlements(ownerId: string): OwnerPlanEntitlements {
   return {
-    schemaVersion: 1,
+    schemaVersion: MOBILE_ENTITLEMENT_SCHEMA_VERSION,
     evaluatedAt: new Date().toISOString(),
     ownerId,
     featurePlanId: 'free',
@@ -275,12 +274,6 @@ export async function getBuyerRequests(userId: string, limit = 100): Promise<Buy
   return data ?? []
 }
 
-// Owner resolves a buyer order request (RLS: owners can update their own requests).
-export async function resolveOrderRequest(requestId: string, status: 'resolved' | 'declined') {
-  const { error } = await supabase.from('order_requests').update({ status }).eq('id', requestId)
-  if (error) throw error
-}
-
 export async function getBillingSubscription(userId: string): Promise<BillingSubscription | null> {
   const { data, error } = await supabase
     .from('billing_subscriptions')
@@ -341,7 +334,7 @@ export async function getOverviewMetrics(userId: string): Promise<SellerOverview
   const checkoutAttempts = analyticsReport?.counts.checkoutAttempts
     ?? events.filter((event) => event.event_type === 'checkout_attempt' && event.metadata?.dry_run !== true).length
   const openNegotiations = negotiationNeedsActionCount(negotiationReport.data)
-    ?? negotiations.filter((item) => OPEN_NEGOTIATION_STATUSES.includes(item.status)).length
+    ?? negotiations.filter((item) => MOBILE_OPEN_NEGOTIATION_STATUSES.some((status) => status === item.status)).length
   const averageReadiness = pages.length
     ? Math.round(pages.reduce((sum, page) => sum + getReadinessScore(page), 0) / pages.length)
     : 0

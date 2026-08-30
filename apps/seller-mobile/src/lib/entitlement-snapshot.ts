@@ -1,30 +1,18 @@
-import type { OwnerPlanEntitlements, PlanId } from '@/src/types/nexez'
+import type { OwnerPlanEntitlements, PlanId } from '../types/nexez'
+import {
+  MOBILE_ENTITLEMENT_FEATURE_KEYS,
+  MOBILE_ENTITLEMENT_SCHEMA_VERSION,
+  MOBILE_PLAN_RANK,
+} from './platform-contract-snapshot'
+
+export {
+  MOBILE_ENTITLEMENT_FEATURE_KEYS,
+  MOBILE_ENTITLEMENT_SCHEMA_VERSION,
+  MOBILE_PLAN_RANK,
+} from './platform-contract-snapshot'
 
 export const MOBILE_ENTITLEMENT_SNAPSHOT_MAX_AGE_MS = 5 * 60_000
 const MOBILE_ENTITLEMENT_SNAPSHOT_FUTURE_SKEW_MS = 5 * 60_000
-
-export const MOBILE_PLAN_RANK: Readonly<Record<PlanId, number>> = {
-  free: 0,
-  launch: 1,
-  pro: 2,
-  scale: 3,
-  enterprise: 4,
-}
-
-export const MOBILE_ENTITLEMENT_FEATURE_KEYS = [
-  'customDomain',
-  'aiFeatures',
-  'removeBadge',
-  'whiteLabel',
-  'integrations',
-  'outboundWebhooks',
-  'apiAccess',
-  'negotiation',
-  'analyticsHistory',
-  'teamCollaboration',
-  'prioritySupport',
-  'sso',
-] as const satisfies readonly (keyof OwnerPlanEntitlements['features'])[]
 
 function isPlanId(value: unknown): value is PlanId {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(MOBILE_PLAN_RANK, value)
@@ -55,7 +43,7 @@ export function isCurrentMobileEntitlementSnapshot(
     : Number.NaN
   const age = now.getTime() - evaluatedAt
 
-  return snapshot.schemaVersion === 1
+  return snapshot.schemaVersion === MOBILE_ENTITLEMENT_SCHEMA_VERSION
     && snapshot.ownerId === ownerId
     && isPlanId(snapshot.featurePlanId)
     && snapshot.featurePlanRank === MOBILE_PLAN_RANK[snapshot.featurePlanId]

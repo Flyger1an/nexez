@@ -1,6 +1,8 @@
 export type PlanId = 'free' | 'launch' | 'pro' | 'scale' | 'enterprise'
 export type SelfServePlanId = Exclude<PlanId, 'free' | 'enterprise'>
 
+export const OWNER_PLAN_ENTITLEMENT_SCHEMA_VERSION = 1 as const
+
 export function isSelfServePlanId(value: unknown): value is SelfServePlanId {
   return value === 'launch' || value === 'pro' || value === 'scale'
 }

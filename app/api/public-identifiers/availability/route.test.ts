@@ -1,14 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createSupabaseMock } from '../../../../test/supabase-mock'
 
 const refs = vi.hoisted(() => ({
   user: { id: 'owner-1' } as { id: string } | null,
   current: { slug: 'current-listing' } as Record<string, string> | null,
+  ownershipError: null as { message: string } | null,
+  limited: null as Response | null,
 }))
 
-vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
-vi.mock('../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => null) }))
-vi.mock('../../../../utils/supabase/server', () => ({ createClient: vi.fn() }))
+vi.mock('../../../../lib/rate-limit', () => ({
+  enforceRateLimit: vi.fn(async () => refs.limited),
+}))
+vi.mock('../../../../lib/server/request-auth', async () => {
+  const { createSupabaseMock } = await import('../../../../test/supabase-mock')
+  return {
+    resolveRequestAuth: vi.fn(async () => ({
+      user: refs.user,
+      supabase: createSupabaseMock(() => ({ data: refs.current, error: refs.ownershipError })),
+    })),
+  }
+})
 vi.mock('../../../../lib/server/public-identifier', () => ({
   getPublicIdentifierAvailability: vi.fn(async ({ identifier }: { identifier: string }) => ({
     available: identifier !== 'taken-name',
@@ -16,14 +26,10 @@ vi.mock('../../../../lib/server/public-identifier', () => ({
   })),
 }))
 
-import { createClient } from '../../../../utils/supabase/server'
+import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { resolveRequestAuth } from '../../../../lib/server/request-auth'
+import { getPublicIdentifierAvailability } from '../../../../lib/server/public-identifier'
 import { GET } from './route'
-
-function wire() {
-  vi.mocked(createClient).mockReturnValue(
-    createSupabaseMock(() => ({ data: refs.current, error: null }), { user: refs.user }) as never,
-  )
-}
 
 function request(params: Record<string, string>) {
   return new Request(`https://app.nexez.ai/api/public-identifiers/availability?${new URLSearchParams(params)}`)
@@ -34,13 +40,38 @@ describe('GET /api/public-identifiers/availability', () => {
     vi.clearAllMocks()
     refs.user = { id: 'owner-1' }
     refs.current = { slug: 'current-listing' }
-    wire()
+    refs.ownershipError = null
+    refs.limited = null
   })
 
-  it('requires an authenticated merchant', async () => {
+  it('passes the request to the shared bearer-or-cookie auth resolver', async () => {
+    const incoming = request({ namespace: 'page_slug', value: 'fresh-name' })
+    expect((await GET(incoming)).status).toBe(200)
+    expect(resolveRequestAuth).toHaveBeenCalledWith(incoming)
+  })
+
+  it('requires an authenticated merchant without querying availability', async () => {
     refs.user = null
-    wire()
     expect((await GET(request({ namespace: 'page_slug', value: 'fresh-name' }))).status).toBe(401)
+    expect(getPublicIdentifierAvailability).not.toHaveBeenCalled()
+  })
+
+  it('rate limits by verified user before parsing or querying', async () => {
+    refs.limited = Response.json({ error: 'Too many requests' }, { status: 429 })
+    expect((await GET(request({ namespace: 'unknown', value: 'fresh-name' }))).status).toBe(429)
+    expect(enforceRateLimit).toHaveBeenCalledWith(
+      expect.any(Request),
+      'public-identifier-availability',
+      60,
+      60_000,
+      { subject: 'owner-1' },
+    )
+    expect(getPublicIdentifierAvailability).not.toHaveBeenCalled()
+  })
+
+  it('rejects unknown namespaces without querying availability', async () => {
+    expect((await GET(request({ namespace: 'unknown', value: 'fresh-name' }))).status).toBe(400)
+    expect(getPublicIdentifierAvailability).not.toHaveBeenCalled()
   })
 
   it('returns readable local policy failures without exposing claim data', async () => {
@@ -64,12 +95,46 @@ describe('GET /api/public-identifiers/availability', () => {
 
   it('verifies the subject belongs to the signed-in merchant', async () => {
     refs.current = null
-    wire()
     const response = await GET(request({
       namespace: 'page_slug',
       value: 'current-listing',
       subjectId: 'other-page',
     }))
     expect(response.status).toBe(404)
+    expect(getPublicIdentifierAvailability).not.toHaveBeenCalled()
+  })
+
+  it('uses the owned current value to preserve a grandfathered public name', async () => {
+    refs.current = { slug: 'old' }
+    const response = await GET(request({
+      namespace: 'page_slug',
+      value: 'old',
+      subjectId: 'page-1',
+    }))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      value: 'old',
+      available: true,
+      grandfathered: true,
+    })
+  })
+
+  it('does not expose ownership storage errors or claim data', async () => {
+    refs.ownershipError = { message: 'secret database detail' }
+    const response = await GET(request({
+      namespace: 'page_slug',
+      value: 'current-listing',
+      subjectId: 'page-1',
+    }))
+    expect(response.status).toBe(500)
+    expect(JSON.stringify(await response.json())).not.toContain('secret database detail')
+    expect(getPublicIdentifierAvailability).not.toHaveBeenCalled()
+  })
+
+  it('returns a generic service response when the authoritative check fails', async () => {
+    vi.mocked(getPublicIdentifierAvailability).mockRejectedValueOnce(new Error('secret rpc detail'))
+    const response = await GET(request({ namespace: 'page_slug', value: 'fresh-name' }))
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ error: 'Public name availability is temporarily unavailable.' })
   })
 })

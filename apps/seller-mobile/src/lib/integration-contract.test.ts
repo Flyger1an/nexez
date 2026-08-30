@@ -5,6 +5,7 @@ import {
   mobileIntegrationDestination,
   mobilePremiumIntegrationsAllowed,
 } from './integration-contract'
+import { MOBILE_CONNECTOR_PROVIDERS } from './mobile-connector-catalog'
 
 const NOW = new Date('2026-08-22T18:01:00.000Z')
 
@@ -119,6 +120,8 @@ describe('mobile integration contract', () => {
       'shopify-admin',
       'square',
       'acuity',
+      'woocommerce',
+      'servicem8',
     ])
     expect(premium.every((row) => row.locked && row.actionLabel === 'Upgrade')).toBe(true)
     expect(premium.every((row) => mobileIntegrationDestination(row) === '/dashboard/billing?plan=pro')).toBe(true)
@@ -170,7 +173,7 @@ describe('mobile integration contract', () => {
     expect(shopify?.description).toMatch(/installed Shopify app is available on every plan/i)
   })
 
-  it('describes Google Calendar truthfully as sample-only and opens listings', () => {
+  it('describes managed connectors from their current connection capabilities', () => {
     const google = buildMobileIntegrationRows({
       ownerId: 'owner-1',
       entitlements: entitlements('pro', true),
@@ -181,12 +184,26 @@ describe('mobile integration contract', () => {
     expect(google).toMatchObject({
       premium: true,
       locked: false,
-      webPath: '/dashboard',
-      actionLabel: 'Open listings',
+      webPath: '/dashboard/integrations',
+      actionLabel: 'Connect',
     })
-    expect(google?.description).toMatch(/sample availability/i)
-    expect(google?.description).toMatch(/no Google Calendar connection or sync/i)
-    expect(google && mobileIntegrationDestination(google)).toBe('/dashboard')
+    expect(google?.description).toMatch(/OAuth/i)
+    expect(google?.description).toMatch(/free\/busy availability/i)
+    expect(google?.description).toMatch(/without reading event details/i)
+    expect(google && mobileIntegrationDestination(google)).toBe('/dashboard/integrations')
+
+    const rows = buildMobileIntegrationRows(catalogInput(entitlements('pro', true)))
+    expect(rows.find((row) => row.id === 'square')?.description).toMatch(/booking profiles/i)
+    expect(rows.find((row) => row.id === 'acuity')?.description).toMatch(/live appointment types/i)
+    expect(rows.find((row) => row.id === 'woocommerce')?.description).toMatch(/read-only catalog, inventory, and order access/i)
+    expect(rows.find((row) => row.id === 'servicem8')?.description).toMatch(/job templates/i)
+  })
+
+  it('presents every platform connector provider in the mobile catalog', () => {
+    const rows = buildMobileIntegrationRows(catalogInput(entitlements('pro', true)))
+    const providers = [...new Set(rows.flatMap((row) => row.provider ? [row.provider] : []))]
+
+    expect(providers.sort()).toEqual([...MOBILE_CONNECTOR_PROVIDERS].sort())
   })
 
   it('marks payouts ready only with account, charges, and payouts', () => {

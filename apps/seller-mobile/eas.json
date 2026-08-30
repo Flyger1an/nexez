@@ -7,29 +7,26 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development",
+      "environment": "development"
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development",
       "ios": {
         "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview",
+      "environment": "preview",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_NEXEZ_API_URL": "https://app.nexez.ai",
-        "EXPO_PUBLIC_AGENT_RUNTIME_URL": "https://nexez.app"
       }
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production",
-      "env": {
-        "EXPO_PUBLIC_NEXEZ_API_URL": "https://app.nexez.ai",
-        "EXPO_PUBLIC_AGENT_RUNTIME_URL": "https://nexez.app"
-      }
+      "environment": "production"
     }
   },
   "submit": {

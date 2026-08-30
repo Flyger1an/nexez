@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import {
@@ -8,7 +7,7 @@ import {
   type PublicIdentifierNamespace,
 } from '../../../../lib/public-identifier'
 import { getPublicIdentifierAvailability } from '../../../../lib/server/public-identifier'
-import { createClient } from '../../../../utils/supabase/server'
+import { resolveRequestAuth } from '../../../../lib/server/request-auth'
 
 const NAMESPACES = new Set<PublicIdentifierNamespace>(['page_slug', 'storefront_handle'])
 
@@ -22,10 +21,7 @@ function unavailableMessage(reason: string): string {
 }
 
 export async function GET(request: Request) {
-  const supabase = createClient(await cookies())
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { supabase, user } = await resolveRequestAuth(request)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const limited = await enforceRateLimit(request, 'public-identifier-availability', 60, 60_000, {
@@ -45,12 +41,13 @@ export async function GET(request: Request) {
   if (subjectId) {
     const table = namespace === 'page_slug' ? 'pages' : 'storefronts'
     const field = namespace === 'page_slug' ? 'slug' : 'handle'
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from(table)
       .select(field)
       .eq('id', subjectId)
       .eq('owner_id', user.id)
       .maybeSingle<Record<string, string | null>>()
+    if (error) return NextResponse.json({ error: 'Could not verify the public name owner.' }, { status: 500 })
     if (!data) return NextResponse.json({ error: 'Public name owner not found.' }, { status: 404 })
     current = data[field] ?? null
   }

@@ -173,6 +173,7 @@ designed not to move money; deliberate live lifecycle checks are governed by
 Seller-mobile verification:
 
 ```bash
+npm run check:mobile-platform-contracts
 cd apps/seller-mobile
 npm ci
 npm run lint
