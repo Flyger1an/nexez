@@ -49,6 +49,22 @@ const IDLE_ROWS: Array<[string, string]> = [
 // publishes an unconsenting real business's low score as marketing.
 const EXAMPLE_URL = 'https://example.com'
 
+// Visitors should only have to type their domain, so the field starts with the
+// scheme already in place.
+const URL_PREFIX = 'https://'
+
+// Everything after the scheme. Empty means there is nothing to scan yet, so the
+// prefix alone must not enable the button.
+function hostPart(value: string): string {
+  return value.replace(/^https?:\/\//i, '').trim()
+}
+
+// Pasting a full URL on top of the prefilled scheme would otherwise produce
+// https://https://example.com.
+function collapseScheme(value: string): string {
+  return value.replace(/^https?:\/\/(?=https?:\/\/)/i, '')
+}
+
 function scoreTone(score: number): { color: string; label: string } {
   if (score >= 85) return { color: 'var(--ready)', label: 'Agent-ready' }
   if (score >= 60) return { color: 'var(--amber)', label: 'Needs a few fixes' }
@@ -130,7 +146,7 @@ function FixRow({ check }: { check: ScanCheck }) {
 }
 
 export function HeroScan() {
-  const [url, setUrl] = useState('')
+  const [url, setUrl] = useState(URL_PREFIX)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [retryAfter, setRetryAfter] = useState(0)
@@ -174,7 +190,7 @@ export function HeroScan() {
 
   function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!loading) void runScan(url)
+    if (!loading && hostPart(url)) void runScan(url)
   }
 
   function runExample() {
@@ -207,14 +223,19 @@ export function HeroScan() {
           type="text"
           inputMode="url"
           value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          placeholder="https://yourwebsite.com"
+          onChange={(event) => setUrl(collapseScheme(event.target.value))}
+          onFocus={(event) => {
+            // Caret lands after the scheme rather than in front of it.
+            const end = event.target.value.length
+            event.target.setSelectionRange(end, end)
+          }}
+          placeholder="yourwebsite.com"
           disabled={loading}
           className="min-h-[48px] flex-1 rounded-[14px] border border-[var(--bd-10)] bg-[var(--ov-03)] px-4 text-sm outline-none transition focus:border-[var(--signal)]"
         />
         <button
           type="submit"
-          disabled={loading || !url.trim()}
+          disabled={loading || !hostPart(url)}
           className="btn-primary min-h-[48px] w-full shrink-0 px-5 disabled:opacity-60 sm:w-auto"
         >
           {loading ? <Loader2 className="size-4 animate-spin" /> : null}
