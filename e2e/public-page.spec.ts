@@ -30,6 +30,70 @@ test.describe('public surface', () => {
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
 
+  test('homepage keeps the mobile story compact, readable, and within the viewport', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(String(error)))
+
+    await page.setViewportSize({ width: 320, height: 568 })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: 'List your offers' }).first()).toBeVisible()
+
+    const compactLayout = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+      height: document.documentElement.scrollHeight,
+    }))
+    expect(compactLayout.overflow).toBeLessThanOrEqual(1)
+    expect(compactLayout.height).toBeLessThan(7500)
+
+    const menuButton = page.getByRole('button', { name: 'Open menu' })
+    await expect(menuButton).toBeVisible()
+    await menuButton.click()
+    await expect(page.getByRole('link', { name: 'Scan your site' })).toBeVisible()
+    await expect(page.getByText('Theme', { exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'List your offers' }).last()).toBeVisible()
+
+    await page.getByRole('radio', { name: 'Light' }).click()
+    await page.getByRole('button', { name: 'Close menu' }).click()
+
+    for (const width of [360, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 })
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+      expect(overflow).toBeLessThanOrEqual(1)
+    }
+
+    const sidewaysScrollers = await page.evaluate(() => Array.from(document.querySelectorAll('.nx-home-page *'))
+      .filter((element) => {
+        const htmlElement = element as HTMLElement
+        const overflowX = getComputedStyle(htmlElement).overflowX
+        return ['auto', 'scroll'].includes(overflowX) && htmlElement.scrollWidth > htmlElement.clientWidth + 1
+      })
+      .map((element) => element.className))
+    expect(sidewaysScrollers).toEqual([])
+
+    const controlDetails = page.locator('.nx-home-story-disclosure')
+    await expect(controlDetails).toHaveCount(4)
+    await expect(controlDetails.first()).toHaveAttribute('open', '')
+    await controlDetails.nth(1).locator('summary').click()
+    await expect(controlDetails.first()).not.toHaveAttribute('open', '')
+    await expect(controlDetails.nth(1)).toHaveAttribute('open', '')
+
+    const capabilities = page.locator('.nx-home-capabilities-disclosure')
+    await expect(capabilities).not.toHaveAttribute('open', '')
+    await capabilities.locator('summary').click()
+    await expect(capabilities).toHaveAttribute('open', '')
+    await expect(capabilities.getByText('Agent Simulator', { exact: true })).toBeVisible()
+
+    await page.goto('/#readiness', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText('What can buyers see?')).toBeVisible()
+    await page.goto('/#analytics', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText('“Deep tissue massage this Saturday for under $150.”')).toBeVisible()
+    await expect(page.getByText('Deep Tissue, 60 minutes')).toBeVisible()
+
+    expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
+  })
+
   test('pricing comparison is keyboard reachable with semantic headings and accessible signal contrast', async ({ page }) => {
     await page.goto('/pricing', { waitUntil: 'domcontentloaded' })
 

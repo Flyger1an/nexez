@@ -12,12 +12,12 @@ type SignalKey = 'offers' | 'actions' | 'schema' | 'mcp' | 'llms' | 'fresh'
 type Signal = { key: SignalKey; label: string; weight: number; unlock: string }
 
 const SIGNALS: Signal[] = [
-  { key: 'offers', label: 'Offers + pricing', weight: 24, unlock: 'compare price' },
-  { key: 'actions', label: 'Action endpoints', weight: 22, unlock: 'book & buy' },
-  { key: 'schema', label: 'schema.org / JSON-LD', weight: 18, unlock: 'identify your business' },
-  { key: 'mcp', label: 'MCP endpoint', weight: 14, unlock: 'transact live' },
-  { key: 'llms', label: 'llms.txt', weight: 12, unlock: 'crawl efficiently' },
-  { key: 'fresh', label: 'Freshness signals', weight: 10, unlock: 'trust your data' },
+  { key: 'offers', label: 'Offers and prices', weight: 24, unlock: 'compare prices' },
+  { key: 'actions', label: 'Ways to buy', weight: 22, unlock: 'book and buy' },
+  { key: 'schema', label: 'Business details', weight: 18, unlock: 'understand your business' },
+  { key: 'mcp', label: 'Live connection', weight: 14, unlock: 'check what is available' },
+  { key: 'llms', label: 'AI guide', weight: 12, unlock: 'read your offers' },
+  { key: 'fresh', label: 'Current information', weight: 10, unlock: 'trust your details' },
 ]
 
 const R = 76
@@ -83,17 +83,64 @@ export function ReadinessLab() {
   const dashOffset = C * (1 - score / 100)
   const verdict =
     score >= 80
-      ? { text: 'Fully agent-ready', color: 'var(--ready)' }
+      ? { text: 'Ready for buyers', color: 'var(--ready)' }
       : score >= 50
-        ? { text: 'Partially readable', color: 'var(--amber)' }
-        : { text: 'Mostly invisible to agents', color: '#E5635A' }
+        ? { text: 'Needs a few details', color: 'var(--amber)' }
+        : { text: 'Hard for AI to use', color: '#E5635A' }
 
   return (
-    <div ref={rootRef} data-home-readiness-lab className="grid items-stretch gap-5 lg:grid-cols-[1fr_0.85fr]">
+    <div ref={rootRef} data-home-readiness-lab className="grid min-w-0 items-stretch gap-5 lg:grid-cols-[1fr_0.85fr]">
+      <div className="card min-w-0 !p-5 md:hidden">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold">What can buyers see?</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Turn each item on to see how it helps.</p>
+          </div>
+          <div className="shrink-0 rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/10 px-3 py-2 text-center">
+            <span className="block font-display text-2xl font-bold leading-none tabular-nums">{score}</span>
+            <span className="mt-1 block font-mono text-[9px] text-muted-foreground">out of 100</span>
+          </div>
+        </div>
+        <div className="nx-home-readiness-grid mt-5 grid grid-cols-2 gap-2">
+          {SIGNALS.map((f) => {
+            const isOn = !!on[f.key]
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => handleToggle(f.key)}
+                aria-pressed={isOn}
+                className="flex min-h-[60px] min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-left"
+                style={{
+                  background: isOn ? 'color-mix(in srgb, var(--signal) 12%, transparent)' : 'var(--ov-03)',
+                  border: `1px solid ${isOn ? 'color-mix(in srgb, var(--signal) 45%, transparent)' : 'var(--border)'}`,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                  style={{
+                    background: isOn ? 'var(--signal)' : 'var(--ov-10)',
+                    color: isOn ? '#fff' : 'var(--fg-muted)',
+                  }}
+                >
+                  {isOn ? '✓' : '+'}
+                </span>
+                <span className="text-xs font-medium leading-4">{f.label}</span>
+              </button>
+            )
+          })}
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-4">
+          <span className="text-sm font-semibold" style={{ color: verdict.color }}>{verdict.text}</span>
+          <span className="text-right text-xs text-muted-foreground">Tap any item to try it</span>
+        </div>
+      </div>
+
       {/* toggles */}
-      <div className="card !p-6">
+      <div className="card hidden !p-6 md:block">
         <div className="mb-4 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-          structured signals
+          What you share
         </div>
         <div className="flex flex-col gap-2.5">
           {SIGNALS.map((f) => {
@@ -123,7 +170,7 @@ export function ReadinessLab() {
                   <span className="block text-[15px] font-semibold" style={{ color: isOn ? 'var(--fg)' : 'var(--fg-muted)' }}>
                     {f.label}
                   </span>
-                  <span className="mt-0.5 block font-mono text-[11.5px] text-muted-foreground">unlocks: {f.unlock}</span>
+                  <span className="mt-0.5 block text-[11.5px] text-muted-foreground">Helps AI {f.unlock}</span>
                 </span>
                 <span className="font-mono text-[12px]" style={{ color: isOn ? 'var(--signal)' : 'var(--fg-muted-2)' }}>
                   +{f.weight}
@@ -136,7 +183,7 @@ export function ReadinessLab() {
 
       {/* gauge + verdict */}
       <div
-        className="flex flex-col rounded-[18px] p-6"
+        className="hidden flex-col rounded-[18px] p-6 md:flex"
         style={{
           background: 'color-mix(in srgb, var(--signal) 5%, transparent)',
           border: '1px solid color-mix(in srgb, var(--signal) 22%, transparent)',
@@ -168,7 +215,7 @@ export function ReadinessLab() {
             <span className="font-display text-[52px] font-extrabold leading-none tracking-[-0.03em] tabular-nums text-white">
               {score}
             </span>
-            <span className="mt-1 font-mono text-[11px] text-muted-foreground">readiness / 100</span>
+            <span className="mt-1 font-mono text-[11px] text-muted-foreground">ready / 100</span>
           </div>
         </div>
         <div className="mb-4 text-center font-display text-[20px] font-bold tracking-[-0.01em]" style={{ color: verdict.color }}>
@@ -176,7 +223,7 @@ export function ReadinessLab() {
         </div>
         <div className="border-t border-border pt-4">
           <div className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-            agent capabilities
+            What AI can do
           </div>
           <div className="flex flex-col gap-2">
             {SIGNALS.map((f) => {
@@ -190,7 +237,7 @@ export function ReadinessLab() {
                   <span className="font-mono text-[13px]" style={{ color: isOn ? 'var(--ready)' : 'var(--fg-muted-2)' }}>
                     {isOn ? '✓' : '✗'}
                   </span>
-                  {isOn ? `Agents can ${f.unlock}` : `Cannot ${f.unlock}`}
+                  {isOn ? `Can ${f.unlock}` : `Cannot ${f.unlock} yet`}
                 </div>
               )
             })}

@@ -721,6 +721,83 @@ a:focus-visible,
     var(--bg);
 }
 
+.nx-home-simulator-compact { display: none; }
+.nx-home-page section[id] { scroll-margin-top: 100px; }
+
+@media (max-width: 767px) {
+  .nx-home-page { overflow-x: clip; }
+  .nx-home-hero-inner { padding-top: 2.5rem; padding-bottom: 1.75rem; }
+  .nx-home-hero-grid { gap: 2rem; }
+  .nx-home-hero-title { font-size: clamp(2rem, 10.2vw, 2.4rem); }
+  .nx-home-hero-lead { max-width: 32rem; margin-top: 1rem; font-size: .95rem; line-height: 1.6; }
+  .nx-home-hero-actions { margin-top: 1.35rem; }
+  .nx-home-hero-actions .btn-primary { width: 100%; }
+  .nx-home-hero-secondary,
+  .nx-home-final-secondary { height: auto !important; min-height: 36px; border-color: transparent !important; background: transparent !important; box-shadow: none !important; padding: .35rem .5rem !important; color: var(--fg-muted) !important; }
+  .nx-home-hero-secondary:hover,
+  .nx-home-final-secondary:hover { transform: none !important; color: var(--fg) !important; }
+  .nx-home-proof-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 1.25rem; }
+  .nx-home-proof-grid > div { min-width: 0; border-right: 0 !important; }
+  .nx-home-proof-grid > div:nth-child(odd) { border-right: 1px solid var(--border) !important; }
+  .nx-home-proof-grid > div:nth-child(-n + 2) { border-bottom: 1px solid var(--border); }
+  .nx-home-xray { margin-top: .15rem; }
+  .nx-xray-mobile-chrome { height: 40px; padding-inline: .85rem; }
+  .nx-xray-mobile-stage { height: 352px; }
+  .nx-xray-mobile-toggle { height: 44px; padding-inline: .85rem; }
+
+  .nx-home-agent-proof > div { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+  .nx-home-agent-proof p { margin-bottom: 1rem; }
+  .nx-home-agent-proof .nx-marquee-track > span { padding-inline: 1rem; }
+  .nx-home-integration-proof { display: none; }
+
+  .nx-home-section-inner { padding-top: 3.25rem !important; padding-bottom: 3.25rem !important; }
+  .nx-home-problem-layout,
+  .nx-home-control-layout,
+  .nx-home-integration-layout { gap: 1.75rem; }
+  .nx-home-section-inner h2 { text-wrap: balance; }
+
+  .nx-home-commerce-chips { display: none; }
+  .nx-home-value-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+  .nx-home-value-list li { align-items: flex-start; gap: .5rem; font-size: .75rem; line-height: 1.25rem; }
+  .nx-home-story-disclosure { overflow: hidden; }
+  .nx-home-story-disclosure > summary,
+  .nx-home-capabilities-disclosure > summary { display: flex; min-height: 58px; list-style: none; cursor: pointer; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 1rem; }
+  .nx-home-story-disclosure > summary::-webkit-details-marker,
+  .nx-home-capabilities-disclosure > summary::-webkit-details-marker { display: none; }
+  .nx-home-story-disclosure > summary:focus-visible,
+  .nx-home-capabilities-disclosure > summary:focus-visible { outline: 2px solid var(--signal); outline-offset: -3px; }
+  .nx-home-disclosure-chevron { transition: transform .2s ease; }
+  details[open] > summary .nx-home-disclosure-chevron { transform: rotate(180deg); }
+  .nx-home-readiness { margin-top: 1.75rem; }
+  .nx-home-analytics-head { gap: 1.5rem; }
+  .nx-home-analytics-demo { margin-top: 1.75rem; }
+  .nx-home-feature-mobile { margin-top: -1rem; }
+  .nx-home-capabilities-disclosure > summary { font-size: .875rem; font-weight: 600; }
+  .nx-home-capabilities-open { display: none; }
+  .nx-home-capabilities-disclosure[open] .nx-home-capabilities-closed { display: none; }
+  .nx-home-capabilities-disclosure[open] .nx-home-capabilities-open { display: inline; }
+  .nx-home-integration-mobile { margin-top: .25rem; }
+  .nx-home-integration-mobile > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .nx-home-workflow-mobile { margin-top: -.25rem; }
+  .nx-home-workflow-step { position: relative; }
+  .nx-home-workflow-step:not(:last-child)::after { position: absolute; top: 36px; bottom: 0; left: 17px; width: 1px; content: ''; background: linear-gradient(var(--signal), color-mix(in srgb, var(--signal) 15%, transparent)); }
+  .nx-home-workflow-step > div:last-child { padding-bottom: 1rem; }
+  .nx-home-workflow-step:last-child > div:last-child { padding-bottom: 0; }
+
+  .nx-home-simulator { padding-top: 3.25rem; padding-bottom: 3.25rem; }
+  .nx-home-simulator-full { display: none; }
+  .nx-home-simulator-compact { display: block; }
+  .nx-home-final-inner { padding-top: 4rem; padding-bottom: 4rem; }
+  .nx-home-final-inner h2 { font-size: 1.85rem; }
+  .nx-home-final-actions { margin-top: 1.5rem; }
+  .nx-home-final-actions .btn-primary { width: 100%; }
+}
+
+@media (max-width: 359px) {
+  .nx-home-hero-title { font-size: 1.9rem; }
+  .nx-xray-mobile-stage { height: 336px; }
+}
+
 .nx-flow-line {
   width: 28px;
   height: 1px;
@@ -1497,15 +1574,45 @@ nav.glassnav.open .navsheet { display: grid; gap: .15rem; }
 .navsheet a { padding: .75rem 1.05rem; border-radius: 15px; font-size: .95rem; color: var(--fg-muted); }
 .navsheet a:hover, .navsheet a.on { color: var(--fg); background: var(--fill-2); }
 .navsheet .hair { margin: .35rem .4rem; }
+.nav-sheet-footer { display: none; }
 @media (max-width: 840px) {
+  nav.glassnav { width: calc(100% - 20px); margin-top: 10px; padding: .55rem .55rem .55rem .85rem; gap: .5rem; border-radius: 20px; }
+  nav.glassnav .logo svg { width: 92px; }
   nav.glassnav.has-menu .navlinks { display: none; }
   nav.glassnav.has-menu .menu-btn { display: inline-flex; }
+  nav.glassnav .menu-btn { width: 44px; height: 44px; }
+  nav.glassnav.has-menu .nav-bar-theme,
+  nav.glassnav.has-menu .nav-bar-cta,
+  nav.glassnav.has-menu .nav-actions .sign-in { display: none; }
+  nav.glassnav .nav-actions { margin-left: auto; }
   nav.glassnav:not(.has-menu) .navlinks { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   nav.glassnav:not(.has-menu) .navlinks::-webkit-scrollbar { display: none; }
+  .navsheet { top: calc(100% + 8px); padding: .5rem; border-radius: 20px; }
+  .navsheet a { min-height: 44px; padding: .7rem .85rem; }
+  .nav-sheet-footer { display: grid; gap: .6rem; margin-top: .35rem; padding: .75rem .35rem .35rem; border-top: 1px solid var(--line-soft); }
+  .nav-sheet-theme-row { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 .5rem; color: var(--fg-muted); font-size: .9rem; }
+  .navsheet .nav-sheet-cta { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; color: #fff; padding: .7rem 1rem; }
 }
 @media (max-width: 480px) {
-  nav.glassnav { padding: .55rem .6rem .55rem 1rem; gap: .5rem; }
-  nav.glassnav.has-menu .nav-actions .sign-in { display: none; }
+  nav.glassnav { top: 10px; }
+}
+
+/* Mobile marketing footer disclosures keep long pages useful without another wall of links. */
+.marketing-footer-col > summary { display: flex; list-style: none; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; color: var(--fg-muted-2); font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; }
+.marketing-footer-col > summary::-webkit-details-marker { display: none; }
+.marketing-footer-links { display: grid; gap: .5rem; }
+.marketing-footer-plus { display: none; }
+@media (max-width: 639px) {
+  .marketing-footer { margin-top: 3rem; }
+  .marketing-footer-grid { display: block; padding-top: 2rem; padding-bottom: 2rem; }
+  .marketing-footer-brand { padding-bottom: 1.5rem; }
+  .marketing-footer-col { border-top: 1px solid var(--border); }
+  .marketing-footer-col:last-child { border-bottom: 1px solid var(--border); }
+  .marketing-footer-col > summary { min-height: 54px; margin: 0; cursor: pointer; color: var(--fg); font-size: .8rem; }
+  .marketing-footer-col > summary:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+  .marketing-footer-col > .marketing-footer-links { padding: 0 0 1.1rem; }
+  .marketing-footer-plus { display: inline-block; color: var(--fg-muted); font-size: 1.25rem; line-height: 1; transition: transform .2s ease; }
+  .marketing-footer-col[open] .marketing-footer-plus { transform: rotate(45deg); }
 }
 
 /* ----- homepage / marketing content re-skin (bridge) ----- */
