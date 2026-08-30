@@ -756,41 +756,33 @@ a:focus-visible,
   .nx-home-integration-layout { gap: 1.75rem; }
   .nx-home-section-inner h2 { text-wrap: balance; }
 
-  .nx-home-flow { grid-template-columns: repeat(3, minmax(145px, 1fr)) !important; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
-  .nx-home-flow::-webkit-scrollbar { display: none; }
-  .nx-home-flow > div > div:first-child { scroll-snap-align: start; }
-
-  .nx-home-problem-cards,
-  .nx-home-story-rail,
-  .nx-home-feature-rail,
-  .nx-home-integration-rail,
-  .nx-home-workflow-rail { display: grid; grid-template-columns: none !important; grid-auto-flow: column; grid-auto-columns: 84%; gap: .8rem; margin-inline: -1.25rem; padding-inline: 1.25rem; padding-bottom: .65rem; overflow-x: auto; overscroll-behavior-x: contain; scroll-padding-inline: 1.25rem; scroll-snap-type: x mandatory; scrollbar-width: none; }
-  .nx-home-problem-cards::-webkit-scrollbar,
-  .nx-home-story-rail::-webkit-scrollbar,
-  .nx-home-feature-rail::-webkit-scrollbar,
-  .nx-home-integration-rail::-webkit-scrollbar,
-  .nx-home-workflow-rail::-webkit-scrollbar,
-  .nx-home-readiness-rail::-webkit-scrollbar { display: none; }
-  .nx-home-problem-cards > *,
-  .nx-home-story-rail > *,
-  .nx-home-feature-rail > *,
-  .nx-home-integration-rail > *,
-  .nx-home-workflow-rail > * { scroll-snap-align: start; }
-
-  .nx-home-value-list { gap: .7rem; }
-  .nx-home-story-card { min-height: 255px !important; padding: 1.1rem !important; }
-  .nx-home-story-card > div { gap: 1.5rem; }
-  .nx-home-story-card h3 { margin-top: 1rem; }
-  .nx-home-story-card p { margin-top: .65rem; }
-  .nx-home-story-card [class*="border-t"] { padding-top: .85rem; }
+  .nx-home-commerce-chips { display: none; }
+  .nx-home-value-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+  .nx-home-value-list li { align-items: flex-start; gap: .5rem; font-size: .75rem; line-height: 1.25rem; }
+  .nx-home-story-disclosure { overflow: hidden; }
+  .nx-home-story-disclosure > summary,
+  .nx-home-capabilities-disclosure > summary { display: flex; min-height: 58px; list-style: none; cursor: pointer; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 1rem; }
+  .nx-home-story-disclosure > summary::-webkit-details-marker,
+  .nx-home-capabilities-disclosure > summary::-webkit-details-marker { display: none; }
+  .nx-home-story-disclosure > summary:focus-visible,
+  .nx-home-capabilities-disclosure > summary:focus-visible { outline: 2px solid var(--signal); outline-offset: -3px; }
+  .nx-home-disclosure-chevron { transition: transform .2s ease; }
+  details[open] > summary .nx-home-disclosure-chevron { transform: rotate(180deg); }
   .nx-home-readiness { margin-top: 1.75rem; }
-  .nx-home-readiness-rail { overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .nx-home-analytics-head { gap: 1.5rem; }
   .nx-home-analytics-demo { margin-top: 1.75rem; }
-  .nx-home-feature-rail { margin-top: -1rem; }
-  .nx-home-feature-card { min-height: 150px; }
-  .nx-home-integration-rail article,
-  .nx-home-workflow-rail > div { min-height: 185px; }
+  .nx-home-feature-mobile { margin-top: -1rem; }
+  .nx-home-capabilities-disclosure > summary { font-size: .875rem; font-weight: 600; }
+  .nx-home-capabilities-open { display: none; }
+  .nx-home-capabilities-disclosure[open] .nx-home-capabilities-closed { display: none; }
+  .nx-home-capabilities-disclosure[open] .nx-home-capabilities-open { display: inline; }
+  .nx-home-integration-mobile { margin-top: .25rem; }
+  .nx-home-integration-mobile > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .nx-home-workflow-mobile { margin-top: -.25rem; }
+  .nx-home-workflow-step { position: relative; }
+  .nx-home-workflow-step:not(:last-child)::after { position: absolute; top: 36px; bottom: 0; left: 17px; width: 1px; content: ''; background: linear-gradient(var(--signal), color-mix(in srgb, var(--signal) 15%, transparent)); }
+  .nx-home-workflow-step > div:last-child { padding-bottom: 1rem; }
+  .nx-home-workflow-step:last-child > div:last-child { padding-bottom: 0; }
 
   .nx-home-simulator { padding-top: 3.25rem; padding-bottom: 3.25rem; }
   .nx-home-simulator-full { display: none; }
@@ -804,11 +796,6 @@ a:focus-visible,
 @media (max-width: 359px) {
   .nx-home-hero-title { font-size: 1.9rem; }
   .nx-xray-mobile-stage { height: 336px; }
-  .nx-home-problem-cards,
-  .nx-home-story-rail,
-  .nx-home-feature-rail,
-  .nx-home-integration-rail,
-  .nx-home-workflow-rail { grid-auto-columns: 88%; }
 }
 
 .nx-flow-line {

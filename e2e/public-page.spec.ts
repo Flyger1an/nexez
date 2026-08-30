@@ -63,6 +63,28 @@ test.describe('public surface', () => {
       expect(overflow).toBeLessThanOrEqual(1)
     }
 
+    const sidewaysScrollers = await page.evaluate(() => Array.from(document.querySelectorAll('.nx-home-page *'))
+      .filter((element) => {
+        const htmlElement = element as HTMLElement
+        const overflowX = getComputedStyle(htmlElement).overflowX
+        return ['auto', 'scroll'].includes(overflowX) && htmlElement.scrollWidth > htmlElement.clientWidth + 1
+      })
+      .map((element) => element.className))
+    expect(sidewaysScrollers).toEqual([])
+
+    const controlDetails = page.locator('.nx-home-story-disclosure')
+    await expect(controlDetails).toHaveCount(4)
+    await expect(controlDetails.first()).toHaveAttribute('open', '')
+    await controlDetails.nth(1).locator('summary').click()
+    await expect(controlDetails.first()).not.toHaveAttribute('open', '')
+    await expect(controlDetails.nth(1)).toHaveAttribute('open', '')
+
+    const capabilities = page.locator('.nx-home-capabilities-disclosure')
+    await expect(capabilities).not.toHaveAttribute('open', '')
+    await capabilities.locator('summary').click()
+    await expect(capabilities).toHaveAttribute('open', '')
+    await expect(capabilities.getByText('Agent Simulator', { exact: true })).toBeVisible()
+
     await page.goto('/#readiness', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('What can buyers see?')).toBeVisible()
     await page.goto('/#analytics', { waitUntil: 'domcontentloaded' })
