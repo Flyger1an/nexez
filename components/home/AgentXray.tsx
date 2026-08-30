@@ -299,7 +299,7 @@ function XrayMobile({ className }: { className?: string }) {
     <div ref={ref} className={className}>
       <div className="nx-glass-panel relative overflow-hidden">
         {/* chrome bar */}
-        <div className="flex h-11 items-center justify-between gap-2 border-b border-border bg-white/[0.02] px-4">
+        <div className="nx-xray-mobile-chrome flex h-11 items-center justify-between gap-2 border-b border-border bg-white/[0.02] px-4">
           <div className="flex min-w-0 items-center gap-2.5">
             <div className="flex items-center gap-1.5">
               <span className="size-2 rounded-full bg-red-400" />
@@ -311,12 +311,12 @@ function XrayMobile({ className }: { className?: string }) {
             </span>
           </div>
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--ready)]/25 bg-[var(--ready)]/10 px-2.5 py-0.5 font-mono text-[11px] text-[var(--ready)]">
-            <span className="nx-live-dot" /> readiness 98
+            <span className="nx-live-dot" /> ready 98
           </span>
         </div>
 
         {/* stage - one full-width view */}
-        <div className="relative h-[392px]">
+        <div className="nx-xray-mobile-stage relative h-[392px]">
           {view === 'human' ? <HumanPane /> : <AgentPane />}
           {swept && (
             <div
@@ -328,7 +328,7 @@ function XrayMobile({ className }: { className?: string }) {
         </div>
 
         {/* segmented toggle */}
-        <div className="flex h-12 items-center border-t border-border px-4">
+        <div className="nx-xray-mobile-toggle flex h-12 items-center border-t border-border px-4">
           <div className="relative grid w-full grid-cols-2 rounded-lg border border-border bg-white/[0.03] p-0.5">
             <span
               aria-hidden
@@ -433,8 +433,8 @@ function AgentPane() {
   return (
     <div className="flex h-full flex-col gap-3 p-5" style={{ background: '#08080C' }}>
       <div className="flex items-center justify-between gap-2 font-mono">
-        <span className="truncate text-[11px]" style={{ color: '#D4D4D8' }}>GET nexez.app/your-listing</span>
-        <span className="shrink-0 text-[10px] text-[var(--ready)]">200 OK</span>
+        <span className="truncate text-[11px]" style={{ color: '#D4D4D8' }}>Nexez offer page</span>
+        <span className="shrink-0 text-[10px] text-[var(--ready)]">Ready</span>
       </div>
       <div className="flex flex-col gap-1.5">
         {OFFERS.map((o) => (
@@ -444,21 +444,21 @@ function AgentPane() {
               {o.dur ? <span style={{ color: '#8B8B93' }}> · {o.dur}</span> : null}
             </span>
             <span className="font-mono text-[13px] text-[var(--signal)]">{o.price}</span>
-            <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2 py-0.5 text-[10px] text-[var(--ready)]">{o.action}</span>
+            <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2 py-0.5 text-[10px] capitalize text-[var(--ready)]">{o.action}</span>
           </div>
         ))}
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {['book', 'buy', 'reschedule', 'contact'].map((a) => (
+        {['Book', 'Buy', 'Reschedule', 'Contact'].map((a) => (
           <span key={a} className="rounded-full px-2 py-0.5 font-mono text-[10px] text-[var(--signal)]" style={{ border: '1px solid color-mix(in srgb, var(--signal) 30%, transparent)' }}>{a}</span>
         ))}
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {['LocalBusiness', 'Service', 'Offer'].map((s) => (
+        {['Business verified', 'Clear services', 'Prices included'].map((s) => (
           <span key={s} className="rounded-full px-2 py-0.5 font-mono text-[10px]" style={{ border: '1px solid rgba(255,255,255,0.12)', color: '#9A9AA3' }}>{s}</span>
         ))}
       </div>
-      <p className="mt-auto font-mono text-[10px]" style={{ color: '#6B6B73' }}>{'// zero ambiguity'}</p>
+      <p className="mt-auto text-[10px]" style={{ color: '#8B8B93' }}>Clear prices, choices, and next steps</p>
     </div>
   )
 }

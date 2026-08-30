@@ -22,16 +22,16 @@ describe('homepage commerce story', () => {
     expect(hero).toContain('Get found by the agents')
     expect(hero).toContain('doing the buying.')
     expect(hero).toContain(
-      'AI agents already shop on behalf of real customers. Nexez makes your business the one they find, compare, and buy from.',
+      'Nexez helps AI find, understand, and buy what your business sells.',
     )
     expect(hero).toContain('List your offers')
     expect(hero).toContain('See how it works')
     expect(hero).toContain('stats.map')
     expect(hero).toContain('<AgentXray />')
-    expect(source).toContain("{ value: '<200ms', label: 'Agent-ready load' }")
-    expect(source).toContain("{ value: '19+', label: 'AI crawlers welcomed' }")
-    expect(source).toContain("{ value: '10+', label: 'Ways to connect' }")
-    expect(source).toContain("{ value: 'Live', label: 'Conversion analytics' }")
+    expect(source).toContain("{ value: '<200ms', label: 'Fast pages' }")
+    expect(source).toContain("{ value: '19+', label: 'AI assistants' }")
+    expect(source).toContain("{ value: '10+', label: 'Connections' }")
+    expect(source).toContain("{ value: 'Live', label: 'Sales insights' }")
   })
 
   it('retires the old publishing-first and absolute-claim story', () => {
@@ -44,7 +44,7 @@ describe('homepage commerce story', () => {
     expect(source).toContain('Your prices stay yours.')
     expect(source).toContain('Bad-fit orders can stop before payment.')
     expect(source).toContain('Repeat work can stay repeatable.')
-    expect(source).toContain('before money moves')
+    expect(source).toContain("title: 'Review each sale'")
     expect(source).toContain('Run a buying scenario before a real buyer does.')
     expect(source).toContain('AI gets a buying path, not control of your business.')
   })
@@ -60,9 +60,18 @@ describe('homepage commerce story', () => {
     expect(source).toContain("const integrationRail = ['Stripe', 'Shopify', 'Square', 'Calendly', 'Acuity', 'Google Calendar']")
     expect(source).toContain('Your existing tools become')
     expect(source).toContain('one clear buying path.')
-    expect(source).toContain('Review every imported offer before it goes live.')
+    expect(source).toContain('Review every offer before it goes live.')
     expect(source).toContain('Explore integrations')
-    expect(source).toContain('Zapier-compatible workflows')
+    expect(source).toContain('Plus your website, CSV, Excel, and Zapier.')
+  })
+
+  it('keeps the mobile homepage compact and easy to scan', () => {
+    expect(source).toContain('nx-home-proof-grid')
+    expect(source).toContain('nx-home-story-rail')
+    expect(source).toContain('nx-home-feature-rail')
+    expect(source).toContain('nx-home-workflow-rail')
+    expect(source).toContain('nx-home-simulator-compact')
+    expect(source).toContain('Open the simulator')
   })
 
   it('gives the homepage modern merchant-facing metadata', () => {
