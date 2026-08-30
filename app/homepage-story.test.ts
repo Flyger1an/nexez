@@ -42,8 +42,29 @@ describe('homepage commerce story', () => {
     expect(heroScanSource).toContain('No account needed')
     expect(heroScanSource).toContain('Scan my site')
     expect(heroScanSource).toContain('Fix these first')
-    // Signup is offered after the visitor has a result, not before.
-    expect(heroScanSource).toContain("appUrl('/create')")
+    // Signup is offered after the visitor has a result, not before: the create
+    // link is built from result.url, so it cannot render until a scan returns.
+    expect(heroScanSource).toContain('appUrl(`/create?url=')
+  })
+
+  it('never dead-ends the hero scanner on a rate limit', () => {
+    // /api/scan is 6/60s. On the homepage that trips routinely, so a 429 must
+    // read as a busy signal with a wait, never the raw API string.
+    expect(heroScanSource).toContain('response.status === 429')
+    expect(heroScanSource).toContain('The scanner is busy right now.')
+    expect(heroScanSource).toContain('Retry-After')
+    expect(heroScanSource).not.toContain('Rate limit exceeded. Please slow down.')
+  })
+
+  it('makes hero scans measurable and carries the url into signup', () => {
+    expect(heroScanSource).toContain("source: 'hero'")
+    expect(heroScanSource).toContain('appUrl(`/create?url=${encodeURIComponent(result.url)}`)')
+  })
+
+  it('offers a one-click example for visitors who will not type a url', () => {
+    expect(heroScanSource).toContain('Or try an example')
+    // IANA-reserved, so the homepage never publishes a real business's low score.
+    expect(heroScanSource).toContain("const EXAMPLE_URL = 'https://example.com'")
   })
 
   it('keeps the x-ray on the page by moving it into the problem band', () => {
