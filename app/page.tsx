@@ -12,6 +12,7 @@ import {
   Search,
   RefreshCw,
   Handshake,
+  ChevronDown,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import type { Metadata } from 'next'
@@ -374,7 +375,21 @@ export default function NexezHome() {
           </div>
           <div className="grid gap-4">
             <div className="nx-tile overflow-hidden p-5" role="group" aria-label="Nexez buying flow">
-              <div className="nx-home-flow relative grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
+              <div className="nx-home-flow-mobile grid gap-2 sm:hidden">
+                {discoveryFlow.map(({ title, label, Icon }, index) => (
+                  <div key={title} className="flex items-center gap-3 rounded-lg border border-border bg-white/[0.035] p-3">
+                    <span className="font-mono text-[10px] text-[var(--signal)]">0{index + 1}</span>
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-black">
+                      <Icon className="size-3.5 text-[var(--signal)]" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium tracking-tight">{title}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="nx-home-flow relative hidden gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
                 {discoveryFlow.map(({ title, label, Icon }, index) => (
                   <div key={title} className="contents">
                     <div className="flex h-full flex-col rounded-lg border border-border bg-white/[0.035] p-4">
@@ -398,7 +413,7 @@ export default function NexezHome() {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="nx-home-commerce-chips mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {commerceChips.map((chip) => (
                   <span
                     key={chip}
@@ -409,7 +424,15 @@ export default function NexezHome() {
                 ))}
               </div>
             </div>
-            <div className="nx-home-problem-cards grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <div className="nx-home-problem-mobile nx-tile divide-y divide-border px-4 sm:hidden">
+              {problemCards.map(({ title, copy }) => (
+                <div key={title} className="py-3.5">
+                  <h3 className="text-sm font-medium tracking-tight">{title}</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy}</p>
+                </div>
+              ))}
+            </div>
+            <div className="nx-home-problem-desktop hidden gap-3 sm:grid sm:grid-cols-3 lg:grid-cols-1">
               {problemCards.map(({ title, copy }) => (
                 <div key={title} className="nx-tile p-5">
                   <h3 className="text-sm font-medium tracking-tight">{title}</h3>
@@ -451,7 +474,34 @@ export default function NexezHome() {
 
           <div>
             <h3 className="text-lg font-semibold tracking-[-0.015em] md:text-xl">What stays under your control</h3>
-            <div className="nx-home-story-rail mt-5 grid gap-5 pb-0 lg:pb-[34vh]">
+            <div className="nx-home-story-mobile mt-5 grid gap-3 md:hidden">
+              {pinnedStories.map(({ title, copy, Icon }, index) => (
+                <details key={title} name="merchant-control" open={index === 0} className="nx-home-story-disclosure nx-tile">
+                  <summary>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-black">
+                        <Icon className="size-4 text-[var(--signal)]" />
+                      </div>
+                      <span className="text-sm font-semibold leading-5">{title}</span>
+                    </div>
+                    <ChevronDown aria-hidden="true" className="nx-home-disclosure-chevron size-4 shrink-0 text-muted-foreground" />
+                  </summary>
+                  <div className="border-t border-border px-4 pb-4 pt-3">
+                    <p className="text-sm leading-6 text-muted-foreground">{copy}</p>
+                    <p className="mt-3 text-xs font-medium text-[var(--signal)]">
+                      {index === 0
+                        ? 'Your pricing'
+                        : index === 1
+                          ? 'Your limits'
+                          : index === 2
+                            ? 'Your timing'
+                            : 'Your business'}
+                    </p>
+                  </div>
+                </details>
+              ))}
+            </div>
+            <div className="nx-home-story-desktop mt-5 hidden gap-5 pb-0 md:grid lg:pb-[34vh]">
               {pinnedStories.map(({ title, copy, Icon }, index) => (
                 <article
                   key={title}
@@ -528,7 +578,7 @@ export default function NexezHome() {
                 See what buyers want, which offers get attention, and what leads to a sale.
               </p>
             </div>
-            <ul className="nx-tile grid gap-3 p-5 text-sm text-muted-foreground md:p-6">
+            <ul className="nx-home-analytics-points nx-tile hidden gap-3 p-5 text-sm text-muted-foreground md:grid md:p-6">
               {analyticsBullets.map((item) => (
                 <li key={item} className="flex items-center gap-3">
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" />
@@ -572,9 +622,41 @@ export default function NexezHome() {
               Tell Nexez how your business works. It keeps the buying steps clear.
             </p>
           </div>
-          <div className="nx-home-feature-rail grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="nx-home-feature-mobile md:hidden">
+            <div className="grid grid-cols-2 gap-3">
+              {keyFeatures.slice(0, 4).map(({ title, copy, Icon }) => (
+                <div key={title} className="card flex min-h-24 flex-col items-start gap-3 !p-4" title={copy}>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
+                    <Icon className="size-4 text-[var(--signal)]" />
+                  </div>
+                  <h3 className="text-sm font-medium leading-5 tracking-tight">{title}</h3>
+                </div>
+              ))}
+            </div>
+            <details className="nx-home-capabilities-disclosure mt-3">
+              <summary className="nx-tile">
+                <span className="nx-home-capabilities-closed">View all capabilities</span>
+                <span className="nx-home-capabilities-open">Show fewer capabilities</span>
+                <ChevronDown aria-hidden="true" className="nx-home-disclosure-chevron size-4 text-muted-foreground" />
+              </summary>
+              <div className="mt-3 grid gap-3">
+                {keyFeatures.map(({ title, copy, Icon }) => (
+                  <div key={title} className="card flex items-start gap-3 !p-4">
+                    <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
+                      <Icon className="size-4 text-[var(--signal)]" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium tracking-tight">{title}</h3>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+          <div className="nx-home-feature-desktop hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
             {keyFeatures.map(({ title, copy, Icon }) => (
-              <div key={title} data-reveal className="nx-home-feature-card card flex items-start gap-3">
+              <div key={title} data-reveal className="card flex items-start gap-3">
                 <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
                   <Icon className="size-4 text-[var(--signal)]" />
                 </div>
@@ -613,7 +695,15 @@ export default function NexezHome() {
                 <ArrowRight className="size-4" />
               </a>
             </div>
-            <div className="nx-home-integration-rail grid gap-4 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            <div className="nx-home-integration-mobile grid grid-cols-2 gap-2 md:hidden">
+              {integrationRail.map((provider) => (
+                <div key={provider} className="nx-tile flex min-h-12 items-center gap-2 px-3 py-2.5">
+                  <CheckCircle2 className="size-3.5 shrink-0 text-[var(--ready)]" />
+                  <span className="text-xs font-medium">{provider}</span>
+                </div>
+              ))}
+            </div>
+            <div className="nx-home-integration-desktop hidden gap-4 md:grid md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
               {integrationGroups.map(({ title, copy, Icon }) => (
                 <article key={title} className="nx-tile p-5">
                   <div className="flex size-9 items-center justify-center rounded-md border border-border bg-black">
@@ -643,7 +733,20 @@ export default function NexezHome() {
               Four simple steps. <span className="nx-accent-text">Your rules stay in charge.</span>
             </h2>
           </div>
-          <div className="nx-home-workflow-rail grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="nx-home-workflow-mobile grid md:hidden">
+            {workflow.map((item) => (
+              <div key={item.step} className="nx-home-workflow-step grid grid-cols-[36px_minmax(0,1fr)] gap-3">
+                <div className="relative z-10 flex size-9 items-center justify-center rounded-full border border-[var(--signal)]/35 bg-black font-mono text-[10px] text-[var(--signal)]">
+                  {item.step}
+                </div>
+                <div className="pt-1">
+                  <h3 className="text-sm font-medium">{item.title}</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{item.copy}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="nx-home-workflow-desktop hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
             {workflow.map((item, i) => (
               <div key={item.step} data-reveal className="nx-tile p-5">
                 <div className="flex items-center justify-between">

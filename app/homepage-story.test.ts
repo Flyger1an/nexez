@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8')
+const styles = readFileSync(new URL('./globals.css', import.meta.url), 'utf8')
+const readinessSource = readFileSync(new URL('../components/home/ReadinessLab.tsx', import.meta.url), 'utf8')
 const hero = source.split('{/* HERO - text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}')[1]
   ?.split('{/* AGENT LOGO MARQUEE */}')[0] ?? ''
 
@@ -65,11 +67,15 @@ describe('homepage commerce story', () => {
     expect(source).toContain('Plus your website, CSV, Excel, and Zapier.')
   })
 
-  it('keeps the mobile homepage compact and easy to scan', () => {
+  it('keeps the mobile homepage compact without sideways content rails', () => {
     expect(source).toContain('nx-home-proof-grid')
-    expect(source).toContain('nx-home-story-rail')
-    expect(source).toContain('nx-home-feature-rail')
-    expect(source).toContain('nx-home-workflow-rail')
+    expect(source).toContain('nx-home-flow-mobile')
+    expect(source).toContain('nx-home-story-disclosure')
+    expect(source).toContain('nx-home-capabilities-disclosure')
+    expect(source).toContain('nx-home-integration-mobile')
+    expect(source).toContain('nx-home-workflow-mobile')
+    expect(readinessSource).toContain('nx-home-readiness-grid')
+    expect(styles).not.toContain('scroll-snap-type: x mandatory')
     expect(source).toContain('nx-home-simulator-compact')
     expect(source).toContain('Open the simulator')
   })

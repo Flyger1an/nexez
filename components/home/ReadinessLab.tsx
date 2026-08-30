@@ -101,7 +101,7 @@ export function ReadinessLab() {
             <span className="mt-1 block font-mono text-[9px] text-muted-foreground">out of 100</span>
           </div>
         </div>
-        <div className="nx-home-readiness-rail mt-5 flex w-full min-w-0 max-w-full gap-2 overflow-x-auto pb-2">
+        <div className="nx-home-readiness-grid mt-5 grid grid-cols-2 gap-2">
           {SIGNALS.map((f) => {
             const isOn = !!on[f.key]
             return (
@@ -110,7 +110,7 @@ export function ReadinessLab() {
                 type="button"
                 onClick={() => handleToggle(f.key)}
                 aria-pressed={isOn}
-                className="flex min-h-14 w-[170px] shrink-0 snap-start items-center gap-3 rounded-xl px-3 py-2.5 text-left"
+                className="flex min-h-[60px] min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-left"
                 style={{
                   background: isOn ? 'color-mix(in srgb, var(--signal) 12%, transparent)' : 'var(--ov-03)',
                   border: `1px solid ${isOn ? 'color-mix(in srgb, var(--signal) 45%, transparent)' : 'var(--border)'}`,
@@ -133,7 +133,7 @@ export function ReadinessLab() {
         </div>
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-4">
           <span className="text-sm font-semibold" style={{ color: verdict.color }}>{verdict.text}</span>
-          <span className="text-right text-xs text-muted-foreground">Swipe to try each item</span>
+          <span className="text-right text-xs text-muted-foreground">Tap any item to try it</span>
         </div>
       </div>
 
