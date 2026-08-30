@@ -65,98 +65,98 @@ type Feature = {
 const workflow = [
   {
     step: '01',
-    title: 'Tell Nexez what you sell',
-    copy: 'Connect a store, calendar, payment account, website, or file. Nexez turns what you already sell into editable offers.',
+    title: 'Connect what you use',
+    copy: 'Add your store, calendar, website, or file. Nexez turns it into offers you can edit.',
   },
   {
     step: '02',
     title: 'Set your rules',
-    copy: 'Choose what buyers need to tell you, what changes the price, what work you accept, and which services can repeat.',
+    copy: 'Choose what buyers must tell you, what changes the price, and which work you accept.',
   },
   {
     step: '03',
     title: 'Let buyers choose',
-    copy: 'A person or AI assistant can pick a service and provide the details your business needs before moving forward.',
+    copy: 'A person or AI assistant can choose an offer and provide the details you need.',
   },
   {
     step: '04',
-    title: 'Nexez checks the order',
-    copy: 'Nexez checks the details, price, and fit before money moves, then gives the buyer the right next step.',
+    title: 'Review each sale',
+    copy: 'Nexez checks the details and price, then sends the buyer to the right next step.',
   },
 ]
 
 const keyFeatures: Feature[] = [
   {
-    title: 'Pricing and options',
-    copy: 'Set your starting price and how buyer choices, add-ons, or quantities change what they pay.',
+    title: 'Pricing and choices',
+    copy: 'Set a starting price and show how choices, extras, or quantity change the total.',
     Icon: TrendingUp,
   },
   {
     title: 'Buyer questions',
-    copy: 'Ask for the details you need before an order moves forward, from size and quantity to preferences or service type.',
+    copy: 'Ask for the details you need before an order moves forward.',
     Icon: Search,
   },
   {
-    title: 'Merchant rules',
-    copy: 'Decide which requests can proceed, which need your attention, and which should stop before payment.',
+    title: 'Sale rules',
+    copy: 'Choose which requests can continue, which need your review, and which should stop.',
     Icon: ShieldCheck,
   },
   {
     title: 'Repeat services',
-    copy: 'Offer ongoing services with the cadence and price you choose, while buyers keep a clear path to manage them.',
+    copy: 'Offer ongoing services with the timing and price you choose.',
     Icon: RefreshCw,
   },
   {
     title: 'Agent Simulator',
-    copy: 'Run a real buying scenario and see what Nexez asks, what it can work out, and what happens next.',
+    copy: 'Try a buying request and see what Nexez understands, what is missing, and what happens next.',
     Icon: Bot,
   },
   {
     title: 'Clear order records',
-    copy: 'Keep the chosen service, buyer details, price, and approvals tied together so the sale stays understandable.',
+    copy: 'Keep the offer, buyer details, price, and approvals together.',
     Icon: Handshake,
   },
   {
     title: 'Copilot',
-    copy: 'Get help tightening offers and spotting missing details while the prices and business rules you set stay authoritative.',
+    copy: 'Get help improving your offers while your prices and rules stay in charge.',
     Icon: Sparkles,
   },
   {
     title: 'Your brand, your domain',
-    copy: 'Publish on Nexez or your own domain so buyers and AI assistants can reach a storefront that still feels like your business.',
+    copy: 'Publish on Nexez or your own domain so the storefront still feels like your business.',
     Icon: Globe2,
   },
   {
     title: 'Trust context',
-    copy: 'Keep policies, proof, and verification context close to the offer so buyers and agents have more to judge the purchase by.',
+    copy: 'Keep your policies and proof close to each offer so buyers know what they are choosing.',
     Icon: ShieldCheck,
   },
 ]
 
 // Hero stat ticker (the X-Ray instrument's "instrument readout" framing).
 const stats = [
-  { value: '<200ms', label: 'Agent-ready load' },
-  { value: '19+', label: 'AI crawlers welcomed' },
-  { value: '10+', label: 'Ways to connect' },
-  { value: 'Live', label: 'Conversion analytics' },
+  { value: '<200ms', label: 'Fast pages' },
+  { value: '19+', label: 'AI assistants' },
+  { value: '10+', label: 'Connections' },
+  { value: 'Live', label: 'Sales insights' },
 ]
 
 const integrationRail = ['Stripe', 'Shopify', 'Square', 'Calendly', 'Acuity', 'Google Calendar']
 
 const integrationGroups: Feature[] = [
   {
-    title: 'Catalog and payments',
+    title: 'Products and payments',
     copy: 'Bring in products and prices from Stripe, Shopify, or Square.',
     Icon: ShoppingBag,
   },
   {
-    title: 'Scheduling and availability',
-    copy: 'Connect Calendly, Acuity, or Google Calendar so buyers reach a bookable next step.',
+    title: 'Booking and calendars',
+    copy: 'Connect Calendly, Acuity, or Google Calendar so buyers can book the next step.',
     Icon: CalendarClock,
   },
   {
-    title: 'Files and automation',
-    copy: 'Start with your website, CSV, Excel, or Zapier-compatible webhooks when that fits your workflow.',
+    title: 'Files and workflows',
+    copy: 'Start with your website, CSV, Excel, or Zapier.',
     Icon: FileSpreadsheet,
   },
 ]
@@ -180,38 +180,38 @@ const marqueeModels = [
 const pinnedStories: Feature[] = [
   {
     title: 'Your prices stay yours.',
-    copy: 'You set the price and the choices that can change it. Nexez follows those terms instead of letting AI invent a number.',
+    copy: 'You set the price and the choices that change it. Nexez follows those terms.',
     Icon: TrendingUp,
   },
   {
     title: 'Bad-fit orders can stop before payment.',
-    copy: 'Set requirements for the work you will accept. Nexez can let a request proceed, flag it for your attention, or stop it when it falls outside your rules.',
+    copy: 'Set what work you accept. Nexez can continue, ask for your review, or stop the request.',
     Icon: ShieldCheck,
   },
   {
     title: 'Repeat work can stay repeatable.',
-    copy: 'For services that happen again and again, you can offer the cadence and price that make sense for your business instead of rebuilding each sale by hand.',
+    copy: 'Choose the timing and price for repeat services instead of rebuilding each sale by hand.',
     Icon: RefreshCw,
   },
   {
     title: 'AI gets a buying path, not control of your business.',
-    copy: 'Customers and AI assistants can choose from what you actually offer, answer the questions you require, and move forward only within the boundaries you set.',
+    copy: 'Customers and AI assistants can choose what you offer and move forward only within your rules.',
     Icon: Bot,
   },
 ]
 
 const problemCards = [
   {
-    title: 'Your website describes the business',
-    copy: 'Great for people browsing. Harder for an AI assistant that needs exact prices, choices, requirements, and a safe next step.',
+    title: 'Your website tells the story',
+    copy: 'People can browse it, but an AI assistant may still miss the price, choices, or next step.',
   },
   {
-    title: 'Missing details create guessing',
-    copy: 'When the buying rules are unclear, an assistant can misunderstand the offer or stop before the sale ever reaches you.',
+    title: 'Missing details slow the sale',
+    copy: 'If the buying rules are unclear, an assistant may misunderstand the offer or stop too soon.',
   },
   {
-    title: 'Nexez turns your rules into the buying path',
-    copy: 'Your offers, buyer questions, pricing, and limits stay together so people and AI can shop from the same business truth.',
+    title: 'Nexez keeps the steps clear',
+    copy: 'Your offers, questions, prices, and limits stay together in one buying path.',
   },
 ]
 
@@ -223,15 +223,15 @@ const valueBullets = [
 ]
 
 const analyticsBullets = [
-  'See which agents and offers are creating demand',
-  'Understand what buyers were trying to purchase',
-  'Follow qualified activity toward checkout and sales',
+  'See which assistants and offers bring buyers',
+  'See what people want to buy',
+  'Follow interest from search to sale',
 ]
 
 const discoveryFlow = [
   { title: 'Your business', label: 'Your terms', Icon: Globe2 },
-  { title: 'Nexez', label: 'Checks details', Icon: Sparkles },
-  { title: 'Buyer or AI', label: 'Right next step', Icon: Bot },
+  { title: 'Nexez', label: 'Checks the request', Icon: Sparkles },
+  { title: 'Buyer or AI', label: 'Can move forward', Icon: Bot },
 ]
 
 const commerceChips = ['Offers', 'Buyer details', 'Pricing', 'Rules']
@@ -240,7 +240,7 @@ const homeStructuredData = buildPlatformStructuredData()
 
 export default function NexezHome() {
   return (
-    <main>
+    <main className="nx-home-page">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonScript(homeStructuredData) }}
@@ -251,7 +251,7 @@ export default function NexezHome() {
         <ShaderBackdrop />
         {/* HERO - text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}
         <section
-          className="relative z-10"
+          className="nx-home-hero relative z-10"
           aria-label="Hero"
           data-section-name="Hero"
           style={{
@@ -260,25 +260,25 @@ export default function NexezHome() {
           }}
         >
           <p className="sr-only">Hero</p>
-        <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 lg:py-20">
-          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(440px,0.9fr)] lg:gap-12">
+        <div className="nx-home-hero-inner relative z-10 mx-auto max-w-7xl px-5 py-16 lg:py-20">
+          <div className="nx-home-hero-grid grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(440px,0.9fr)] lg:gap-12">
             {/* LEFT - h1, copy, CTAs */}
-            <div>
-              <h1 className="text-balance text-[2.3rem] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-[2.7rem] lg:text-[3.05rem]">
+            <div className="nx-home-hero-copy">
+              <h1 className="nx-home-hero-title text-balance text-[2.3rem] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-[2.7rem] lg:text-[3.05rem]">
                 Get found by the agents <span className="nx-accent-text">doing the buying.</span>
               </h1>
-              <p className="mt-6 max-w-xl text-base leading-7 text-muted-foreground md:text-lg">
-                AI agents already shop on behalf of real customers. Nexez makes your business the one they find, compare, and buy from.
+              <p className="nx-home-hero-lead mt-6 max-w-xl text-base leading-7 text-muted-foreground md:text-lg">
+                Nexez helps AI find, understand, and buy what your business sells.
               </p>
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <div className="nx-home-hero-actions mt-7 flex flex-col gap-3 sm:flex-row">
                 <a href={appUrl('/create')} className="btn-primary h-11 px-5">
                   List your offers
                 </a>
-                <a href="/how-it-works" className="btn-secondary h-11 px-5">See how it works</a>
+                <a href="/how-it-works" className="nx-home-hero-secondary btn-secondary h-11 px-5">See how it works</a>
               </div>
 
               {/* stat ticker - compact, tucked under the CTAs beside the X-Ray */}
-              <div className="mt-7 flex max-w-xl overflow-hidden rounded-[11px] border border-border" style={{ background: 'var(--ov-02)' }}>
+              <div className="nx-home-proof-grid mt-7 flex max-w-xl overflow-hidden rounded-[11px] border border-border" style={{ background: 'var(--ov-02)' }}>
                 {stats.map((s, i) => (
                   <div key={s.label} className={`flex-1 px-3 py-2.5 ${i < stats.length - 1 ? 'border-r border-border' : ''}`}>
                     <div className="font-display text-base font-bold tracking-[-0.02em] sm:text-lg">{s.value}</div>
@@ -289,20 +289,22 @@ export default function NexezHome() {
             </div>
 
             {/* RIGHT - the draggable X-Ray gets its own prominent space */}
-            <AgentXray />
+            <div className="nx-home-xray">
+              <AgentXray />
+            </div>
           </div>
         </div>
       </section>
 
       {/* AGENT LOGO MARQUEE */}
       <section
-        className="relative z-10"
+        className="nx-home-agent-proof relative z-10"
         aria-label="Built for the AI assistants buyers use"
         data-section-name="Built for the AI assistants buyers use"
       >
         <div className="mx-auto max-w-7xl px-5 py-10">
           <p className="mb-7 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            Built for the AI assistants buyers use
+            Works with the AI assistants buyers use
           </p>
           <div className="nx-marquee">
             <div className="nx-marquee-track">
@@ -325,7 +327,7 @@ export default function NexezHome() {
 
       {/* MERCHANT INTEGRATION PROOF */}
       <section
-        className="relative z-10 border-t border-border"
+        className="nx-home-integration-proof relative z-10 border-t border-border"
         aria-label="Connects with the tools your business already uses"
         data-section-name="Integration proof"
       >
@@ -344,7 +346,7 @@ export default function NexezHome() {
             ))}
           </div>
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            Plus website, CSV, Excel, and Zapier-compatible workflows.
+            Plus your website, CSV, Excel, and Zapier.
           </p>
         </div>
       </section>
@@ -358,14 +360,13 @@ export default function NexezHome() {
         style={{ position: 'relative', zIndex: 1 }}
       >
         <p className="sr-only">Problem</p>
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start" data-reveal>
+        <div className="nx-home-section-inner nx-home-problem-layout mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start" data-reveal>
           <div>
             <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
               AI can help someone buy from you. <span className="nx-accent-text">It still needs your rules.</span>
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              A buyer may know what they want, but an AI assistant still needs clear offers, prices, and requirements.
-              Nexez keeps those answers clear before the sale moves forward.
+              AI can help a buyer, but it still needs your offers, prices, and rules.
             </p>
             <div className="mt-10 hidden aspect-square w-full lg:block">
               <KnowledgeGraph />
@@ -373,7 +374,7 @@ export default function NexezHome() {
           </div>
           <div className="grid gap-4">
             <div className="nx-tile overflow-hidden p-5" role="group" aria-label="Nexez buying flow">
-              <div className="relative grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
+              <div className="nx-home-flow relative grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
                 {discoveryFlow.map(({ title, label, Icon }, index) => (
                   <div key={title} className="contents">
                     <div className="flex h-full flex-col rounded-lg border border-border bg-white/[0.035] p-4">
@@ -408,7 +409,7 @@ export default function NexezHome() {
                 ))}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <div className="nx-home-problem-cards grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
               {problemCards.map(({ title, copy }) => (
                 <div key={title} className="nx-tile p-5">
                   <h3 className="text-sm font-medium tracking-tight">{title}</h3>
@@ -430,16 +431,15 @@ export default function NexezHome() {
       >
         <p className="sr-only">Merchant control</p>
         <p className="sr-only">Benefits</p>
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
+        <div className="nx-home-section-inner nx-home-control-layout mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
           <div className="lg:sticky lg:top-24">
             <h2 className="max-w-xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
               Let AI sell what you offer. <span className="nx-accent-text">Keep control of how you sell it.</span>
             </h2>
             <p className="mt-5 max-w-lg text-sm leading-6 text-muted-foreground md:text-base">
-              Nexez gives customers and AI assistants a clear buying path. They cannot change your prices,
-              ignore your requirements, or promise work you did not approve.
+              Buyers can move forward without changing your prices, skipping your requirements, or promising work you did not approve.
             </p>
-            <ul className="mt-7 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+            <ul className="nx-home-value-list mt-7 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
               {valueBullets.map((item) => (
                 <li key={item} className="flex items-center gap-3">
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" />
@@ -449,58 +449,61 @@ export default function NexezHome() {
             </ul>
           </div>
 
-          <div className="grid gap-5 pb-0 lg:pb-[34vh]">
+          <div>
             <h3 className="text-lg font-semibold tracking-[-0.015em] md:text-xl">What stays under your control</h3>
-            {pinnedStories.map(({ title, copy, Icon }, index) => (
-              <article
-                key={title}
-                className="nx-tile min-h-[320px] p-6 transition-colors lg:!sticky lg:min-h-[360px]"
-                style={{ top: `${96 + index * 18}px`, zIndex: index + 1 }}
-              >
-                <div className="flex h-full flex-col justify-between gap-10">
-                  <div>
-                    <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-black">
-                      <Icon className="size-4 text-[var(--signal)]" />
+            <div className="nx-home-story-rail mt-5 grid gap-5 pb-0 lg:pb-[34vh]">
+              {pinnedStories.map(({ title, copy, Icon }, index) => (
+                <article
+                  key={title}
+                  className="nx-home-story-card nx-tile min-h-[320px] p-6 transition-colors lg:!sticky lg:min-h-[360px]"
+                  style={{ top: `${96 + index * 18}px`, zIndex: index + 1 }}
+                >
+                  <div className="flex h-full flex-col justify-between gap-10">
+                    <div>
+                      <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-black">
+                        <Icon className="size-4 text-[var(--signal)]" />
+                      </div>
+                      <h3 className="mt-6 max-w-xl text-lg font-semibold leading-tight tracking-[-0.015em] md:text-2xl">{title}</h3>
+                      <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">{copy}</p>
                     </div>
-                    <h3 className="mt-6 max-w-xl text-lg font-semibold leading-tight tracking-[-0.015em] md:text-2xl">{title}</h3>
-                    <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">{copy}</p>
+                    <div className="flex items-center justify-between border-t border-border pt-5">
+                      <span className="font-mono text-xs text-muted-foreground">0{index + 1} / 04</span>
+                      <span className="inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
+                        {index === 0
+                          ? 'Your pricing'
+                          : index === 1
+                            ? 'Your limits'
+                            : index === 2
+                              ? 'Your timing'
+                              : 'Your business'}
+                        <ArrowRight className="size-4" />
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between border-t border-border pt-5">
-                    <span className="font-mono text-xs text-muted-foreground">0{index + 1} / 04</span>
-                    <span className="inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
-                      {index === 0
-                        ? 'Your pricing'
-                        : index === 1
-                          ? 'Your limits'
-                          : index === 2
-                            ? 'Your cadence'
-                            : 'Your business'}
-                      <ArrowRight className="size-4" />
-                    </span>
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* WHY IT MATTERS */}
       <section
+        id="readiness"
         className="nx-home-reveal-band border-b border-border"
         aria-label="Why it matters"
         data-section-name="Why it matters"
         style={{ position: 'relative', zIndex: 2 }}
       >
         <p className="sr-only">Why it matters</p>
-        <div className="mx-auto max-w-7xl px-5 py-20" data-reveal>
+        <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20" data-reveal>
           <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-            A good AI sale should follow <span className="nx-accent-text">the same business you run.</span>
+            Every AI sale should <span className="nx-accent-text">follow your rules.</span>
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Nexez connects the buyer&apos;s request to your offer, required details, price, and purchase rules.
+            Nexez keeps the request, offer, details, price, and rules together.
           </p>
-          <div className="mt-10">
+          <div className="nx-home-readiness mt-10">
             <ReadinessLab />
           </div>
         </div>
@@ -508,20 +511,21 @@ export default function NexezHome() {
 
       {/* ANALYTICS */}
       <section
+        id="analytics"
         className="nx-home-reveal-band border-b border-border"
         aria-label="Analytics"
         data-section-name="Analytics"
         style={{ position: 'relative', zIndex: 3 }}
       >
         <p className="sr-only">Analytics</p>
-        <div className="mx-auto max-w-7xl px-5 py-20" data-reveal>
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
+        <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20" data-reveal>
+          <div className="nx-home-analytics-head grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
             <div>
               <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
                 See where agent demand is coming from.
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-                Nexez gives you visibility into agent activity, buyer intent, and the offers that lead toward checkout, so you can see what people are actually trying to buy.
+                See what buyers want, which offers get attention, and what leads to a sale.
               </p>
             </div>
             <ul className="nx-tile grid gap-3 p-5 text-sm text-muted-foreground md:p-6">
@@ -533,7 +537,7 @@ export default function NexezHome() {
               ))}
             </ul>
           </div>
-          <div className="mt-10">
+          <div className="nx-home-analytics-demo mt-10">
             <LiveAgentFeed />
           </div>
         </div>
@@ -541,6 +545,7 @@ export default function NexezHome() {
 
       {/* PRODUCT CAPABILITIES */}
       <section
+        id="capabilities"
         className="nx-home-static-band nx-home-reveal-band--tint-015 border-b border-border overflow-hidden"
         aria-label="Product capabilities"
         data-section-name="Product capabilities"
@@ -558,18 +563,18 @@ export default function NexezHome() {
             maskImage: 'radial-gradient(110% 75% at 50% 8%, #000, transparent 72%)',
           }}
         />
-        <div className="relative z-10 mx-auto max-w-7xl px-5 py-20">
+        <div className="nx-home-section-inner relative z-10 mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 max-w-2xl">
             <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
               The controls behind a <span className="nx-accent-text">safer AI sale.</span>
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              You do not need to understand the technology underneath. You just need to tell Nexez how your business works.
+              Tell Nexez how your business works. It keeps the buying steps clear.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="nx-home-feature-rail grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {keyFeatures.map(({ title, copy, Icon }) => (
-              <div key={title} data-reveal className="card flex items-start gap-3">
+              <div key={title} data-reveal className="nx-home-feature-card card flex items-start gap-3">
                 <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
                   <Icon className="size-4 text-[var(--signal)]" />
                 </div>
@@ -585,13 +590,14 @@ export default function NexezHome() {
 
       {/* INTEGRATIONS */}
       <section
+        id="integrations"
         className="nx-home-static-band border-b border-border"
         aria-label="Integrations"
         data-section-name="Integrations"
         style={{ zIndex: 5 }}
       >
-        <div className="mx-auto max-w-7xl px-5 py-20">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
+        <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20">
+          <div className="nx-home-integration-layout grid gap-8 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--signal)]">
                 Integrations
@@ -600,14 +606,14 @@ export default function NexezHome() {
                 Your existing tools become <span className="nx-accent-text">one clear buying path.</span>
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-                Bring in your catalog, pricing, scheduling, and availability from the systems you already use. Review every imported offer before it goes live.
+                Bring in your products, prices, and calendar. Review every offer before it goes live.
               </p>
               <a href="/integrations" className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
                 Explore integrations
                 <ArrowRight className="size-4" />
               </a>
             </div>
-            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            <div className="nx-home-integration-rail grid gap-4 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
               {integrationGroups.map(({ title, copy, Icon }) => (
                 <article key={title} className="nx-tile p-5">
                   <div className="flex size-9 items-center justify-center rounded-md border border-border bg-black">
@@ -624,19 +630,20 @@ export default function NexezHome() {
 
       {/* WORKFLOW */}
       <section
+        id="how-it-works"
         className="nx-home-static-band border-b border-border"
         aria-label="How it works"
         data-section-name="How it works"
         style={{ zIndex: 6 }}
       >
         <p className="sr-only">How it works</p>
-        <div className="mx-auto max-w-7xl px-5 py-20">
+        <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 max-w-2xl">
             <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
               Four simple steps. <span className="nx-accent-text">Your rules stay in charge.</span>
             </h2>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="nx-home-workflow-rail grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {workflow.map((item, i) => (
               <div key={item.step} data-reveal className="nx-tile p-5">
                 <div className="flex items-center justify-between">
@@ -660,7 +667,7 @@ export default function NexezHome() {
       {/* SIMULATOR */}
       <section
         id="simulator"
-        className="nx-home-static-band nx-home-reveal-band--tint-02 border-b border-border py-20"
+        className="nx-home-simulator nx-home-static-band nx-home-reveal-band--tint-02 border-b border-border py-20"
         aria-label="Agent simulator"
         data-section-name="Agent simulator"
         style={{ zIndex: 7 }}
@@ -673,8 +680,19 @@ export default function NexezHome() {
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
             See what an AI assistant understands, what details are missing, and whether the request can move forward.
           </p>
-          <div className="mt-8">
+          <div className="nx-home-simulator-full mt-8">
             <SimulatorTeaser />
+          </div>
+          <div className="nx-home-simulator-compact mt-7 text-left">
+            <div className="nx-tile p-5">
+              <p className="text-sm font-semibold">Try a real buying request</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                See what Nexez understands before a real buyer arrives.
+              </p>
+              <a href="/simulator" className="btn-primary mt-5 h-11 w-full px-5">
+                Open the simulator
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -690,18 +708,18 @@ export default function NexezHome() {
         <div className="pointer-events-none absolute inset-0 z-0">
           <div className="nx-orb nx-orb--purple !opacity-25" style={{ top: 'auto', bottom: '-22rem', left: '50%', transform: 'translateX(-50%)' }} />
         </div>
-        <div className="relative z-10 mx-auto max-w-3xl px-5 py-24 text-center" data-reveal>
+        <div className="nx-home-final-inner relative z-10 mx-auto max-w-3xl px-5 py-24 text-center" data-reveal>
           <h2 className="text-[2rem] font-semibold leading-tight tracking-[-0.03em] md:text-[2.75rem]">
             Make your business easier for <span className="nx-accent-text">people and AI to buy from.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Set up what you sell, how it should be bought, and the rules Nexez should follow when the next buyer arrives.
+            Add your offers, set your rules, and be ready when the next buyer arrives.
           </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="nx-home-final-actions mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a href={appUrl('/create')} className="btn-primary h-11 px-5">
               List your offers
             </a>
-            <a href="/how-it-works" className="btn-secondary h-11 px-5">See how it works</a>
+            <a href="/how-it-works" className="nx-home-final-secondary btn-secondary h-11 px-5">See how it works</a>
           </div>
         </div>
       </section>

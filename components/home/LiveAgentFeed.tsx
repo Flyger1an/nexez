@@ -44,6 +44,8 @@ export function LiveAgentFeed() {
   const rowIdRef = useRef(0)
 
   useEffect(() => {
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 767px)').matches) return
+
     let i = 0
     const tick = () => {
       const step = STEPS[i % STEPS.length]
@@ -58,7 +60,43 @@ export function LiveAgentFeed() {
   }, [])
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
+    <>
+      <div className="grid gap-3 md:hidden">
+        <div
+          className="overflow-hidden rounded-2xl border border-border bg-[#0B0B0D] p-5"
+          style={{ color: '#F4F4F1' }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-medium text-[var(--signal)]">Example buyer visit</span>
+            <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-zinc-400">Live view</span>
+          </div>
+          <p className="mt-5 text-lg font-medium leading-7">
+            “Deep tissue massage this Saturday for under $150.”
+          </p>
+          <div className="mt-5 rounded-xl border border-[var(--ready)]/20 bg-[var(--ready)]/10 p-4">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--ready)]">Offer found</p>
+            <div className="mt-2 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Deep Tissue, 60 minutes</p>
+                <p className="mt-1 text-xs text-zinc-400">Saturday at 2:00 PM</p>
+              </div>
+              <span className="text-lg font-semibold text-[var(--ready)]">$120</span>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="card !p-4">
+            <p className="text-xs text-muted-foreground">Buyer visits</p>
+            <p className="mt-2 font-display text-2xl font-bold">312</p>
+          </div>
+          <div className="card !p-4">
+            <p className="text-xs text-muted-foreground">Sales started</p>
+            <p className="mt-2 font-display text-2xl font-bold">$48.2k</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden gap-5 md:grid lg:grid-cols-[1.5fr_1fr]">
       {/* session log - fixed dark terminal surface */}
       <div className="overflow-hidden rounded-2xl" style={{ background: '#0B0B0D', border: '1px solid rgba(255,255,255,0.1)' }}>
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
@@ -119,6 +157,7 @@ export function LiveAgentFeed() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }

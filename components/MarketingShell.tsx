@@ -81,7 +81,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             className="menu-btn"
-            aria-label="Open menu"
+            aria-label={open ? 'Close menu' : 'Open menu'}
             title="Menu"
             aria-expanded={open}
             aria-controls="nav-sheet"
@@ -92,18 +92,18 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           >
             ☰
           </button>
-          <ThemeToggle />
+          <ThemeToggle className="nav-bar-theme" />
           {authed === false && (
             <a href={appUrl('/login')} className="btn-secondary btn-sm sign-in">
               Sign in
             </a>
           )}
           {authed === null ? (
-            <span aria-hidden="true" className="btn-primary btn-sm" style={{ opacity: 0, pointerEvents: 'none' }}>
+            <span aria-hidden="true" className="btn-primary btn-sm nav-bar-cta" style={{ opacity: 0, pointerEvents: 'none' }}>
               Get listed
             </span>
           ) : (
-            <a href={appUrl(authed ? '/dashboard' : '/create')} className="btn-primary btn-sm">
+            <a href={appUrl(authed ? '/dashboard' : '/create')} className="btn-primary btn-sm nav-bar-cta">
               {authed ? 'Dashboard' : 'Get listed'}
             </a>
           )}
@@ -123,6 +123,21 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               </a>
             </>
           )}
+          <div className="nav-sheet-footer">
+            <div className="nav-sheet-theme-row">
+              <span>Theme</span>
+              <ThemeToggle />
+            </div>
+            {authed !== null ? (
+              <a
+                href={appUrl(authed ? '/dashboard' : '/create')}
+                className="btn-primary nav-sheet-cta"
+                onClick={() => setOpen(false)}
+              >
+                {authed ? 'Open dashboard' : 'List your offers'}
+              </a>
+            ) : null}
+          </div>
         </div>
       </nav>
 
@@ -133,20 +148,35 @@ export function MarketingShell({ children }: { children: ReactNode }) {
   )
 }
 
+function FooterLinks({ links }: { links: Array<[string, string]> }) {
+  return (
+    <ul className="marketing-footer-links">
+      {links.map(([label, href]) => (
+        <li key={href + label}>
+          <a href={href} className="text-muted-foreground transition-colors hover:text-white">
+            {label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function FooterCol({ title, links }: { title: string; links: Array<[string, string]> }) {
   return (
-    <div>
-      <div className="mb-3 text-xs uppercase tracking-widest text-zinc-500">{title}</div>
-      <ul className="space-y-2">
-        {links.map(([label, href]) => (
-          <li key={href + label}>
-            <a href={href} className="text-muted-foreground transition-colors hover:text-white">
-              {label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <>
+      <div className="hidden sm:block">
+        <div className="mb-3 text-xs uppercase tracking-widest text-zinc-500">{title}</div>
+        <FooterLinks links={links} />
+      </div>
+      <details className="marketing-footer-col sm:hidden">
+        <summary>
+          <span>{title}</span>
+          <span aria-hidden="true" className="marketing-footer-plus">+</span>
+        </summary>
+        <FooterLinks links={links} />
+      </details>
+    </>
   )
 }
 
@@ -166,14 +196,14 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
         ]
 
   return (
-    <footer className="mt-20 border-t border-border">
-      <div className="mx-auto grid max-w-7xl gap-8 px-5 py-12 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <div>
+    <footer className="marketing-footer mt-20 border-t border-border">
+      <div className="marketing-footer-grid mx-auto grid max-w-7xl gap-8 px-5 py-12 text-sm sm:grid-cols-2 lg:grid-cols-4">
+        <div className="marketing-footer-brand">
           <a href="/" className="inline-flex items-center text-foreground" title="Nexez home">
             <NexezLockup className="h-[18px] w-[108px]" />
           </a>
           <p className="mt-3 max-w-xs text-muted-foreground">
-            The commerce layer for AI agents. Get discovered, get understood, get bought.
+            Help people and AI find, understand, and buy from your business.
           </p>
         </div>
         <FooterCol
