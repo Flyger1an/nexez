@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { getLearnArticle, learnArticles, type LearnArticle } from './learn-content'
+import {
+  articlesInCategory,
+  cardSummaryOf,
+  FEATURED_SLUG,
+  getFeaturedArticle,
+  getLearnArticle,
+  getStartHereArticles,
+  learnArticles,
+  LEARN_CATEGORIES,
+  START_HERE_SLUGS,
+  type LearnArticle,
+} from './learn-content'
 
 // House-style gate for /learn. These rules were enforced by hand on every article
 // until now, which is exactly the kind of check that survives until the session
@@ -143,5 +154,46 @@ describe.each(learnArticles.map((a) => [a.slug, a] as const))('learn article: %s
     expect(article.readMinutes).toBeGreaterThan(0)
     expect(article.readMinutes).toBeLessThanOrEqual(30)
     expect(article.dek.length).toBeGreaterThan(40)
+  })
+})
+
+// The hub is curated rather than purely chronological, and curation is exactly
+// the kind of state that rots quietly: a renamed slug leaves the hero empty, a
+// duplicated entry doubles a step in the reading path, and neither throws.
+describe('learn hub curation', () => {
+  it('resolves the featured article', () => {
+    expect(getFeaturedArticle(), `FEATURED_SLUG "${FEATURED_SLUG}" does not resolve`).toBeTruthy()
+  })
+
+  it('resolves every start-here slug, in order, with no repeats', () => {
+    const resolved = getStartHereArticles()
+    expect(resolved.length, 'a start-here slug no longer resolves').toBe(START_HERE_SLUGS.length)
+    expect(new Set(START_HERE_SLUGS).size).toBe(START_HERE_SLUGS.length)
+    expect(START_HERE_SLUGS.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('keeps the featured article out of the start-here path', () => {
+    // It already has the largest slot on the page; listing it twice reads as a bug.
+    expect(START_HERE_SLUGS).not.toContain(FEATURED_SLUG)
+  })
+
+  it('shelves every article: no category exists outside LEARN_CATEGORIES, none is empty', () => {
+    for (const article of learnArticles) {
+      expect(LEARN_CATEGORIES, `${article.slug} has an unshelved category`).toContain(article.category)
+    }
+    for (const category of LEARN_CATEGORIES) {
+      expect(articlesInCategory(category).length, `${category} shelf is empty`).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe.each(learnArticles.map((a) => [a.slug, a] as const))('card summary: %s', (slug, article) => {
+  it('yields one short line that is not the whole dek', () => {
+    const summary = cardSummaryOf(article)
+    expect(summary.length, `${slug} card summary is empty`).toBeGreaterThan(20)
+    // A grid cell cannot carry a paragraph. Deks run past 400 chars; this is the gate
+    // that forces an explicit cardSummary when the derived opening sentence is long.
+    expect(summary.length, `${slug} card summary is too long for a card`).toBeLessThanOrEqual(200)
+    expect(summary).not.toMatch(/\s$/)
   })
 })
