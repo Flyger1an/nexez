@@ -19,6 +19,10 @@ import { createClient } from '../utils/supabase/client'
  * a rule. Signup lives in the top bar and one line at the foot, so a returning
  * user never trips over it. Signup and password reset still belong to
  * LoginForm; this component only ever renders signin.
+ *
+ * The submit uses nx-auth-submit rather than btn-primary on purpose: on
+ * platform surfaces btn-primary is deliberately an outline, which would leave
+ * the primary action looking like one more option in the stack.
  */
 
 function GoogleGlyph({ className }: { className?: string }) {
@@ -150,10 +154,10 @@ export function SignInForm({ nextPath }: { nextPath?: string }) {
           without anything competing with the single action. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[560px]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[380px]"
         style={{
           background:
-            'radial-gradient(60% 100% at 50% -10%, color-mix(in srgb, var(--signal) 13%, transparent), transparent 70%)',
+            'radial-gradient(38% 100% at 50% -20%, color-mix(in srgb, var(--signal) 8%, transparent), transparent 72%)',
         }}
       />
 
@@ -239,11 +243,7 @@ export function SignInForm({ nextPath }: { nextPath?: string }) {
               </p>
             ) : null}
 
-            <button
-              type="submit"
-              disabled={!hydrated || busy}
-              className="btn-primary h-[52px] w-full text-[15px] disabled:opacity-60"
-            >
+            <button type="submit" disabled={!hydrated || busy} className="nx-auth-submit">
               {loading ? <Loader2 className="size-4 animate-spin" /> : null}
               Sign in
               {!loading ? <ArrowRight className="size-4" /> : null}
