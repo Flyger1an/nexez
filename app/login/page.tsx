@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { LoginForm, LoginMode } from '../../components/LoginForm'
+import { SignInForm } from '../../components/SignInForm'
 import { AdminLoginForm } from '../../components/admin/AdminLoginForm'
 import { createClient } from '../../utils/supabase/server'
 import { safeNextPath } from '../../lib/safe-redirect'
@@ -64,6 +65,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   if (initialMode === 'signup') {
     const safe = safeNextPath(nextPath, '')
     redirect(safe ? `/onboard?next=${encodeURIComponent(safe)}` : '/onboard')
+  }
+
+  // Signin gets its own screen: one form, one primary action, alternates ranked
+  // below it. Reset still belongs to LoginForm, and signup redirected to
+  // /onboard above, so LoginForm only ever sees reset here.
+  if (initialMode === 'signin') {
+    return <SignInForm nextPath={nextPath} />
   }
 
   return <LoginForm initialMode={initialMode} nextPath={nextPath} />
