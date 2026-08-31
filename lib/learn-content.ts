@@ -39,8 +39,14 @@ export type LearnArticle = {
   metaDescription: string
   /** On-page H1 (may differ from metaTitle). */
   title: string
-  /** One-paragraph dek under the H1, also the hub-card blurb. */
+  /** One-paragraph dek under the H1. */
   dek: string
+  /**
+   * One-line blurb for hub cards and the related shelf. Optional: when absent,
+   * `cardSummaryOf` takes the dek's opening sentence, which is written to stand
+   * alone in every article we have. Set it explicitly when that reads badly.
+   */
+  cardSummary?: string
   category: 'Agentic commerce' | 'Agent readiness' | 'Guides'
   /** ISO date surfaced on-page and in Article JSON-LD (recency is a ranking signal here). */
   publishedAt: string
@@ -101,4 +107,68 @@ export const learnArticles: LearnArticle[] = [
 
 export function getLearnArticle(slug: string): LearnArticle | undefined {
   return learnArticles.find((a) => a.slug === slug)
+}
+
+// ---------------------------------------------------------------------------
+// Editorial curation.
+//
+// Kept here rather than as flags on individual articles, so the whole shape of
+// the hub is legible in one place and promoting a piece is a one-line diff
+// instead of an edit spread across the corpus.
+// ---------------------------------------------------------------------------
+
+/** Shelf order on the hub. Also the filter order. */
+export const LEARN_CATEGORIES: LearnArticle['category'][] = [
+  'Agentic commerce',
+  'Agent readiness',
+  'Guides',
+]
+
+/**
+ * The one article in the hero slot. Original research earns it: it is the only
+ * thing on /learn nobody else could have written, and a recency sort buries it
+ * one place further every publish.
+ */
+export const FEATURED_SLUG = 'agent-readiness-study-2026'
+
+/**
+ * The reading path for someone who has never thought about any of this.
+ * Understand it, tell the protocols apart, let the agents in, then speak to them.
+ */
+export const START_HERE_SLUGS = [
+  'what-is-agentic-commerce',
+  'ucp-vs-acp-vs-mcp',
+  'which-ai-crawlers-to-allow',
+  'json-ld-for-ai-agents',
+]
+
+/** Newest first. The hub's within-shelf order and the sitemap's reading of recency. */
+export function sortedArticles(articles: LearnArticle[] = learnArticles): LearnArticle[] {
+  return [...articles].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+}
+
+export function getFeaturedArticle(): LearnArticle | undefined {
+  return getLearnArticle(FEATURED_SLUG)
+}
+
+export function getStartHereArticles(): LearnArticle[] {
+  return START_HERE_SLUGS.map(getLearnArticle).filter((a): a is LearnArticle => Boolean(a))
+}
+
+export function articlesInCategory(category: LearnArticle['category']): LearnArticle[] {
+  return sortedArticles(learnArticles.filter((a) => a.category === category))
+}
+
+/**
+ * Card blurb. The dek is written as an article subtitle and runs to a paragraph;
+ * dropped into a grid cell it is a wall. The opening sentence is the part that
+ * was written to carry the idea alone.
+ */
+export function cardSummaryOf(article: LearnArticle): string {
+  if (article.cardSummary) return article.cardSummary
+  const dek = article.dek.trim()
+  // First sentence boundary: a period followed by a space and a capital letter,
+  // which skips decimals and "llms.txt" without needing a list of exceptions.
+  const match = dek.match(/^(.+?[.?!])\s+[A-Z(]/)
+  return (match ? match[1] : dek).trim()
 }

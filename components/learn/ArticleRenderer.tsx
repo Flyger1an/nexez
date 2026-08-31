@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ArticleBlock, LearnArticle } from '../../lib/learn-content'
+import { headingsOf } from '../../lib/learn-headings'
 
 // Server-only renderer for the typed /learn article blocks. One place owns the
 // prose styling so every article stays consistent.
@@ -36,12 +37,40 @@ const toneColor: Record<'signal' | 'ready' | 'amber', string> = {
   amber: 'var(--amber)',
 }
 
-function Block({ block }: { block: ArticleBlock }) {
+// Headings carry an id so sections can be linked to, listed in the contents rail,
+// and cited by fragment. `scroll-mt` keeps the target clear of the sticky nav.
+function Anchor({ id }: { id: string }) {
+  return (
+    <a
+      href={`#${id}`}
+      aria-label="Link to this section"
+      className="ml-2 align-middle text-[0.7em] opacity-0 transition group-hover/h:opacity-60 focus:opacity-100"
+      style={{ color: 'var(--signal)' }}
+    >
+      #
+    </a>
+  )
+}
+
+function Block({ block, headingId }: { block: ArticleBlock; headingId?: string }) {
   switch (block.type) {
     case 'h2':
-      return <h2 className="mt-12 text-2xl font-semibold tracking-[-0.03em] md:text-3xl">{block.text}</h2>
+      return (
+        <h2
+          id={headingId}
+          className="group/h mt-12 scroll-mt-24 text-2xl font-semibold tracking-[-0.03em] md:text-3xl"
+        >
+          {block.text}
+          {headingId ? <Anchor id={headingId} /> : null}
+        </h2>
+      )
     case 'h3':
-      return <h3 className="mt-8 text-xl font-semibold tracking-[-0.02em]">{block.text}</h3>
+      return (
+        <h3 id={headingId} className="group/h mt-8 scroll-mt-24 text-xl font-semibold tracking-[-0.02em]">
+          {block.text}
+          {headingId ? <Anchor id={headingId} /> : null}
+        </h3>
+      )
     case 'p':
       return <p className="mt-4 leading-7 text-muted-foreground">{withLinks(block.text)}</p>
     case 'ul':
@@ -117,11 +146,18 @@ function Block({ block }: { block: ArticleBlock }) {
 }
 
 export function ArticleRenderer({ article }: { article: LearnArticle }) {
+  // Same source of truth the contents rail reads, consumed in the same document
+  // order, so an id on the page and an id in the nav cannot disagree.
+  const headings = headingsOf(article)
+  let headingIndex = 0
+
   return (
     <>
-      {article.blocks.map((block, i) => (
-        <Block key={i} block={block} />
-      ))}
+      {article.blocks.map((block, i) => {
+        const isHeading = block.type === 'h2' || block.type === 'h3'
+        const headingId = isHeading ? headings[headingIndex++]?.id : undefined
+        return <Block key={i} block={block} headingId={headingId} />
+      })}
       {article.faqs.length ? (
         <section className="mt-12">
           <h2 className="text-2xl font-semibold tracking-[-0.03em]">Frequently asked questions</h2>
