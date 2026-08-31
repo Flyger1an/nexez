@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { handleNexieTurn, type NexieApprovalInput, type NexieMode } from '../../../../../lib/agents/nexie'
+import { type NexieApprovalInput, type NexieMode } from '../../../../../lib/agents/nexie'
 import { authenticateNexieRequest } from '../../../../../lib/agents/nexie-auth'
+import { runNexieExecution } from '../../../../../lib/agents/nexie-stream'
 import { createNexieTurnDb } from '../../../../../lib/agents/nexie-turn-db'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 import { NEXIE_CONTRACT_VERSION, NexieTurnResponseSchema } from '../../../../../contracts/nexie/v1'
@@ -14,13 +15,8 @@ type NexieStreamBody = {
   approval?: NexieApprovalInput | null
 }
 
-/** Split a finished message into word-ish chunks for the rare non-streamed (deterministic/approval) path. */
-function chunkText(text: string): string[] {
-  return text.match(/\S+\s*/g) ?? [text]
-}
-
 /**
- * POST /api/agents/nexie/stream - same turn as /api/agents/nexie, but Server-Sent Events:
+ * POST /api/agents/nexie/stream - Nexxi's web-client adapter over the shared execution stream:
  *   data: {"type":"token","value":"..."}   (progressive preview, may include pre-tool preamble)
  *   data: {"type":"done", ...NexieTurnResult}  (AUTHORITATIVE - clients render done.message + cards)
  *   data: {"type":"error","error":"..."}
@@ -58,35 +54,34 @@ export async function POST(request: NextRequest) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (obj: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`))
-      let streamedChars = 0
       try {
-        const result = await handleNexieTurn({
-          // Match the JSON route: buyer data stays RLS-bound while only the approval
-          // ledger uses the lazy server-only client.
-          db: createNexieTurnDb(db),
-          userId: user.id,
-          // Confirmed-email gate (see the JSON route): never stamp an unverified address onto orders.
-          userEmail: user.email_confirmed_at ? (user.email ?? null) : null,
-          message: body.message,
-          threadId: body.threadId,
-          mode: body.mode === 'voice' ? 'voice' : 'text',
-          approval: body.approval ?? null,
-          onToken: (delta) => {
-            streamedChars += delta.length
-            send({ type: 'token', value: delta })
+        await runNexieExecution(
+          {
+            // Match the JSON route: buyer data stays RLS-bound while only the approval
+            // ledger uses the lazy server-only client.
+            db: createNexieTurnDb(db),
+            userId: user.id,
+            // Confirmed-email gate (see the JSON route): never stamp an unverified address onto orders.
+            userEmail: user.email_confirmed_at ? (user.email ?? null) : null,
+            message: body.message,
+            threadId: body.threadId,
+            mode: body.mode === 'voice' ? 'voice' : 'text',
+            approval: body.approval ?? null,
           },
-        })
-        // Approval / deterministic-fallback turns don't stream from the model; replay the final
-        // message in chunks so the client gets one consistent progressive-render contract.
-        if (streamedChars === 0 && result.message) {
-          for (const chunk of chunkText(result.message)) send({ type: 'token', value: chunk })
-        }
-        const response = NexieTurnResponseSchema.parse({
-          ok: true,
-          contractVersion: NEXIE_CONTRACT_VERSION,
-          ...result,
-        })
-        send({ type: 'done', ...response })
+          (event) => {
+            if (event.type === 'text-delta') {
+              send({ type: 'token', value: event.delta })
+              return
+            }
+
+            const response = NexieTurnResponseSchema.parse({
+              ok: true,
+              contractVersion: NEXIE_CONTRACT_VERSION,
+              ...event.result,
+            })
+            send({ type: 'done', ...response })
+          },
+        )
       } catch (error) {
         console.error('[Nexie] streamed turn failed', error)
         send({ type: 'error', error: error instanceof Error ? error.message : 'Nexxi hit a snag before completing that turn.' })
