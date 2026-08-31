@@ -1,6 +1,7 @@
 import { buildPlatformAgentManifest } from './platform-agent-manifest'
 import { MCP_PROTOCOL_VERSION } from './mcp-transport'
 import { agentRuntimeUrl, marketingUrl } from './site'
+import { a2aStreamingEnabled } from './a2a/capabilities'
 
 /**
  * Newer agent-discovery documents that crawlers and agent frameworks probe for
@@ -35,27 +36,37 @@ export function buildMcpServerCard() {
   }
 }
 
-/** A2A-style agent card for clients probing /.well-known/agent-card.json. */
+/** A2A v0.3 Agent Card for the API-key-authenticated Nexxi task runtime. */
 export function buildA2AAgentCard() {
   const manifest = buildPlatformAgentManifest()
+  const endpoint = agentRuntimeUrl('/api/a2a')
   return {
     protocolVersion: '0.3.0',
     name: manifest.name,
     description: manifest.description,
-    url: agentRuntimeUrl('/api/v1'),
-    preferredTransport: 'HTTP+JSON',
+    url: endpoint,
+    preferredTransport: 'JSONRPC',
     provider: {
       organization: 'Nexez',
       url: manifest.url,
     },
     version: '1.0.0',
     capabilities: {
-      streaming: false,
+      streaming: a2aStreamingEnabled(),
       pushNotifications: false,
       stateTransitionHistory: true,
     },
-    defaultInputModes: ['application/json', 'text/plain'],
-    defaultOutputModes: ['application/json'],
+    securitySchemes: {
+      nexezApiKey: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'nxz_live_...',
+        description: 'Nexez Pro API key from the authenticated dashboard.',
+      },
+    },
+    security: [{ nexezApiKey: [] }],
+    defaultInputModes: ['text/plain'],
+    defaultOutputModes: ['text/plain', 'application/json'],
     skills: [
       {
         id: 'offer-discovery',
@@ -67,22 +78,21 @@ export function buildA2AAgentCard() {
       {
         id: 'negotiation',
         name: 'Price negotiation',
-        description: 'Submit a proposal against a negotiable offer, poll the seller decision, and continue the thread to agreement.',
-        tags: ['commerce', 'negotiation'],
+        description: 'Prepare a buyer proposal against a negotiable offer and return an approval-required action.',
+        tags: ['commerce', 'negotiation', 'approval'],
         examples: ['Offer $450 for the consulting package with a 10-day timeline.'],
       },
       {
         id: 'checkout',
         name: 'Checkout and booking handoff',
-        description: 'Start a checkout or booking for a listed offer and receive a durable order reference.',
-        tags: ['commerce', 'checkout', 'booking'],
-        examples: ['Book the Discovery Call and send the confirmation link.'],
+        description: 'Prepare a checkout or booking handoff while preserving Nexxi buyer approval boundaries.',
+        tags: ['commerce', 'checkout', 'booking', 'approval'],
+        examples: ['Book the Discovery Call and return the approval request.'],
       },
     ],
     documentationUrl: agentRuntimeUrl('/llms.txt'),
     additionalInterfaces: [
-      { transport: 'mcp', url: agentRuntimeUrl('/mcp') },
-      { transport: 'openapi', url: agentRuntimeUrl('/openapi.json') },
+      { transport: 'JSONRPC', url: endpoint },
     ],
   }
 }

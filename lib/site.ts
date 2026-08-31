@@ -52,7 +52,7 @@ const MARKETING_PREFIXES = [
   '/support',
   '/use-cases',
   '/learn', // guides + content hub
-  '/tools', // free lead-magnet tools (llms.txt generator, …)
+  '/tools', // free lead-magnet tools (llms.txt generator, ...)
   '/blog', // future content
   '/docs', // future docs
 ] as const
@@ -134,6 +134,7 @@ const APP_API_PREFIXES = [
 const AGENT_RUNTIME_PREFIXES = ['/checkout', '/negotiate', '/orders', '/store', '/acp', '/ucp', '/nexxi', '/.well-known'] as const
 
 const AGENT_RUNTIME_API_PREFIXES = [
+  '/api/a2a',
   '/api/agent-search',
   // ACP + UCP agentic-commerce protocol endpoints (merchant-hosted checkout sessions,
   // called by OpenAI/Google) live on the agent runtime alongside /api/checkout.

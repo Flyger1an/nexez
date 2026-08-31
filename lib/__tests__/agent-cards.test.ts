@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildA2AAgentCard, buildMcpServerCard } from '../agent-cards'
 import { buildPlatformAgentManifest } from '../platform-agent-manifest'
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 describe('buildMcpServerCard', () => {
   it('points at the live /mcp endpoint and cross-links the existing discovery artifacts', () => {
@@ -10,7 +14,6 @@ describe('buildMcpServerCard', () => {
     expect(card.protocol_version).toBe('2026-07-28')
     expect(card.capabilities.tools).toBe(true)
     expect(card.capabilities.resources).toBe(true)
-    // The card must agree with the artifacts agents already use.
     expect(card.links.catalog).toMatch(/\/\.well-known\/mcp\.json$/)
     expect(card.links.manifest).toMatch(/\/\.well-known\/agent\.json$/)
     expect(card.links.llms).toMatch(/\/llms\.txt$/)
@@ -29,7 +32,7 @@ describe('buildA2AAgentCard', () => {
 
   it('declares the commerce skills with ids, tags, and examples', () => {
     const card = buildA2AAgentCard()
-    const ids = card.skills.map((s) => s.id)
+    const ids = card.skills.map((skill) => skill.id)
     expect(ids).toEqual(['offer-discovery', 'negotiation', 'checkout'])
     for (const skill of card.skills) {
       expect(skill.name).toBeTruthy()
@@ -39,10 +42,23 @@ describe('buildA2AAgentCard', () => {
     }
   })
 
-  it('advertises MCP and OpenAPI as additional interfaces', () => {
+  it('advertises only the JSON-RPC A2A interface at the actual A2A endpoint', () => {
     const card = buildA2AAgentCard()
-    const transports = card.additionalInterfaces.map((i) => i.transport)
-    expect(transports).toContain('mcp')
-    expect(transports).toContain('openapi')
+    expect(card.url).toMatch(/\/api\/a2a$/)
+    expect(card.preferredTransport).toBe('JSONRPC')
+    expect(card.additionalInterfaces).toEqual([
+      { transport: 'JSONRPC', url: card.url },
+    ])
+    expect(card.securitySchemes.nexezApiKey).toMatchObject({
+      type: 'http',
+      scheme: 'bearer',
+    })
+  })
+
+  it('uses the same fail-closed streaming switch as the transport route', () => {
+    vi.stubEnv('A2A_STREAMING_ENABLED', 'false')
+    expect(buildA2AAgentCard().capabilities.streaming).toBe(false)
+    vi.stubEnv('A2A_STREAMING_ENABLED', 'true')
+    expect(buildA2AAgentCard().capabilities.streaming).toBe(true)
   })
 })

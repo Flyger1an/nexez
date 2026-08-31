@@ -19,7 +19,9 @@ export type NexieExecutionEvent =
 
 export type NexieExecutionInput = Omit<NexieTurnInput, 'onToken'>
 
-export type NexieExecutionEmitter = (event: NexieExecutionEvent) => void
+// Adapter callbacks may return a convenience value such as Array.push's length.
+// The runtime ignores that value but still awaits a returned promise in order.
+export type NexieExecutionEmitter = (event: NexieExecutionEvent) => unknown
 
 /** Split a completed message into word-ish chunks for deterministic and approval turns. */
 export function chunkNexieText(text: string): string[] {
@@ -31,20 +33,31 @@ export function chunkNexieText(text: string): string[] {
  *
  * The final `completed.result` is authoritative. `text-delta` events are only a
  * progressive preview and may contain a pre-tool preamble that is superseded by
- * the completed result.
+ * the completed result. Async emitters are serialized so durable adapters can
+ * persist each preview before the next event is observed.
  */
 export async function runNexieExecution(
   input: NexieExecutionInput,
   emit: NexieExecutionEmitter,
 ): Promise<NexieTurnResult> {
   let emittedLiveText = false
+  let emissionQueue: Promise<void> = Promise.resolve()
+  const enqueue = (event: NexieExecutionEvent) => {
+    emissionQueue = emissionQueue.then(async () => {
+      await emit(event)
+    })
+    // The queue is awaited before return, but model generation may continue for a
+    // while after a durable emitter rejects. Attach a handler immediately so Node
+    // never reports that pending rejection as unhandled.
+    void emissionQueue.catch(() => undefined)
+  }
 
   const result = await handleNexieTurn({
     ...input,
     onToken: (delta) => {
       if (!delta) return
       emittedLiveText = true
-      emit({ type: 'text-delta', delta, source: 'model' })
+      enqueue({ type: 'text-delta', delta, source: 'model' })
     },
   })
 
@@ -52,10 +65,11 @@ export async function runNexieExecution(
   // finished message so every adapter can preserve progressive rendering.
   if (!emittedLiveText && result.message) {
     for (const delta of chunkNexieText(result.message)) {
-      emit({ type: 'text-delta', delta, source: 'replay' })
+      enqueue({ type: 'text-delta', delta, source: 'replay' })
     }
   }
 
-  emit({ type: 'completed', result })
+  enqueue({ type: 'completed', result })
+  await emissionQueue
   return result
 }
