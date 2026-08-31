@@ -4,6 +4,7 @@ import { gatherSiteSignals, normalizeScanUrl } from '../../../lib/server/site-sc
 import { AGENT_BOTS, evaluateCrawlability } from '../../../lib/crawlability'
 import { captureError, captureEvent } from '../../../lib/observability'
 import { scheduleScanResultPersist } from '../../../lib/server/log-scan-result'
+import { resolveScanSource } from '../../../lib/scan-funnel'
 
 // One page fetch plus bounded agent-manifest, API, llms.txt, and robots probes.
 export const maxDuration = 30
@@ -27,13 +28,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  // Caller label, allowlisted so arbitrary client input never reaches telemetry.
-  // Callers that do not send one report 'unknown', which is enough to separate
-  // homepage-hero scans from every other caller.
-  const SCAN_SOURCES = ['hero', 'scan-page'] as const
-  const scanSource = (SCAN_SOURCES as readonly string[]).includes(body.source || '')
-    ? (body.source as string)
-    : 'unknown'
+  // Explicit allowlisted labels win. The scan page currently sends no label, so
+  // same-origin requests from /scan are inferred without turning other callers
+  // into scan-page traffic. This is attribution only, never an auth decision.
+  const scanSource = resolveScanSource(
+    body.source,
+    request.headers.get('referer'),
+    request.url,
+  )
 
   const normalized = normalizeScanUrl(body.url || '')
   if (normalized) {
