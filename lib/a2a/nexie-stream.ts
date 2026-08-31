@@ -67,10 +67,26 @@ export type NexieA2AStreamIds = {
   artifactId?: string
 }
 
-function hasPendingApproval(result: NexieTurnResult): boolean {
-  return result.cards.some(
-    (card) => card.type === 'approval' && card.status === 'PENDING',
-  )
+function terminalState(result: NexieTurnResult): A2ATaskState {
+  if (
+    result.cards.some(
+      (card) => card.type === 'approval' && card.status === 'PENDING',
+    )
+  ) {
+    return 'input-required'
+  }
+
+  if (
+    result.cards.some(
+      (card) =>
+        (card.type === 'action_result' && card.status === 'error') ||
+        (card.type === 'approval' && card.status === 'FAILED'),
+    )
+  ) {
+    return 'failed'
+  }
+
+  return 'completed'
 }
 
 /**
@@ -112,9 +128,7 @@ export class NexieA2AStreamProjector {
     }
 
     const { result } = event
-    const state: A2ATaskState = hasPendingApproval(result)
-      ? 'input-required'
-      : 'completed'
+    const state = terminalState(result)
 
     return [
       {

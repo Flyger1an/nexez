@@ -127,4 +127,35 @@ describe('NexieA2AStreamProjector', () => {
       final: true,
     })
   })
+
+  it('marks an unsuccessful Nexxi action as a failed A2A task', () => {
+    const projector = new NexieA2AStreamProjector({
+      taskId: 'task-failed',
+      contextId: 'context-1',
+    })
+    const failedResult: NexieTurnResult = {
+      ...baseResult,
+      message: 'I could not complete that action. Nothing was charged or booked.',
+      cards: [
+        {
+          type: 'action_result',
+          id: 'action-1',
+          title: 'Action failed',
+          status: 'error',
+          description: 'The checkout is no longer available.',
+        },
+      ],
+    }
+
+    const events = projector.project({
+      type: 'completed',
+      result: failedResult,
+    })
+
+    expect(events[1]).toMatchObject({
+      kind: 'status-update',
+      status: { state: 'failed' },
+      final: true,
+    })
+  })
 })
