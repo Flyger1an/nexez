@@ -73,8 +73,10 @@ import { whichAiCrawlersToAllow } from './learn-articles/which-ai-crawlers-to-al
 import { howAiAgentsPay } from './learn-articles/how-ai-agents-pay'
 import { productFeedsForAiAgents } from './learn-articles/product-feeds-for-ai-agents'
 import { googleAiModeVisibility } from './learn-articles/google-ai-mode-visibility'
+import { perplexityAndClaudeShopping } from './learn-articles/perplexity-and-claude-shopping'
 
 export const learnArticles: LearnArticle[] = [
+  perplexityAndClaudeShopping,
   googleAiModeVisibility,
   productFeedsForAiAgents,
   howAiAgentsPay,
