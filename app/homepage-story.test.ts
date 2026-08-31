@@ -61,14 +61,12 @@ describe('homepage commerce story', () => {
     expect(heroScanSource).toContain('appUrl(`/create?url=${encodeURIComponent(result.url)}`)')
   })
 
-  it('prefills the scheme so visitors only type their domain', () => {
-    expect(heroScanSource).toContain("const URL_PREFIX = 'https://'")
-    expect(heroScanSource).toContain('useState(URL_PREFIX)')
-    // The bare prefix is not scannable, so it must not enable submit.
+  it('leaves the scan field empty rather than prefilling a scheme', () => {
+    expect(heroScanSource).toContain("const [url, setUrl] = useState('')")
+    expect(heroScanSource).toContain('placeholder="https://yourwebsite.com"')
+    // A scheme with no host after it still must not enable submit.
     expect(heroScanSource).toContain('disabled={loading || !hostPart(url)}')
     expect(heroScanSource).toContain('!loading && hostPart(url)')
-    // Pasting a full url onto the prefix must not yield https://https://...
-    expect(heroScanSource).toContain('collapseScheme')
   })
 
   it('offers a one-click example for visitors who will not type a url', () => {
@@ -88,6 +86,14 @@ describe('homepage commerce story', () => {
     expect(source).toContain('Six signals decide whether')
     expect(source).toContain('an agent can buy from you.')
     expect(source).toContain('the number the scan at the top of this page')
+  })
+
+  it('gives mobile the same simulator as desktop', () => {
+    // One SimulatorTeaser at every width. The compact "Open the simulator" tile
+    // that used to replace it below 767px is gone.
+    expect(source).toContain('<SimulatorTeaser />')
+    expect(source).not.toContain('nx-home-simulator-compact')
+    expect(source).not.toContain('nx-home-simulator-full')
   })
 
   it('keeps the agent simulator section at the bottom of the page', () => {
@@ -139,8 +145,6 @@ describe('homepage commerce story', () => {
     expect(source).toContain('nx-home-workflow-mobile')
     expect(readinessSource).toContain('nx-home-readiness-grid')
     expect(styles).not.toContain('scroll-snap-type: x mandatory')
-    expect(source).toContain('nx-home-simulator-compact')
-    expect(source).toContain('Open the simulator')
   })
 
   it('gives the homepage modern merchant-facing metadata', () => {

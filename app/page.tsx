@@ -786,19 +786,8 @@ export default function NexezHome() {
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
             See what an AI assistant understands, what details are missing, and whether the request can move forward.
           </p>
-          <div className="nx-home-simulator-full mt-8">
+          <div className="mt-8">
             <SimulatorTeaser />
-          </div>
-          <div className="nx-home-simulator-compact mt-7 text-left">
-            <div className="nx-tile p-5">
-              <p className="text-sm font-semibold">Try a real buying request</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                See what Nexez understands before a real buyer arrives.
-              </p>
-              <a href="/simulator" className="btn-primary mt-5 h-11 w-full px-5">
-                Open the simulator
-              </a>
-            </div>
           </div>
         </div>
       </section>
