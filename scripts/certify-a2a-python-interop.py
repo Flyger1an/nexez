@@ -17,6 +17,7 @@ from typing import Any, Awaitable, Callable
 
 import httpx
 from a2a.client import A2ACardResolver, ClientConfig, create_client
+from a2a.client.errors import A2AClientError
 from a2a.types import (
     GetExtendedAgentCardRequest,
     GetTaskRequest,
@@ -209,10 +210,25 @@ async def disabled_methods() -> str:
     async with authorized_client(streaming=False) as client:
         list_error = await capture_failure(client.list_tasks(ListTasksRequest(page_size=1)))
         cached_card = await client.get_extended_agent_card(GetExtendedAgentCardRequest())
-    assert_sdk_not_implemented(list_error, "ListTasks")
+    assert_sdk_http_error(list_error, "ListTasks")
+    await assert_list_tasks_protocol_error()
     assert cached_card.capabilities.extended_agent_card is False, "Python SDK returned an advertised extended card"
     assert list(cached_card.supported_interfaces) == list(CARD.supported_interfaces), "Python SDK changed the cached Agent Card interfaces"
-    return "ListTasks was rejected and the SDK honored the disabled extended-card capability locally."
+    return "ListTasks returned protocol error -32004 through the official SDK HTTP wrapper, and the disabled extended card stayed cached."
+
+
+async def assert_list_tasks_protocol_error() -> None:
+    async with httpx.AsyncClient(
+        timeout=REQUEST_SECONDS,
+        headers={"Authorization": f"Bearer {API_KEY}", "A2A-Version": "1.0"},
+    ) as transport:
+        response = await transport.post(
+            f"{AGENT_BASE}/api/v1/a2a",
+            json={"jsonrpc": "2.0", "id": "python-list-tasks", "method": "ListTasks", "params": {"pageSize": 1}},
+        )
+    assert response.status_code == 400, f"ListTasks returned HTTP {response.status_code} instead of 400"
+    body = response.json()
+    assert body.get("error", {}).get("code") == -32004, "ListTasks did not return JSON-RPC error -32004"
 
 
 async def rejected_send(api_key: str) -> Exception:
@@ -279,8 +295,9 @@ def assert_http_401(error: Exception) -> None:
     assert re.search(r"(?:HTTP\s*)?401", str(error), re.IGNORECASE), "Request did not fail with HTTP 401"
 
 
-def assert_sdk_not_implemented(error: Exception, method: str) -> None:
-    assert isinstance(error, NotImplementedError), f"{method} did not return the official SDK NotImplementedError"
+def assert_sdk_http_error(error: Exception, method: str) -> None:
+    assert isinstance(error, A2AClientError), f"{method} did not return the official SDK A2AClientError"
+    assert str(error) == "HTTP Error: 400", f"{method} did not preserve the expected HTTP status"
 
 
 def valid_sha(value: str) -> bool:
