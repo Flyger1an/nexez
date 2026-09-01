@@ -117,8 +117,10 @@ describe('POST /api/v1/a2a', () => {
   })
 
   it('returns authentication and rate-limit failures as JSON-RPC envelopes', async () => {
+    const authTelemetry = vi.fn()
     const unauthenticated = createA2AV1PostHandler(dependencies({}, {
       authenticate: vi.fn(async () => ({ ok: false, error: 'Invalid API key.', status: 401 })),
+      telemetry: authTelemetry,
     }) as any)
     const authResponse = await unauthenticated(request('GetTask', { id: taskId }))
     expect(authResponse.status).toBe(401)
@@ -127,18 +129,60 @@ describe('POST /api/v1/a2a', () => {
       id: 'rpc-1',
       error: { code: -32000, message: 'Invalid API key.' },
     })
+    expect(authTelemetry).toHaveBeenCalledWith('a2a.v1.auth.denied', {
+      method: 'GetTask',
+      resultClass: 'authentication_denied',
+      errorClass: 'invalid_key',
+    })
 
     const limited = new Response('limited', {
       status: 429,
       headers: { 'retry-after': '9' },
     })
+    const rateTelemetry = vi.fn()
     const rateLimited = createA2AV1PostHandler(dependencies({}, {
       rateLimit: vi.fn(async () => limited),
+      telemetry: rateTelemetry,
     }) as any)
     const rateResponse = await rateLimited(request('GetTask', { id: taskId }))
     expect(rateResponse.status).toBe(429)
     expect(rateResponse.headers.get('retry-after')).toBe('9')
     expect(await rateResponse.json()).toMatchObject({ error: { code: -32029 } })
+    expect(rateTelemetry).toHaveBeenCalledWith('a2a.v1.rate_limited', { scope: 'ip' })
+  })
+
+  it('distinguishes revoked keys from entitlement denials without recording identity', async () => {
+    const revokedTelemetry = vi.fn()
+    const revoked = createA2AV1PostHandler(dependencies({}, {
+      authenticate: vi.fn(async () => ({
+        ok: false,
+        error: 'This API key has been revoked.',
+        status: 401,
+      })),
+      telemetry: revokedTelemetry,
+    }) as any)
+    await revoked(request('GetTask', { id: taskId }))
+    expect(revokedTelemetry).toHaveBeenCalledWith('a2a.v1.auth.denied', {
+      method: 'GetTask',
+      resultClass: 'authentication_denied',
+      errorClass: 'revoked_key',
+    })
+
+    const entitlementTelemetry = vi.fn()
+    const entitlement = createA2AV1PostHandler(dependencies({}, {
+      authenticate: vi.fn(async () => ({
+        ok: false,
+        error: 'API access requires the Pro plan.',
+        status: 402,
+      })),
+      telemetry: entitlementTelemetry,
+    }) as any)
+    await entitlement(request('GetTask', { id: taskId }))
+    expect(entitlementTelemetry).toHaveBeenCalledWith('a2a.v1.auth.denied', {
+      method: 'GetTask',
+      resultClass: 'entitlement_denied',
+      errorClass: 'entitlement_denied',
+    })
   })
 
   it('executes a blocking SendMessage and returns the settled task', async () => {
@@ -263,7 +307,8 @@ describe('POST /api/v1/a2a', () => {
       }]),
       executeTask: vi.fn(),
     }
-    const handler = createA2AV1PostHandler(dependencies(runtime) as any)
+    const telemetry = vi.fn()
+    const handler = createA2AV1PostHandler(dependencies(runtime, { telemetry }) as any)
     const response = await handler(request('SendStreamingMessage', sendParams(), {
       headers: { 'last-event-id': '2' },
     }))
@@ -280,6 +325,36 @@ describe('POST /api/v1/a2a', () => {
     })
     expect(runtime.eventsAfter).toHaveBeenCalledWith(ownerId, taskId, 2)
     expect(runtime.executeTask).not.toHaveBeenCalled()
+    expect(telemetry).toHaveBeenCalledWith('a2a.v1.sse.connected', {
+      method: 'SendStreamingMessage',
+      resultClass: 'resume',
+    })
+    expect(telemetry).toHaveBeenCalledWith('a2a.v1.sse.resumed', {
+      method: 'SendStreamingMessage',
+      eventSequence: 2,
+    })
+  })
+
+  it('records a future SSE cursor as a bounded protocol event', async () => {
+    const runtime = {
+      acceptMessage: vi.fn(async () => ({
+        outcome: 'duplicate',
+        taskId,
+        task: task('TASK_STATE_WORKING', 2),
+      })),
+    }
+    const telemetry = vi.fn()
+    const handler = createA2AV1PostHandler(dependencies(runtime, { telemetry }) as any)
+    const response = await handler(request('SendStreamingMessage', sendParams(), {
+      headers: { 'last-event-id': '3' },
+    }))
+
+    expect(response.status).toBe(400)
+    expect(telemetry).toHaveBeenCalledWith('a2a.v1.sse.invalid_cursor', {
+      method: 'SendStreamingMessage',
+      resultClass: 'future_cursor',
+      eventSequence: 3,
+    })
   })
 
   it('rejects subscriptions to settled tasks and unsupported method families', async () => {

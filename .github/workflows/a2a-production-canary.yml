@@ -1,0 +1,88 @@
+name: A2A Production Canary
+
+on:
+  schedule:
+    - cron: '23 10 * * *'
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact production commit SHA to verify, defaults to the triggering revision
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a2a-production-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: Daily bounded lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+
+      - name: Resolve and verify revision
+        id: revision
+        shell: bash
+        run: |
+          revision="$(git rev-parse HEAD)"
+          requested="${{ inputs.commit_sha || github.sha }}"
+          if [[ "$revision" != "$requested" ]]; then
+            echo "Requested revision does not match the checkout." >&2
+            exit 1
+          fi
+          echo "sha=$revision" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Install pinned official A2A SDK without changing manifests
+        run: npm install --no-save --no-package-lock --ignore-scripts @a2a-js/sdk@1.1.0
+
+      - name: Run bounded production canary
+        run: npm run canary:a2a
+        env:
+          NEXEZ_A2A_CANARY_BASE_URL: https://nexez.app
+          NEXEZ_A2A_CANARY_APP_BASE_URL: https://app.nexez.ai
+          NEXEZ_A2A_CANARY_REPORT_PATH: a2a-production-canary.json
+          NEXEZ_A2A_CANARY_DEPLOYMENT_WAIT_MS: '600000'
+          NEXEZ_COMMIT_SHA: ${{ steps.revision.outputs.sha }}
+          NEXEZ_A2A_CERT_API_KEY: ${{ secrets.NEXEZ_A2A_CERT_API_KEY }}
+          NEXEZ_RELEASE_CERT_SECRET: ${{ secrets.NEXEZ_RELEASE_CERT_SECRET }}
+
+      - name: Verify safe passing report
+        if: always()
+        env:
+          EXPECTED_SHA: ${{ steps.revision.outputs.sha }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs'
+          const report = JSON.parse(readFileSync('a2a-production-canary.json', 'utf8'))
+          const serialized = JSON.stringify(report)
+          if (report.status !== 'passed') throw new Error('A2A production canary did not pass.')
+          if (report.commitSha !== process.env.EXPECTED_SHA) throw new Error('Canary revision does not match the checkout.')
+          if (/nxz_live_[A-Za-z0-9_-]+/.test(serialized)) throw new Error('Canary report contains API key material.')
+          if (/Bearer\s+[A-Za-z0-9._~+/-]+/i.test(serialized)) throw new Error('Canary report contains Bearer material.')
+          NODE
+
+      - name: Upload canary evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a2a-production-canary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: a2a-production-canary.json
+          if-no-files-found: error
+          retention-days: 90

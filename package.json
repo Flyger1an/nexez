@@ -14,6 +14,7 @@
     "lint:dead:all": "knip --include files,exports,types",
     "check:agent-sdk-versions": "node scripts/check-agent-sdk-versions.mjs",
     "check:mobile-platform-contracts": "vitest run lib/seller-mobile-platform-contracts.test.ts lib/public-identifier.mobile-parity.test.ts lib/integration-capabilities.mobile-parity.test.ts lib/negotiation-rules.mobile-parity.test.ts lib/seller-mobile-feature-boundaries.test.ts lib/seller-mobile-web-handoffs.test.ts lib/server/seller-mobile-access-contract.test.ts",
+    "canary:a2a": "node scripts/canary-a2a.mjs",
     "certify:a2a": "node scripts/certify-a2a.mjs",
     "certify:a2a-sdk-interop": "node scripts/certify-a2a-sdk-interop.mjs",
     "certify:commerce": "node scripts/certify-commerce.mjs",

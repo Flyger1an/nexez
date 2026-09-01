@@ -22,7 +22,8 @@ describe('A2AV1TaskStore', () => {
       },
       error: null,
     }))
-    const store = new A2AV1TaskStore(db)
+    const telemetry = vi.fn()
+    const store = new A2AV1TaskStore(db, telemetry)
     const params = parseA2AV1SendMessageParams({
       message: {
         messageId: 'message-1',
@@ -48,6 +49,9 @@ describe('A2AV1TaskStore', () => {
       p_task_id: null,
       p_context_id: null,
       p_metadata: { source: 'test' },
+    })
+    expect(telemetry).toHaveBeenCalledWith('a2a.v1.message.accepted', {
+      resultClass: 'created',
     })
   })
 

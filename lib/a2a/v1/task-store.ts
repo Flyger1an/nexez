@@ -10,6 +10,10 @@ import type {
   A2AV1UserMessage,
   ParsedA2AV1SendMessageParams,
 } from './protocol'
+import {
+  emitA2AV1Telemetry,
+  type A2AV1Telemetry,
+} from './telemetry'
 
 const TASK_STATES = new Set<A2AV1TaskState>([
   'TASK_STATE_UNSPECIFIED',
@@ -84,7 +88,10 @@ export type A2AV1CancelResult = {
 }
 
 export class A2AV1TaskStore {
-  constructor(private readonly db: SupabaseClient) {}
+  constructor(
+    private readonly db: SupabaseClient,
+    private readonly telemetry: A2AV1Telemetry = emitA2AV1Telemetry,
+  ) {}
 
   async acceptMessage(input: {
     ownerId: string
@@ -108,7 +115,15 @@ export class A2AV1TaskStore {
       p_metadata: input.params.metadata ?? {},
     })
     if (error) throw new Error(`A2A message acceptance failed: ${error.message}`)
-    return parseAcceptResult(data)
+    const result = parseAcceptResult(data)
+    if (result.outcome === 'created') {
+      this.telemetry('a2a.v1.message.accepted', { resultClass: 'created' })
+    } else if (result.outcome === 'duplicate') {
+      this.telemetry('a2a.v1.message.replayed', { resultClass: 'duplicate' })
+    } else if (result.outcome === 'conflict') {
+      this.telemetry('a2a.v1.message.conflict', { resultClass: 'message_id_conflict' })
+    }
+    return result
   }
 
   async claimTask(
@@ -189,13 +204,40 @@ export class A2AV1TaskStore {
       p_event_id: input.eventId,
       p_event: input.event,
     })
-    if (error) throw new Error(`A2A task event write failed: ${error.message}`)
+    if (error) {
+      const terminalConflict = error.message.includes('execution token is no longer active')
+      this.telemetry(
+        terminalConflict
+          ? 'a2a.v1.task.terminal_write_conflict'
+          : 'a2a.v1.event.persistence_failed',
+        { errorClass: terminalConflict ? 'execution_token_inactive' : 'event_write_failed' },
+      )
+      throw new Error(`A2A task event write failed: ${error.message}`)
+    }
     const record = requiredRecord(data, 'A2A append result')
-    return {
+    const result = {
       sequence: requiredInteger(record.sequence, 'A2A event sequence'),
       duplicate: record.duplicate === true,
       settled: record.settled === true,
     }
+    const eventKind = 'artifactUpdate' in input.event
+      ? 'artifact_update'
+      : 'status_update'
+    const taskState = statusUpdateState(input.event)
+    this.telemetry('a2a.v1.event.persisted', {
+      eventKind,
+      eventSequence: result.sequence,
+      resultClass: result.duplicate ? 'duplicate' : 'stored',
+      taskState,
+    })
+    if (taskState) {
+      this.telemetry('a2a.v1.task.state_changed', {
+        taskState,
+        eventSequence: result.sequence,
+        resultClass: result.settled ? 'settled' : 'active',
+      })
+    }
+    return result
   }
 
   async cancelTask(
@@ -215,12 +257,20 @@ export class A2AV1TaskStore {
     if (!['canceled', 'already_canceled', 'task_not_found', 'task_not_cancelable'].includes(outcome)) {
       throw new Error('A2A cancellation returned an unknown outcome.')
     }
-    return {
+    const result = {
       outcome: outcome as A2AV1CancelResult['outcome'],
       ...optionalTaskFields(record),
       ...(typeof record.sequence === 'number' ? { sequence: requiredInteger(record.sequence, 'A2A cancellation sequence') } : {}),
       ...(typeof record.eventId === 'string' ? { eventId: record.eventId } : {}),
     }
+    if (result.outcome === 'canceled' || result.outcome === 'already_canceled') {
+      this.telemetry('a2a.v1.task.canceled', {
+        taskState: result.state,
+        resultClass: result.outcome,
+        eventSequence: result.sequence,
+      })
+    }
+    return result
   }
 
   async failExecution(input: {
@@ -241,11 +291,25 @@ export class A2AV1TaskStore {
     })
     if (error) throw new Error(`A2A task failure write failed: ${error.message}`)
     const record = requiredRecord(data, 'A2A failure result')
-    return {
+    const result = {
       stored: record.stored === true,
       duplicate: record.duplicate === true,
       ...(typeof record.sequence === 'number' ? { sequence: requiredInteger(record.sequence, 'A2A failure sequence') } : {}),
     }
+    if (result.stored) {
+      this.telemetry('a2a.v1.task.state_changed', {
+        taskState: 'TASK_STATE_FAILED',
+        resultClass: result.duplicate ? 'duplicate' : 'settled',
+        eventSequence: result.sequence,
+      })
+    }
+    if (!result.stored) {
+      this.telemetry('a2a.v1.task.terminal_write_conflict', {
+        resultClass: 'failure_not_stored',
+        errorClass: 'execution_token_inactive',
+      })
+    }
+    return result
   }
 
   async reconcileTask(
@@ -259,10 +323,19 @@ export class A2AV1TaskStore {
     })
     if (error) throw new Error(`A2A task reconciliation failed: ${error.message}`)
     const record = requiredRecord(data, 'A2A reconciliation result')
-    return {
+    const result = {
       reconciled: record.reconciled === true,
       ...(typeof record.sequence === 'number' ? { sequence: requiredInteger(record.sequence, 'A2A reconciliation sequence') } : {}),
     }
+    if (result.reconciled) {
+      this.telemetry('a2a.v1.task.reconciled', {
+        taskState: 'TASK_STATE_FAILED',
+        resultClass: 'expired_lease',
+        errorClass: 'worker_lease_expired',
+        eventSequence: result.sequence,
+      })
+    }
+    return result
   }
 }
 
@@ -407,4 +480,8 @@ function requiredInteger(value: unknown, label: string): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function statusUpdateState(event: A2AV1StreamResponse): string | undefined {
+  return 'statusUpdate' in event ? event.statusUpdate.status.state : undefined
 }

@@ -22,6 +22,10 @@ import {
   type A2AV1StoredEvent,
   type A2AV1TaskSnapshot,
 } from './task-store'
+import {
+  emitA2AV1Telemetry,
+  type A2AV1Telemetry,
+} from './telemetry'
 
 export type A2AV1AcceptedTask = {
   outcome: 'created' | 'duplicate'
@@ -37,6 +41,7 @@ export type A2AV1EmailResolver = (
 
 export class A2AV1Runtime {
   readonly store: A2AV1TaskStore
+  private readonly acceptedAtByTask = new Map<string, number>()
 
   constructor(
     private readonly db: SupabaseClient,
@@ -44,8 +49,9 @@ export class A2AV1Runtime {
     private readonly executeNexie: A2AV1NexieExecutor = runNexieExecution,
     private readonly resolveEmail: A2AV1EmailResolver = confirmedAccountEmail,
     private readonly newId: () => string = randomUUID,
+    private readonly telemetry: A2AV1Telemetry = emitA2AV1Telemetry,
   ) {
-    this.store = store ?? new A2AV1TaskStore(db)
+    this.store = store ?? new A2AV1TaskStore(db, telemetry)
   }
 
   async acceptMessage(input: {
@@ -116,6 +122,9 @@ export class A2AV1Runtime {
     }
 
     if (!accepted.taskId) throw new Error('A2A acceptance omitted its task id.')
+    if (accepted.outcome === 'created') {
+      this.acceptedAtByTask.set(accepted.taskId, Date.now())
+    }
     await this.store.reconcileTask(input.ownerId, accepted.taskId)
     const task = await this.requireTask(
       input.ownerId,
@@ -131,7 +140,10 @@ export class A2AV1Runtime {
 
   async executeTask(ownerId: string, taskId: string): Promise<A2AV1TaskSnapshot> {
     await this.store.reconcileTask(ownerId, taskId)
+    const claimStartedAt = Date.now()
     const claim = await this.store.claimTask(ownerId, taskId, 55)
+    const acceptedAt = this.acceptedAtByTask.get(taskId)
+    this.acceptedAtByTask.delete(taskId)
     if (!claim.claimed) {
       if (claim.outcome === 'api_key_invalid') {
         throw new A2AV1ProtocolError(
@@ -149,11 +161,25 @@ export class A2AV1Runtime {
           404,
         )
       }
+      if (claim.outcome === 'task_not_submitted') {
+        this.telemetry('a2a.v1.task.claim_lost', {
+          taskState: claim.state,
+          resultClass: claim.outcome,
+          durationMs: Date.now() - claimStartedAt,
+        })
+      }
       return this.requireTask(ownerId, taskId)
     }
     if (!claim.executionToken) {
       throw new Error('A2A task claim omitted its execution token.')
     }
+    this.telemetry('a2a.v1.task.claimed', {
+      taskState: claim.state,
+      resultClass: claim.outcome,
+      eventSequence: claim.sequence,
+      durationMs: Date.now() - claimStartedAt,
+      ...(acceptedAt === undefined ? {} : { claimDelayMs: Date.now() - acceptedAt }),
+    })
 
     try {
       const context = await this.store.getExecutionContext(
@@ -246,16 +272,17 @@ export class A2AV1Runtime {
       )
       await persistenceQueue
     } catch (error) {
-      console.error('[A2A] Nexxi task execution failed', {
-        taskId,
-        error: error instanceof Error ? error.message : 'unknown error',
-      })
       const safe = error instanceof SafeA2AExecutionError
         ? error
         : new SafeA2AExecutionError(
             'nexxi_execution_failed',
             'Nexxi could not complete this task. Nothing was booked, paid, or submitted.',
           )
+      this.telemetry('a2a.v1.task.safe_failure', {
+        taskState: 'TASK_STATE_WORKING',
+        resultClass: 'execution_failed',
+        errorClass: safe.code,
+      })
       try {
         await this.store.failExecution({
           ownerId,
@@ -265,12 +292,10 @@ export class A2AV1Runtime {
           errorCode: safe.code,
           errorMessage: safe.publicMessage,
         })
-      } catch (failureWriteError) {
-        console.error('[A2A] Failed to persist safe task failure', {
-          taskId,
-          error: failureWriteError instanceof Error
-            ? failureWriteError.message
-            : 'unknown error',
+      } catch {
+        this.telemetry('a2a.v1.event.persistence_failed', {
+          resultClass: 'safe_failure_write',
+          errorClass: 'failure_write_failed',
         })
       }
     }
@@ -402,16 +427,14 @@ async function confirmedAccountEmail(
     const { data, error } = await db.auth.admin.getUserById(ownerId)
     if (error) {
       console.warn('[A2A] Could not load confirmed buyer email', {
-        ownerId,
-        error: error.message,
+        errorClass: 'buyer_email_lookup_failed',
       })
       return null
     }
     return data.user?.email_confirmed_at ? (data.user.email ?? null) : null
-  } catch (error) {
+  } catch {
     console.warn('[A2A] Confirmed buyer email lookup failed', {
-      ownerId,
-      error: error instanceof Error ? error.message : 'unknown error',
+      errorClass: 'buyer_email_lookup_failed',
     })
     return null
   }
