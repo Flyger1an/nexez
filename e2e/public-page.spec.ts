@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { loginWithPassword } from './auth'
 
 const publicSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const publicSupabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -215,13 +216,11 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     test.skip(!email || !password, 'set E2E_EMAIL and E2E_PASSWORD to run the seeded llm_opt_in simulator E2E')
     test.skip(!llmApiKey, 'set LLM_API_KEY to run the seeded llm_opt_in simulator E2E (it makes a real LLM call)')
 
-    // Login (same pattern as editor.spec.ts)
-    await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    await page.locator('input[type="email"]').fill(email!)
-    await page.locator('input[type="password"]').fill(password!)
-    await page.locator('button[type="submit"]').first().click()
-    await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30_000 })
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+    await loginWithPassword(page, {
+      email: email!,
+      password: password!,
+      destination: '/dashboard',
+    })
 
     // Pick a genuinely PUBLISHED owned listing. The previous selector grabbed
     // the first owned listing regardless of status, so a newer draft could be

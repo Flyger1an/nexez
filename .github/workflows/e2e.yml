@@ -103,3 +103,14 @@ jobs:
 
       - name: Playwright E2E
         run: npm run test:e2e
+
+      # Preserve the trace, DOM/error context, and failure screenshot instead of
+      # forcing the next debugging session to infer the browser's final route.
+      - name: Upload Playwright failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results
+          if-no-files-found: warn
+          retention-days: 7
