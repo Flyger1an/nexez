@@ -32,6 +32,11 @@ Only `EXPO_PUBLIC_*` values belong here, and only public ones. Never add
 `SUPABASE_SERVICE_ROLE_KEY`, Stripe secret keys, webhook secrets, or other private server
 secrets to the mobile app.
 
+Native Firebase client configs come from the canonical `nexez-seller-hub` Firebase project.
+Local builds use the gitignored `google-services.json` and `GoogleService-Info.plist` files in this
+directory. EAS builds receive the same files through secret file variables named
+`GOOGLE_SERVICES_JSON` and `GOOGLE_SERVICE_INFO_PLIST` in every build environment.
+
 ## Design system
 
 Built to `design_handoff_seller_hub/` - the **persimmon glass** language (matches the web brand):
@@ -80,8 +85,9 @@ simulator, preview, and production profiles, and `app.json` carries the
 `app.nexez.sellerhub` bundle identifier and Android package. The complete device matrix and
 evidence requirements are in [RELEASE_CERTIFICATION.md](./RELEASE_CERTIFICATION.md).
 
-The four required public client values are registered in the EAS development, preview, and
-production environments. Review their names without printing values:
+The four required public client values and two native Firebase file variables are registered in
+the EAS development, preview, and production environments. Review their names without printing
+values:
 
 ```bash
 cd apps/seller-mobile

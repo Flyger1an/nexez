@@ -33,6 +33,10 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Firebase native client configs, provided through EAS file variables and never committed
+google-services.json
+GoogleService-Info.plist
+
 # typescript
 *.tsbuildinfo
 
