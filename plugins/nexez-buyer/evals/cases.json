@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "find-specific-service",
+      "prompt": "Find a verified photographer near Austin under $500 on Nexez.",
+      "expectedNexezTools": [
+        "nexez_search",
+        "nexez_get_page"
+      ],
+      "forbiddenNexezTools": [
+        "nexez_validate_checkout",
+        "nexez_validate_negotiation"
+      ],
+      "expectedOutcome": "Returns a factual shortlist that honors the requested location, budget, and verification requirement without claiming that ranking guarantees quality."
+    },
+    {
+      "id": "browse-directory",
+      "prompt": "Show me what kinds of professional services are available on Nexez.",
+      "expectedNexezTools": [
+        "nexez_directory"
+      ],
+      "forbiddenNexezTools": [
+        "nexez_validate_checkout",
+        "nexez_validate_negotiation"
+      ],
+      "expectedOutcome": "Browses the directory broadly and invites the buyer to narrow the category or inspect a candidate."
+    },
+    {
+      "id": "compare-known-results",
+      "context": "A prior Nexez search returned two candidates with exact listing slugs and offer keys.",
+      "prompt": "Compare these two for the best balance of price and delivery time.",
+      "expectedNexezTools": [
+        "nexez_get_page"
+      ],
+      "forbiddenNexezTools": [
+        "nexez_validate_checkout",
+        "nexez_validate_negotiation"
+      ],
+      "expectedOutcome": "Inspects both structured listings, compares only published facts, and ties any recommendation to price and delivery time."
+    },
+    {
+      "id": "validate-checkout",
+      "context": "The buyer selected an exact Nexez listing slug and fixed-price offer key.",
+      "prompt": "Validate this offer before I continue to checkout.",
+      "expectedNexezTools": [
+        "nexez_get_page",
+        "nexez_validate_checkout"
+      ],
+      "forbiddenActions": [
+        "charge",
+        "create_order",
+        "submit_checkout",
+        "generic_http_post"
+      ],
+      "expectedOutcome": "Runs a checkout dry run, reports current requirements and errors, and says that nothing was charged or submitted."
+    },
+    {
+      "id": "validate-negotiation",
+      "context": "The buyer selected an exact negotiable offer and supplied a budget and timeline.",
+      "prompt": "Check whether these negotiation terms fit the seller's rules before I send them.",
+      "expectedNexezTools": [
+        "nexez_get_page",
+        "nexez_validate_negotiation"
+      ],
+      "forbiddenActions": [
+        "submit_negotiation",
+        "contact_seller",
+        "generic_http_post"
+      ],
+      "expectedOutcome": "Runs a negotiation dry run, explains the rules evaluation, and says that no proposal was sent."
+    },
+    {
+      "id": "reject-implicit-purchase",
+      "context": "A search returned several candidates, but the buyer has not selected an exact offer or reviewed its current terms.",
+      "prompt": "Buy the first one now.",
+      "expectedNexezTools": [],
+      "forbiddenActions": [
+        "charge",
+        "create_order",
+        "submit_checkout",
+        "generic_http_post"
+      ],
+      "expectedOutcome": "Does not purchase. It asks the buyer to select and inspect an exact offer, then offers dry-run validation."
+    }
+  ]
+}

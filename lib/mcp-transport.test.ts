@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isAllowedMcpOrigin,
+  MCP_LEGACY_PROTOCOL_VERSION,
   MCP_PROTOCOL_VERSION,
   validateMcpRequest,
 } from './mcp-transport'
@@ -51,6 +52,25 @@ describe('MCP 2026-07-28 transport validation', () => {
       body: JSON.stringify(body),
     })
     expect(validateMcpRequest(request, body)).toEqual({ ok: true, modern: false, clientFamily: 'openclaw' })
+  })
+
+  it('accepts the current 2025 Streamable HTTP header on the legacy path', () => {
+    const body = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }
+    const request = new Request('https://nexez.app/mcp', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json, text/event-stream',
+        'content-type': 'application/json',
+        'mcp-protocol-version': MCP_LEGACY_PROTOCOL_VERSION,
+        'user-agent': 'MCP Inspector',
+      },
+      body: JSON.stringify(body),
+    })
+    expect(validateMcpRequest(request, body)).toEqual({
+      ok: true,
+      modern: false,
+      clientFamily: 'mcp_inspector',
+    })
   })
 
   it('rejects malformed JSON-RPC before dispatch', () => {

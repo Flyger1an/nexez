@@ -1,0 +1,39 @@
+{
+  "name": "nexez-buyer",
+  "version": "0.1.0",
+  "description": "Find and compare published Nexez offers, then validate checkout or negotiation before a buyer-approved handoff.",
+  "author": {
+    "name": "Nexez",
+    "url": "https://nexez.ai"
+  },
+  "homepage": "https://nexez.ai/agents",
+  "keywords": [
+    "commerce",
+    "shopping",
+    "services",
+    "marketplace"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Nexez Buyer",
+    "shortDescription": "Find and validate agent-ready offers.",
+    "longDescription": "Search Nexez businesses, compare structured offers, and validate checkout or negotiation before a buyer-approved handoff.",
+    "developerName": "Nexez",
+    "category": "Shopping",
+    "capabilities": [
+      "Search",
+      "Read",
+      "Validate"
+    ],
+    "websiteURL": "https://nexez.ai",
+    "privacyPolicyURL": "https://nexez.ai/privacy",
+    "termsOfServiceURL": "https://nexez.ai/terms",
+    "brandColor": "#F15A29",
+    "defaultPrompt": [
+      "Find a highly rated photographer near Austin.",
+      "Compare agent-ready website design offers.",
+      "Validate this offer before I continue to checkout."
+    ]
+  }
+}
