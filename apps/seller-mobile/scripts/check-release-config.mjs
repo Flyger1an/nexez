@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
@@ -6,6 +7,9 @@ const app = JSON.parse(readFileSync(resolve(root, 'app.json'), 'utf8')).expo
 const eas = JSON.parse(readFileSync(resolve(root, 'eas.json'), 'utf8'))
 const failures = []
 const easProjectId = '0ebc7964-9099-4b42-b569-da181c30d155'
+const require = createRequire(import.meta.url)
+const applyDynamicConfig = require('../app.config.js')
+const resolvedApp = applyDynamicConfig({ config: app })
 
 function check(condition, message) {
   if (!condition) failures.push(message)
@@ -37,6 +41,16 @@ check(/^\d+$/.test(app.ios?.buildNumber ?? ''), 'iOS build number must be numeri
 check(app.android?.package === 'app.nexez.sellerhub', 'Unexpected Android package')
 check(Number.isInteger(app.android?.versionCode) && app.android.versionCode > 0, 'Android version code must be a positive integer')
 check(app.extra?.eas?.projectId === easProjectId, 'Unexpected EAS project ID')
+check(
+  resolvedApp.android?.googleServicesFile ===
+    (process.env.GOOGLE_SERVICES_JSON ?? './google-services.json'),
+  'Android Firebase config path is not wired',
+)
+check(
+  resolvedApp.ios?.googleServicesFile ===
+    (process.env.GOOGLE_SERVICE_INFO_PLIST ?? './GoogleService-Info.plist'),
+  'iOS Firebase config path is not wired',
+)
 check(!app.android?.adaptiveIcon?.backgroundImage, 'Adaptive icon must use the branded solid background color')
 
 check(eas.build?.development?.environment === 'development', 'Development profile environment is missing')

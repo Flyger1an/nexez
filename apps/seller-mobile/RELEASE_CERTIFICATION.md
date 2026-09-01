@@ -11,6 +11,8 @@ hardware before a store release is approved.
 - Project ID: `0ebc7964-9099-4b42-b569-da181c30d155`
 - iOS bundle identifier: `app.nexez.sellerhub`
 - Android package: `app.nexez.sellerhub`
+- Firebase project: `nexez-seller-hub`
+- Firebase Android app: production EAS signing certificate SHA-1 and SHA-256 registered
 
 Build profiles:
 
@@ -21,12 +23,17 @@ Build profiles:
 | `preview` | Android APK and internal preview | Internal | `preview` |
 | `production` | App Store and Play Store binary | Store | `production` |
 
-EAS holds only these public client values for development, preview, and production:
+EAS holds these public client values for development, preview, and production:
 
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `EXPO_PUBLIC_NEXEZ_API_URL`
 - `EXPO_PUBLIC_AGENT_RUNTIME_URL`
+
+EAS also holds the canonical native Firebase client configs as secret file variables:
+
+- `GOOGLE_SERVICES_JSON`
+- `GOOGLE_SERVICE_INFO_PLIST`
 
 Never add a Supabase secret or service-role key, Stripe secret, webhook secret, or server token to
 an `EXPO_PUBLIC_*` variable.
