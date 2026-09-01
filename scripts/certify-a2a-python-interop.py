@@ -25,7 +25,6 @@ from a2a.types import (
     SendMessageConfiguration,
     SendMessageRequest,
     TaskState,
-    UnsupportedOperationError,
 )
 from a2a.helpers import new_text_message
 from importlib.metadata import version
@@ -210,7 +209,7 @@ async def disabled_methods() -> str:
     async with authorized_client(streaming=False) as client:
         list_error = await capture_failure(client.list_tasks(ListTasksRequest(page_size=1)))
         cached_card = await client.get_extended_agent_card(GetExtendedAgentCardRequest())
-    assert_unsupported(list_error, "ListTasks")
+    assert_sdk_not_implemented(list_error, "ListTasks")
     assert cached_card.capabilities.extended_agent_card is False, "Python SDK returned an advertised extended card"
     assert list(cached_card.supported_interfaces) == list(CARD.supported_interfaces), "Python SDK changed the cached Agent Card interfaces"
     return "ListTasks was rejected and the SDK honored the disabled extended-card capability locally."
@@ -280,8 +279,8 @@ def assert_http_401(error: Exception) -> None:
     assert re.search(r"(?:HTTP\s*)?401", str(error), re.IGNORECASE), "Request did not fail with HTTP 401"
 
 
-def assert_unsupported(error: Exception, method: str) -> None:
-    assert isinstance(error, UnsupportedOperationError), f"{method} did not return the official UnsupportedOperationError"
+def assert_sdk_not_implemented(error: Exception, method: str) -> None:
+    assert isinstance(error, NotImplementedError), f"{method} did not return the official SDK NotImplementedError"
 
 
 def valid_sha(value: str) -> bool:
