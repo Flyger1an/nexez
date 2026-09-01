@@ -53,7 +53,14 @@
       ],
       "expo-web-browser",
       "expo-font",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "@sentry/react-native",
+        {
+          "organization": "nexez-ai",
+          "project": "nexez-seller-hub"
+        }
+      ]
     ],
     "extra": {
       "router": {},

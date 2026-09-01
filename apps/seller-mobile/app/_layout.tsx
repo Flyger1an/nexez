@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar'
 import { SessionProvider } from '@/src/hooks/useSession'
 import { ToastProvider } from '@/src/components/Toast'
 import { NotificationObserver } from '@/src/components/NotificationObserver'
+import { initObservability, withObservability } from '@/src/lib/observability'
 import { colors } from '@/src/theme/colors'
 
 export {
@@ -23,7 +24,9 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync()
 
-export default function RootLayout() {
+initObservability()
+
+function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     SpaceGrotesk_500Medium,
@@ -53,6 +56,8 @@ export default function RootLayout() {
 
   return <RootLayoutNav />
 }
+
+export default withObservability(RootLayout)
 
 function RootLayoutNav() {
   return (

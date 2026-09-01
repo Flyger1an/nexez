@@ -19,6 +19,10 @@ export const config = {
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
     '',
   apiUrl: normalizeApiHost(process.env.EXPO_PUBLIC_NEXEZ_API_URL ?? 'https://app.nexez.ai'),
+  sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN ?? '',
+  releaseStage:
+    process.env.EXPO_PUBLIC_RELEASE_STAGE ??
+    (typeof __DEV__ !== 'undefined' && __DEV__ ? 'development' : 'production'),
   // Public agent surfaces (published pages, agent.json links) stay on the
   // agent-runtime host - only the authed API moves to the app host.
   agentRuntimeUrl: trimTrailingSlash(process.env.EXPO_PUBLIC_AGENT_RUNTIME_URL ?? 'https://nexez.app'),
