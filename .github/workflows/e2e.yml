@@ -24,6 +24,7 @@ on:
       - 'app/**'
       - 'components/**'
       - 'lib/**'
+      - 'utils/**'
       - 'e2e/**'
       - 'playwright.config.ts'
       - '.github/workflows/e2e.yml'
@@ -103,3 +104,14 @@ jobs:
 
       - name: Playwright E2E
         run: npm run test:e2e
+
+      - name: Upload Playwright failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
