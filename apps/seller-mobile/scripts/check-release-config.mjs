@@ -41,6 +41,11 @@ check(/^\d+$/.test(app.ios?.buildNumber ?? ''), 'iOS build number must be numeri
 check(app.android?.package === 'app.nexez.sellerhub', 'Unexpected Android package')
 check(Number.isInteger(app.android?.versionCode) && app.android.versionCode > 0, 'Android version code must be a positive integer')
 check(app.extra?.eas?.projectId === easProjectId, 'Unexpected EAS project ID')
+const sentryPlugin = app.plugins?.find(
+  (plugin) => Array.isArray(plugin) && plugin[0] === '@sentry/react-native',
+)
+check(sentryPlugin?.[1]?.organization === 'nexez-ai', 'Sentry organization is not wired')
+check(sentryPlugin?.[1]?.project === 'nexez-seller-hub', 'Sentry project is not wired')
 check(
   resolvedApp.android?.googleServicesFile ===
     (process.env.GOOGLE_SERVICES_JSON ?? './google-services.json'),
@@ -88,10 +93,17 @@ if (existsSync(localEnvPath)) {
     'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
     'EXPO_PUBLIC_NEXEZ_API_URL',
     'EXPO_PUBLIC_AGENT_RUNTIME_URL',
+    'EXPO_PUBLIC_SENTRY_DSN',
+  ])
+  const required = new Set([
+    'EXPO_PUBLIC_SUPABASE_URL',
+    'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+    'EXPO_PUBLIC_NEXEZ_API_URL',
+    'EXPO_PUBLIC_AGENT_RUNTIME_URL',
   ])
   check(new Set(names).size === names.length, '.env.local contains a duplicate variable')
   check(names.every((name) => allowed.has(name)), '.env.local contains a non-public or unexpected variable')
-  check([...allowed].every((name) => names.includes(name)), '.env.local is missing a required public variable')
+  check([...required].every((name) => names.includes(name)), '.env.local is missing a required public variable')
 }
 
 if (failures.length) {
