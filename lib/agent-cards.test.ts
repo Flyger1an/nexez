@@ -8,7 +8,7 @@ import { buildA2AAgentCard } from './agent-cards'
 import { agentRuntimeUrl, marketingUrl } from './site'
 
 describe('A2A Agent Card contract', () => {
-  it('describes only the future Nexez v1 JSON-RPC interface', () => {
+  it('describes the deployed Nexez v1 JSON-RPC interface', () => {
     const card = buildA2AAgentCard()
     const endpoint = agentRuntimeUrl(A2A_ENDPOINT_PATH)
 
@@ -22,7 +22,7 @@ describe('A2A Agent Card contract', () => {
       ],
       documentationUrl: marketingUrl('/developers'),
       capabilities: {
-        streaming: false,
+        streaming: true,
         pushNotifications: false,
         extendedAgentCard: false,
       },
@@ -49,7 +49,7 @@ describe('A2A Agent Card contract', () => {
     expect(card).not.toHaveProperty('additionalInterfaces')
 
     const serialized = JSON.stringify(card)
-    expect(serialized).not.toContain('/api/v1')
+    expect(serialized).toContain('/api/v1/a2a')
     expect(serialized).not.toContain('"0.3"')
     expect(serialized).not.toContain('"transport":"mcp"')
     expect(serialized).not.toContain('"transport":"openapi"')
