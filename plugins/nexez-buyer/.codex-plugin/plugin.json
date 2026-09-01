@@ -15,6 +15,7 @@
   ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
+  "apps": "./.app.json",
   "interface": {
     "displayName": "Nexez Buyer",
     "shortDescription": "Find and validate agent-ready offers.",
@@ -30,6 +31,8 @@
     "privacyPolicyURL": "https://nexez.ai/privacy",
     "termsOfServiceURL": "https://nexez.ai/terms",
     "brandColor": "#F15A29",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png",
     "defaultPrompt": [
       "Find a highly rated photographer near Austin.",
       "Compare agent-ready website design offers.",
