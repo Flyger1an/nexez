@@ -97,7 +97,12 @@ export async function POST(request: Request) {
       callerIp,
       recordEvidence,
     )))
-    return NextResponse.json(results.map((result) => result.body))
+    const responses = results
+      .filter((result) => result.status !== 202)
+      .map((result) => result.body)
+    return responses.length
+      ? NextResponse.json(responses)
+      : new Response(null, { status: 202 })
   }
 
   if (!body || typeof body !== 'object') {
@@ -107,6 +112,7 @@ export async function POST(request: Request) {
     )
   }
   const dispatched = await dispatchMcpRequest(request, body as McpJsonRpcRequest, base, callerIp, recordEvidence)
+  if (dispatched.status === 202) return new Response(null, { status: 202 })
   return NextResponse.json(dispatched.body, { status: dispatched.status })
 }
 
@@ -132,6 +138,12 @@ async function dispatchMcpRequest(
       })
     }
     return { status: validation.error.status, body: validation.error.body }
+  }
+
+  // Streamable HTTP notifications do not receive JSON-RPC responses. Accept
+  // lifecycle and other valid notifications without dispatching a reply body.
+  if (!Object.prototype.hasOwnProperty.call(body, 'id')) {
+    return { status: 202, body: null }
   }
 
   const handoffKind = mcpHandoffKind(toolName)

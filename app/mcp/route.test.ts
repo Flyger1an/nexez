@@ -125,6 +125,44 @@ describe('/mcp platform route', () => {
     )
   })
 
+  it('accepts a lifecycle notification with an empty 202 response', async () => {
+    const response = await legacyPost(
+      { jsonrpc: '2.0', method: 'notifications/initialized', params: {} },
+      {
+        accept: 'application/json, text/event-stream',
+        'mcp-protocol-version': MCP_LEGACY_PROTOCOL_VERSION,
+        'user-agent': 'Claude Desktop',
+      },
+    )
+
+    expect(response.status).toBe(202)
+    expect(await response.text()).toBe('')
+    expect(handle).not.toHaveBeenCalled()
+  })
+
+  it('omits notifications from a legacy batch response', async () => {
+    const response = await legacyPost([
+      { jsonrpc: '2.0', method: 'notifications/initialized', params: {} },
+      { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
+    ])
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual([
+      { jsonrpc: '2.0', id: 2, result: { echoed: 'tools/list' } },
+    ])
+  })
+
+  it('returns an empty 202 for a notification-only legacy batch', async () => {
+    const response = await legacyPost([
+      { jsonrpc: '2.0', method: 'notifications/initialized', params: {} },
+      { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 1 } },
+    ])
+
+    expect(response.status).toBe(202)
+    expect(await response.text()).toBe('')
+    expect(handle).not.toHaveBeenCalled()
+  })
+
   it('rejects missing standard headers with HeaderMismatch', async () => {
     const response = await legacyPost(modernBody('tools/list'), {
       accept: 'application/json, text/event-stream',
