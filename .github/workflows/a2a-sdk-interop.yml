@@ -1,0 +1,138 @@
+name: A2A Official SDK Interoperability
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/a2a-sdk-interop.yml
+      - scripts/certify-a2a-sdk-interop.mjs
+      - package.json
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact production commit SHA to certify
+        required: true
+        type: string
+      run_authenticated:
+        description: Run the authenticated official SDK lifecycle
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a2a-sdk-interop-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  public-interop:
+    name: Public discovery and auth boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Install the pinned official A2A SDK without changing manifests
+        run: npm install --no-save --no-package-lock --ignore-scripts @a2a-js/sdk@1.1.0
+
+      - name: Run public official SDK interoperability
+        run: npm run certify:a2a-sdk-interop
+        env:
+          NEXEZ_A2A_INTEROP_MODE: public
+          NEXEZ_A2A_INTEROP_BASE_URL: https://nexez.app
+          NEXEZ_A2A_INTEROP_APP_BASE_URL: https://app.nexez.ai
+          NEXEZ_A2A_INTEROP_REPORT_PATH: a2a-sdk-interop-public.json
+
+      - name: Verify public report
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs'
+          const report = JSON.parse(readFileSync('a2a-sdk-interop-public.json', 'utf8'))
+          if (report.status !== 'passed' || report.mode !== 'public') {
+            throw new Error('Public official SDK interoperability did not pass.')
+          }
+          NODE
+
+      - name: Upload public interoperability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a2a-sdk-interop-public-${{ github.run_id }}
+          path: a2a-sdk-interop-public.json
+          if-no-files-found: error
+          retention-days: 90
+
+  authenticated-interop:
+    name: Authenticated official SDK lifecycle
+    if: github.event_name == 'workflow_dispatch' && inputs.run_authenticated
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out the exact production revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+
+      - name: Verify exact checkout
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ inputs.commit_sha }}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Install the pinned official A2A SDK without changing manifests
+        run: npm install --no-save --no-package-lock --ignore-scripts @a2a-js/sdk@1.1.0
+
+      - name: Run authenticated official SDK interoperability
+        run: npm run certify:a2a-sdk-interop
+        env:
+          NEXEZ_A2A_INTEROP_MODE: authenticated
+          NEXEZ_A2A_INTEROP_BASE_URL: https://nexez.app
+          NEXEZ_A2A_INTEROP_APP_BASE_URL: https://app.nexez.ai
+          NEXEZ_A2A_INTEROP_REPORT_PATH: a2a-sdk-interop-authenticated.json
+          NEXEZ_A2A_INTEROP_DEPLOYMENT_WAIT_MS: '600000'
+          NEXEZ_COMMIT_SHA: ${{ inputs.commit_sha }}
+          NEXEZ_A2A_CERT_API_KEY: ${{ secrets.NEXEZ_A2A_CERT_API_KEY }}
+          NEXEZ_RELEASE_CERT_SECRET: ${{ secrets.NEXEZ_RELEASE_CERT_SECRET }}
+
+      - name: Verify authenticated report
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs'
+          const report = JSON.parse(readFileSync('a2a-sdk-interop-authenticated.json', 'utf8'))
+          const expected = process.env.EXPECTED_SHA
+          if (report.status !== 'passed' || report.mode !== 'authenticated') {
+            throw new Error('Authenticated official SDK interoperability did not pass.')
+          }
+          if (report.commitSha !== expected) {
+            throw new Error(`Expected ${expected}, received ${report.commitSha}.`)
+          }
+          NODE
+        env:
+          EXPECTED_SHA: ${{ inputs.commit_sha }}
+
+      - name: Upload authenticated interoperability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a2a-sdk-interop-authenticated-${{ github.run_id }}
+          path: a2a-sdk-interop-authenticated.json
+          if-no-files-found: error
+          retention-days: 90
