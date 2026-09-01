@@ -66,6 +66,12 @@ jobs:
         run: supabase db lint --local --schema private,public --level error
       - name: Prove Nexie approval authority boundaries
         run: supabase test db supabase/tests/nexie_approval_security.test.sql --local
+      - name: Prove A2A v1 ledger security boundaries
+        run: supabase test db supabase/tests/a2a_v1_ledger_security.test.sql --local
+      - name: Prove A2A v1 task lifecycle and Nexxi continuity
+        run: supabase test db supabase/tests/a2a_v1_ledger_lifecycle.test.sql --local
+      - name: Prove A2A v1 recovery and retention boundaries
+        run: supabase test db supabase/tests/a2a_v1_ledger_recovery.test.sql --local
       - name: Prove checkout-session privacy and retention boundaries
         run: supabase test db supabase/tests/checkout_session_privacy.test.sql --local
       - name: Prove seller notification preference ownership
