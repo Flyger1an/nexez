@@ -1,4 +1,4 @@
-import type { A2AV1StreamResponse } from './nexie-projector'
+import type { A2AV1StreamResponse } from './nexxi-projector'
 import type { A2AV1TaskSnapshot } from './task-store'
 
 type JsonRecord = Record<string, unknown>

@@ -63,7 +63,7 @@ describe('buyer data privacy contract', () => {
         email: 'buyer@example.com',
         name: 'Buyer',
         reference: 'user-1',
-        agent: 'nexie',
+        agent: 'nexxi',
         locale: 'en-US',
       },
     })).toEqual({ buyer: { locale: 'en-US' } })

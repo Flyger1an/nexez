@@ -90,7 +90,7 @@ export async function semanticSearch(
     // directly exposed. Keep that privileged RPC service-role-only; the
     // authenticated client is still used below for the public projection.
     const admin = createAdminClient()
-    const { data: matches, error } = await admin.rpc('match_nexie_pages', {
+    const { data: matches, error } = await admin.rpc('match_nexxi_pages', {
       query_embedding: queryEmbedding,
       match_count: Math.max(limit * 4, 20),
     })

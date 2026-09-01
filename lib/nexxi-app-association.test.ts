@@ -12,7 +12,7 @@ describe('Nexxi app association files', () => {
       applinks: {
         apps: [],
         details: [{
-          appIDs: ['AB12CD34EF.app.nexez.nexie'],
+          appIDs: ['AB12CD34EF.app.nexez.nexxi'],
           components: [{ '/': '/nexxi/*', comment: 'Open Nexxi native destinations and checkout returns.' }],
         }],
       },
@@ -25,7 +25,7 @@ describe('Nexxi app association files', () => {
       relation: ['delegate_permission/common.handle_all_urls'],
       target: {
         namespace: 'android_app',
-        package_name: 'app.nexez.nexie',
+        package_name: 'app.nexez.nexxi',
         sha256_cert_fingerprints: [FINGERPRINT],
       },
     }])

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { authenticateNexieRequest } from '../../../../lib/agents/nexie-auth'
+import { authenticateNexxiRequest } from '../../../../lib/agents/nexxi-auth'
 import { hasRecentInteractiveAuthentication } from '../../../../lib/auth-recent'
 import { deleteUserAccount } from '../../../../lib/server/delete-account'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Account deletion requires explicit confirmation.' }, { status: 400 })
   }
 
-  const auth = await authenticateNexieRequest(request)
+  const auth = await authenticateNexxiRequest(request)
   if (!auth.ok) return auth.response
 
   const bearerToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()

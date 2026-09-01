@@ -152,9 +152,9 @@ Do not use a buyer's phone number or a public listing contact.
    or admin tooling. Do not copy raw phone numbers, message bodies, or webhook
    payloads into support notes.
 
-## Nexie authorization is intentionally deferred
+## Nexxi authorization is intentionally deferred
 
-Nexie SMS authorization is not part of this release. A future implementation
+Nexxi SMS authorization is not part of this release. A future implementation
 needs a separate buyer-consent topic, server-only atomic approval/outbox
 creation, an eligibility recheck for `PENDING` approval state, account
 export/deletion handling, and an authenticated live pending-approval resume

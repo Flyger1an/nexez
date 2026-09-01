@@ -65,7 +65,7 @@ const DUAL_PREFIXES = ['/discovery', '/leaderboard', '/simulator', '/support'] a
 
 const ADMIN_PREFIXES = ['/admin'] as const
 const ADMIN_API_PREFIXES = ['/api/admin'] as const
-const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard', '/invite', '/nexie', '/team', '/shopify'] as const
+const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard', '/invite', '/nexxi', '/team', '/shopify'] as const
 
 const MARKETING_API_PREFIXES = [
   '/api/directory',

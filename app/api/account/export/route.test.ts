@@ -11,7 +11,7 @@ const { authRef, rateRef, expRef } = vi.hoisted(() => ({
 }))
 
 vi.mock('../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => rateRef.response) }))
-vi.mock('../../../../lib/agents/nexie-auth', () => ({ authenticateNexieRequest: vi.fn(async () => authRef.result) }))
+vi.mock('../../../../lib/agents/nexxi-auth', () => ({ authenticateNexxiRequest: vi.fn(async () => authRef.result) }))
 vi.mock('../../../../lib/server/export-account', () => ({
   exportUserAccount: vi.fn(async (id: string, email: string | null, exportedAt: string) => {
     expRef.calls.push({ id, email, exportedAt })

@@ -1,5 +1,5 @@
-const APP_BUNDLE_ID = 'app.nexez.nexie'
-const APP_PACKAGE = 'app.nexez.nexie'
+const APP_BUNDLE_ID = 'app.nexez.nexxi'
+const APP_PACKAGE = 'app.nexez.nexxi'
 const TEAM_ID_RE = /^[A-Z0-9]{10}$/
 const SHA256_RE = /^(?:[A-F0-9]{2}:){31}[A-F0-9]{2}$/
 

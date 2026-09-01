@@ -1,8 +1,8 @@
 'use client'
 
-// Shared agent-chat shell (spec §6): factored out of nexie-chat.tsx so the
+// Shared agent-chat shell (spec §6): factored out of nexxi-chat.tsx so the
 // buyer (Nexxi) and seller (intake) agents share ONE chat system. The markup
-// and classes are lifted verbatim from the shipped Nexie surface; everything
+// and classes are lifted verbatim from the shipped Nexxi surface; everything
 // agent-specific (name, copy, endpoint, cards) arrives via AgentChatConfig.
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, ChevronRight, Loader2, Mic, MicOff, Send, Sparkles } from 'lucide-react'

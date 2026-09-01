@@ -5,7 +5,7 @@ import type {
   A2AV1Task,
   A2AV1TaskState,
   A2AV1StreamResponse,
-} from './nexie-projector'
+} from './nexxi-projector'
 import type {
   A2AV1UserMessage,
   ParsedA2AV1SendMessageParams,
@@ -64,7 +64,7 @@ export type A2AV1ClaimResult = {
 export type A2AV1ExecutionContext = {
   taskId: string
   contextId: string
-  nexieThreadId: string | null
+  nexxiThreadId: string | null
   history: unknown[]
   metadata: Record<string, unknown>
   leaseExpiresAt: string
@@ -454,7 +454,7 @@ function parseExecutionContext(value: unknown): A2AV1ExecutionContext {
   return {
     taskId: requiredString(record.taskId, 'A2A execution task id'),
     contextId: requiredString(record.contextId, 'A2A execution context id'),
-    nexieThreadId: typeof record.nexieThreadId === 'string' ? record.nexieThreadId : null,
+    nexxiThreadId: typeof record.nexxiThreadId === 'string' ? record.nexxiThreadId : null,
     history: Array.isArray(record.history) ? record.history : [],
     metadata: isRecord(record.metadata) ? record.metadata : {},
     leaseExpiresAt: requiredString(record.leaseExpiresAt, 'A2A execution lease expiration'),

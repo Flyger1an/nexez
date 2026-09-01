@@ -87,7 +87,7 @@ private database catalog are tested together as one contract.
 
 ### Buyer-agent experience
 
-- Nexie buyer-agent threads with streaming responses and structured approval cards.
+- Nexxi buyer-agent threads with streaming responses and structured approval cards.
 - Saved sellers and searches, scheduled agent tasks, notifications, referrals, and order tracking.
 - Buyer data export and deletion controls cover checkout-session identity, recurring service
   agreements, and staged-settlement records while preserving a seller account when the same

@@ -1,4 +1,4 @@
--- Nexie push notifications: per-user Expo push tokens. The mobile app registers its
+-- Nexxi push notifications: per-user Expo push tokens. The mobile app registers its
 -- token after sign-in; the backend fans out pushes on async events (negotiation
 -- replies, booking confirmations, refunds). Owner-scoped via RLS for the browser/Data
 -- API; server senders read with the service-role client to push across users.
@@ -50,4 +50,4 @@ create trigger trg_touch_user_push_tokens_updated_at
   for each row
   execute function public.nz_touch_push_tokens_updated_at();
 
-comment on table public.user_push_tokens is 'Expo push tokens per user for Nexie push notifications (keyed by user_id + denormalized email).';
+comment on table public.user_push_tokens is 'Expo push tokens per user for Nexxi push notifications (keyed by user_id + denormalized email).';

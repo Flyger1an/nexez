@@ -5,7 +5,7 @@ export const RESERVED_PUBLIC_IDENTIFIERS = new Set([
   'acp', 'agent-readiness', 'agents', 'api', 'auth', 'checkout', 'compare',
   'create', 'dashboard', 'design', 'developers', 'discovery', 'enterprise',
   'examples', 'growth-control-preview', 'how-it-works', 'integrations',
-  'invite', 'leaderboard', 'learn', 'login', 'mcp', 'negotiate', 'nexie', 'nexxi',
+  'invite', 'leaderboard', 'learn', 'login', 'mcp', 'negotiate', 'nexxi', 'nexxi',
   'onboard', 'orders', 'pricing', 'privacy', 'scan', 'security', 'sms-notifications',
   'service-agreements', 'shopify', 'simulator', 'store', 'support', 'team',
   'terms', 'tools', 'ucp', 'use-cases',

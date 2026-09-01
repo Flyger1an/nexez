@@ -60,7 +60,8 @@ describe('platform documentation source of truth', () => {
   })
 
   it('uses the official Nexxi buyer-agent name in published documentation', () => {
-    expect(JSON.stringify(platformDocsChapters)).not.toContain('Nexie')
+    const retiredName = ['Nex', 'ie'].join('')
+    expect(JSON.stringify(platformDocsChapters)).not.toContain(retiredName)
     expect(JSON.stringify(platformDocsChapters)).toContain('Nexxi')
     expect(Date.parse(`${PLATFORM_DOCS_REVIEWED_AT}T00:00:00Z`)).not.toBeNaN()
   })

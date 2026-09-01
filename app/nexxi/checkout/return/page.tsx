@@ -11,7 +11,7 @@ export default async function NexxiCheckoutReturnPage({ searchParams }: PageProp
   const sessionId = validSessionId(first(params.session_id))
   const kind = first(params.kind) === 'negotiation' ? 'negotiation' : ''
   const token = validToken(first(params.token))
-  const deepLink = new URL('nexie://checkout-return')
+  const deepLink = new URL('nexxi://checkout-return')
   deepLink.searchParams.set('status', status)
   if (sessionId) deepLink.searchParams.set('session_id', sessionId)
   if (kind) deepLink.searchParams.set('kind', kind)

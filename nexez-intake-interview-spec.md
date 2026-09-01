@@ -9,11 +9,11 @@
 - `ROADMAP.md` (governance section is binding), `HANDOFF.md`, `AGENTS.md`
 - `lib/importer.ts` - especially `ImportGuidance`, `ImportClarifyingQuestion`, `ImportClarifyingAnswer`, `llmExtractOffers`
 - `lib/llm-engine/` - adapter pattern, `prompt-safety.ts`, `LLMClientFactory`
-- `app/api/agents/nexie/` - threads / stream / approvals pattern (this spec mirrors it on the seller side)
+- `app/api/agents/nexxi/` - threads / stream / approvals pattern (this spec mirrors it on the seller side)
 - `lib/agent-page.ts` - `OfferItem`, `getReadinessScore`, `formatOfferLines`
 - `lib/draft.ts` - `PageDraft`, `applyDraftOverlay`
 - `lib/onboarding.ts` - activation checklist (will gain one step)
-- `components/nexie-chat.tsx` - chat UI patterns to factor and reuse
+- `components/nexxi-chat.tsx` - chat UI patterns to factor and reuse
 - `apps/seller-mobile/app/onboarding.tsx` - the mobile consumer of this API
 
 ## 1. What we are building and why
@@ -31,7 +31,7 @@ succeeds on the platform. Twenty minutes of conversation, not forty form fields.
 platform capability - a `lib/` service + API routes - consumed by every surface: web `/create`,
 `apps/seller-mobile`, and any future surface. No interview logic lives in components. The web
 chat panel and the mobile onboarding screen are thin clients of the same threads API, exactly as
-Nexie already is for the buyer side.
+Nexxi already is for the buyer side.
 
 ## 2. Non-negotiables (inherited governance)
 
@@ -42,7 +42,7 @@ Nexie already is for the buyer side.
    fields. Serialization goes through existing `formatOfferLines` (pipe format) for now - do not
    invent a parallel format. Internally, the interview state holds **native objects** so that
    when the JSONB migration lands, only the final write path changes. (See §9.)
-3. **Human approval gates publish.** The agent proposes; the owner approves. Reuse the Nexie
+3. **Human approval gates publish.** The agent proposes; the owner approves. Reuse the Nexxi
    approval-card pattern: the interview may *request* commit/publish, never execute it silently.
 4. **Dual philosophy preserved.** No changes to public agent HTML/manifests in this batch.
 5. **All migrations additive + idempotent**, applied via Supabase MCP `apply_migration` +
@@ -110,7 +110,7 @@ Sessions are resumable - the mobile app can start an interview on the couch and 
 finish on desktop. Messages ride inside `state.messages[]` (JSONB) for v1; promote to a table
 only if volume demands it.
 
-## 5. API surface (mirrors Nexie)
+## 5. API surface (mirrors Nexxi)
 
 ```
 POST /api/agents/intake/threads            -- create session { source_url?, page_id? }
@@ -119,7 +119,7 @@ POST /api/agents/intake/threads/[id]/messages  -- owner turn in → agent turn o
 POST /api/agents/intake/threads/[id]/commit    -- REVIEW_HANDOFF: materialize draft, return page id
 POST /api/agents/intake/threads/[id]/ingest    -- add a source mid-conversation (url | integration | text)
 ```
-SSE streaming variant mirrors `app/api/agents/nexie/stream` if present; otherwise
+SSE streaming variant mirrors `app/api/agents/nexxi/stream` if present; otherwise
 request/response is fine for v1 (interview turns are short).
 
 **Agent tool schema** (function-calling, via `LLMClientFactory` adapters - provider-agnostic):
@@ -137,9 +137,9 @@ only for an authenticated owner - reuse the `/create?next=` post-signup return p
 
 - New entry: `/create` becomes a fork - **"Talk it through" (default, hero position)** vs
   **"Build with the form"** (the current wizard, fully preserved as the fallback and power path).
-- Factor the chat shell out of `nexie-chat.tsx` into a shared `components/agent-chat/` primitive
+- Factor the chat shell out of `nexxi-chat.tsx` into a shared `components/agent-chat/` primitive
   (message list, cards, approval card, streaming states, mic affordance) parameterized by
-  endpoint + card renderers. Nexie migrates to the primitive; intake consumes it. One chat
+  endpoint + card renderers. Nexxi migrates to the primitive; intake consumes it. One chat
   system, two agents - buyer and seller - which is also the brand story.
 - Card types for intake: `source_ingested` (what was found, offer count, confidence),
   `gap_batch` (the questions, tappable quick answers where enumerable), `draft_summary`
@@ -181,7 +181,7 @@ Provenance lives in `intake_sessions.state`, not in the offer serialization.
   adapter mocked - assert tool-call validation rejects phase-skips and invented offers; commit
   materializes a page owned by the caller and serializes offers losslessly (roundtrip through
   `parseOfferLines`).
-- **Component**: agent-chat primitive render states; gap_batch quick answers; Nexie regression
+- **Component**: agent-chat primitive render states; gap_batch quick answers; Nexxi regression
   after the factor-out.
 - **E2E** (Playwright): interview smoke - start from a seeded URL fixture → answer two gap
   batches → handoff → assert builder shows the offers → publish → public page + `agent.json`
@@ -191,7 +191,7 @@ Provenance lives in `intake_sessions.state`, not in the offer serialization.
 
 1. `lib/intake/` state machine + `analyzeGaps` + full unit suite (no UI, no API - pure).
 2. Migration + threads API + route tests (LLM mocked).
-3. Agent-chat primitive factor-out + Nexie regression green.
+3. Agent-chat primitive factor-out + Nexxi regression green.
 4. Web `/create` fork + intake client + E2E smoke.
 5. Mobile onboarding consumes the API.
 6. Telemetry + onboarding checklist wiring; docs (`ROADMAP.md` Shipped entry, `HANDOFF.md`).

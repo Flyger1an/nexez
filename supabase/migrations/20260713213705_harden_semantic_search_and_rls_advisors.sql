@@ -1,8 +1,8 @@
 -- Keep the SECURITY DEFINER vector matcher behind the service role. Public
 -- agent search still returns only the public page projection in application code.
-revoke execute on function public.match_nexie_pages(extensions.vector, integer)
+revoke execute on function public.match_nexxi_pages(extensions.vector, integer)
   from public, anon, authenticated;
-grant execute on function public.match_nexie_pages(extensions.vector, integer)
+grant execute on function public.match_nexxi_pages(extensions.vector, integer)
   to service_role;
 
 -- The page relation is used by intake cleanup and ownership workflows.

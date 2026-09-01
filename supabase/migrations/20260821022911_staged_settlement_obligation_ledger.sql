@@ -314,7 +314,7 @@ alter table public.checkout_orders
         'acp',
         'ucp',
         'negotiation',
-        'nexie',
+        'nexxi',
         'recurring_service',
         'staged_settlement'
       )

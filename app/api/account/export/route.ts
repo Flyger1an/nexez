@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { authenticateNexieRequest } from '../../../../lib/agents/nexie-auth'
+import { authenticateNexxiRequest } from '../../../../lib/agents/nexxi-auth'
 import { exportUserAccount } from '../../../../lib/server/export-account'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'account:export', 6, 60_000)
   if (limited) return limited
 
-  const auth = await authenticateNexieRequest(request)
+  const auth = await authenticateNexxiRequest(request)
   if (!auth.ok) return auth.response
 
   const exportedAt = new Date().toISOString()
