@@ -55,7 +55,7 @@
       "expo-font",
       "expo-status-bar",
       [
-        "@sentry/react-native",
+        "@sentry/react-native/expo",
         {
           "organization": "nexez-ai",
           "project": "nexez-seller-hub"
