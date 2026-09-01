@@ -24,5 +24,7 @@ describe('SMS notifications public disclosure', () => {
     expect(markup).toContain('Reply STOP to opt out or HELP for help.')
     expect(markup).toContain('checkbox is always unchecked by default')
     expect(markup).toContain(SMS_PRIVACY_NON_SHARING_COPY)
+    expect(markup).toContain('optional phone field and unchecked consent disclosure appear together')
+    expect(markup).toContain('does not collect phone numbers')
   })
 })
