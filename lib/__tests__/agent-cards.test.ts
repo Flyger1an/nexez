@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import {
+  A2A_ENDPOINT_PATH,
+  A2A_PROTOCOL_BINDING,
+  A2A_PROTOCOL_VERSION,
+} from '../a2a/discovery'
 import { buildA2AAgentCard, buildMcpServerCard } from '../agent-cards'
 import { buildPlatformAgentManifest } from '../platform-agent-manifest'
+import { agentRuntimeUrl } from '../site'
 
 describe('buildMcpServerCard', () => {
   it('points at the live /mcp endpoint and cross-links the existing discovery artifacts', () => {
@@ -29,7 +35,7 @@ describe('buildA2AAgentCard', () => {
 
   it('declares the commerce skills with ids, tags, and examples', () => {
     const card = buildA2AAgentCard()
-    const ids = card.skills.map((s) => s.id)
+    const ids = card.skills.map((skill) => skill.id)
     expect(ids).toEqual(['offer-discovery', 'negotiation', 'checkout'])
     for (const skill of card.skills) {
       expect(skill.name).toBeTruthy()
@@ -39,10 +45,18 @@ describe('buildA2AAgentCard', () => {
     }
   })
 
-  it('advertises MCP and OpenAPI as additional interfaces', () => {
+  it('declares only the future A2A v1 JSON-RPC interface', () => {
     const card = buildA2AAgentCard()
-    const transports = card.additionalInterfaces.map((i) => i.transport)
-    expect(transports).toContain('mcp')
-    expect(transports).toContain('openapi')
+    expect(card.supportedInterfaces).toEqual([
+      {
+        url: agentRuntimeUrl(A2A_ENDPOINT_PATH),
+        protocolBinding: A2A_PROTOCOL_BINDING,
+        protocolVersion: A2A_PROTOCOL_VERSION,
+      },
+    ])
+    expect('additionalInterfaces' in card).toBe(false)
+    expect('preferredTransport' in card).toBe(false)
+    expect(JSON.stringify(card)).not.toContain('"transport":"mcp"')
+    expect(JSON.stringify(card)).not.toContain('"transport":"openapi"')
   })
 })
