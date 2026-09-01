@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "nexez": {
+      "type": "http",
+      "url": "https://nexez.app/mcp"
+    }
+  }
+}

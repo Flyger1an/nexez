@@ -36,6 +36,11 @@ describe('handlePlatformMcpRequest', () => {
     expect(info.icons[0].src).toBe('https://nexez.ai/icon.png')
   })
 
+  it('negotiates a supported 2025-era protocol version', async () => {
+    const response = await call('initialize', { protocolVersion: '2025-06-18' })
+    expect((response.result as { protocolVersion: string }).protocolVersion).toBe('2025-06-18')
+  })
+
   it('server/discover advertises the current stateless contract', async () => {
     const response = await handlePlatformMcpRequest(
       { id: 1, method: 'server/discover', params: {} },
@@ -51,10 +56,21 @@ describe('handlePlatformMcpRequest', () => {
   })
 
   it('tools/list exposes ONLY the 5 read/dry-run tools (no start_checkout / submit_negotiation)', async () => {
-    const names = ((await call('tools/list')).result as { tools: { name: string }[] }).tools.map((t) => t.name)
+    const tools = ((await call('tools/list')).result as {
+      tools: {
+        name: string
+        title: string
+        annotations: { readOnlyHint: boolean; destructiveHint: boolean; openWorldHint: boolean }
+      }[]
+    }).tools
+    const names = tools.map((tool) => tool.name)
     expect(names.sort()).toEqual(['nexez_directory', 'nexez_get_page', 'nexez_search', 'nexez_validate_checkout', 'nexez_validate_negotiation'])
     expect(names).not.toContain('nexez_start_checkout')
     expect(names).not.toContain('nexez_submit_negotiation')
+    expect(tools.every((tool) => tool.title.length > 0)).toBe(true)
+    expect(tools.every((tool) => tool.annotations.readOnlyHint)).toBe(true)
+    expect(tools.every((tool) => tool.annotations.destructiveHint === false)).toBe(true)
+    expect(tools.every((tool) => tool.annotations.openWorldHint)).toBe(true)
   })
 
   it('nexez_search forwards to agent-search with the caller IP', async () => {

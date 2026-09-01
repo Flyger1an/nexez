@@ -9,7 +9,7 @@
 // mutating/charging tools (start_checkout, submit_negotiation) are deliberately
 // NOT here - they need a human-approval gate an anonymous endpoint can't enforce;
 // the two validate_* tools always force dryRun:true so they never charge or write.
-import { MCP_LEGACY_PROTOCOL_VERSION, MCP_PROTOCOL_VERSION } from './mcp-transport'
+import { MCP_PROTOCOL_VERSION, negotiateLegacyMcpProtocolVersion } from './mcp-transport'
 import type { McpClientFamily } from './mcp-demand'
 import { agentRuntimeUrl, marketingUrl } from './site'
 
@@ -38,7 +38,14 @@ const textResult = (id: string | number | null, obj: unknown, modern = false, is
 const TOOLS = [
   {
     name: 'nexez_search',
+    title: 'Search Nexez offers',
     description: 'Search across all Nexez merchants for services/products matching a buyer request. Returns ranked listings with offers + agent.json URLs.',
+    annotations: {
+      title: 'Search Nexez offers',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
     inputSchema: {
       type: 'object',
       properties: {
@@ -62,7 +69,14 @@ const TOOLS = [
   },
   {
     name: 'nexez_directory',
+    title: 'Browse the Nexez directory',
     description: 'Browse the cross-merchant Nexez directory (optionally filtered by category, query, minimum readiness, or location).',
+    annotations: {
+      title: 'Browse the Nexez directory',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
     inputSchema: {
       type: 'object',
       properties: {
@@ -75,7 +89,14 @@ const TOOLS = [
   },
   {
     name: 'nexez_get_page',
+    title: 'Inspect a Nexez listing',
     description: "Fetch a listing's full structured agent manifest (seller profile, offers, actions) by slug.",
+    annotations: {
+      title: 'Inspect a Nexez listing',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
     inputSchema: {
       type: 'object',
       properties: { slug: { type: 'string', description: 'Listing slug' } },
@@ -84,7 +105,14 @@ const TOOLS = [
   },
   {
     name: 'nexez_validate_checkout',
+    title: 'Validate Nexez checkout',
     description: 'Dry-run a checkout for an offer BEFORE paying - validates the offer, currency, and payment readiness. Never charges.',
+    annotations: {
+      title: 'Validate Nexez checkout',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
     inputSchema: {
       type: 'object',
       properties: {
@@ -100,7 +128,14 @@ const TOOLS = [
   },
   {
     name: 'nexez_validate_negotiation',
+    title: 'Validate Nexez negotiation',
     description: 'Dry-run a negotiation proposal against the seller’s rules BEFORE submitting. Returns the rules evaluation. Never writes.',
+    annotations: {
+      title: 'Validate Nexez negotiation',
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
     inputSchema: {
       type: 'object',
       properties: {
@@ -173,7 +208,7 @@ export async function handlePlatformMcpRequest(
     case 'initialize':
       if (modern) return err(id, -32601, 'Method not found: initialize')
       return ok(id, {
-        protocolVersion: MCP_LEGACY_PROTOCOL_VERSION,
+        protocolVersion: negotiateLegacyMcpProtocolVersion(req.params?.protocolVersion),
         capabilities: { tools: {}, resources: {} },
         serverInfo: platformServerInfo(),
       })

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MCP_PROTOCOL_VERSION } from '../../lib/mcp-transport'
+import { MCP_LEGACY_PROTOCOL_VERSION, MCP_PROTOCOL_VERSION } from '../../lib/mcp-transport'
 
 let limited = false
 const handle = vi.hoisted(() => vi.fn(async (request: { id?: unknown; method?: string }) => ({
@@ -47,6 +47,15 @@ const modernPost = (method: string, params: Record<string, unknown> = {}, header
     ...(method === 'tools/call' && typeof params.name === 'string' ? { 'mcp-name': params.name } : {}),
     ...(method === 'resources/read' && typeof params.uri === 'string' ? { 'mcp-name': params.uri } : {}),
     ...headers,
+  },
+)
+
+const legacyStreamablePost = (method: string, params: Record<string, unknown> = {}) => legacyPost(
+  { jsonrpc: '2.0', id: 7, method, params },
+  {
+    accept: 'application/json, text/event-stream',
+    'mcp-protocol-version': MCP_LEGACY_PROTOCOL_VERSION,
+    'user-agent': 'MCP Inspector',
   },
 )
 
@@ -104,6 +113,16 @@ describe('/mcp platform route', () => {
       clientFamily: 'claude',
       outcome: 'handled',
     }))
+  })
+
+  it('dispatches a 2025-era Streamable HTTP request on the compatibility path', async () => {
+    const response = await legacyStreamablePost('tools/list')
+    expect(response.status).toBe(200)
+    expect(handle).toHaveBeenCalledWith(
+      expect.objectContaining({ method: 'tools/list' }),
+      'https://nexez.test',
+      expect.objectContaining({ modern: false, clientFamily: 'mcp_inspector', clientIp: '1.2.3.4' }),
+    )
   })
 
   it('rejects missing standard headers with HeaderMismatch', async () => {

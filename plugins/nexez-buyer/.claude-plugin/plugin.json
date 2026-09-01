@@ -1,0 +1,16 @@
+{
+  "name": "nexez-buyer",
+  "version": "0.1.0",
+  "description": "Find and compare published Nexez offers, then validate checkout or negotiation before a buyer-approved handoff.",
+  "author": {
+    "name": "Nexez",
+    "url": "https://nexez.ai"
+  },
+  "homepage": "https://nexez.ai/agents",
+  "keywords": [
+    "commerce",
+    "shopping",
+    "services",
+    "marketplace"
+  ]
+}

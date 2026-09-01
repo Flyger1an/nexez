@@ -1,7 +1,13 @@
 import { classifyMcpClient, type McpClientFamily } from './mcp-demand'
 
 export const MCP_PROTOCOL_VERSION = '2026-07-28'
-export const MCP_LEGACY_PROTOCOL_VERSION = '2024-11-05'
+export const MCP_LEGACY_PROTOCOL_VERSION = '2025-11-25'
+export const MCP_LEGACY_SUPPORTED_VERSIONS = [
+  '2025-11-25',
+  '2025-06-18',
+  '2025-03-26',
+  '2024-11-05',
+] as const
 export const MCP_SUPPORTED_VERSIONS = [MCP_PROTOCOL_VERSION] as const
 
 export type McpJsonRpcRequest = {
@@ -54,7 +60,11 @@ export function validateMcpRequest(
   const meta = isRecord(params._meta) ? params._meta : {}
   const modernVersion = stringValue(meta[MODERN_META_VERSION])
   const protocolHeader = request.headers.get('mcp-protocol-version')
-  const modern = Boolean(protocolHeader || modernVersion || body.method === 'server/discover')
+  const modern = Boolean(
+    modernVersion
+    || body.method === 'server/discover'
+    || protocolHeader === MCP_PROTOCOL_VERSION,
+  )
   const clientInfo = modern
     ? (isRecord(meta[MODERN_META_CLIENT]) ? meta[MODERN_META_CLIENT].name : null)
     : (isRecord(params.clientInfo) ? params.clientInfo.name : request.headers.get('user-agent'))
@@ -70,7 +80,22 @@ export function validateMcpRequest(
     return failure(modern, clientFamily, id, -32600, 'Invalid JSON-RPC request.')
   }
 
-  if (!modern) return { ok: true, modern: false, clientFamily }
+  if (!modern) {
+    if (protocolHeader && !isLegacyProtocolVersion(protocolHeader)) {
+      return failure(
+        false,
+        clientFamily,
+        id,
+        -32022,
+        'Unsupported MCP protocol version.',
+        {
+          supported: [...MCP_SUPPORTED_VERSIONS, ...MCP_LEGACY_SUPPORTED_VERSIONS],
+          requested: protocolHeader,
+        },
+      )
+    }
+    return { ok: true, modern: false, clientFamily }
+  }
 
   if (!protocolHeader || !modernVersion) {
     return failure(true, clientFamily, id, -32020, 'MCP protocol version header and body metadata are required.')
@@ -117,6 +142,12 @@ export function validateMcpRequest(
   return { ok: true, modern: true, clientFamily }
 }
 
+export function negotiateLegacyMcpProtocolVersion(value: unknown): string {
+  return typeof value === 'string' && isLegacyProtocolVersion(value)
+    ? value
+    : MCP_LEGACY_PROTOCOL_VERSION
+}
+
 function failure(
   modern: boolean,
   clientFamily: McpClientFamily,
@@ -158,6 +189,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function stringValue(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null
+}
+
+function isLegacyProtocolVersion(value: string): boolean {
+  return (MCP_LEGACY_SUPPORTED_VERSIONS as readonly string[]).includes(value)
 }
 
 function validJsonRpcId(value: unknown): boolean {
