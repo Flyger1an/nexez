@@ -355,7 +355,7 @@ function platformServerInfo() {
     version: '1.1.0',
     websiteUrl: 'https://nexez.ai/agents',
     description: 'Search merchants, inspect structured offers, and validate checkout or negotiation before buying.',
-    icons: [{ src: 'https://nexez.ai/icon.png', mimeType: 'image/png', sizes: ['512x512'] }],
+    icons: [{ src: 'https://nexez.ai/icon.svg', mimeType: 'image/svg+xml', sizes: ['any'] }],
   }
 }
 
