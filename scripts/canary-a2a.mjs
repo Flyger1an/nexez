@@ -9,6 +9,10 @@ import {
   DefaultAgentCardResolver,
   JsonRpcTransportFactory,
 } from '@a2a-js/sdk/client'
+import {
+  containsA2ACredentialMaterial,
+  redactA2ACredentialMaterial,
+} from './a2a-canary-redaction.mjs'
 
 const SDK_VERSION = '1.1.0'
 const AGENT_BASE = trim(process.env.NEXEZ_A2A_CANARY_BASE_URL || 'https://nexez.app')
@@ -158,8 +162,7 @@ await check('official-sdk-blocking', 'Official SDK blocking send', async () => {
 
 await check('report-redaction', 'Safe report redaction', async () => {
   const candidate = JSON.stringify(report('passed'))
-  assert(!/nxz_live_[A-Za-z0-9_-]+/.test(candidate), 'Report contains an API key')
-  assert(!/Bearer\s+[A-Za-z0-9._~+/-]+/i.test(candidate), 'Report contains a Bearer credential')
+  assert(!containsA2ACredentialMaterial(candidate), 'Report contains credential material')
   assert(!candidate.includes(directParams.message.parts[0].text), 'Report contains prompt text')
   return 'Report contains operational results only.'
 })
@@ -339,9 +342,9 @@ function clean(value) {
 }
 
 function safe(error) {
-  return clean(error instanceof Error ? error.message : error)
-    .replace(/nxz_live_[A-Za-z0-9_-]+/g, '[redacted-api-key]')
-    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+/gi, 'Bearer [redacted]')
+  return redactA2ACredentialMaterial(
+    clean(error instanceof Error ? error.message : error),
+  )
 }
 
 function sleep(ms) {

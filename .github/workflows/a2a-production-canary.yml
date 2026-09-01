@@ -70,12 +70,12 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs'
+          import { containsA2ACredentialMaterial } from './scripts/a2a-canary-redaction.mjs'
           const report = JSON.parse(readFileSync('a2a-production-canary.json', 'utf8'))
           const serialized = JSON.stringify(report)
           if (report.status !== 'passed') throw new Error('A2A production canary did not pass.')
           if (report.commitSha !== process.env.EXPECTED_SHA) throw new Error('Canary revision does not match the checkout.')
-          if (/nxz_live_[A-Za-z0-9_-]+/.test(serialized)) throw new Error('Canary report contains API key material.')
-          if (/Bearer\s+[A-Za-z0-9._~+/-]+/i.test(serialized)) throw new Error('Canary report contains Bearer material.')
+          if (containsA2ACredentialMaterial(serialized)) throw new Error('Canary report contains credential material.')
           NODE
 
       - name: Upload canary evidence
