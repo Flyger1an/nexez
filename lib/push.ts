@@ -4,7 +4,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../utils/supabase/admin'
 import { shouldDeliverSellerNotification } from './server/seller-notification-preferences'
 import type { SellerNotificationEvent, SellerNotificationPayloadType } from './seller-notification-policy'
 
-// Expo push delivery for Nexie. The mobile app registers an Expo push token per
+// Expo push delivery for Nexxi. The mobile app registers an Expo push token per
 // device (RLS-scoped to the user); async server flows (negotiation decisions, the
 // Stripe webhook, refunds) fan out notifications by user id or account email.
 //

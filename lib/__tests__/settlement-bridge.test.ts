@@ -120,7 +120,7 @@ describe('settlement bridge - happy path', () => {
   it('stamps the money-core metadata the webhook reads to persist an order', async () => {
     const stripe = fakeStripe()
     await createSettlementBridge(stripe)(
-      readySession([{ offer: 'services-0' }], { email: 'BUYER@X.com', name: 'Dana', agent: 'nexie' }),
+      readySession([{ offer: 'services-0' }], { email: 'BUYER@X.com', name: 'Dana', agent: 'nexxi' }),
       PAYMENT,
       baseContext({ metadata: { nexez_source: 'acp', nexez_acp_order: 'ord_9' } }),
     )
@@ -139,7 +139,7 @@ describe('settlement bridge - happy path', () => {
     // Buyer email is lowercased for the order-portal lookup.
     expect(md.nexez_buyer_email).toBe('buyer@x.com')
     expect(md.nexez_buyer_name).toBe('Dana')
-    expect(md.nexez_buyer_agent).toBe('nexie')
+    expect(md.nexez_buyer_agent).toBe('nexxi')
     // Adapter-supplied channel labelling is merged in.
     expect(md.nexez_source).toBe('acp')
     expect(md.nexez_acp_order).toBe('ord_9')

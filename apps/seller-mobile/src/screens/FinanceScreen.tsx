@@ -15,7 +15,7 @@ const CHANNEL_LABELS: Record<string, string> = {
   recurring: 'Recurring service',
   staged: 'Staged settlement',
   reserved: 'Reserved resource',
-  nexie: 'Nexie',
+  nexxi: 'Nexxi',
   negotiated_order: 'Negotiated order',
 }
 

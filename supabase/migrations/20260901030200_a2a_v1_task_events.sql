@@ -236,7 +236,7 @@ begin
     end,
     artifacts = v_artifacts,
     history = v_history,
-    nexie_thread_id = coalesce(v_thread_id, nexie_thread_id),
+    nexxi_thread_id = coalesce(v_thread_id, nexxi_thread_id),
     execution_token = case when v_settled then null else execution_token end,
     claimed_at = case when v_settled then null else claimed_at end,
     lease_expires_at = case when v_settled then null else lease_expires_at end,

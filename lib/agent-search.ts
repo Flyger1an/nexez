@@ -23,7 +23,7 @@ import { getPageLocationMatch, type LocationMatch } from './location-filter'
 import type { ReviewSummary } from './reviews'
 import { commerceIdentityTokenFamily } from './commerce-templates/curation/simulation'
 import { buildAgentOfferConfiguration } from './agent-offer-configuration'
-import type { NexieCommerceRail } from '../contracts/nexie/v1'
+import type { NexxiCommerceRail } from '../contracts/nexxi/v1'
 
 export type AgentSearchResult = {
   score: number
@@ -63,7 +63,7 @@ export type AgentSearchResult = {
      * null; this field is reserved for executable Nexez POST contracts. */
     action: {
       type: 'nexez_checkout' | 'negotiation'
-      rail: NexieCommerceRail
+      rail: NexxiCommerceRail
       method: 'POST'
       endpoint: string
       content_type: 'application/json'
@@ -261,7 +261,7 @@ function buildOfferExecution(
 
   const configuration = buildAgentOfferConfiguration(offer)
   const checkoutPath = configuration?.checkout.path ?? '/api/checkout'
-  const rail: NexieCommerceRail = checkoutPath === '/api/service-agreements/checkout'
+  const rail: NexxiCommerceRail = checkoutPath === '/api/service-agreements/checkout'
     ? 'recurring'
     : checkoutPath === '/api/staged-settlements/checkout'
       ? 'staged'

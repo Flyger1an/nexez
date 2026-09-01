@@ -40,7 +40,7 @@ export type AgentChatConfig<TCard> = {
   footnote?: string
   headerIcon?: ReactNode
   /** Optional window CustomEvent<string> name that prefills the composer
-   *  (kept for existing integrations like 'nexie:quick-prompt'). */
+   *  (kept for existing integrations like 'nexxi:quick-prompt'). */
   quickPromptEvent?: string
   /** Fallback error copy when a turn fails without a message. */
   errorFallback?: string

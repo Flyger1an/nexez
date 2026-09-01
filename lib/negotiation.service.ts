@@ -376,7 +376,7 @@ export class NegotiationService {
     if (!applied) return;
 
     // Push the buyer's device(s) that the seller responded - the async loop that
-    // makes Nexie useful. Best-effort + isolated: a push failure must never affect
+    // makes Nexxi useful. Best-effort + isolated: a push failure must never affect
     // the decision that just persisted.
     try {
       await notifyBuyerOfNegotiationDecision(negotiation, llmDecision.action);
@@ -611,7 +611,7 @@ export class NegotiationService {
       // Persist the buyer email at CREATE when the contact is email-shaped (normalized +
       // lowercased via parseBuyerIdentity), so a pending/unfunded negotiation is already
       // linkable by the buyer's account email (findOrdersByEmail → "find my orders" +
-      // the Nexie Orders endpoint). The funding webhook later sets the Stripe-verified
+      // the Nexxi Orders endpoint). The funding webhook later sets the Stripe-verified
       // email if one is collected.
       buyer_email: parseBuyerIdentity({ buyerEmail: proposal.contact }).email,
       status: 'negotiation',

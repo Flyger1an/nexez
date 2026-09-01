@@ -247,7 +247,7 @@ function channelLabel(channel: string) {
     acp: 'ACP',
     ucp: 'UCP',
     negotiation: 'Negotiated deal',
-    nexie: 'Nexie',
+    nexxi: 'Nexxi',
     recurring_service: 'Recurring service',
     staged_settlement: 'Staged settlement',
     reservable_resource: 'Reserved resource',

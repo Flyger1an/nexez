@@ -256,7 +256,7 @@ select is(
 select ok(
   (select artifacts -> 0 ->> 'artifactId' = 'nexxi-response'
       and artifacts -> 0 -> 'parts' -> 0 ->> 'text' = 'I found '
-      and nexie_thread_id is null
+      and nexxi_thread_id is null
    from public.a2a_tasks
    where id = (select (value ->> 'taskId')::uuid from a2a_v1_test_state where key = 'accept-one')),
   'preview output is stored while a foreign-owner Nexxi thread is ignored'
@@ -405,7 +405,7 @@ select ok(
       and history -> -1 ->> 'role' = 'ROLE_AGENT'
       and history -> -1 ->> 'messageId' = 'agent-message-one'
       and not (history -> -1 ? 'kind')
-      and nexie_thread_id = '40000000-0000-4000-8000-000000000201'
+      and nexxi_thread_id = '40000000-0000-4000-8000-000000000201'
    from public.a2a_tasks
    where id = (select (value ->> 'taskId')::uuid from a2a_v1_test_state where key = 'accept-one')),
   'authoritative replacement becomes output and preserves owner-bound Nexxi continuity'

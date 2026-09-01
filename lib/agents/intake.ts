@@ -1,5 +1,5 @@
 // Seller intake interview - the platform service behind /api/agents/intake/*
-// (spec: nexez-intake-interview-spec.md §5). Mirrors the Nexie pattern: routes
+// (spec: nexez-intake-interview-spec.md §5). Mirrors the Nexxi pattern: routes
 // are thin; this module owns the turn loop, the LLM tool schema, and the
 // materialization at commit. Every tool call the LLM makes is validated by the
 // pure reducer (lib/intake) - the model cannot skip phases, invent offers, or
@@ -893,7 +893,7 @@ async function uniqueIntakeSlug(admin: Db, base: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Default LLM boundary (mirrors the Nexie chatCompletion fetch)
+// Default LLM boundary (mirrors the Nexxi chatCompletion fetch)
 
 async function defaultChatCompletion(messages: ChatMessage[], tools: typeof INTAKE_TOOLS): Promise<ChatResponse> {
   const base = (process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')

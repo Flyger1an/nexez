@@ -2,12 +2,12 @@ import 'server-only'
 
 import { randomUUID } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { runNexieExecution, type NexieExecutionEvent } from '../../agents/nexie-stream'
+import { runNexxiExecution, type NexxiExecutionEvent } from '../../agents/nexxi-stream'
 import {
-  NexieA2AV1Projector,
+  NexxiA2AV1Projector,
   isA2AV1TerminalOrInterruptedState,
   type A2AV1StreamResponse,
-} from './nexie-projector'
+} from './nexxi-projector'
 import {
   A2A_V1_ERROR,
   A2AV1ProtocolError,
@@ -33,7 +33,7 @@ export type A2AV1AcceptedTask = {
   task: A2AV1TaskSnapshot
 }
 
-export type A2AV1NexieExecutor = typeof runNexieExecution
+export type A2AV1NexxiExecutor = typeof runNexxiExecution
 export type A2AV1EmailResolver = (
   db: SupabaseClient,
   ownerId: string,
@@ -46,7 +46,7 @@ export class A2AV1Runtime {
   constructor(
     private readonly db: SupabaseClient,
     store?: A2AV1TaskStore,
-    private readonly executeNexie: A2AV1NexieExecutor = runNexieExecution,
+    private readonly executeNexxi: A2AV1NexxiExecutor = runNexxiExecution,
     private readonly resolveEmail: A2AV1EmailResolver = confirmedAccountEmail,
     private readonly newId: () => string = randomUUID,
     private readonly telemetry: A2AV1Telemetry = emitA2AV1Telemetry,
@@ -201,7 +201,7 @@ export class A2AV1Runtime {
       }
 
       const parsed = parseA2AV1SendMessageParams({ message: latestUserMessage })
-      const projector = new NexieA2AV1Projector({
+      const projector = new NexxiA2AV1Projector({
         taskId,
         contextId: context.contextId,
         artifactId: `${taskId}:nexxi-response`,
@@ -236,7 +236,7 @@ export class A2AV1Runtime {
         }
       }
 
-      const persist = async (event: NexieExecutionEvent) => {
+      const persist = async (event: NexxiExecutionEvent) => {
         if (event.type === 'text-delta') {
           if (pendingPreview && pendingSource !== event.source) await flushPreview()
           pendingSource = event.source
@@ -251,20 +251,20 @@ export class A2AV1Runtime {
         }
       }
 
-      const enqueue = (event: NexieExecutionEvent) => {
+      const enqueue = (event: NexxiExecutionEvent) => {
         persistenceQueue = persistenceQueue.then(() => persist(event))
         // The provider may continue streaming briefly after a persistence failure.
         // Attach a handler immediately, then surface the error when the queue is awaited.
         void persistenceQueue.catch(() => undefined)
       }
 
-      await this.executeNexie(
+      await this.executeNexxi(
         {
           db: this.db,
           userId: ownerId,
           userEmail: email,
           message: parsed.text,
-          threadId: context.nexieThreadId,
+          threadId: context.nexxiThreadId,
           mode: 'text',
           approval: null,
         },

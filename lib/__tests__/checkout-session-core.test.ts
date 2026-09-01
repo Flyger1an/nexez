@@ -208,9 +208,9 @@ describe('createSession - duplicate merging + buyer', () => {
       id: 'buyer',
       page: makePage(),
       items: [{ offer: 'services-0' }],
-      buyer: { email: '  buyer@x.com ', name: '', reference: null, agent: 'nexie' },
+      buyer: { email: '  buyer@x.com ', name: '', reference: null, agent: 'nexxi' },
     })
-    expect(s.buyer).toEqual({ email: 'buyer@x.com', name: undefined, reference: undefined, agent: 'nexie' })
+    expect(s.buyer).toEqual({ email: 'buyer@x.com', name: undefined, reference: undefined, agent: 'nexxi' })
   })
 
   it('treats an all-empty buyer as null', () => {
@@ -227,13 +227,13 @@ describe('createSession - duplicate merging + buyer', () => {
         email: 'not-an-email', // invalid → dropped (would corrupt the order-portal lookup)
         name: 'Da\nna', // control char stripped
         reference: 'x'.repeat(600), // capped well under Stripe's 500-char metadata limit
-        agent: 'Nexie',
+        agent: 'Nexxi',
       },
     })
     expect(s.buyer?.email).toBeUndefined()
     expect(s.buyer?.name).toBe('Dana')
     expect((s.buyer?.reference ?? '').length).toBeLessThanOrEqual(200)
-    expect(s.buyer?.agent).toBe('Nexie')
+    expect(s.buyer?.agent).toBe('Nexxi')
   })
 })
 

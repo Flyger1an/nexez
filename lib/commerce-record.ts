@@ -75,7 +75,7 @@ const CHECKOUT_CHANNEL_LABELS: Record<string, string> = {
   agent_checkout: 'Agent checkout',
   acp: 'Agent checkout',
   ucp: 'Agent checkout',
-  nexie: 'Nexie',
+  nexxi: 'Nexxi',
   recurring_service: 'Recurring service',
   staged_settlement: 'Staged payments',
   reservable_resource: 'Reservation',

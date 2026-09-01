@@ -27,7 +27,7 @@ describe('observability', () => {
   it('captureEvent logs locally but does not POST without a webhook', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    captureEvent('nexie.turn', { latencyMs: 12, fellBack: false })
+    captureEvent('nexxi.turn', { latencyMs: 12, fellBack: false })
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -37,7 +37,7 @@ describe('observability', () => {
     const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    captureEvent('nexie.action', { tool: 'trigger_booking', ok: true, latencyMs: 80 })
+    captureEvent('nexxi.action', { tool: 'trigger_booking', ok: true, latencyMs: 80 })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, opts] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
@@ -46,7 +46,7 @@ describe('observability', () => {
     expect(JSON.parse(opts.body as string)).toMatchObject({
       service: 'nexez',
       level: 'info',
-      event: 'nexie.action',
+      event: 'nexxi.action',
       context: { tool: 'trigger_booking', ok: true },
     })
   })
@@ -58,7 +58,7 @@ describe('observability', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    expect(() => captureError(new Error('boom'), { scope: 'nexie.llm_turn' })).not.toThrow()
+    expect(() => captureError(new Error('boom'), { scope: 'nexxi.llm_turn' })).not.toThrow()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
@@ -69,7 +69,7 @@ describe('observability', () => {
     const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    captureError(new Error('boom'), { scope: 'nexie.llm_turn' })
+    captureError(new Error('boom'), { scope: 'nexxi.llm_turn' })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('https://o1.ingest.us.sentry.io/api/2/envelope/')
@@ -81,7 +81,7 @@ describe('observability', () => {
     const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    captureError(new Error('boom'), { scope: 'nexie.llm_turn' })
+    captureError(new Error('boom'), { scope: 'nexxi.llm_turn' })
 
     const targets = fetchMock.mock.calls.map((call) => (call as unknown as [string])[0])
     expect(targets).toHaveLength(2)
@@ -94,7 +94,7 @@ describe('observability', () => {
     const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    captureEvent('nexie.turn', { latencyMs: 12 })
+    captureEvent('nexxi.turn', { latencyMs: 12 })
 
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -104,7 +104,7 @@ describe('observability', () => {
     const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    captureError(new Error('boom'), { scope: 'nexie.llm_turn' })
+    captureError(new Error('boom'), { scope: 'nexxi.llm_turn' })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('https://sink.example/ingest')

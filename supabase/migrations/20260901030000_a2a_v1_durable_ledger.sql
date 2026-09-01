@@ -14,7 +14,7 @@ create table public.a2a_tasks (
   api_key_id uuid references public.api_keys(id) on delete set null,
   protocol_version text not null default '1.0',
   context_id text not null default gen_random_uuid()::text,
-  nexie_thread_id uuid references public.agent_threads(id) on delete set null,
+  nexxi_thread_id uuid references public.agent_threads(id) on delete set null,
   state text not null default 'TASK_STATE_SUBMITTED',
   status jsonb not null default jsonb_build_object(
     'state', 'TASK_STATE_SUBMITTED',
@@ -180,9 +180,9 @@ create index a2a_tasks_expired_worker_idx
 create index a2a_tasks_api_key_created_idx
   on public.a2a_tasks (api_key_id, created_at desc)
   where api_key_id is not null;
-create index a2a_tasks_nexie_thread_idx
-  on public.a2a_tasks (nexie_thread_id)
-  where nexie_thread_id is not null;
+create index a2a_tasks_nexxi_thread_idx
+  on public.a2a_tasks (nexxi_thread_id)
+  where nexxi_thread_id is not null;
 create index a2a_message_receipts_task_idx
   on public.a2a_message_receipts (task_id);
 create index a2a_task_events_owner_task_sequence_idx

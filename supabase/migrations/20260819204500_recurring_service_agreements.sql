@@ -101,7 +101,7 @@ alter table public.checkout_orders
   add constraint checkout_orders_channel_check
     check (
       channel is null
-      or channel in ('agent_checkout', 'acp', 'ucp', 'negotiation', 'nexie', 'recurring_service')
+      or channel in ('agent_checkout', 'acp', 'ucp', 'negotiation', 'nexxi', 'recurring_service')
     );
 
 comment on column public.checkout_orders.service_agreement_id is

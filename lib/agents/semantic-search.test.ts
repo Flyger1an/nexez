@@ -54,7 +54,7 @@ describe('embeddings gating (no key → lexical fallback)', () => {
 
     await expect(semanticSearch({ rpc: userRpc } as never, 'strategy help', 5, 'https://nexez.app')).resolves.toEqual([])
 
-    expect(h.adminRpc).toHaveBeenCalledWith('match_nexie_pages', {
+    expect(h.adminRpc).toHaveBeenCalledWith('match_nexxi_pages', {
       query_embedding: Array(1536).fill(0.1),
       match_count: 20,
     })

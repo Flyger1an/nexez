@@ -342,7 +342,7 @@ plaintext in scope:
    (it is minted by a column DEFAULT, so the app never held it), and must still
    work on redelivery.
 2. `findOrdersByEmail` (`lib/server/load-order.ts:376`, three callers: the
-   order-portal lookup, the Nexie orders agent, and the magic-link landing page)
+   order-portal lookup, the Nexxi orders agent, and the magic-link landing page)
    returns a per-row token for every order AND negotiation matching a buyer email,
    for a buyer with no session.
 3. The owner dashboard deep-links to `/negotiate/{id}?token=...`.
@@ -418,20 +418,20 @@ no longer rendered into a URL in the owner's browser.
 
 ---
 
-## 7. Make approved Nexie actions crash-recoverable
+## 7. Make approved Nexxi actions crash-recoverable
 
 `[ ]`
 
 **Verified.** Statuses are `PENDING | APPROVED | REJECTED | EXECUTED | FAILED`.
 There is no `EXECUTING` state. The `PENDING -> APPROVED` compare-and-swap at
-`lib/agents/nexie.ts:512` is correct and does prevent double execution.
+`lib/agents/nexxi.ts:512` is correct and does prevent double execution.
 
 But a crash after the CAS and before the terminal update strands the row in
 `APPROVED` permanently, and because the CAS requires `status = 'PENDING'`,
 nothing can reclaim it. No cron job references `APPROVED`.
 
 Mitigating factor: the idempotency key is deterministic
-(`nexie:${approval.id}:approved-action`), so replay is safe.
+(`nexxi:${approval.id}:approved-action`), so replay is safe.
 
 **Do:**
 

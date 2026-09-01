@@ -11,7 +11,7 @@ Authoritative checkout routes inspect the normalized buyer-agent marker. When it
 
 Negotiation funding also carries the existing buyer portal token and `kind=negotiation`, allowing the app to open the exact native deal. Other agents and web buyers retain the existing web success and cancel URLs.
 
-The HTTPS return page attempts the `nexie://checkout-return` fallback and always renders an accessible manual button. Payment fulfillment remains webhook-driven.
+The HTTPS return page attempts the `nexxi://checkout-return` fallback and always renders an accessible manual button. Payment fulfillment remains webhook-driven.
 
 ## Association endpoints
 
@@ -31,18 +31,18 @@ The endpoints return `503` and `Cache-Control: no-store` when their required val
 
 The native identifiers are fixed in code:
 
-- iOS bundle: `app.nexez.nexie`
-- Android package: `app.nexez.nexie`
+- iOS bundle: `app.nexez.nexxi`
+- Android package: `app.nexez.nexxi`
 - associated path: `/nexxi/*`
 
 ## Authenticated receipt resolution
 
-`GET /api/agents/nexie/checkout-return?session_id=...` requires a valid Nexxi bearer session. It returns a receipt token only when `checkout_orders.buyer_reference` matches the authenticated user id. An absent, delayed, or foreign order returns the same pending response and does not reveal ownership.
+`GET /api/agents/nexxi/checkout-return?session_id=...` requires a valid Nexxi bearer session. It returns a receipt token only when `checkout_orders.buyer_reference` matches the authenticated user id. An absent, delayed, or foreign order returns the same pending response and does not reveal ownership.
 
 ## Release checks
 
 1. Verify both association endpoints on `https://nexez.app` return `200` with `application/json`.
-2. Confirm the AASA app id is `<TEAM_ID>.app.nexez.nexie` and matches only `/nexxi/*`.
+2. Confirm the AASA app id is `<TEAM_ID>.app.nexez.nexxi` and matches only `/nexxi/*`.
 3. Confirm every production and development signing certificate needed by release builds appears in `assetlinks.json`.
 4. Build and install fresh iOS and Android binaries after adding the associated-domain configuration.
 5. Exercise success, cancellation, and manual browser dismissal on physical devices.

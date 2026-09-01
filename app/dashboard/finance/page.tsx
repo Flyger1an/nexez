@@ -729,7 +729,7 @@ function financeChannelLabel(channel: string) {
     staged_settlement: 'Staged payments',
     reserved: 'Reservation',
     reservable_resource: 'Reservation',
-    nexie: 'Nexxi-assisted',
+    nexxi: 'Nexxi-assisted',
     negotiated: 'Negotiated deal',
     negotiated_order: 'Negotiated deal',
     settled_orders: 'Paid orders',

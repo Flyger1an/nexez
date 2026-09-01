@@ -84,7 +84,7 @@ function ids() {
   return { now: () => new Date(T0), newId: () => `id-${n++}` }
 }
 
-describe('Nexie offer configuration tool loop', () => {
+describe('Nexxi offer configuration tool loop', () => {
   it('records explicit merchant configuration, exposes only the dedicated grammar, and blocks later proposal overwrite', async () => {
     const initial = analyzedState()
     const firstDb = makeDb(sessionRow(initial))

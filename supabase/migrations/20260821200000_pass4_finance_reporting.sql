@@ -74,7 +74,7 @@ begin
         when 'recurring_service' then 'recurring'
         when 'staged_settlement' then 'staged'
         when 'reservable_resource' then 'reserved'
-        when 'nexie' then 'nexie'
+        when 'nexxi' then 'nexxi'
         when 'negotiation' then 'negotiated_order'
         else coalesce(o.channel, 'other')
       end as channel_group

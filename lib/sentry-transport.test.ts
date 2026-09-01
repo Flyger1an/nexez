@@ -53,7 +53,7 @@ describe('sentry transport', () => {
     const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    sendErrorToSentry(new Error('boom'), { scope: 'nexie.llm_turn' })
+    sendErrorToSentry(new Error('boom'), { scope: 'nexxi.llm_turn' })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, opts] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]

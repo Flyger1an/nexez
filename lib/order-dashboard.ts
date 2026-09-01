@@ -51,7 +51,7 @@ export function getOrderChannelLabel(channel: string | null | undefined) {
     acp: 'ACP',
     ucp: 'UCP',
     negotiation: 'Negotiated',
-    nexie: 'Nexie',
+    nexxi: 'Nexxi',
     recurring_service: 'Recurring service',
     staged_settlement: 'Staged settlement',
     reservable_resource: 'Reserved resource',

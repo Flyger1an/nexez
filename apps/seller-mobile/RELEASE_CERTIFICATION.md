@@ -56,7 +56,7 @@ all 21 checks, and the linked `public` and `private` database schemas reported n
 | iOS Simulator | `development-simulator` | `a23ac1a8-8695-40ae-b0b9-88ef8df918b8` | Finished | Installed and launched on iPhone 16e, completed `2026-08-30T03:57:10.048Z` |
 | iOS Simulator | `development-simulator` | `070cf537-8912-42e8-899d-bc2bb3b1d8e9` | Service error | Compile finished, then Expo failed to upload the application archive |
 
-These certification builds archive the current working tree, which also contains concurrent Nexie
+These certification builds archive the current working tree, which also contains concurrent Nexxi
 work, while EAS metadata displays the last commit on the branch. They are not production release
 candidates. Build the store candidates only after the intended seller changes are reviewed and
 committed from a clean source tree, then rerun the automated certificate against that exact source.

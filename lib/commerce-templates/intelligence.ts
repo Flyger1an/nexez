@@ -23,7 +23,7 @@ const IMPORTANCE_ORDER: Record<CommerceFact['importance'], number> = {
 /**
  * Resolve ranked template knowledge for a merchant without touching intake state.
  * This is intentionally one step before the future Intake Gap adapter: it can
- * influence what Nexie should investigate, but cannot materialize an answer.
+ * influence what Nexxi should investigate, but cannot materialize an answer.
  */
 export function resolveCommerceTemplateIntelligence(
   templates: CommerceTemplate[],

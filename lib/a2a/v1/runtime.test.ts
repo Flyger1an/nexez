@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { NexieTurnResult } from '../../agents/nexie'
+import type { NexxiTurnResult } from '../../agents/nexxi'
 import { A2AV1Runtime } from './runtime'
 import { A2A_V1_ERROR, parseA2AV1SendMessageParams } from './protocol'
 import type { A2AV1TaskStore, A2AV1TaskSnapshot } from './task-store'
@@ -22,7 +22,7 @@ function task(
   }
 }
 
-const result: NexieTurnResult = {
+const result: NexxiTurnResult = {
   threadId: '50000000-0000-4000-8000-000000000001',
   agentId: '60000000-0000-4000-8000-000000000001',
   message: 'Found one.',
@@ -37,7 +37,7 @@ function executionContext() {
   return {
     taskId,
     contextId,
-    nexieThreadId: null,
+    nexxiThreadId: null,
     history: [{
       messageId: 'message-1',
       taskId,
@@ -120,11 +120,11 @@ describe('A2AV1Runtime', () => {
       claimTask: vi.fn(async () => ({ claimed: false, outcome: 'api_key_invalid' })),
       getTask: vi.fn(),
     }
-    const executeNexie = vi.fn()
+    const executeNexxi = vi.fn()
     const runtime = new A2AV1Runtime(
       {} as SupabaseClient,
       store as unknown as A2AV1TaskStore,
-      executeNexie as any,
+      executeNexxi as any,
     )
 
     await expect(runtime.executeTask(ownerId, taskId)).rejects.toMatchObject({
@@ -132,7 +132,7 @@ describe('A2AV1Runtime', () => {
       httpStatus: 401,
     })
     expect(store.getTask).not.toHaveBeenCalled()
-    expect(executeNexie).not.toHaveBeenCalled()
+    expect(executeNexxi).not.toHaveBeenCalled()
   })
 
   it('does not execute twice when another worker owns the claim', async () => {
@@ -141,17 +141,17 @@ describe('A2AV1Runtime', () => {
       claimTask: vi.fn(async () => ({ claimed: false, outcome: 'task_not_submitted' })),
       getTask: vi.fn(async () => task('TASK_STATE_WORKING', 1)),
     }
-    const executeNexie = vi.fn()
+    const executeNexxi = vi.fn()
     const runtime = new A2AV1Runtime(
       {} as SupabaseClient,
       store as unknown as A2AV1TaskStore,
-      executeNexie as any,
+      executeNexxi as any,
     )
 
     await expect(runtime.executeTask(ownerId, taskId)).resolves.toMatchObject({
       status: { state: 'TASK_STATE_WORKING' },
     })
-    expect(executeNexie).not.toHaveBeenCalled()
+    expect(executeNexxi).not.toHaveBeenCalled()
   })
 
   it('persists buffered previews before the authoritative artifact and status', async () => {
@@ -177,7 +177,7 @@ describe('A2AV1Runtime', () => {
       failExecution: vi.fn(),
       getTask: vi.fn(async () => task(state, sequence)),
     }
-    const executeNexie = vi.fn(async (input: any, emit: (event: any) => void) => {
+    const executeNexxi = vi.fn(async (input: any, emit: (event: any) => void) => {
       for (let index = 0; index < 100; index += 1) {
         emit({ type: 'text-delta', delta: 'token ', source: 'model' })
       }
@@ -188,7 +188,7 @@ describe('A2AV1Runtime', () => {
     const runtime = new A2AV1Runtime(
       {} as SupabaseClient,
       store as unknown as A2AV1TaskStore,
-      executeNexie as any,
+      executeNexxi as any,
       async () => 'buyer@example.com',
       () => `70000000-0000-4000-8000-${String(++nextId).padStart(12, '0')}`,
     )
@@ -214,7 +214,7 @@ describe('A2AV1Runtime', () => {
     expect(events.at(-1)).toMatchObject({
       statusUpdate: { status: { state: 'TASK_STATE_COMPLETED' } },
     })
-    expect(executeNexie).toHaveBeenCalledWith(
+    expect(executeNexxi).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: ownerId,
         userEmail: 'buyer@example.com',
@@ -282,14 +282,14 @@ describe('A2AV1Runtime', () => {
       failExecution: vi.fn(async () => ({ stored: false, duplicate: false })),
       getTask: vi.fn(async () => task(state, 2)),
     }
-    const executeNexie = vi.fn(async (_input: any, emit: (event: any) => void) => {
+    const executeNexxi = vi.fn(async (_input: any, emit: (event: any) => void) => {
       emit({ type: 'completed', result })
       return result
     })
     const runtime = new A2AV1Runtime(
       {} as SupabaseClient,
       store as unknown as A2AV1TaskStore,
-      executeNexie as any,
+      executeNexxi as any,
       async () => null,
     )
 

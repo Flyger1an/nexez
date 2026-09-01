@@ -81,7 +81,7 @@ function webDashboardRoute(path: string): SellerRoute | null {
 }
 
 /**
- * Convert only known Nexie routes into an in-app destination. Unknown schemes,
+ * Convert only known Nexxi routes into an in-app destination. Unknown schemes,
  * hosts, paths, traversal attempts, and unsafe identifiers fail closed.
  */
 export function normalizeSellerDeepLink(input: unknown): SellerRoute | null {

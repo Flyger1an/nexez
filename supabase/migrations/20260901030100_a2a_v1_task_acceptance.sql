@@ -454,7 +454,7 @@ as $$
   select jsonb_build_object(
     'taskId', task.id,
     'contextId', task.context_id,
-    'nexieThreadId', task.nexie_thread_id,
+    'nexxiThreadId', task.nexxi_thread_id,
     'history', task.history,
     'metadata', task.metadata,
     'leaseExpiresAt', task.lease_expires_at
