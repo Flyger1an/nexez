@@ -24,6 +24,10 @@ import {
   tailorA2AV1StreamResponse,
   tailorA2AV1Task,
 } from '../../../../lib/a2a/v1/output-modes'
+import {
+  emitA2AV1Telemetry,
+  type A2AV1Telemetry,
+} from '../../../../lib/a2a/v1/telemetry'
 
 export const maxDuration = 60
 
@@ -38,18 +42,22 @@ export type A2AV1RouteDependencies = {
   rateLimit: typeof enforceRateLimit
   runtime: () => A2AV1Runtime
   schedule: (work: () => Promise<void>) => void
+  telemetry: A2AV1Telemetry
 }
 
 const defaultDependencies: A2AV1RouteDependencies = {
   authenticate: authenticateApiKey,
   rateLimit: enforceRateLimit,
   runtime: () => new A2AV1Runtime(createAdminClient()),
+  telemetry: emitA2AV1Telemetry,
   schedule: (work) => {
     after(async () => {
       try {
         await work()
-      } catch (error) {
-        console.error('[A2A] Scheduled task execution failed', error)
+      } catch {
+        emitA2AV1Telemetry('a2a.v1.scheduled_execution.failed', {
+          errorClass: 'scheduled_execution_failed',
+        })
       }
     })
   },
@@ -62,7 +70,10 @@ export function createA2AV1PostHandler(
 
   return async function handleA2AV1Request(request: Request): Promise<Response> {
     const ipLimited = await dependencies.rateLimit(request, 'a2a:v1:ip', 120, 60_000)
-    if (ipLimited) return rateLimitResponse(null, ipLimited)
+    if (ipLimited) {
+      dependencies.telemetry('a2a.v1.rate_limited', { scope: 'ip' })
+      return rateLimitResponse(null, ipLimited)
+    }
 
     const mediaType = request.headers
       .get('content-type')
@@ -98,7 +109,14 @@ export function createA2AV1PostHandler(
     }
 
     const auth = await dependencies.authenticate(request)
-    if (!auth.ok) return authenticationResponse(rpc.id, auth.error, auth.status)
+    if (!auth.ok) {
+      dependencies.telemetry('a2a.v1.auth.denied', {
+        method: rpc.method,
+        resultClass: auth.status === 402 ? 'entitlement_denied' : 'authentication_denied',
+        errorClass: authDenialClass(auth.error, auth.status),
+      })
+      return authenticationResponse(rpc.id, auth.error, auth.status)
+    }
 
     const ownerLimited = await dependencies.rateLimit(
       request,
@@ -107,7 +125,13 @@ export function createA2AV1PostHandler(
       60_000,
       { subject: auth.ownerId, failClosed: true },
     )
-    if (ownerLimited) return rateLimitResponse(rpc.id, ownerLimited)
+    if (ownerLimited) {
+      dependencies.telemetry('a2a.v1.rate_limited', {
+        method: rpc.method,
+        scope: 'owner',
+      })
+      return rateLimitResponse(rpc.id, ownerLimited)
+    }
 
     if (rpc.method === 'SendMessage' || rpc.method === 'SendStreamingMessage') {
       const turnLimited = await dependencies.rateLimit(
@@ -117,7 +141,13 @@ export function createA2AV1PostHandler(
         60_000,
         { subject: auth.ownerId, failClosed: true },
       )
-      if (turnLimited) return rateLimitResponse(rpc.id, turnLimited)
+      if (turnLimited) {
+        dependencies.telemetry('a2a.v1.rate_limited', {
+          method: rpc.method,
+          scope: 'turn',
+        })
+        return rateLimitResponse(rpc.id, turnLimited)
+      }
     }
 
     try {
@@ -126,13 +156,25 @@ export function createA2AV1PostHandler(
         case 'SendMessage':
           return await handleSendMessage(rpc, runtime, auth, dependencies)
         case 'SendStreamingMessage':
-          return await handleSendStreamingMessage(request, rpc, runtime, auth)
+          return await handleSendStreamingMessage(
+            request,
+            rpc,
+            runtime,
+            auth,
+            dependencies.telemetry,
+          )
         case 'GetTask':
           return await handleGetTask(rpc, runtime, auth.ownerId)
         case 'CancelTask':
           return await handleCancelTask(rpc, runtime, auth.ownerId)
         case 'SubscribeToTask':
-          return await handleSubscribeToTask(request, rpc, runtime, auth.ownerId)
+          return await handleSubscribeToTask(
+            request,
+            rpc,
+            runtime,
+            auth.ownerId,
+            dependencies.telemetry,
+          )
         case 'CreateTaskPushNotificationConfig':
         case 'GetTaskPushNotificationConfig':
         case 'ListTaskPushNotificationConfigs':
@@ -154,9 +196,9 @@ export function createA2AV1PostHandler(
       }
     } catch (error) {
       if (!(error instanceof A2AV1ProtocolError)) {
-        console.error('[A2A] Request failed', {
+        dependencies.telemetry('a2a.v1.request.failed', {
           method: rpc.method,
-          error: error instanceof Error ? error.message : 'unknown error',
+          errorClass: 'internal_error',
         })
       }
       return protocolResponse(rpc.id, error)
@@ -213,16 +255,21 @@ async function handleSendStreamingMessage(
   rpc: A2AV1JsonRpcRequest,
   runtime: A2AV1Runtime,
   auth: { ownerId: string; keyId: string },
+  telemetry: A2AV1Telemetry,
 ): Promise<Response> {
   const params = parseA2AV1SendMessageParams(rpc.params)
   rejectMessageExtensions(params.message.extensions)
-  const cursor = eventCursor(request.headers.get('last-event-id'))
+  const cursor = eventCursor(
+    request.headers.get('last-event-id'),
+    rpc.method,
+    telemetry,
+  )
   const accepted = await runtime.acceptMessage({
     ownerId: auth.ownerId,
     apiKeyId: auth.keyId,
     params,
   })
-  assertCursorWithinTask(cursor, accepted.task)
+  assertCursorWithinTask(cursor, accepted.task, rpc.method, telemetry)
 
   return taskStream({
     id: rpc.id,
@@ -233,6 +280,8 @@ async function handleSendStreamingMessage(
     runtime,
     acceptedOutputModes: params.configuration.acceptedOutputModes,
     executeSubmitted: true,
+    method: rpc.method,
+    telemetry,
   })
 }
 
@@ -262,11 +311,16 @@ async function handleSubscribeToTask(
   rpc: A2AV1JsonRpcRequest,
   runtime: A2AV1Runtime,
   ownerId: string,
+  telemetry: A2AV1Telemetry,
 ): Promise<Response> {
   const params = parseA2AV1TaskQueryParams(rpc.params)
   const task = await runtime.task(ownerId, params.id, params.historyLength)
-  const cursor = eventCursor(request.headers.get('last-event-id'))
-  assertCursorWithinTask(cursor, task)
+  const cursor = eventCursor(
+    request.headers.get('last-event-id'),
+    rpc.method,
+    telemetry,
+  )
+  assertCursorWithinTask(cursor, task, rpc.method, telemetry)
   if (isTerminalSubscriptionState(task.status.state)) {
     throw new A2AV1ProtocolError(
       A2A_V1_ERROR.unsupported,
@@ -283,6 +337,8 @@ async function handleSubscribeToTask(
     runtime,
     acceptedOutputModes: undefined,
     executeSubmitted: false,
+    method: rpc.method,
+    telemetry,
   })
 }
 
@@ -295,18 +351,41 @@ function taskStream(input: {
   runtime: A2AV1Runtime
   acceptedOutputModes?: string[]
   executeSubmitted: boolean
+  method: string
+  telemetry: A2AV1Telemetry
 }): Response {
   const encoder = new TextEncoder()
   const abortController = new AbortController()
+  let disconnected = false
+  const recordDisconnect = (resultClass: string) => {
+    if (disconnected) return
+    disconnected = true
+    input.telemetry('a2a.v1.sse.disconnected', {
+      method: input.method,
+      resultClass,
+    })
+  }
+  input.telemetry('a2a.v1.sse.connected', {
+    method: input.method,
+    resultClass: input.cursor > 0 ? 'resume' : 'new',
+  })
+  if (input.cursor > 0) {
+    input.telemetry('a2a.v1.sse.resumed', {
+      method: input.method,
+      eventSequence: input.cursor,
+    })
+  }
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       void pumpTaskStream(controller, encoder, {
         ...input,
         signal: abortController.signal,
+        recordDisconnect,
       })
     },
     cancel() {
       abortController.abort()
+      recordDisconnect('client_canceled')
     },
   })
 
@@ -333,6 +412,9 @@ async function pumpTaskStream(
     acceptedOutputModes?: string[]
     executeSubmitted: boolean
     signal: AbortSignal
+    method: string
+    telemetry: A2AV1Telemetry
+    recordDisconnect: (resultClass: string) => void
   },
 ): Promise<void> {
   let cursor = input.cursor
@@ -359,12 +441,14 @@ async function pumpTaskStream(
       encoder,
       sseData(jsonRpcSuccess(input.id, initial)),
     )) {
+      input.recordDisconnect('initial_write_failed')
       if (execution) await execution.catch(() => undefined)
       return
     }
 
     while (true) {
       if (input.signal.aborted) {
+        input.recordDisconnect('client_canceled')
         if (execution) await execution.catch(() => undefined)
         return
       }
@@ -393,6 +477,7 @@ async function pumpTaskStream(
             encoder,
             sseData(jsonRpcSuccess(input.id, tailored), event.sequence),
           )) {
+            input.recordDisconnect('event_write_failed')
             if (execution) await execution.catch(() => undefined)
             return
           }
@@ -405,11 +490,13 @@ async function pumpTaskStream(
         return
       }
       if (Date.now() >= deadline) {
+        input.recordDisconnect('deadline')
         closeStream(controller)
         return
       }
       if (Date.now() >= nextHeartbeatAt) {
         if (!writeStream(controller, encoder, ': keep-alive\n\n')) {
+          input.recordDisconnect('heartbeat_write_failed')
           if (execution) await execution.catch(() => undefined)
           return
         }
@@ -418,7 +505,14 @@ async function pumpTaskStream(
       await sleep(300)
     }
   } catch (error) {
-    if (input.signal.aborted) return
+    if (input.signal.aborted) {
+      input.recordDisconnect('client_canceled')
+      return
+    }
+    input.telemetry('a2a.v1.request.failed', {
+      method: input.method,
+      errorClass: 'sse_stream_error',
+    })
     writeStream(
       controller,
       encoder,
@@ -528,18 +622,40 @@ function isTerminalSubscriptionState(state: string): boolean {
 function assertCursorWithinTask(
   cursor: number,
   task: A2AV1TaskSnapshot,
+  method: string,
+  telemetry: A2AV1Telemetry,
 ): void {
   if (cursor <= taskEventSequence(task)) return
+  telemetry('a2a.v1.sse.invalid_cursor', {
+    method,
+    resultClass: 'future_cursor',
+    eventSequence: cursor,
+  })
   throw new A2AV1ProtocolError(
     A2A_V1_ERROR.invalidParams,
     'Last-Event-ID is beyond the task event stream.',
   )
 }
 
-function eventCursor(value: string | null): number {
+function authDenialClass(message: string, status: number): string {
+  if (status === 402) return 'entitlement_denied'
+  if (message === 'This API key has been revoked.') return 'revoked_key'
+  if (status === 503) return 'auth_unavailable'
+  return 'invalid_key'
+}
+
+function eventCursor(
+  value: string | null,
+  method: string,
+  telemetry: A2AV1Telemetry,
+): number {
   if (!value?.trim()) return 0
   const cursor = Number(value)
   if (!Number.isSafeInteger(cursor) || cursor < 0) {
+    telemetry('a2a.v1.sse.invalid_cursor', {
+      method,
+      resultClass: 'malformed_cursor',
+    })
     throw new A2AV1ProtocolError(
       A2A_V1_ERROR.invalidParams,
       'Last-Event-ID must be a non-negative integer.',

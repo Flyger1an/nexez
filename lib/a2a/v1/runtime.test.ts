@@ -51,6 +51,46 @@ function executionContext() {
 }
 
 describe('A2AV1Runtime', () => {
+  it('records claim delay and a lost claim race without task identity', async () => {
+    const store = {
+      acceptMessage: vi.fn(async () => ({ outcome: 'created', taskId })),
+      reconcileTask: vi.fn(async () => ({ reconciled: false })),
+      getTask: vi.fn(async () => task('TASK_STATE_WORKING', 1)),
+      claimTask: vi.fn(async () => ({
+        claimed: false,
+        outcome: 'task_not_submitted',
+        state: 'TASK_STATE_WORKING',
+      })),
+    }
+    const telemetry = vi.fn()
+    const runtime = new A2AV1Runtime(
+      {} as SupabaseClient,
+      store as unknown as A2AV1TaskStore,
+      vi.fn() as any,
+      async () => null,
+      () => '70000000-0000-4000-8000-000000000001',
+      telemetry,
+    )
+    const params = parseA2AV1SendMessageParams({
+      message: {
+        messageId: 'message-1',
+        role: 'ROLE_USER',
+        parts: [{ text: 'Find a cleaner.' }],
+      },
+    })
+
+    await runtime.acceptMessage({ ownerId, apiKeyId: 'key-1', params })
+    await runtime.executeTask(ownerId, taskId)
+
+    expect(telemetry).toHaveBeenCalledWith('a2a.v1.task.claim_lost', {
+      taskState: 'TASK_STATE_WORKING',
+      resultClass: 'task_not_submitted',
+      durationMs: expect.any(Number),
+    })
+    expect(JSON.stringify(telemetry.mock.calls)).not.toContain(taskId)
+    expect(JSON.stringify(telemetry.mock.calls)).not.toContain(ownerId)
+  })
+
   it('maps a conflicting message receipt into a bounded protocol error', async () => {
     const store = {
       acceptMessage: vi.fn(async () => ({ outcome: 'conflict' })),
