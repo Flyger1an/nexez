@@ -3,6 +3,8 @@ import {
   A2A_ENDPOINT_PATH,
   A2A_PROTOCOL_BINDING,
   A2A_PROTOCOL_VERSION,
+  A2A_STREAMING_DEPLOYED,
+  A2A_TRANSPORT_DEPLOYED,
 } from '../a2a/discovery'
 import { buildA2AAgentCard, buildMcpServerCard } from '../agent-cards'
 import { buildPlatformAgentManifest } from '../platform-agent-manifest'
@@ -16,7 +18,6 @@ describe('buildMcpServerCard', () => {
     expect(card.protocol_version).toBe('2026-07-28')
     expect(card.capabilities.tools).toBe(true)
     expect(card.capabilities.resources).toBe(true)
-    // The card must agree with the artifacts agents already use.
     expect(card.links.catalog).toMatch(/\/\.well-known\/mcp\.json$/)
     expect(card.links.manifest).toMatch(/\/\.well-known\/agent\.json$/)
     expect(card.links.llms).toMatch(/\/llms\.txt$/)
@@ -25,7 +26,7 @@ describe('buildMcpServerCard', () => {
 })
 
 describe('buildA2AAgentCard', () => {
-  it('derives identity from the platform manifest (single source of truth)', () => {
+  it('derives identity from the platform manifest', () => {
     const card = buildA2AAgentCard()
     const manifest = buildPlatformAgentManifest()
     expect(card.name).toBe(manifest.name)
@@ -45,7 +46,8 @@ describe('buildA2AAgentCard', () => {
     }
   })
 
-  it('declares only the future A2A v1 JSON-RPC interface', () => {
+  it('declares only the deployed A2A v1 JSON-RPC interface', () => {
+    expect(A2A_TRANSPORT_DEPLOYED).toBe(true)
     const card = buildA2AAgentCard()
     expect(card.supportedInterfaces).toEqual([
       {
@@ -54,9 +56,19 @@ describe('buildA2AAgentCard', () => {
         protocolVersion: A2A_PROTOCOL_VERSION,
       },
     ])
+    expect(card.supportedInterfaces[0]?.url).toMatch(/\/api\/v1\/a2a$/)
     expect('additionalInterfaces' in card).toBe(false)
     expect('preferredTransport' in card).toBe(false)
     expect(JSON.stringify(card)).not.toContain('"transport":"mcp"')
     expect(JSON.stringify(card)).not.toContain('"transport":"openapi"')
+  })
+
+  it('advertises exactly the streaming behavior implemented by the transport', () => {
+    expect(A2A_STREAMING_DEPLOYED).toBe(true)
+    expect(buildA2AAgentCard().capabilities).toEqual({
+      streaming: true,
+      pushNotifications: false,
+      extendedAgentCard: false,
+    })
   })
 })

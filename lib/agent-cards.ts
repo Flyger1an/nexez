@@ -5,19 +5,17 @@ import {
   A2A_ENDPOINT_PATH,
   A2A_PROTOCOL_BINDING,
   A2A_PROTOCOL_VERSION,
+  A2A_STREAMING_DEPLOYED,
 } from './a2a/discovery'
 
 /**
  * Newer agent-discovery documents that crawlers and agent frameworks probe for
- * beyond the original /.well-known/agent.json + mcp.json pair. Production logs
- * show steady 404s on both paths served here (MCP clients probing
- * /.well-known/mcp/server-card.json and /.well-known/mcp; A2A clients probing
- * /.well-known/agent-card.json). Everything is derived from the same site
- * helpers + platform manifest as the existing artifacts so the surfaces can
- * never disagree about endpoints.
+ * beyond the original /.well-known/agent.json + mcp.json pair. Everything is
+ * derived from the same site helpers and platform manifest as the existing
+ * artifacts so the surfaces cannot disagree about endpoints.
  */
 
-/** MCP server card: describes the /mcp endpoint itself (not the listing catalog). */
+/** MCP server card: describes the /mcp endpoint itself, not the listing catalog. */
 export function buildMcpServerCard() {
   return {
     schema_version: '1.0',
@@ -40,10 +38,7 @@ export function buildMcpServerCard() {
   }
 }
 
-/**
- * Future A2A v1 Agent Card for the API-key-authenticated Nexxi runtime.
- * The well-known route serves this only after A2A_TRANSPORT_DEPLOYED is true.
- */
+/** A2A v1 Agent Card for the API-key-authenticated Nexxi task runtime. */
 export function buildA2AAgentCard() {
   const manifest = buildPlatformAgentManifest()
   const endpoint = agentRuntimeUrl(A2A_ENDPOINT_PATH)
@@ -61,10 +56,10 @@ export function buildA2AAgentCard() {
       organization: 'Nexez',
       url: manifest.url,
     },
-    version: '1.0.0',
+    version: '1.1.0',
     documentationUrl: marketingUrl('/developers'),
     capabilities: {
-      streaming: false,
+      streaming: A2A_STREAMING_DEPLOYED,
       pushNotifications: false,
       extendedAgentCard: false,
     },
