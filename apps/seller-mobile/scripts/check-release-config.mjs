@@ -42,7 +42,7 @@ check(app.android?.package === 'app.nexez.sellerhub', 'Unexpected Android packag
 check(Number.isInteger(app.android?.versionCode) && app.android.versionCode > 0, 'Android version code must be a positive integer')
 check(app.extra?.eas?.projectId === easProjectId, 'Unexpected EAS project ID')
 const sentryPlugin = app.plugins?.find(
-  (plugin) => Array.isArray(plugin) && plugin[0] === '@sentry/react-native',
+  (plugin) => Array.isArray(plugin) && plugin[0] === '@sentry/react-native/expo',
 )
 check(sentryPlugin?.[1]?.organization === 'nexez-ai', 'Sentry organization is not wired')
 check(sentryPlugin?.[1]?.project === 'nexez-seller-hub', 'Sentry project is not wired')
