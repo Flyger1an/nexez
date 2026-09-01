@@ -61,7 +61,7 @@ async def main() -> int:
         await check("blocking-send", "Python SDK parses a blocking Nexez Task", blocking_send)
         await check("get-task", "Python SDK retrieves the same Nexez Task", get_task)
         await check("streaming", "Python SDK parses Nexez streaming task events", streaming)
-        await check("disabled-methods", "Disabled optional methods fail closed", disabled_methods)
+        await check("disabled-methods", "Disabled optional methods honor advertised capabilities", disabled_methods)
 
     passed = all(item["status"] == "pass" for item in CHECKS)
     report = {
@@ -208,10 +208,11 @@ async def streaming() -> str:
 async def disabled_methods() -> str:
     async with authorized_client(streaming=False) as client:
         list_error = await capture_failure(client.list_tasks(ListTasksRequest(page_size=1)))
-        card_error = await capture_failure(client.get_extended_agent_card(GetExtendedAgentCardRequest()))
+        cached_card = await client.get_extended_agent_card(GetExtendedAgentCardRequest())
     assert_unsupported(list_error, "ListTasks")
-    assert_unsupported(card_error, "GetExtendedAgentCard")
-    return "ListTasks and GetExtendedAgentCard remained explicitly unsupported."
+    assert cached_card.capabilities.extended_agent_card is False, "Python SDK returned an advertised extended card"
+    assert list(cached_card.supported_interfaces) == list(CARD.supported_interfaces), "Python SDK changed the cached Agent Card interfaces"
+    return "ListTasks was rejected and the SDK honored the disabled extended-card capability locally."
 
 
 async def rejected_send(api_key: str) -> Exception:
