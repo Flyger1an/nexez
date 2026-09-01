@@ -29,6 +29,14 @@ on:
       - 'playwright.config.ts'
       - '.github/workflows/e2e.yml'
 
+# Every gated spec uses the same dedicated seller. Serialize the workflow across
+# branches, schedules, and manual dispatches so one run cannot mutate metadata or
+# revoke sessions while another run is still exercising the same account. Keep
+# the active run alive so its fixture cleanup is not abandoned midway.
+concurrency:
+  group: nexez-e2e-shared-seller
+  cancel-in-progress: false
+
 jobs:
   e2e:
     # Pin the runner family so an ubuntu-latest image rollover cannot silently

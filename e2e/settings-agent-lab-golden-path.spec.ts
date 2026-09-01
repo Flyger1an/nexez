@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { loginWithPassword } from './auth'
 
 const email = process.env.E2E_EMAIL
 const password = process.env.E2E_PASSWORD
@@ -161,14 +162,6 @@ async function prepareFixtures() {
   fixtureResearchIds = researchData.map((row) => row.id)
 }
 
-async function login(page: Page) {
-  await page.goto('/login', { waitUntil: 'domcontentloaded' })
-  await page.locator('input[type="email"]').fill(email!)
-  await page.locator('input[type="password"]').fill(password!)
-  await page.locator('button[type="submit"]').first().click()
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 })
-}
-
 test.describe('Settings and Agent Lab five-pass golden path', () => {
   test.describe.configure({ mode: 'serial' })
   test.skip(!email || !password || !supabaseUrl || !supabaseKey, 'set E2E credentials and Supabase public keys')
@@ -206,8 +199,11 @@ test.describe('Settings and Agent Lab five-pass golden path', () => {
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(String(error)))
 
-    await login(page)
-    await page.goto('/dashboard/settings#agent-surfaces', { waitUntil: 'domcontentloaded' })
+    await loginWithPassword(page, {
+      email: email!,
+      password: password!,
+      destination: '/dashboard/settings#agent-surfaces',
+    })
 
     await expect(page.getByTestId('account-settings-screen')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByRole('heading', { name: 'Agent operations', exact: true })).toBeVisible()
@@ -243,9 +239,9 @@ test.describe('Settings and Agent Lab five-pass golden path', () => {
     await expect(archive).toBeVisible()
     await expect(archive.getByLabel('Research trend summary')).toContainText('With trend1')
     await expect(archive.getByText('+15 score since prior snapshot')).toBeVisible()
-    await archive.getByRole('button', { name: `Open report` }).first().click()
+    await archive.getByRole('button', { name: 'Open report' }).first().click()
     await expect(page.getByRole('status').filter({ hasText: 'Loaded saved benchmark' })).toBeVisible()
-    await expect(page.getByText(`Analysis for`, { exact: false })).toBeVisible()
+    await expect(page.getByText('Analysis for', { exact: false })).toBeVisible()
     await expect(page.getByText('67', { exact: true }).first()).toBeVisible()
 
     await page.goto('/dashboard/settings#agent-surfaces', { waitUntil: 'domcontentloaded' })
@@ -268,8 +264,11 @@ test.describe('Settings and Agent Lab five-pass golden path', () => {
     expect(draftError).toBeNull()
 
     try {
-      await login(page)
-      await page.goto(`/dashboard/${fixturePageId}/test`, { waitUntil: 'domcontentloaded' })
+      await loginWithPassword(page, {
+        email: email!,
+        password: password!,
+        destination: `/dashboard/${fixturePageId}/test`,
+      })
 
       const simulator = page.getByTestId('listing-agent-simulator')
       await expect(simulator).toBeVisible({ timeout: 15_000 })

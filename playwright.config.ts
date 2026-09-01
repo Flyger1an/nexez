@@ -63,6 +63,7 @@ export default defineConfig({
     viewport: { width: 1280, height: 800 },
     navigationTimeout: 60_000,
     trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   // For live tests (TEST_LIVE=1), skip starting local dev server and use the deployed baseURL.
   // For local: reuses a running dev server if one is already up, otherwise boots `npm run dev`.
