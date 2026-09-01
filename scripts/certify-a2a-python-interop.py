@@ -297,7 +297,7 @@ def assert_http_401(error: Exception) -> None:
 
 def assert_sdk_http_error(error: Exception, method: str) -> None:
     assert isinstance(error, A2AClientError), f"{method} did not return the official SDK A2AClientError"
-    assert str(error) == "HTTP Error: 400", f"{method} did not preserve the expected HTTP status"
+    assert re.search(r"^HTTP Error 400:", str(error)), f"{method} did not preserve the expected HTTP status"
 
 
 def valid_sha(value: str) -> bool:
