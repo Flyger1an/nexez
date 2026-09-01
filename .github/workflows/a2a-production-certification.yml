@@ -1,0 +1,91 @@
+name: A2A Production Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact production commit SHA to certify, defaults to the selected ref
+        required: false
+        type: string
+      agent_base:
+        description: Production agent-runtime origin
+        required: true
+        default: https://nexez.app
+        type: string
+      app_base:
+        description: Production authenticated-app origin
+        required: true
+        default: https://app.nexez.ai
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a2a-production-certification-${{ inputs.commit_sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXEZ_A2A_CERT_BASE: ${{ inputs.agent_base || 'https://nexez.app' }}
+      NEXEZ_A2A_CERT_APP_BASE: ${{ inputs.app_base || 'https://app.nexez.ai' }}
+      NEXEZ_A2A_CERT_API_KEY: ${{ secrets.NEXEZ_A2A_CERT_API_KEY }}
+      NEXEZ_A2A_CERT_SECONDARY_API_KEY: ${{ secrets.NEXEZ_A2A_CERT_SECONDARY_API_KEY }}
+      NEXEZ_A2A_CERT_REVOKED_API_KEY: ${{ secrets.NEXEZ_A2A_CERT_REVOKED_API_KEY }}
+      NEXEZ_A2A_CERT_NONPRO_API_KEY: ${{ secrets.NEXEZ_A2A_CERT_NONPRO_API_KEY }}
+      NEXEZ_RELEASE_CERT_SECRET: ${{ secrets.NEXEZ_RELEASE_CERT_SECRET }}
+      NEXEZ_COMMIT_SHA: ${{ inputs.commit_sha || github.sha }}
+      NEXEZ_RELEASE_SOURCE: github
+      NEXEZ_A2A_CERT_IDEMPOTENCY_KEY: a2a-github-${{ github.run_id }}-${{ github.run_attempt }}
+      NEXEZ_WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      NEXEZ_A2A_CERT_WAIT_MS: '600000'
+      NEXEZ_A2A_CERT_SETTLE_MS: '90000'
+      NEXEZ_A2A_CERT_STREAM_MS: '90000'
+      NEXEZ_A2A_CERT_REPORT_PATH: a2a-production-certification.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          check-latest: true
+          cache: npm
+
+      - run: npm ci
+
+      - name: Verify certification credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$NEXEZ_A2A_CERT_API_KEY" || { echo "::error::NEXEZ_A2A_CERT_API_KEY is not configured"; exit 1; }
+          test -n "$NEXEZ_A2A_CERT_SECONDARY_API_KEY" || { echo "::error::NEXEZ_A2A_CERT_SECONDARY_API_KEY is not configured"; exit 1; }
+          test "$NEXEZ_A2A_CERT_API_KEY" != "$NEXEZ_A2A_CERT_SECONDARY_API_KEY" || { echo "::error::Certification keys must differ"; exit 1; }
+          test -n "$NEXEZ_RELEASE_CERT_SECRET" || { echo "::error::NEXEZ_RELEASE_CERT_SECRET is not configured"; exit 1; }
+
+      - name: Certify A2A production transport
+        id: certify
+        continue-on-error: true
+        run: npm run certify:a2a
+
+      - name: Upload A2A certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a2a-production-certification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: a2a-production-certification.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Enforce A2A certification verdict
+        if: steps.certify.outcome == 'success'
+        run: |
+          node -e "const r=require('./a2a-production-certification.json'); if(r.status!=='passed'||r.promotionEligible!==true||r.commitSha!==process.env.NEXEZ_COMMIT_SHA) process.exit(1)"
+
+      - name: Fail when certification failed
+        if: steps.certify.outcome != 'success'
+        run: exit 1
