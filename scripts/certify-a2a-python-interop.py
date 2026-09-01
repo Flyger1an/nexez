@@ -25,6 +25,7 @@ from a2a.types import (
     SendMessageConfiguration,
     SendMessageRequest,
     TaskState,
+    UnsupportedOperationError,
 )
 from a2a.helpers import new_text_message
 from importlib.metadata import version
@@ -280,8 +281,7 @@ def assert_http_401(error: Exception) -> None:
 
 
 def assert_unsupported(error: Exception, method: str) -> None:
-    value = str(error).lower()
-    assert any(marker in value for marker in ("-32601", "not found", "unsupported", "not implemented")), f"{method} did not fail as unsupported"
+    assert isinstance(error, UnsupportedOperationError), f"{method} did not return the official UnsupportedOperationError"
 
 
 def valid_sha(value: str) -> bool:
