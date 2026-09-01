@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { loginWithPassword } from './auth'
 import { selectPlatformTheme } from './platform-theme'
 
 const email = process.env.E2E_EMAIL
@@ -100,21 +101,18 @@ async function createDisposableListing(): Promise<string> {
 async function loginToDashboard(page: Page) {
   test.skip(!email || !password, 'set E2E_EMAIL and E2E_PASSWORD to run the page settings E2E')
 
-  await page.goto('/login', { waitUntil: 'domcontentloaded' })
-  await page.locator('input[type="email"]').fill(email!)
-  await page.locator('input[type="password"]').fill(password!)
-  await page.locator('button[type="submit"]').first().click()
-  await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30_000 })
-
-  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+  await loginWithPassword(page, {
+    email: email!,
+    password: password!,
+    destination: '/dashboard',
+  })
 }
 
 async function loginAndOpenFirstPageSettings(page: Page) {
-  await loginToDashboard(page)
-  // Resolve the authenticated fixture's authoritative entitlements even when
-  // the account already owns a listing. Previously this only happened in the
-  // no-listings fallback, so paid CI fixtures were incorrectly asserted as Free.
+  // Prepare plan metadata before browser sign-in so the newly minted browser
+  // token and the server-side dashboard gate agree on onboarding state.
   await initializeSettingsFixture()
+  await loginToDashboard(page)
   await page
     .waitForFunction(
       () => [...document.querySelectorAll('a[href]')].some((a) => /^\/dashboard\/[0-9a-f-]{36}$/.test(a.getAttribute('href') || '')),

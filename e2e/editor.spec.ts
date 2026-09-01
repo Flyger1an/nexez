@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { loginWithPassword } from './auth'
 import { selectPlatformTheme } from './platform-theme'
 
 // Authed smoke. Self-contained login (runs after webServer is up). Skipped when
@@ -79,7 +80,7 @@ test.describe('authed editor', () => {
       const { error } = await fixtureClient.auth.updateUser({ data: { plan: originalPlanMetadata } })
       if (error) cleanupErrors.push(`plan metadata: ${error.message}`)
     }
-    await fixtureClient.auth.signOut()
+    await fixtureClient.auth.signOut({ scope: 'local' })
     if (cleanupErrors.length) throw new Error(`Could not fully clean up editor fixture: ${cleanupErrors.join('; ')}`)
   })
 
@@ -90,19 +91,13 @@ test.describe('authed editor', () => {
       if (message.type() === 'error' && /hydrated|hydration mismatch/i.test(message.text())) hydrationWarnings.push(message.text())
     })
 
-    await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    await page.locator('input[type="email"]').fill(email!)
-    await page.locator('input[type="password"]').fill(password!)
-    await page.locator('button[type="submit"]').first().click()
-    // Leave the login page (destination can vary), then open the disposable listing directly.
-    await page.waitForURL((u) => !u.pathname.startsWith('/login'), {
-      timeout: 30_000,
-    })
-    await page.goto(`/dashboard/${fixturePageId}`, {
-      waitUntil: 'domcontentloaded',
+    await loginWithPassword(page, {
+      email: email!,
+      password: password!,
+      destination: `/dashboard/${fixturePageId}`,
     })
 
-    // Server component hydrated with real data (no "Loading editor…" flash).
+    // Server component hydrated with real data (no "Loading editor..." flash).
     const editor = page.getByTestId('listing-editor-screen')
     await expect(editor).toBeVisible()
     const nameValue = await page.locator('input[required]').first().inputValue()

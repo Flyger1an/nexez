@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { loginWithPassword } from './auth'
 import { selectPlatformTheme } from './platform-theme'
 
 const email = process.env.E2E_EMAIL
@@ -36,7 +37,7 @@ test.afterAll(async () => {
     const { error } = await fixtureClient.auth.updateUser({ data: { plan: originalPlanMetadata } })
     if (error) throw new Error(`Could not restore dashboard fixture metadata: ${error.message}`)
   }
-  await fixtureClient.auth.signOut()
+  await fixtureClient.auth.signOut({ scope: 'local' })
 })
 
 async function login(page: Page) {
@@ -45,12 +46,11 @@ async function login(page: Page) {
     'set E2E credentials and Supabase keys to run the dashboard theme E2E',
   )
 
-  await page.goto('/login', { waitUntil: 'domcontentloaded' })
-  await page.locator('input[type="email"]').fill(email!)
-  await page.locator('input[type="password"]').fill(password!)
-  await page.locator('button[type="submit"]').first().click()
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 })
-  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+  await loginWithPassword(page, {
+    email: email!,
+    password: password!,
+    destination: '/dashboard',
+  })
 }
 
 function rgbChannels(color: string): [number, number, number] {
