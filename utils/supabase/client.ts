@@ -5,14 +5,29 @@ import { getBrowserSupabaseCookieOptions } from "./cookie-options";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-type BrowserClient = ReturnType<typeof createBrowserClient>;
+function buildBrowserClient() {
+  const cookieOptions = getBrowserSupabaseCookieOptions();
+  return createBrowserClient(
+    supabaseUrl!,
+    supabaseKey!,
+    {
+      ...(cookieOptions ? { cookieOptions } : {}),
+      auth: {
+        experimental: { passkey: true },
+      },
+    },
+  );
+}
+
+type BrowserClient = ReturnType<typeof buildBrowserClient>;
+type PasswordCredentials = Parameters<BrowserClient["auth"]["signInWithPassword"]>[0];
 
 let browserClient: BrowserClient | null = null;
 
 function installPasswordSessionReadinessBarrier(client: BrowserClient): BrowserClient {
   const signInWithPassword = client.auth.signInWithPassword.bind(client.auth);
 
-  client.auth.signInWithPassword = async (credentials) => {
+  client.auth.signInWithPassword = async (credentials: PasswordCredentials) => {
     const result = await signInWithPassword(credentials);
     if (!result.error && result.data.session && typeof window !== "undefined") {
       let ready = await waitForServerAuthSession();
@@ -33,18 +48,7 @@ function installPasswordSessionReadinessBarrier(client: BrowserClient): BrowserC
 export const createClient = () => {
   if (typeof window !== "undefined" && browserClient) return browserClient;
 
-  const cookieOptions = getBrowserSupabaseCookieOptions();
-  const client = createBrowserClient(
-    supabaseUrl!,
-    supabaseKey!,
-    {
-      ...(cookieOptions ? { cookieOptions } : {}),
-      auth: {
-        experimental: { passkey: true },
-      },
-    },
-  );
-
+  const client = buildBrowserClient();
   if (typeof window !== "undefined") {
     browserClient = installPasswordSessionReadinessBarrier(client);
     return browserClient;

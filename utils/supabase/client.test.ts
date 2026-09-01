@@ -29,7 +29,7 @@ function mockClient(options: {
   session?: boolean
   error?: Error | null
 } = {}) {
-  const signInWithPassword = vi.fn(async () => ({
+  const signInWithPassword = vi.fn(async (_credentials: { email: string; password: string }) => ({
     data: {
       user: options.session === false ? null : { id: 'user-1' },
       session: options.session === false ? null : { access_token: 'token' },
