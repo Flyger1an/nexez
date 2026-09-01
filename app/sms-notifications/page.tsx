@@ -34,8 +34,8 @@ const consentDisclosure = (
 
 const steps = [
   {
-    title: 'Enter a mobile number',
-    description: 'A signed-in seller opens Account settings, then Notifications, and enters a mobile number in E.164 format.',
+    title: 'Enter an optional mobile number',
+    description: 'A signed-in seller opens Account settings, then Notifications, and may enter a mobile number in E.164 format.',
   },
   {
     title: 'Give active consent',
@@ -109,13 +109,14 @@ export default function SmsNotificationsPage() {
 
       <section className="mx-auto max-w-6xl px-5 py-16 sm:py-20" aria-labelledby="opt-in-flow-heading">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--signal)]">Web form opt-in</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--signal)]">Authenticated web form opt-in</p>
           <h2 id="opt-in-flow-heading" className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
             The complete subscriber flow
           </h2>
           <p className="mt-4 text-base leading-7 text-[var(--fg-muted)]">
             Account creation alone does not enroll anyone. The SMS preference is separate, optional, and available only
-            to the signed-in account owner.
+            to the signed-in account owner. The optional phone field and unchecked consent disclosure appear together in
+            Account settings. This public disclosure page documents that workflow and does not collect phone numbers.
           </p>
         </div>
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { BellRing, CheckCircle2, Loader2, MessageSquareText, ShieldCheck, XCircle } from 'lucide-react'
 import {
   SMS_CONSENT_CORE_COPY,
+  SMS_PRIVACY_NON_SHARING_COPY,
   SMS_PUBLIC_DISCLOSURE_PATH,
 } from '../lib/sms-consent'
 
@@ -116,8 +117,8 @@ export function SmsNotificationSettings() {
             </h2>
           </div>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
-            Receive a text when a new negotiation needs your review. Messages only link back to your signed-in Nexez dashboard;
-            they never approve or change a deal.
+            Optionally receive a text when a new negotiation needs your review. SMS is off by default and is not required
+            to use Nexez. Messages only link back to your signed-in dashboard; they never approve or change a deal.
           </p>
         </div>
         {status?.enabled ? (
@@ -158,9 +159,12 @@ export function SmsNotificationSettings() {
         </div>
       ) : (
         <div className="mt-5 space-y-4">
-          <label className="block text-sm">
-            <span className="mb-1 block text-[var(--fg)]">Mobile number</span>
+          <div className="text-sm">
+            <label htmlFor="sms-notification-phone" className="mb-1 block text-[var(--fg)]">
+              Mobile number (optional)
+            </label>
             <input
+              id="sms-notification-phone"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
               inputMode="tel"
@@ -171,9 +175,10 @@ export function SmsNotificationSettings() {
               aria-describedby="sms-phone-help"
             />
             <span id="sms-phone-help" className="mt-1 block text-xs leading-5 text-[var(--fg-muted)]">
-              Use E.164 format (for example, +14155550123). We verify it before enabling notifications.
+              Leave this blank to keep using email and dashboard notifications only. To opt in, use E.164 format (for
+              example, +14155550123). We verify the number before enabling SMS.
             </span>
-          </label>
+          </div>
 
           {!verificationPending ? (
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--signal)]/35 bg-[var(--signal)]/5 p-4 text-sm leading-6 text-[var(--fg-muted)]">
@@ -188,6 +193,7 @@ export function SmsNotificationSettings() {
                 {SMS_CONSENT_CORE_COPY}{' '}
                 See our <a className="font-semibold underline underline-offset-4 hover:text-[var(--fg)]" href="/terms">Terms</a> and{' '}
                 <a className="font-semibold underline underline-offset-4 hover:text-[var(--fg)]" href="/privacy">Privacy Policy</a>.
+                <span className="mt-2 block">{SMS_PRIVACY_NON_SHARING_COPY}</span>
               </span>
             </label>
           ) : (
@@ -234,7 +240,7 @@ export function SmsNotificationSettings() {
           )}
 
           <p className="text-xs leading-5 text-[var(--fg-muted)]">
-            Read the complete, public opt-in workflow at{' '}
+            Read the public disclosure describing this authenticated opt-in workflow at{' '}
             <a className="font-semibold text-[var(--signal)] hover:underline" href={SMS_PUBLIC_DISCLOSURE_PATH}>
               nexez.ai{SMS_PUBLIC_DISCLOSURE_PATH}
             </a>.
