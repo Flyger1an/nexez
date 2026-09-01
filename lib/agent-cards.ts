@@ -1,6 +1,11 @@
 import { buildPlatformAgentManifest } from './platform-agent-manifest'
 import { MCP_PROTOCOL_VERSION } from './mcp-transport'
 import { agentRuntimeUrl, marketingUrl } from './site'
+import {
+  A2A_ENDPOINT_PATH,
+  A2A_PROTOCOL_BINDING,
+  A2A_PROTOCOL_VERSION,
+} from './a2a/discovery'
 
 /**
  * Newer agent-discovery documents that crawlers and agent frameworks probe for
@@ -35,27 +40,52 @@ export function buildMcpServerCard() {
   }
 }
 
-/** A2A-style agent card for clients probing /.well-known/agent-card.json. */
+/**
+ * Future A2A v1 Agent Card for the API-key-authenticated Nexxi runtime.
+ * The well-known route serves this only after A2A_TRANSPORT_DEPLOYED is true.
+ */
 export function buildA2AAgentCard() {
   const manifest = buildPlatformAgentManifest()
+  const endpoint = agentRuntimeUrl(A2A_ENDPOINT_PATH)
   return {
-    protocolVersion: '0.3.0',
     name: manifest.name,
     description: manifest.description,
-    url: agentRuntimeUrl('/api/v1'),
-    preferredTransport: 'HTTP+JSON',
+    supportedInterfaces: [
+      {
+        url: endpoint,
+        protocolBinding: A2A_PROTOCOL_BINDING,
+        protocolVersion: A2A_PROTOCOL_VERSION,
+      },
+    ],
     provider: {
       organization: 'Nexez',
       url: manifest.url,
     },
     version: '1.0.0',
+    documentationUrl: marketingUrl('/developers'),
     capabilities: {
       streaming: false,
       pushNotifications: false,
-      stateTransitionHistory: true,
+      extendedAgentCard: false,
     },
-    defaultInputModes: ['application/json', 'text/plain'],
-    defaultOutputModes: ['application/json'],
+    securitySchemes: {
+      nexezApiKey: {
+        httpAuthSecurityScheme: {
+          description: 'Nexez Pro API key created in the authenticated dashboard.',
+          scheme: 'Bearer',
+          bearerFormat: 'nxz_live_...',
+        },
+      },
+    },
+    securityRequirements: [
+      {
+        schemes: {
+          nexezApiKey: { list: [] },
+        },
+      },
+    ],
+    defaultInputModes: ['text/plain'],
+    defaultOutputModes: ['text/plain', 'application/json'],
     skills: [
       {
         id: 'offer-discovery',
@@ -67,22 +97,17 @@ export function buildA2AAgentCard() {
       {
         id: 'negotiation',
         name: 'Price negotiation',
-        description: 'Submit a proposal against a negotiable offer, poll the seller decision, and continue the thread to agreement.',
-        tags: ['commerce', 'negotiation'],
+        description: 'Prepare a buyer proposal against a negotiable offer and return an approval-required action.',
+        tags: ['commerce', 'negotiation', 'approval'],
         examples: ['Offer $450 for the consulting package with a 10-day timeline.'],
       },
       {
         id: 'checkout',
         name: 'Checkout and booking handoff',
-        description: 'Start a checkout or booking for a listed offer and receive a durable order reference.',
-        tags: ['commerce', 'checkout', 'booking'],
-        examples: ['Book the Discovery Call and send the confirmation link.'],
+        description: 'Prepare a checkout or booking handoff while preserving Nexxi buyer approval boundaries.',
+        tags: ['commerce', 'checkout', 'booking', 'approval'],
+        examples: ['Book the Discovery Call and return the approval request.'],
       },
-    ],
-    documentationUrl: agentRuntimeUrl('/llms.txt'),
-    additionalInterfaces: [
-      { transport: 'mcp', url: agentRuntimeUrl('/mcp') },
-      { transport: 'openapi', url: agentRuntimeUrl('/openapi.json') },
     ],
   }
 }
