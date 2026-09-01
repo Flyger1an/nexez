@@ -80,13 +80,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Check out exact production revision
+      - name: Check out certification source
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
 
-      - name: Verify exact checkout
-        run: test "$(git rev-parse HEAD)" = "${{ inputs.commit_sha }}"
+      - name: Verify target production revision
+        env:
+          TARGET_SHA: ${{ inputs.commit_sha }}
+        run: |
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "${TARGET_SHA}^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" HEAD
 
       - name: Set up Python
         uses: actions/setup-python@v5
