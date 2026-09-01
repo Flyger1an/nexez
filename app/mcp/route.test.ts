@@ -18,11 +18,12 @@ vi.mock('../../lib/server/mcp-demand', () => ({ scheduleMcpDemandEvent: schedule
 
 import { DELETE, GET, POST } from './route'
 
-const legacyPost = (body: unknown, headers: Record<string, string> = {}) => POST(new Request('https://nexez.app/mcp', {
+const postTo = (url: string, body: unknown, headers: Record<string, string> = {}) => POST(new Request(url, {
   method: 'POST',
   headers: { 'content-type': 'application/json', ...headers },
   body: typeof body === 'string' ? body : JSON.stringify(body),
 }))
+const legacyPost = (body: unknown, headers: Record<string, string> = {}) => postTo('https://nexez.app/mcp', body, headers)
 
 const modernBody = (method: string, params: Record<string, unknown> = {}) => ({
   jsonrpc: '2.0',
@@ -112,6 +113,40 @@ describe('/mcp platform route', () => {
       eventType: 'tools_list',
       clientFamily: 'claude',
       outcome: 'handled',
+    }))
+  })
+
+  it('dispatches the ChatGPT route without creating a purchase handoff', async () => {
+    const body = modernBody('tools/call', {
+      name: 'nexez_validate_checkout',
+      arguments: { slug: 'acme', offer: 'services-0' },
+    })
+    const response = await postTo('https://nexez.app/mcp/chatgpt', body, {
+      accept: 'application/json, text/event-stream',
+      'mcp-protocol-version': MCP_PROTOCOL_VERSION,
+      'mcp-method': 'tools/call',
+      'mcp-name': 'nexez_validate_checkout',
+    })
+
+    expect(response.status).toBe(200)
+    expect(handle).toHaveBeenCalledWith(
+      expect.objectContaining({ method: 'tools/call' }),
+      'https://nexez.test',
+      expect.objectContaining({
+        modern: true,
+        clientFamily: 'claude',
+        clientIp: '1.2.3.4',
+        surface: 'chatgpt',
+        attributionId: undefined,
+        buyerAgent: undefined,
+      }),
+    )
+    expect(schedule).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'tool_call',
+      toolName: 'nexez_validate_checkout',
+      actionReady: false,
+      handoffKind: null,
+      attributionId: null,
     }))
   })
 

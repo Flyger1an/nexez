@@ -19,6 +19,12 @@ beforeEach(() => {
 const base = 'https://nexez.app'
 const call = (method: string, params?: Record<string, unknown>) =>
   handlePlatformMcpRequest({ id: 1, method, params }, base, { clientIp: '1.2.3.4' })
+const chatGptCall = (method: string, params?: Record<string, unknown>) =>
+  handlePlatformMcpRequest(
+    { id: 1, method, params },
+    base,
+    { clientIp: '1.2.3.4', surface: 'chatgpt' },
+  )
 
 describe('handlePlatformMcpRequest', () => {
   it('initialize → nexez:platform serverInfo', async () => {
@@ -71,6 +77,35 @@ describe('handlePlatformMcpRequest', () => {
     expect(tools.every((tool) => tool.annotations.readOnlyHint)).toBe(true)
     expect(tools.every((tool) => tool.annotations.destructiveHint === false)).toBe(true)
     expect(tools.every((tool) => tool.annotations.openWorldHint)).toBe(true)
+  })
+
+  it('advertises five discovery-only tools on the ChatGPT surface', async () => {
+    const tools = ((await chatGptCall('tools/list')).result as {
+      tools: Array<{
+        name: string
+        title: string
+        description: string
+        inputSchema: { properties: Record<string, unknown> }
+      }>
+    }).tools
+    expect(tools.map((tool) => tool.name).sort()).toEqual([
+      'nexez_directory',
+      'nexez_get_page',
+      'nexez_search',
+      'nexez_validate_checkout',
+      'nexez_validate_negotiation',
+    ])
+    expect(tools.find((tool) => tool.name === 'nexez_validate_checkout')?.title).toBe('Check offer readiness')
+    expect(tools.find((tool) => tool.name === 'nexez_validate_checkout')?.inputSchema.properties).not.toHaveProperty('buyerEmail')
+    expect(tools.find((tool) => tool.name === 'nexez_validate_checkout')?.inputSchema.properties).not.toHaveProperty('buyerReference')
+    expect(tools.find((tool) => tool.name === 'nexez_validate_negotiation')?.inputSchema.properties).not.toHaveProperty('contact')
+    expect(JSON.stringify(tools)).not.toContain('agent.json URLs')
+    expect(JSON.stringify(tools)).not.toContain('provider handoff')
+  })
+
+  it('does not expose MCP resources on the ChatGPT surface', async () => {
+    expect((await chatGptCall('resources/list')).result).toEqual({ resources: [] })
+    expect((await chatGptCall('resources/read', { uri: 'https://nexez.app/agent-pages.json' })).error?.code).toBe(-32602)
   })
 
   it('nexez_search forwards to agent-search with the caller IP', async () => {
@@ -131,6 +166,113 @@ describe('handlePlatformMcpRequest', () => {
     expect(JSON.parse(String(calls[0].init?.body))).toMatchObject({
       dryRun: true,
       buyerAgent: 'Nexez MCP/other',
+    })
+  })
+
+  it('sanitizes discovery output on the ChatGPT surface', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown, init?: RequestInit) => {
+      calls.push({ url: String(url), init })
+      return new Response(JSON.stringify({
+        page: {
+          name: 'Kismet Pros',
+          slug: 'kismetpros',
+          url: 'https://nexez.app/kismetpros',
+          contact_email: 'service@example.com',
+          description: 'Published details at https://example.com.',
+        },
+        offers: [{
+          key: 'services-0',
+          name: 'Routine Cleaning',
+          price: 'Custom quote',
+          checkout_url: 'https://example.com/book',
+          provider_url: 'https://example.com/book',
+          action: { method: 'POST', endpoint: 'https://nexez.app/api/checkout' },
+        }],
+        recommended_actions: ['Contact the seller.'],
+      }), { status: 200 })
+    }))
+
+    const response = await chatGptCall('tools/call', {
+      name: 'nexez_get_page',
+      arguments: { slug: 'kismetpros' },
+    })
+    const text = (response.result as { content: Array<{ text: string }> }).content[0].text
+    const body = JSON.parse(text)
+    expect(JSON.stringify(body)).not.toMatch(/https?:\/\//)
+    expect(JSON.stringify(body)).not.toContain('service@example.com')
+    expect(JSON.stringify(body)).not.toContain('checkout_url')
+    expect(JSON.stringify(body)).not.toContain('provider_url')
+    expect(JSON.stringify(body)).not.toContain('recommended_actions')
+    expect(body).toMatchObject({
+      page: { name: 'Kismet Pros', slug: 'kismetpros' },
+      offers: [{ key: 'services-0', name: 'Routine Cleaning', price: 'Custom quote' }],
+      nexez_policy: {
+        mode: 'discovery_and_validation_only',
+        purchase_routes_returned: false,
+        approval_credentials_returned: false,
+        action_execution_available: false,
+      },
+    })
+  })
+
+  it('strips live-action inputs and outputs from ChatGPT dry-run validation', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown, init?: RequestInit) => {
+      calls.push({ url: String(url), init })
+      return new Response(JSON.stringify({
+        ok: true,
+        dryRun: true,
+        amount: 25000,
+        currency: 'usd',
+        checkoutUrl: 'https://nexez.app/checkout/acme',
+        actionUrl: 'https://nexez.app/api/checkout',
+        approvalToken: 'approval-secret',
+        approvalExpiresAt: '2026-09-01T12:00:00.000Z',
+        mcpHandoff: { method: 'POST', body: { approvalToken: 'approval-secret' } },
+      }), { status: 200 })
+    }))
+
+    const response = await chatGptCall('tools/call', {
+      name: 'nexez_validate_checkout',
+      arguments: {
+        slug: 'acme',
+        offer: 'services-0',
+        buyerEmail: 'buyer@example.com',
+        buyerReference: 'buyer-order-1',
+        contact: 'buyer@example.com',
+        approvalToken: 'caller-token',
+        actionUrl: 'https://nexez.app/api/checkout',
+        dryRun: false,
+      },
+    })
+
+    const requestBody = JSON.parse(String(calls[0].init?.body))
+    expect(requestBody).toMatchObject({
+      slug: 'acme',
+      offer: 'services-0',
+      dryRun: true,
+      buyerAgent: 'Nexez MCP/other',
+    })
+    expect(requestBody).not.toHaveProperty('buyerEmail')
+    expect(requestBody).not.toHaveProperty('buyerReference')
+    expect(requestBody).not.toHaveProperty('contact')
+    expect(requestBody).not.toHaveProperty('approvalToken')
+    expect(requestBody).not.toHaveProperty('actionUrl')
+
+    const text = (response.result as { content: Array<{ text: string }> }).content[0].text
+    const result = JSON.parse(text)
+    expect(JSON.stringify(result)).not.toMatch(/https?:\/\//)
+    expect(JSON.stringify(result)).not.toContain('approval-secret')
+    expect(JSON.stringify(result)).not.toContain('mcpHandoff')
+    expect(JSON.stringify(result)).not.toContain('checkoutUrl')
+    expect(result).toMatchObject({
+      ok: true,
+      dryRun: true,
+      amount: 25000,
+      currency: 'usd',
+      nexez_policy: {
+        mode: 'discovery_and_validation_only',
+        action_execution_available: false,
+      },
     })
   })
 

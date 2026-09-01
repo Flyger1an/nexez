@@ -5,22 +5,23 @@ This file contains the copy and reviewer instructions for the initial public rel
 ## Public listing
 
 - Name: Nexez Buyer
-- Short description: Find, compare, and safely validate agent-ready offers on Nexez.
-- Category: Shopping
+- Short description: Find public Nexez offers and validate current requirements.
+- Category: Business & Operations
 - Website: https://nexez.ai/agents
 - Support: https://nexez.ai/support
 - Contact email: support@nexez.ai
 - Privacy policy: https://nexez.ai/privacy
 - Terms: https://nexez.ai/terms
-- MCP server: https://nexez.app/mcp
+- ChatGPT MCP server: https://nexez.app/mcp/chatgpt
+- Claude MCP server: https://nexez.app/mcp
 - Authentication: None
 - Transport: Streamable HTTP
 
 ### Long description
 
-Nexez Buyer helps people discover public products and services published by Nexez merchants. Search by need, location, category, budget, readiness, trust, verification, checkout readiness, or negotiation support. Inspect structured listing details and compare candidates using current published facts.
+Nexez Buyer helps people discover public products and services published by Nexez merchants. Search by need, location, category, budget, readiness, trust, verification, or negotiation support. Inspect structured listing details and compare candidates using current published facts.
 
-When a buyer chooses an exact offer, the plugin can dry-run checkout or negotiation validation to surface the current price, requirements, payment readiness, and seller rules. Version 0.1 never charges, creates an order, reserves inventory, submits negotiation terms, or contacts a seller. Every validation clearly states that nothing was charged or submitted.
+When a buyer chooses an exact offer, the plugin can dry-run offer or proposed-term validation to surface the current price, requirements, readiness, and seller rules. The ChatGPT surface never returns a purchase, booking, seller-contact, approval, or submission route. Version 0.1 never charges, creates an order, reserves inventory, submits negotiation terms, or contacts a seller. Every validation clearly states that nothing was charged or submitted.
 
 ## Starter prompts
 
@@ -36,21 +37,23 @@ All five tools are read-only, non-destructive, and open-world because they retri
 
 | Tool | Annotation justification |
 | --- | --- |
-| `nexez_search` | Retrieves public matching listings and offers. It does not create or change marketplace state. |
-| `nexez_directory` | Retrieves the public Nexez directory. It does not create or change marketplace state. |
-| `nexez_get_page` | Retrieves one public structured listing by slug. It does not create or change marketplace state. |
-| `nexez_validate_checkout` | Forces `dryRun: true` server-side. It can return validation and handoff details but cannot charge, order, book, or reserve. |
-| `nexez_validate_negotiation` | Forces `dryRun: true` server-side. It can evaluate seller rules but cannot submit terms or contact a seller. |
+| `nexez_search` | Retrieves public matching listing and offer facts. The ChatGPT surface removes purchase, contact, and action routes. |
+| `nexez_directory` | Retrieves the public Nexez directory. The ChatGPT surface removes purchase, contact, and action routes. |
+| `nexez_get_page` | Retrieves one public structured listing by slug. The ChatGPT surface removes URLs, contact details, approval credentials, and executable actions. |
+| `nexez_validate_checkout` | Forces `dryRun: true` server-side. The ChatGPT surface returns readiness facts without a checkout route, approval token, or handoff. |
+| `nexez_validate_negotiation` | Forces `dryRun: true` server-side. The ChatGPT surface returns rule evaluation without a contact route, approval token, or submission handoff. |
 
 ## Reviewer setup
 
-No account, credentials, MFA, private network, or special configuration is required. Connect the universal MCP server URL and scan the tools. The public fixture data currently includes the listings `PAWRA PET CARES` and `Kismet Pros`.
+No account, credentials, MFA, private network, or special configuration is required. For ChatGPT, connect `https://nexez.app/mcp/chatgpt` and scan the five tools. The public fixture data currently includes the listings `PAWRA PET CARES` and `Kismet Pros`.
+
+Upload the three ChatGPT-specific skills from `openai-skills/`. They instruct the model not to reconstruct intentionally omitted links, contact details, credentials, or actions through another tool.
 
 Run the eight cases in `evals/cases.json`. The first five are positive cases and the final three are negative safety cases.
 
 ## Release notes
 
-Initial public submission of Nexez Buyer 0.1.0. The plugin combines three buyer workflows with a public, no-auth MCP server. It searches and reads published Nexez offers and performs checkout or negotiation validation only as forced dry runs. No tool can charge, create an order, reserve inventory, submit terms, or contact a seller.
+Initial public submission of Nexez Buyer 0.1.0. The plugin combines three buyer workflows with a public, no-auth MCP server. It searches and reads published Nexez offers and performs offer or proposed-term checks only as forced dry runs. The ChatGPT surface strips purchase, booking, seller-contact, approval, and submission routes from every result. No tool can charge, create an order, reserve inventory, submit terms, or contact a seller.
 
 ## Availability decision
 
@@ -58,5 +61,5 @@ Initial ChatGPT availability: United States. Expand only after Nexez support and
 
 ## Publication state
 
-- ChatGPT and Codex: development connection tested, public submission not yet sent.
-- Claude: private upload and connector tested, public plugin and connector submissions not yet sent.
+- ChatGPT and Codex: development connection tested, public submission draft in progress.
+- Claude: private connection tested and public plugin submitted for review.

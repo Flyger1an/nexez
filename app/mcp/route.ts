@@ -9,6 +9,7 @@ import {
   type McpToolName,
 } from '../../lib/mcp-demand'
 import { handlePlatformMcpRequest } from '../../lib/mcp-platform'
+import type { PlatformMcpSurface } from '../../lib/mcp-platform'
 import {
   isAllowedMcpOrigin,
   MCP_PROTOCOL_VERSION,
@@ -44,6 +45,9 @@ export async function DELETE() {
 }
 
 export async function POST(request: Request) {
+  const surface: PlatformMcpSurface = new URL(request.url).pathname.replace(/\/+$/, '') === '/mcp/chatgpt'
+    ? 'chatgpt'
+    : 'platform'
   if (!isAllowedMcpOrigin(request.headers.get('origin'))) {
     return NextResponse.json(
       { jsonrpc: '2.0', id: null, error: { code: -32000, message: 'Origin is not allowed.' } },
@@ -51,7 +55,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const limited = await enforceRateLimit(request, 'platform-mcp', 60, 60_000)
+  const limited = await enforceRateLimit(request, surface === 'chatgpt' ? 'chatgpt-mcp' : 'platform-mcp', 60, 60_000)
   if (limited) return limited
 
   let body: unknown
@@ -96,6 +100,7 @@ export async function POST(request: Request) {
       base,
       callerIp,
       recordEvidence,
+      surface,
     )))
     const responses = results
       .filter((result) => result.status !== 202)
@@ -111,7 +116,7 @@ export async function POST(request: Request) {
       { status: 400 },
     )
   }
-  const dispatched = await dispatchMcpRequest(request, body as McpJsonRpcRequest, base, callerIp, recordEvidence)
+  const dispatched = await dispatchMcpRequest(request, body as McpJsonRpcRequest, base, callerIp, recordEvidence, surface)
   if (dispatched.status === 202) return new Response(null, { status: 202 })
   return NextResponse.json(dispatched.body, { status: dispatched.status })
 }
@@ -122,6 +127,7 @@ async function dispatchMcpRequest(
   baseUrl: string,
   callerIp: string | undefined,
   recordEvidence: boolean,
+  surface: PlatformMcpSurface,
 ): Promise<{ status: number; body: unknown }> {
   const validation = validateMcpRequest(request, body)
   const method = typeof body.method === 'string' ? body.method : ''
@@ -146,7 +152,7 @@ async function dispatchMcpRequest(
     return { status: 202, body: null }
   }
 
-  const handoffKind = mcpHandoffKind(toolName)
+  const handoffKind = surface === 'chatgpt' ? null : mcpHandoffKind(toolName)
   const attributionId = handoffKind ? randomUUID() : undefined
   const buyerAgent = attributionId
     ? buildMcpBuyerAgent(validation.clientFamily, attributionId) ?? undefined
@@ -157,6 +163,7 @@ async function dispatchMcpRequest(
     clientFamily: validation.clientFamily,
     buyerAgent,
     attributionId,
+    surface,
   })
 
   if (recordEvidence && eventType && (eventType !== 'tool_call' || toolName)) {
