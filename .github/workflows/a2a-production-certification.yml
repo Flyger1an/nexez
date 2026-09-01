@@ -44,6 +44,9 @@ jobs:
       NEXEZ_A2A_CERT_WAIT_MS: '600000'
       NEXEZ_A2A_CERT_SETTLE_MS: '90000'
       NEXEZ_A2A_CERT_STREAM_MS: '90000'
+      # Task claims last 55 seconds. Observe longer so a late worker cannot
+      # overwrite a canceled terminal state after the subscription closes.
+      NEXEZ_A2A_CERT_POST_CANCEL_OBSERVE_MS: '60000'
       NEXEZ_A2A_CERT_REPORT_PATH: a2a-production-certification.json
     steps:
       - uses: actions/checkout@v4
