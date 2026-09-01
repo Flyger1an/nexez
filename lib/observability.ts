@@ -11,7 +11,7 @@ import 'server-only'
 // lib/sentry-transport. The two sinks are independent and either can run alone.
 // This is the single fan-out point; do not add Sentry calls elsewhere.
 
-import { sendErrorToSentry } from './sentry-transport'
+import { sendErrorToSentry, sendSignalToSentry } from './sentry-transport'
 
 export function isObservabilityConfigured(): boolean {
   return Boolean(process.env.OBSERVABILITY_WEBHOOK_URL)
@@ -44,6 +44,40 @@ export function captureEvent(name: string, data: Record<string, unknown> = {}): 
       })
   } catch {
     // ignore - never let observability break the caller
+  }
+}
+
+/**
+ * A selected operational condition that needs provider-side counting and alert
+ * thresholds. Unlike captureEvent, this reaches Sentry. Callers must keep the
+ * event name and context bounded because each signal consumes event volume.
+ */
+export function captureSignal(name: string, data: Record<string, unknown> = {}): void {
+  console.warn('[nexez:signal]', name, data)
+  sendSignalToSentry(name, data)
+
+  const url = process.env.OBSERVABILITY_WEBHOOK_URL
+  if (!url) return
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const token = process.env.OBSERVABILITY_WEBHOOK_TOKEN
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  try {
+    void fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ service: 'nexez', level: 'warning', event: name, context: data, ts: new Date().toISOString() }),
+      signal: AbortSignal.timeout(4000),
+    })
+      .then((res) => {
+        if (!res.ok) console.warn(`[nexez] observability sink rejected the signal: ${res.status} ${res.statusText}`)
+      })
+      .catch((err) => {
+        console.warn('[nexez] observability sink unreachable:', err instanceof Error ? err.message : String(err))
+      })
+  } catch {
+    // ignore, never let observability break the caller
   }
 }
 

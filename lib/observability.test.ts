@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { captureEvent, captureError, isObservabilityConfigured } from './observability'
+import { captureEvent, captureError, captureSignal, isObservabilityConfigured } from './observability'
 
 describe('observability', () => {
   beforeEach(() => {
@@ -97,6 +97,36 @@ describe('observability', () => {
     captureEvent('nexxi.turn', { latencyMs: 12 })
 
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('captureSignal reaches Sentry without sending all info telemetry there', () => {
+    process.env.SENTRY_DSN = 'https://key@o1.ingest.us.sentry.io/2'
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    captureSignal('a2a.v1.auth.denied', { errorClass: 'invalid_key' })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('https://o1.ingest.us.sentry.io/api/2/envelope/')
+  })
+
+  it('captureSignal reaches both Sentry and the configured warning sink', () => {
+    process.env.OBSERVABILITY_WEBHOOK_URL = 'https://sink.example/ingest'
+    process.env.SENTRY_DSN = 'https://key@o1.ingest.us.sentry.io/2'
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    captureSignal('a2a.v1.rate_limited', { scope: 'owner' })
+
+    const targets = fetchMock.mock.calls.map((call) => (call as unknown as [string])[0])
+    expect(targets).toHaveLength(2)
+    expect(targets).toContain('https://sink.example/ingest')
+    expect(targets).toContain('https://o1.ingest.us.sentry.io/api/2/envelope/')
+    const webhookCall = fetchMock.mock.calls.find((call) => (call as unknown as [string])[0] === 'https://sink.example/ingest')
+    expect(JSON.parse((webhookCall as unknown as [string, RequestInit])[1].body as string)).toMatchObject({
+      level: 'warning',
+      event: 'a2a.v1.rate_limited',
+    })
   })
 
   it('behaves exactly as before when SENTRY_DSN is unset', () => {

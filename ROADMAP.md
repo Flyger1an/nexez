@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-08-26 against `origin/main` at `065c973`._
+_Last reconciled: 2026-09-01 against `origin/main` at `86d75aa`._
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -19,6 +19,22 @@ Since the last reconciliation the work has been distribution, evidence, and repa
 **Supply remains the launch constraint and curation is intentionally open.** The 2026-08-21 production audit found 3 published/serving storefronts, 1 certified listing, 10 curation candidates, and no unreviewed curation rows. Listings stay discoverable unless deliberately excluded, and QA/scratch cleanup remains manual rather than a broad gate. Agentic Resource Discovery still applies curation's identity heuristic independently, so registry-facing output may be stricter than the marketplace. That asymmetry is known and accepted.
 
 The next milestone remains growing real launch-quality supply and proving demand.
+
+## A2A v1 standing
+
+A2A v1 is launch-complete on the production JSON-RPC endpoint. Exact-revision
+certification, the official JavaScript SDK lifecycle, and the daily production
+canary have passed. Post-launch closeout adds a second official client through the
+Python SDK, countable Sentry signals for authentication, throttling, and delayed
+claims, plus a 30-day cleanup policy limited jointly by registered synthetic owners
+and certification or canary message prefixes. Customer tasks and durable release
+certificates are outside that cleanup boundary.
+
+`ListTasks`, push notifications, the extended Agent Card, and request or message
+extensions remain optional expansion work. They are not launch blockers and must
+not be advertised before their semantics, privacy boundaries, and conformance tests
+ship. Remote approval remains deliberately unsupported. Nexxi keeps human approval
+inside the trusted Nexez client and does not delegate that authority over A2A.
 
 ## Quality bars
 
