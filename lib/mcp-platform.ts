@@ -11,7 +11,10 @@
 // the two validate_* tools always force dryRun:true so they never charge or write.
 import { MCP_PROTOCOL_VERSION, negotiateLegacyMcpProtocolVersion } from './mcp-transport'
 import type { McpClientFamily } from './mcp-demand'
+import { sanitizeChatGptToolArguments, sanitizeChatGptToolResult } from './chatgpt-mcp'
 import { agentRuntimeUrl, marketingUrl } from './site'
+
+export type PlatformMcpSurface = 'platform' | 'chatgpt'
 
 type JsonRpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> }
 type JsonRpcResponse = {
@@ -152,6 +155,51 @@ const TOOLS = [
   },
 ]
 
+const CHATGPT_TOOL_COPY: Record<string, { title: string; description: string }> = {
+  nexez_search: {
+    title: 'Search Nexez offers',
+    description: 'Search public Nexez listings for products or services matching a request. Returns ranked published facts without purchase, booking, seller-contact, or action routes.',
+  },
+  nexez_directory: {
+    title: 'Browse the Nexez directory',
+    description: 'Browse public Nexez listings by category, query, readiness, or location. Returns discovery facts without purchase, booking, seller-contact, or action routes.',
+  },
+  nexez_get_page: {
+    title: 'Inspect published offer facts',
+    description: 'Fetch one public listing and its structured offer facts by slug. Purchase, booking, contact, and executable action details are removed.',
+  },
+  nexez_validate_checkout: {
+    title: 'Check offer readiness',
+    description: 'Run a forced dry-run check for one exact offer. Reports current price, currency, requirements, and readiness without charging, creating an order, or returning a purchase route.',
+  },
+  nexez_validate_negotiation: {
+    title: 'Check proposed terms',
+    description: 'Evaluate proposed budget, timeline, or terms against published seller rules in a forced dry run. Never submits terms, contacts a seller, or returns a submission route.',
+  },
+}
+
+const CHATGPT_TOOLS = TOOLS.map((tool) => {
+  const copy = CHATGPT_TOOL_COPY[tool.name]
+  const properties = { ...tool.inputSchema.properties } as Record<string, unknown>
+  if (tool.name === 'nexez_search') {
+    delete properties.nexez_checkout_ready
+    delete properties.supports_checkout
+  }
+  if (tool.name === 'nexez_validate_checkout') {
+    delete properties.buyerEmail
+    delete properties.buyerReference
+  }
+  if (tool.name === 'nexez_validate_negotiation') delete properties.contact
+
+  return {
+    ...tool,
+    title: copy.title,
+    description: copy.description,
+    annotations: { ...tool.annotations, title: copy.title },
+    inputSchema: { ...tool.inputSchema, properties },
+  }
+})
+
 function platformResources(baseUrl: string) {
   return [
     { uri: `${baseUrl}/agent-pages.json`, name: 'Nexez agent index', description: 'Every published agent-ready listing.', mimeType: 'application/json' },
@@ -187,21 +235,25 @@ export async function handlePlatformMcpRequest(
     clientFamily?: McpClientFamily
     buyerAgent?: string
     attributionId?: string
+    surface?: PlatformMcpSurface
   } = {},
 ): Promise<JsonRpcResponse> {
   const id = req.id ?? null
   const method = req.method || ''
   const modern = opts.modern === true
+  const chatGpt = opts.surface === 'chatgpt'
 
   switch (method) {
     case 'server/discover':
       return ok(id, {
         supportedVersions: [MCP_PROTOCOL_VERSION],
-        capabilities: { tools: {}, resources: {} },
+        capabilities: chatGpt ? { tools: {} } : { tools: {}, resources: {} },
         _meta: {
-          'io.modelcontextprotocol/serverInfo': platformServerInfo(),
+          'io.modelcontextprotocol/serverInfo': platformServerInfo(opts.surface),
         },
-        instructions: 'Search Nexez merchants, inspect published offers, and validate an exact checkout or negotiation before a buyer-approved handoff.',
+        instructions: chatGpt
+          ? 'Search and compare published Nexez offers or evaluate an exact offer in a forced dry run. This surface returns no purchase, booking, contact, approval, or submission route.'
+          : 'Search Nexez merchants, inspect published offers, and validate an exact checkout or negotiation before a buyer-approved handoff.',
         ttlMs: 3_600_000,
         cacheScope: 'public',
       }, true)
@@ -209,23 +261,24 @@ export async function handlePlatformMcpRequest(
       if (modern) return err(id, -32601, 'Method not found: initialize')
       return ok(id, {
         protocolVersion: negotiateLegacyMcpProtocolVersion(req.params?.protocolVersion),
-        capabilities: { tools: {}, resources: {} },
-        serverInfo: platformServerInfo(),
+        capabilities: chatGpt ? { tools: {} } : { tools: {}, resources: {} },
+        serverInfo: platformServerInfo(opts.surface),
       })
     case 'ping':
       return ok(id, {}, modern)
     case 'tools/list':
       return ok(id, {
-        tools: TOOLS,
+        tools: chatGpt ? CHATGPT_TOOLS : TOOLS,
         ...(modern ? { ttlMs: 3_600_000, cacheScope: 'public' } : {}),
       }, modern)
     case 'resources/list':
       return ok(id, {
-        resources: platformResources(baseUrl),
+        resources: chatGpt ? [] : platformResources(baseUrl),
         ...(modern ? { ttlMs: 300_000, cacheScope: 'public' } : {}),
       }, modern)
     case 'resources/read': {
       const uri = String(req.params?.uri || '')
+      if (chatGpt) return err(id, -32602, 'Resources are not exposed on the ChatGPT discovery surface.')
       const match = platformResources(baseUrl).find((r) => r.uri === uri)
       if (!match) return err(id, -32602, `Unknown resource: ${uri}`)
       return ok(id, {
@@ -238,7 +291,9 @@ export async function handlePlatformMcpRequest(
       if (req.params?.arguments !== undefined && !isRecord(req.params.arguments)) {
         return err(id, -32602, 'Tool arguments must be an object.')
       }
-      const args = isRecord(req.params?.arguments) ? req.params.arguments : {}
+      const rawArgs = isRecord(req.params?.arguments) ? req.params.arguments : {}
+      const args = chatGpt ? sanitizeChatGptToolArguments(name, rawArgs) : rawArgs
+      const output = (value: unknown) => chatGpt ? sanitizeChatGptToolResult(name, value) : value
       const ip = opts.clientIp
       try {
         if (name === 'nexez_search') {
@@ -261,20 +316,20 @@ export async function handlePlatformMcpRequest(
             'price_band',
           ]) if (args[k] != null) u.searchParams.set(k, String(args[k]))
           const result = await fetchJson(u.toString(), undefined, ip)
-          return textResult(id, result.body, modern, result.status >= 400)
+          return textResult(id, output(result.body), modern, result.status >= 400)
         }
         if (name === 'nexez_directory') {
           const u = new URL(marketingUrl('/api/directory'))
           for (const k of ['category', 'q', 'min_readiness', 'location', 'lat', 'lng']) if (args[k] != null) u.searchParams.set(k, String(args[k]))
           const result = await fetchJson(u.toString(), undefined, ip)
-          return textResult(id, result.body, modern, result.status >= 400)
+          return textResult(id, output(result.body), modern, result.status >= 400)
         }
         if (name === 'nexez_get_page') {
           const slug = String(args.slug || '')
           if (!slug) return err(id, -32602, 'slug is required')
           const { status, body } = await fetchJson(agentRuntimeUrl(`/${encodeURIComponent(slug)}/agent.json`), undefined, ip)
           if (status === 404) return err(id, -32602, `Unknown listing: ${slug}`)
-          return textResult(id, body, modern, status >= 400)
+          return textResult(id, output(body), modern, status >= 400)
         }
         if (name === 'nexez_validate_checkout') {
           if (typeof args.slug !== 'string' || !args.slug || typeof args.offer !== 'string' || !args.offer) {
@@ -305,14 +360,18 @@ export async function handlePlatformMcpRequest(
             )
             return textResult(
               id,
-              withMcpHandoff(resource.body, 'checkout', args, buyerAgent, opts.attributionId),
+              chatGpt
+                ? output(resource.body)
+                : withMcpHandoff(resource.body, 'checkout', args, buyerAgent, opts.attributionId),
               modern,
               resource.status >= 400,
             )
           }
           return textResult(
             id,
-            withMcpHandoff(initial.body, 'checkout', args, buyerAgent, opts.attributionId),
+            chatGpt
+              ? output(initial.body)
+              : withMcpHandoff(initial.body, 'checkout', args, buyerAgent, opts.attributionId),
             modern,
             initial.status >= 400,
           )
@@ -329,7 +388,9 @@ export async function handlePlatformMcpRequest(
           )
           return textResult(
             id,
-            withMcpHandoff(body, 'negotiation', args, buyerAgent, opts.attributionId),
+            chatGpt
+              ? output(body)
+              : withMcpHandoff(body, 'negotiation', args, buyerAgent, opts.attributionId),
             modern,
             status >= 400,
           )
@@ -348,7 +409,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-function platformServerInfo() {
+function platformServerInfo(surface: PlatformMcpSurface = 'platform') {
+  if (surface === 'chatgpt') {
+    return {
+      name: 'nexez:buyer-chatgpt',
+      title: 'Nexez Buyer',
+      version: '0.1.0',
+      websiteUrl: 'https://nexez.ai/agents',
+      description: 'Discover, compare, and dry-run validate published offer facts without purchase or seller-contact routes.',
+      icons: [{ src: 'https://nexez.ai/icon.svg', mimeType: 'image/svg+xml', sizes: ['any'] }],
+    }
+  }
   return {
     name: 'nexez:platform',
     title: 'Nexez Agentic Commerce',
