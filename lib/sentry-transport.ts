@@ -24,6 +24,7 @@ type SentryFrame = {
 }
 
 type ParsedDsn = { envelopeUrl: string; publicKey: string }
+type SentryLevel = 'info' | 'warning'
 
 /** Cached across invocations in a warm lambda; `null` means parsed and invalid. */
 let cachedDsn: ParsedDsn | null | undefined
@@ -136,28 +137,79 @@ export function sendErrorToSentry(error: unknown, context: Record<string, unknow
       extra: context,
     }
 
-    const envelope = [
-      JSON.stringify({ event_id: eventId, sent_at: sentAt }),
-      JSON.stringify({ type: 'event', content_type: 'application/json' }),
-      JSON.stringify(event),
-    ].join('\n')
-
-    void fetch(dsn.envelopeUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-sentry-envelope',
-        'X-Sentry-Auth': `Sentry sentry_version=7, sentry_client=nexez-transport/1.0, sentry_key=${dsn.publicKey}`,
-      },
-      body: envelope,
-      signal: AbortSignal.timeout(4000),
-    })
-      .then((res) => {
-        if (!res.ok) console.warn(`[nexez] Sentry rejected the event: ${res.status} ${res.statusText}`)
-      })
-      .catch((err) => {
-        console.warn('[nexez] Sentry unreachable:', err instanceof Error ? err.message : String(err))
-      })
+    sendEnvelope(dsn, eventId, sentAt, event)
   } catch {
     // ignore, never let error reporting break the error path
   }
+}
+
+/**
+ * Send a deliberately selected operational signal to Sentry without turning all
+ * info telemetry into error-volume consumption. Stable fingerprints let issue
+ * alert rules apply real event-count thresholds per signal and error class.
+ */
+export function sendSignalToSentry(
+  name: string,
+  context: Record<string, unknown> = {},
+  level: SentryLevel = 'warning',
+): void {
+  const dsn = parseDsn(process.env.SENTRY_DSN)
+  if (!dsn) return
+
+  try {
+    const eventId = crypto.randomUUID().replace(/-/g, '')
+    const sentAt = new Date().toISOString()
+    const errorClass = typeof context.errorClass === 'string' ? context.errorClass : 'none'
+    const event = {
+      event_id: eventId,
+      timestamp: Date.now() / 1000,
+      platform: 'node',
+      level,
+      logger: 'nexez',
+      message: name,
+      environment: process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV || process.env.NODE_ENV || 'development',
+      ...(process.env.VERCEL_GIT_COMMIT_SHA ? { release: process.env.VERCEL_GIT_COMMIT_SHA } : {}),
+      fingerprint: ['a2a-operational-signal', name, errorClass],
+      tags: {
+        event: name,
+        ...(typeof context.errorClass === 'string' ? { errorClass: context.errorClass } : {}),
+        ...(typeof context.scope === 'string' ? { scope: context.scope } : {}),
+        ...(typeof context.route === 'string' ? { route: context.route } : {}),
+      },
+      extra: context,
+    }
+
+    sendEnvelope(dsn, eventId, sentAt, event)
+  } catch {
+    // ignore, never let operational reporting break the protocol path
+  }
+}
+
+function sendEnvelope(
+  dsn: ParsedDsn,
+  eventId: string,
+  sentAt: string,
+  event: Record<string, unknown>,
+): void {
+  const envelope = [
+    JSON.stringify({ event_id: eventId, sent_at: sentAt }),
+    JSON.stringify({ type: 'event', content_type: 'application/json' }),
+    JSON.stringify(event),
+  ].join('\n')
+
+  void fetch(dsn.envelopeUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-sentry-envelope',
+      'X-Sentry-Auth': `Sentry sentry_version=7, sentry_client=nexez-transport/1.0, sentry_key=${dsn.publicKey}`,
+    },
+    body: envelope,
+    signal: AbortSignal.timeout(4000),
+  })
+    .then((res) => {
+      if (!res.ok) console.warn(`[nexez] Sentry rejected the event: ${res.status} ${res.statusText}`)
+    })
+    .catch((err) => {
+      console.warn('[nexez] Sentry unreachable:', err instanceof Error ? err.message : String(err))
+    })
 }

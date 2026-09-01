@@ -14,6 +14,7 @@ evidence system and retain only this template here.
 | Support and communications | Users | Populate | Support and service messages | Populate | Controller | Populate | Populate | Populate | Populate | Support Owner | Pending |
 | Product analytics | Users | Populate | Operate/improve product | Populate | Determine | Populate | Populate | Populate | Populate | Product Owner | Pending |
 | Security and audit logs | Users, personnel, systems | Confidential/Restricted identifiers and events | Security, fraud prevention, audit | Populate | Controller | Populate | Populate | Populate | Populate | Security Owner | Pending |
+| Synthetic A2A certification tasks | Dedicated Nexez test principals only | Test prompts, bounded task state, artifacts, events, and receipt identifiers | Protocol certification and production canary verification | Nexez Postgres, GitHub Actions | Controller | Supabase, GitHub | Populate | Terminal settlement + 30 days for database task payloads; workflow evidence + 90 days; durable release certificates retained separately | Daily prefix-and-principal-scoped database deletion in batches of 100; GitHub artifact expiry | Platform Owner | 2026-09-01 |
 | Billing and accounting | Customers, sellers | Populate | Billing, tax, accounting | Populate | Controller | Populate | Populate | Legal requirement plus approved period | Populate | Finance Owner | Pending |
 
 ## Required validation

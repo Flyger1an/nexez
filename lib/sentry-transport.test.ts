@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { isSentryConfigured, sendErrorToSentry } from './sentry-transport'
+import { isSentryConfigured, sendErrorToSentry, sendSignalToSentry } from './sentry-transport'
 
 const DSN = 'https://abc123def456@o4509.ingest.us.sentry.io/4510'
 
@@ -132,6 +132,35 @@ describe('sentry transport', () => {
     expect(event.exception.values[0].type).toBe('UnknownError')
     expect(event.exception.values[0].value).toBe('a string was thrown')
     expect(event.exception.values[0].stacktrace).toBeUndefined()
+  })
+
+  it('sends countable warning signals with stable, privacy-safe grouping', () => {
+    process.env.SENTRY_DSN = DSN
+    process.env.VERCEL_ENV = 'production'
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    sendSignalToSentry('a2a.v1.auth.denied', {
+      route: '/api/v1/a2a',
+      errorClass: 'entitlement_required',
+      environment: 'production',
+    })
+
+    const { event } = parseEnvelope((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)
+    expect(event).toMatchObject({
+      level: 'warning',
+      logger: 'nexez',
+      message: 'a2a.v1.auth.denied',
+      environment: 'production',
+      fingerprint: ['a2a-operational-signal', 'a2a.v1.auth.denied', 'entitlement_required'],
+      tags: {
+        event: 'a2a.v1.auth.denied',
+        errorClass: 'entitlement_required',
+        route: '/api/v1/a2a',
+      },
+    })
+    expect(event.extra).not.toHaveProperty('ownerId')
+    expect(event.extra).not.toHaveProperty('apiKey')
   })
 
   it('never throws when Sentry is unreachable, and surfaces the failure', async () => {

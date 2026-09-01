@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { captureError, captureEvent } from '../../observability'
+import { captureError, captureEvent, captureSignal } from '../../observability'
 
 export type A2AV1TelemetryEvent =
   | 'a2a.v1.auth.denied'
@@ -18,6 +18,7 @@ export type A2AV1TelemetryEvent =
   | 'a2a.v1.sse.resumed'
   | 'a2a.v1.task.canceled'
   | 'a2a.v1.task.claim_lost'
+  | 'a2a.v1.task.claim_delayed'
   | 'a2a.v1.task.claimed'
   | 'a2a.v1.task.reconciled'
   | 'a2a.v1.task.safe_failure'
@@ -69,8 +70,21 @@ export const emitA2AV1Telemetry: A2AV1Telemetry = (event, dimensions = {}) => {
     }
     if (ALERT_EVENTS.has(event)) {
       captureError(new Error(event), { event, ...context })
+    } else if (SIGNAL_EVENTS.has(event)) {
+      captureSignal(event, { event, ...context })
     } else {
       captureEvent(event, context)
+      if (
+        event === 'a2a.v1.task.claimed'
+        && typeof dimensions.claimDelayMs === 'number'
+        && dimensions.claimDelayMs >= CLAIM_DELAY_SIGNAL_MS
+      ) {
+        captureSignal('a2a.v1.task.claim_delayed', {
+          event: 'a2a.v1.task.claim_delayed',
+          ...context,
+          thresholdMs: CLAIM_DELAY_SIGNAL_MS,
+        })
+      }
     }
   } catch {
     // Observability must never affect the protocol path.
@@ -83,6 +97,13 @@ const ALERT_EVENTS = new Set<A2AV1TelemetryEvent>([
   'a2a.v1.task.reconciled',
   'a2a.v1.task.terminal_write_conflict',
 ])
+
+const SIGNAL_EVENTS = new Set<A2AV1TelemetryEvent>([
+  'a2a.v1.auth.denied',
+  'a2a.v1.rate_limited',
+])
+
+const CLAIM_DELAY_SIGNAL_MS = 10_000
 
 function safeText(value: string | undefined): string | undefined {
   return value && SAFE_TEXT.test(value) ? value : undefined

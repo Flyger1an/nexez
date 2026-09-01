@@ -17,6 +17,7 @@
     "canary:a2a": "node scripts/canary-a2a.mjs",
     "certify:a2a": "node scripts/certify-a2a.mjs",
     "certify:a2a-sdk-interop": "node scripts/certify-a2a-sdk-interop.mjs",
+    "certify:a2a-python-interop": "python3 scripts/certify-a2a-python-interop.py",
     "certify:commerce": "node scripts/certify-commerce.mjs",
     "certify:protocol-adapters": "vitest run lib/__tests__/protocol-conformance.test.ts lib/__tests__/acp-wire.test.ts lib/__tests__/ucp-wire.test.ts lib/__tests__/settlement-bridge.test.ts 'app/api/acp/checkout_sessions/[id]/complete/route.test.ts' 'app/api/ucp/checkout-sessions/[id]/complete/route.test.ts'",
     "certify:party-rentals:setup": "node scripts/setup-party-rentals-certification.mjs",
