@@ -4,9 +4,12 @@
   "description": "Find and compare published Nexez offers, then validate checkout or negotiation before a buyer-approved handoff.",
   "author": {
     "name": "Nexez",
+    "email": "support@nexez.ai",
     "url": "https://nexez.ai"
   },
   "homepage": "https://nexez.ai/agents",
+  "repository": "https://github.com/nexez-ai/nexez-buyer",
+  "license": "MIT",
   "keywords": [
     "commerce",
     "shopping",

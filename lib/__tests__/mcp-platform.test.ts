@@ -33,7 +33,7 @@ describe('handlePlatformMcpRequest', () => {
     expect(info.title).toBe('Nexez Agentic Commerce')
     expect(info.description).toContain('structured offers')
     expect(info.websiteUrl).toBe('https://nexez.ai/agents')
-    expect(info.icons[0].src).toBe('https://nexez.ai/icon.png')
+    expect(info.icons[0].src).toBe('https://nexez.ai/icon.svg')
   })
 
   it('negotiates a supported 2025-era protocol version', async () => {

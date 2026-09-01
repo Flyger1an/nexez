@@ -67,15 +67,27 @@ The `.mcp.json` file is discovered automatically by Claude Code.
 
 ## Try it with ChatGPT
 
-ChatGPT first requires the remote MCP server to be registered in developer mode for the account or workspace that will test it:
+The package already contains the registered development connection used for testing. To test it in another ChatGPT account or workspace:
 
 1. Enable developer mode in ChatGPT.
 2. Create an app or connector that points to `https://nexez.app/mcp`.
 3. Test the five tools and their schemas.
 4. Record the account-generated connection ID, which starts with `plugin_asdk_app`.
-5. Add that real ID to a root `.app.json`, then add `"apps": "./.app.json"` to `.codex-plugin/plugin.json`.
+5. Replace the development connection ID in `.app.json` with the ID for that account or workspace.
 
-The repository does not contain a fake connection ID. That final binding is account-specific and is intentionally deferred until ChatGPT creates the real value.
+Public publication uses the OpenAI plugin submission portal. Submit the production MCP URL directly as a new MCP-backed plugin. Do not submit the development connection ID as the public integration.
+
+## Data and privacy
+
+The plugin sends only the arguments required for the selected tool to the public MCP endpoint at `https://nexez.app/mcp`. Search text, filters, listing slugs, offer keys, and buyer-provided validation details can be processed by Nexez to return public offer data or a dry-run result. Buyer email, references, contact details, and requested terms are optional and must be sent only when the buyer supplied them for that validation.
+
+Nexez records limited service telemetry for security, rate limiting, reliability, and aggregate agent analytics. Public listing content can be returned to the assistant. This plugin does not charge a payment method, create an order, reserve inventory, submit negotiation terms, or contact a seller.
+
+Read the [Nexez Privacy Policy](https://nexez.ai/privacy) and [Terms of Service](https://nexez.ai/terms). For help, use [Nexez Support](https://nexez.ai/support).
+
+## License
+
+This plugin bundle is available under the [MIT License](./LICENSE). The license applies only to the files in this plugin repository. The Nexez platform, services, trademarks, and other source code are not relicensed by this file.
 
 ## Example prompts
 
@@ -92,6 +104,6 @@ The repository does not contain a fake connection ID. That final binding is acco
 3. Run the cases in `evals/cases.json` and preserve the results.
 4. Test locally with Claude Code.
 5. Register and test the MCP connection in ChatGPT developer mode.
-6. Add the real ChatGPT connection ID without changing the safety boundary.
+6. Confirm the development ChatGPT connection ID without changing the safety boundary.
 7. Review the public privacy policy, terms, support path, and store listing copy.
 8. Submit to each marketplace only after the owner approves the final listing.
