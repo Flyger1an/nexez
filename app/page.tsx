@@ -368,9 +368,9 @@ export default function NexezHome() {
               Your site was built for eyes. <span className="nx-accent-text">AI assistants read it differently.</span>
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              Those assistants read your site before they recommend anything. A person fills in
-              the gaps without noticing. An agent cannot. It needs the exact price, the exact
-              options, the requirement, and a safe next step. Here is the same business, twice.
+              A person fills in the gaps without noticing. An assistant cannot. It needs the exact
+              price, the exact options, the requirement, and a safe next step. Here is the same
+              business, twice.
             </p>
             <div className="nx-home-problem-xray hidden w-full md:mt-9 md:block">
               <AgentXray />
@@ -540,8 +540,8 @@ export default function NexezHome() {
                 Your existing tools become <span className="nx-accent-text">one clear buying path.</span>
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-                The first step uses tools you already have. Bring in your products, prices, and
-                calendar. Review every offer before it goes live.
+                Start with what you already have. Bring in your products, prices, and calendar.
+                Review every offer before it goes live.
               </p>
               <a href="/integrations" className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
                 Explore integrations
@@ -597,8 +597,8 @@ export default function NexezHome() {
               Everything a sale needs, <span className="nx-accent-text">in one place.</span>
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              Once your offers are in, this is what every sale runs on. Tell Nexez how your
-              business works. It keeps the buying steps clear.
+              This is what every sale runs on. Tell Nexez how your business works. It keeps the
+              buying steps clear.
             </p>
           </div>
           <div className="nx-home-feature-mobile md:hidden">
@@ -791,7 +791,7 @@ export default function NexezHome() {
             Run a buying scenario before a real buyer does.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            You can test all of it before publishing. See what an AI assistant understands, what details are missing, and whether the request can move forward.
+            Test it before you publish. See what an AI assistant understands, what details are missing, and whether the request can move forward.
           </p>
           <div className="mt-8">
             <SimulatorTeaser />

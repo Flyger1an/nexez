@@ -46,7 +46,13 @@ test.describe('public surface', () => {
       height: document.documentElement.scrollHeight,
     }))
     expect(compactLayout.overflow).toBeLessThanOrEqual(1)
-    expect(compactLayout.height).toBeLessThan(7500)
+    // Budget raised from 7500 when the homepage gained its narrative connective
+    // copy: a lead paragraph for "How it works" (which had none) plus the
+    // handoff sentences that stop each section starting cold. That cost ~177px
+    // against 128px of remaining slack. The guard's job is catching runaway
+    // bloat, not pinning the page to a byte, so the budget moved with the
+    // content rather than the copy being cut to fit a stale number.
+    expect(compactLayout.height).toBeLessThan(7800)
 
     const menuButton = page.getByRole('button', { name: 'Open menu' })
     await expect(menuButton).toBeVisible()
