@@ -22,10 +22,10 @@ const retiredHomepageClaims = [
 
 describe('homepage commerce story', () => {
   it('preserves the approved homepage hero', () => {
-    expect(hero).toContain('Get found by the agents')
-    expect(hero).toContain('doing the buying.')
-    expect(hero).toContain('Scan your site and')
-    expect(hero).toContain('see what they can actually read, price, and buy today.')
+    expect(hero).toContain('Turn AI assistants into')
+    expect(hero).toContain('a sales channel.')
+    expect(hero).toContain('AI assistants are already shopping for your customers.')
+    expect(hero).toContain('so the sale happens on your terms.')
     expect(hero).toContain('List your offers')
     expect(hero).toContain('See how it works')
     expect(hero).toContain('stats.map')
@@ -41,7 +41,7 @@ describe('homepage commerce story', () => {
     expect(heroScanSource).toContain("fetch('/api/scan'")
     expect(heroScanSource).toContain('No account needed')
     expect(heroScanSource).toContain('Scan my site')
-    expect(heroScanSource).toContain('Fix these first')
+    expect(heroScanSource).toContain('Turn these on next')
     // Signup is offered after the visitor has a result, not before: the create
     // link is built from result.url, so it cannot render until a scan returns.
     expect(heroScanSource).toContain('appUrl(`/create?url=')
@@ -79,13 +79,36 @@ describe('homepage commerce story', () => {
     expect(source).toContain('<AgentXray />')
     expect(source).toContain('nx-home-problem-xray')
     expect(source).toContain('Your site was built for eyes.')
-    expect(source).toContain('Agents read it differently.')
+    expect(source).toContain('AI assistants read it differently.')
   })
 
   it('ties the readiness section back to the hero score', () => {
-    expect(source).toContain('Six signals decide whether')
-    expect(source).toContain('an agent can buy from you.')
+    expect(source).toContain('Six signals.')
+    expect(source).toContain('Each one turns on something an AI assistant can do.')
     expect(source).toContain('the number the scan at the top of this page')
+  })
+
+  it('frames the readiness score as progress, not a grade', () => {
+    // A merchant scanning for the first time must never be told their site is
+    // bad. Tones describe distance travelled; red is reserved for real errors.
+    expect(heroScanSource).toContain("label: 'Almost ready'")
+    expect(heroScanSource).toContain("label: 'Ready to set up'")
+    expect(heroScanSource).not.toContain('Hard for agents')
+    expect(heroScanSource).not.toContain('Needs a few fixes')
+    expect(heroScanSource).not.toContain('#ef4444')
+    // Leads with what already passes, not with what is missing.
+    expect(heroScanSource).toContain('evidence checks already pass')
+  })
+
+  it('keeps merchant-facing words out of the jargon bucket', () => {
+    // "Transactability" ships in the /api/scan payload; the panel must never
+    // render it. Same for the hero's own vocabulary: the page says "AI
+    // assistant", so it must not drift back to "agent demand".
+    expect(heroScanSource).toContain("transactability: 'Ways to buy'")
+    expect(heroScanSource).not.toContain("'Transactability'")
+    expect(source).not.toContain('agent demand')
+    expect(source).toContain('Sell through AI assistants.')
+    expect(source).toContain('Keep control of how you sell.')
   })
 
   it('gives mobile the same simulator as desktop', () => {

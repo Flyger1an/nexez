@@ -161,7 +161,7 @@ export const DIMENSION_WEIGHTS: Record<CrawlDimension, number> = {
 const DIMENSION_LABELS: Record<CrawlDimension, string> = {
   discovery: 'Discovery',
   understanding: 'Understanding',
-  transactability: 'Transactability',
+  transactability: 'Ways to buy',
   trust: 'Trust',
 }
 
@@ -218,18 +218,18 @@ export function evaluateCrawlability(signals: CrawlabilitySignals): Crawlability
   const add = (check: CrawlCheck) => checks.push(check)
   const reachable = signals.status >= 200 && signals.status < 400
 
-  add({ id: 'reachable', dimension: 'discovery', label: 'Public page reachable', status: reachable ? 'pass' : 'fail', detail: `HTTP ${signals.status || 0}` })
+  add({ id: 'reachable', dimension: 'discovery', label: 'Your page loads', status: reachable ? 'pass' : 'fail', detail: `Server responded ${signals.status || 0}` })
   add({
-    id: 'speed', dimension: 'discovery', label: 'Fast server response',
+    id: 'speed', dimension: 'discovery', label: 'Your page loads quickly',
     status: signals.responseMs > 0 && signals.responseMs <= 800 ? 'pass' : signals.responseMs <= 2000 ? 'warn' : 'fail',
-    detail: signals.responseMs ? `${signals.responseMs}ms` : 'No response',
+    detail: signals.responseMs ? `${signals.responseMs}ms` : 'The page did not respond',
   })
 
   const blocked = AGENT_BOTS.filter((bot) => !signals.robots[bot])
   add({
-    id: 'robots', dimension: 'discovery', label: 'Agent crawler access',
+    id: 'robots', dimension: 'discovery', label: 'AI assistants are allowed in',
     status: blocked.length === 0 ? 'pass' : blocked.length >= AGENT_BOTS.length ? 'fail' : 'warn',
-    detail: blocked.length === 0 ? 'All evaluated agent crawlers are allowed' : `Blocked: ${blocked.join(', ')}`,
+    detail: blocked.length === 0 ? 'Every assistant we check can reach your pages' : `Let these in: ${blocked.join(', ')}`,
   })
 
   const docs = [
@@ -240,81 +240,81 @@ export function evaluateCrawlability(signals: CrawlabilitySignals): Crawlability
     signals.openApiJsonOk && 'OpenAPI',
   ].filter(Boolean) as string[]
   add({
-    id: 'agent_docs', dimension: 'discovery', label: 'Machine-readable agent endpoints',
+    id: 'agent_docs', dimension: 'discovery', label: 'A guide for AI assistants',
     status: docs.length >= 2 ? 'pass' : docs.length === 1 ? 'warn' : 'fail',
-    detail: docs.length ? docs.join(', ') : 'No meaningful agent manifest or API description found',
+    detail: docs.length ? `Assistants can read: ${docs.join(', ')}` : 'Add a guide that lists your offers and how to buy them',
   })
   add({
-    id: 'llms_txt', dimension: 'discovery', label: 'LLM discovery guide',
+    id: 'llms_txt', dimension: 'discovery', label: 'A plain summary for AI',
     status: signals.llmsTxtOk ? 'pass' : 'warn',
-    detail: signals.llmsTxtOk ? '/llms.txt contains readable guidance' : '/llms.txt is missing or empty',
+    detail: signals.llmsTxtOk ? 'Your /llms.txt gives assistants a readable summary' : 'Add an /llms.txt summary of your business and offers',
   })
 
   const semanticCount = [signals.hasTitle, signals.hasMetaDescription, signals.hasH1].filter(Boolean).length
   add({
-    id: 'semantics', dimension: 'understanding', label: 'Semantic page basics',
+    id: 'semantics', dimension: 'understanding', label: 'Page basics',
     status: semanticCount === 3 ? 'pass' : semanticCount >= 1 ? 'warn' : 'fail',
-    detail: `${signals.hasTitle ? 'title' : 'no title'}, ${signals.hasMetaDescription ? 'description' : 'no description'}, ${signals.hasH1 ? 'h1' : 'no h1'}`,
+    detail: `${signals.hasTitle ? 'page title' : 'no page title'}, ${signals.hasMetaDescription ? 'summary' : 'no summary'}, ${signals.hasH1 ? 'headline' : 'no headline'}`,
   })
   add({
-    id: 'jsonld', dimension: 'understanding', label: 'Valid structured data',
+    id: 'jsonld', dimension: 'understanding', label: 'Details AI can read',
     status: signals.validJsonLd ? 'pass' : signals.hasJsonLd ? 'warn' : 'fail',
     detail: signals.validJsonLd
-      ? `Parsed JSON-LD${signals.schemaTypes.length ? `: ${signals.schemaTypes.slice(0, 5).join(', ')}` : ''}`
-      : signals.hasJsonLd ? 'JSON-LD exists but could not be parsed' : 'No JSON-LD found',
+      ? `Assistants can read your page details${signals.schemaTypes.length ? `: ${signals.schemaTypes.slice(0, 5).join(', ')}` : ''}`
+      : signals.hasJsonLd ? 'Your page details are there but cannot be read' : 'Add details assistants can read, like your name, offers, and prices',
   })
   add({
-    id: 'business_identity', dimension: 'understanding', label: 'Structured business identity',
+    id: 'business_identity', dimension: 'understanding', label: 'Your business details',
     status: signals.hasBusinessIdentity ? 'pass' : 'fail',
-    detail: signals.hasBusinessIdentity ? 'Business name and identity are machine-readable' : 'No structured Organization or business identity found',
+    detail: signals.hasBusinessIdentity ? 'Your business name and details are readable' : 'Add your business name, location, and contact details',
   })
   add({
-    id: 'offer_schema', dimension: 'understanding', label: 'Structured offers',
+    id: 'offer_schema', dimension: 'understanding', label: 'Your offers',
     status: signals.hasOfferSchema ? 'pass' : 'fail',
-    detail: signals.hasOfferSchema ? 'Offer, Product, or Service schema found' : 'No real Offer, Product, or Service schema found',
+    detail: signals.hasOfferSchema ? 'Your products or services are listed in a readable form' : 'List your products or services with names and prices',
   })
 
   add({
-    id: 'pricing', dimension: 'transactability', label: 'Machine-readable pricing',
+    id: 'pricing', dimension: 'transactability', label: 'Your prices',
     status: signals.hasStructuredPrice ? 'pass' : signals.hasVisiblePrice ? 'warn' : 'fail',
-    detail: signals.hasStructuredPrice ? 'Structured price or price specification found' : signals.hasVisiblePrice ? 'Price is visible but not structured' : 'No price signal found',
+    detail: signals.hasStructuredPrice ? 'Your prices are readable' : signals.hasVisiblePrice ? 'Your prices show on the page but assistants cannot read them reliably' : 'Add a price to each offer',
   })
   add({
-    id: 'action_path', dimension: 'transactability', label: 'Direct buyer action',
+    id: 'action_path', dimension: 'transactability', label: 'A way to buy or book',
     status: signals.hasActionPath ? 'pass' : 'fail',
-    detail: signals.hasActionPath ? 'A buy, book, subscribe, or quote path is visible' : 'No direct purchase, booking, or lead action found',
+    detail: signals.hasActionPath ? 'Buyers can buy, book, subscribe, or ask for a quote' : 'Add a way to buy, book, or request a quote',
   })
   add({
-    id: 'availability', dimension: 'transactability', label: 'Availability or fulfillment signal',
+    id: 'availability', dimension: 'transactability', label: 'Availability',
     status: signals.hasStructuredAvailability ? 'pass' : signals.hasVisibleAvailability ? 'warn' : 'fail',
-    detail: signals.hasStructuredAvailability ? 'Availability is structured' : signals.hasVisibleAvailability ? 'Availability is visible but not structured' : 'No availability, booking, or fulfillment signal found',
+    detail: signals.hasStructuredAvailability ? 'Your availability is readable' : signals.hasVisibleAvailability ? 'Your availability shows on the page but assistants cannot read it reliably' : 'Say when you are available or how long delivery takes',
   })
   add({
-    id: 'offer_details', dimension: 'transactability', label: 'Concrete offer details',
+    id: 'offer_details', dimension: 'transactability', label: 'What each offer includes',
     status: signals.hasOfferDetails ? 'pass' : signals.hasOfferSchema ? 'warn' : 'fail',
-    detail: signals.hasOfferDetails ? 'Offer name and scope are explicit' : 'Offer scope or description is incomplete',
+    detail: signals.hasOfferDetails ? 'Each offer says what it includes' : 'Say what each offer includes',
   })
   add({
-    id: 'structured_action', dimension: 'transactability', label: 'Structured action target',
+    id: 'structured_action', dimension: 'transactability', label: 'A link to the next step',
     status: signals.hasStructuredAction ? 'pass' : signals.hasActionPath ? 'warn' : 'fail',
-    detail: signals.hasStructuredAction ? 'Action URL is exposed in structured data' : signals.hasActionPath ? 'Action exists only in page markup' : 'No machine-readable action target found',
+    detail: signals.hasStructuredAction ? 'Your buy or book link is readable' : signals.hasActionPath ? 'Your buy link works for people but assistants cannot read it reliably' : 'Add a link that takes buyers straight to the next step',
   })
 
-  add({ id: 'https', dimension: 'trust', label: 'Secure transport', status: signals.https ? 'pass' : 'fail', detail: signals.https ? 'HTTPS enabled' : 'Page is not served over HTTPS' })
+  add({ id: 'https', dimension: 'trust', label: 'Secure connection', status: signals.https ? 'pass' : 'fail', detail: signals.https ? 'Your site uses a secure connection' : 'Switch your site to a secure connection' })
   add({
-    id: 'contact', dimension: 'trust', label: 'Contact and support path',
+    id: 'contact', dimension: 'trust', label: 'A way to contact you',
     status: signals.hasContact ? 'pass' : 'fail',
-    detail: signals.hasContact ? 'A contact or support path is exposed' : 'No contact or support path found',
+    detail: signals.hasContact ? 'Buyers can find how to reach you' : 'Add a way for buyers to reach you',
   })
   add({
     id: 'policies', dimension: 'trust', label: 'Buyer policies',
     status: signals.hasPolicies ? 'pass' : 'warn',
-    detail: signals.hasPolicies ? 'Terms, privacy, return, refund, or cancellation policy found' : 'Buyer policies are not easy to locate',
+    detail: signals.hasPolicies ? 'Your terms, privacy, or refund policy is easy to find' : 'Add your terms, privacy, or refund policy',
   })
   add({
-    id: 'freshness', dimension: 'trust', label: 'Content freshness signal',
+    id: 'freshness', dimension: 'trust', label: 'Recently updated',
     status: signals.hasFreshnessSignal ? 'pass' : 'warn',
-    detail: signals.hasFreshnessSignal ? 'A recent modified or published date is exposed' : 'No reliable freshness date found',
+    detail: signals.hasFreshnessSignal ? 'Your pages show a recent date' : 'Show when your pages were last updated',
   })
 
   return { version: 2, score: scoreFromChecks(checks), dimensions: dimensionsFromChecks(checks), checks }
