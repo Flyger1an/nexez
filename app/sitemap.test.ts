@@ -48,6 +48,8 @@ describe('sitemap()', () => {
     expect(urls).toContain(`https://${MARKETING_HOST}/pricing`)
     expect(urls).toContain(`https://${MARKETING_HOST}/learn`)
     expect(urls.some((u) => u.includes('/learn/'))).toBe(true)
+    expect(urls).not.toContain(`https://${MARKETING_HOST}/discovery`)
+    expect(urls).not.toContain(`https://${MARKETING_HOST}/leaderboard`)
   })
 
   it('learn article lastmod is the article updatedAt, not now()', async () => {

@@ -30,6 +30,7 @@ import {
   commerceAttentionIsIncomplete,
   type CommerceAttentionSummary,
 } from '../lib/commerce-attention'
+import { MARKETPLACE_DISCOVERY_ENABLED } from '../lib/marketplace-discovery'
 
 type PageHit = {
   id: string
@@ -54,7 +55,9 @@ const navItems = [
   { href: '/create', label: 'New Listing', icon: Plus, mobile: true },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3, mobile: true },
   { href: '/simulator', label: 'Agent Lab', icon: Bot, mobile: true },
-  { href: '/discovery', label: 'Discovery', icon: Compass, match: ['/discovery', '/leaderboard'] },
+  ...(MARKETPLACE_DISCOVERY_ENABLED
+    ? [{ href: '/discovery', label: 'Discovery', icon: Compass, match: ['/discovery', '/leaderboard'] }]
+    : []),
   { href: '/dashboard/commerce', label: 'Commerce', icon: Layers3, mobile: true },
   { href: '/dashboard/negotiations', label: 'Negotiations', icon: Handshake, mobile: true },
   { href: '/dashboard/orders', label: 'Orders', icon: PackageCheck, mobile: true },
@@ -150,7 +153,7 @@ export default function PlatformShell({
   }, [])
 
   // Dashboard items (href under /dashboard) only appear for signed-in users.
-  // Public items (Create, Marketplace, Directory, Leaderboard, Simulator, Support)
+  // Public items (Create, optional Discovery, Simulator, and Support)
   // always show. Until auth resolves, show only public items (no flash of the menu).
   const visibleNav = navItems.filter((item) =>
     (!item.href.startsWith('/dashboard') || authed === true) &&

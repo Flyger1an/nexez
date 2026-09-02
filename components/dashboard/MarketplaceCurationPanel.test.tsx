@@ -78,6 +78,8 @@ describe('MarketplaceCurationPanel', () => {
     render(<MarketplaceCurationPanel queue={queue([item()])} />)
     expect(screen.getByRole('heading', { name: 'Marketplace curation' })).toBeInTheDocument()
     expect(screen.getByText('Published listings')).toBeInTheDocument()
+    expect(screen.getByText('Launch merchants')).toBeInTheDocument()
+    expect(screen.getByText('of 50 required for Discovery')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Northstar Strategy/ }))
     expect(screen.getByLabelText('Review status')).toHaveValue('unreviewed')

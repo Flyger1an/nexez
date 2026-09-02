@@ -196,7 +196,8 @@ describe('SimulatorTeaser', () => {
     expect(screen.queryByText('Agent actions')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'What agents parse' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'List this service' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Explore live marketplace →' })).toHaveAttribute('href', '/discovery')
+    expect(screen.queryByRole('link', { name: 'Explore live marketplace →' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open the full simulator →' })).toHaveAttribute('href', '/simulator')
 
     fireEvent.click(screen.getByRole('button', { name: 'Refine request' }))
     expect(screen.getByPlaceholderText('Ask Nexez to find a service…')).toHaveFocus()

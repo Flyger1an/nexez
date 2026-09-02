@@ -1,5 +1,6 @@
 import { appUrl, agentRuntimeUrl } from './site'
 import type { CreateTemplateId } from './create-page-templates'
+import { MARKETPLACE_DISCOVERY_ENABLED } from './marketplace-discovery'
 
 export type MarketingCta = {
   label: string
@@ -112,7 +113,9 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     description:
       'Start with a template for services, retainers, bookings, local work, software implementation, or packaged offers. Each template begins with what the buyer needs.',
     primaryCta: { label: 'Use a template', href: appUrl('/create?template=consulting') },
-    secondaryCta: { label: 'Browse live listings', href: '/discovery' },
+    secondaryCta: MARKETPLACE_DISCOVERY_ENABLED
+      ? { label: 'Browse live listings', href: '/discovery' }
+      : undefined,
     stats: [
       { value: '9', label: 'Launch-ready patterns' },
       { value: '5', label: 'Offer models covered' },
@@ -464,7 +467,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         cards: [
           { title: 'Portable link', copy: 'Share the same listing anywhere: directory, website, profile, or custom domain.' },
           { title: 'Richer context', copy: 'Listings can include offer details, policies, checkout paths, and manifests.' },
-          { title: 'Network effect', copy: 'The public directory adds discovery while each business keeps its own listing.' },
+          { title: 'Network effect', copy: 'The agent directory adds machine discovery while each business keeps its own listing.' },
         ],
       },
       {

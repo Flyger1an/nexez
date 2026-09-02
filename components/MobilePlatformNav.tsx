@@ -36,6 +36,7 @@ import {
   commerceAttentionIsIncomplete,
   type CommerceAttentionSummary,
 } from '../lib/commerce-attention'
+import { MARKETPLACE_DISCOVERY_ENABLED } from '../lib/marketplace-discovery'
 
 type MobileNavItem = {
   href: string
@@ -53,7 +54,9 @@ const mobileNavItems: MobileNavItem[] = [
   { href: '/create', label: 'New Listing', icon: Plus },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/simulator', label: 'Agent Lab', icon: Bot },
-  { href: '/discovery', label: 'Discovery', icon: Compass, match: ['/discovery', '/leaderboard'] },
+  ...(MARKETPLACE_DISCOVERY_ENABLED
+    ? [{ href: '/discovery', label: 'Discovery', icon: Compass, match: ['/discovery', '/leaderboard'] }]
+    : []),
   { href: '/dashboard/commerce', label: 'Commerce', icon: Layers3 },
   { href: '/dashboard/negotiations', label: 'Negotiations', icon: Handshake },
   { href: '/dashboard/orders', label: 'Orders', icon: PackageCheck },

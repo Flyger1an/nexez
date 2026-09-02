@@ -57,6 +57,7 @@ export type MarketplaceCurationDecision = {
 
 export type MarketplaceCurationQueueItem = {
   page: AgentPage
+  merchantOwnerId?: string | null
   decision: MarketplaceCurationDecision
   assessment: MarketplaceQualitySnapshot
   duplicateNameCount: number
@@ -66,6 +67,7 @@ export type MarketplaceCurationSummary = Record<MarketplaceCurationStatus, numbe
   total: number
   blockers: number
   warnings: number
+  certifiedMerchants?: number
 }
 
 export type MarketplaceCurationQueue = {
@@ -280,14 +282,18 @@ export function assessMarketplacePage(
 }
 
 export function summarizeMarketplaceCuration(items: MarketplaceCurationQueueItem[]): MarketplaceCurationSummary {
-  return items.reduce<MarketplaceCurationSummary>((summary, item) => {
-    summary.total += 1
-    summary[item.decision.status] += 1
-    if (item.decision.status !== 'excluded') {
-      summary.blockers += item.assessment.blockerCount
-      summary.warnings += item.assessment.warningCount
+  const certifiedMerchantIds = new Set<string>()
+  const summary = items.reduce<MarketplaceCurationSummary>((current, item) => {
+    current.total += 1
+    current[item.decision.status] += 1
+    if (item.decision.status === 'certified' && item.merchantOwnerId) {
+      certifiedMerchantIds.add(item.merchantOwnerId)
     }
-    return summary
+    if (item.decision.status !== 'excluded') {
+      current.blockers += item.assessment.blockerCount
+      current.warnings += item.assessment.warningCount
+    }
+    return current
   }, {
     total: 0,
     unreviewed: 0,
@@ -297,6 +303,9 @@ export function summarizeMarketplaceCuration(items: MarketplaceCurationQueueItem
     blockers: 0,
     warnings: 0,
   })
+
+  summary.certifiedMerchants = certifiedMerchantIds.size
+  return summary
 }
 
 export function canCertifyMarketplacePage(snapshot: MarketplaceQualitySnapshot) {

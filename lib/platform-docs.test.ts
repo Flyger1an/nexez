@@ -14,6 +14,7 @@ import {
   platformDocsChapters,
   platformTrustDestinations,
 } from './platform-docs'
+import { MARKETPLACE_DISCOVERY_ENABLED } from './marketplace-discovery'
 
 const entitlementDoc = readFileSync(join(process.cwd(), 'docs/plan-entitlements.md'), 'utf8')
 
@@ -66,6 +67,17 @@ describe('platform documentation source of truth', () => {
     expect(Date.parse(`${PLATFORM_DOCS_REVIEWED_AT}T00:00:00Z`)).not.toBeNaN()
   })
 
+  it('advertises human marketplace surfaces only when their launch switch is enabled', () => {
+    const rendered = JSON.stringify(platformDocsChapters)
+    if (MARKETPLACE_DISCOVERY_ENABLED) {
+      expect(rendered).toContain('Leaderboard')
+      expect(rendered).toContain('public buyer simulator')
+    } else {
+      expect(rendered).not.toContain('Leaderboard')
+      expect(rendered).not.toContain('public buyer simulator')
+    }
+  })
+
   it('does not describe all-plan commerce as a paid entitlement', () => {
     const byName = new Map(
       platformDocsChapters.flatMap((chapter) => chapter.capabilities).map((capability) => [capability.name, capability]),
@@ -95,7 +107,7 @@ describe('platform documentation source of truth', () => {
     expect(text('AI-assisted refinement and controlled drafts')).toMatch(/core.*Launch/i)
     expect(text('Agent readiness and trust context')).toMatch(/core.*Launch.*automated credential review/i)
     expect(text('Per-listing agent simulation')).toMatch(/core.*Launch.*model-enhanced/i)
-    expect(text('URL and competitor research')).toMatch(/Launch.*public buyer simulator.*core/i)
+    expect(text('URL and competitor research')).toMatch(/Launch.*core owner listing tests.*every plan/i)
     expect(text('Negotiation and seller decisioning')).toMatch(/Pro.*downgrade.*settle.*refund/i)
     expect(text('Negotiation operations reporting')).toMatch(/Pro.*in-flight.*downgrade/i)
     expect(text('Traffic, intent, and action analytics')).toMatch(/30-day.*Pro/i)

@@ -21,6 +21,7 @@ import {
   type MarketplaceCurationQueueItem,
   type MarketplaceCurationStatus,
 } from '../../lib/marketplace-curation'
+import { MARKETPLACE_DISCOVERY_MERCHANT_THRESHOLD } from '../../lib/marketplace-discovery'
 
 type Filter = 'attention' | MarketplaceCurationStatus | 'all'
 
@@ -146,9 +147,15 @@ export function MarketplaceCurationPanel({ queue }: { queue: MarketplaceCuration
     <section id="marketplace-curation" className="border-t border-border py-8" aria-labelledby="marketplace-curation-heading">
       <SectionIntro />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Metric label="Published listings" value={summary.total} detail={`${summary.unreviewed} awaiting a decision`} />
         <Metric label="Certified supply" value={summary.certified} detail={`${summary.candidate} candidates ready for review`} tone="ready" />
+        <Metric
+          label="Launch merchants"
+          value={summary.certifiedMerchants ?? 0}
+          detail={`of ${MARKETPLACE_DISCOVERY_MERCHANT_THRESHOLD} required for Discovery`}
+          tone={(summary.certifiedMerchants ?? 0) >= MARKETPLACE_DISCOVERY_MERCHANT_THRESHOLD ? 'ready' : 'warning'}
+        />
         <Metric label="Quality blockers" value={summary.blockers} detail="Must clear before certification" tone={summary.blockers ? 'warning' : 'ready'} />
         <Metric label="Excluded from discovery" value={summary.excluded} detail="Direct storefronts remain available" tone={summary.excluded ? 'muted' : 'ready'} />
       </div>

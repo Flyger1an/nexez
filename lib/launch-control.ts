@@ -1,4 +1,8 @@
 import type { SupportQueueProjection } from './support-routing'
+import {
+  MARKETPLACE_DISCOVERY_ENABLED,
+  MARKETPLACE_DISCOVERY_MERCHANT_THRESHOLD,
+} from './marketplace-discovery'
 
 export type LaunchStatus = 'ready' | 'attention' | 'blocked' | 'unknown'
 
@@ -260,6 +264,7 @@ type MarketplaceCurationSignal = {
     candidate: number
     certified: number
     excluded: number
+    certifiedMerchants?: number
   }
 }
 
@@ -762,21 +767,35 @@ export function buildOperationalChecks(
   ]
 }
 
-export function buildMarketplaceCurationCheck(signal: MarketplaceCurationSignal): LaunchCheck {
-  const target = 20
-  const ready = signal.available
-    && signal.summary.certified >= target
+export function buildMarketplaceCurationCheck(
+  signal: MarketplaceCurationSignal,
+  discoveryEnabled = MARKETPLACE_DISCOVERY_ENABLED,
+): LaunchCheck {
+  const target = MARKETPLACE_DISCOVERY_MERCHANT_THRESHOLD
+  const certifiedMerchants = signal.summary.certifiedMerchants ?? 0
+  const supplyReady = signal.available
+    && certifiedMerchants >= target
     && signal.summary.unreviewed === 0
+  const enabledTooEarly = signal.available && discoveryEnabled && !supplyReady
+  const action = !signal.available
+    ? 'Restore the marketplace curation ledger before making a launch decision.'
+    : enabledTooEarly
+      ? 'Disable NEXT_PUBLIC_MARKETPLACE_DISCOVERY_ENABLED until the merchant and review thresholds are met.'
+      : !supplyReady
+        ? `Certify at least ${target} unique merchants and clear the unreviewed queue.`
+        : !discoveryEnabled
+          ? 'Complete the final supply-breadth review, enable NEXT_PUBLIC_MARKETPLACE_DISCOVERY_ENABLED, and deploy.'
+          : 'Continue monitoring merchant quality and supply breadth.'
   return {
     id: 'marketplace-curation',
     label: 'Marketplace launch supply',
-    detail: 'Published listings need an explicit quality decision before marketplace traffic widens.',
+    detail: 'Human Discovery stays hidden until enough unique merchants have an explicit quality decision.',
     evidence: signal.available
-      ? `${signal.summary.certified} certified, ${signal.summary.candidate} candidates, ${signal.summary.unreviewed} unreviewed, and ${signal.summary.excluded} excluded.`
+      ? `${certifiedMerchants} of ${target} certified merchants; ${signal.summary.certified} certified listings, ${signal.summary.candidate} candidates, ${signal.summary.unreviewed} unreviewed, and ${signal.summary.excluded} excluded. Human Discovery is ${discoveryEnabled ? 'enabled' : 'hidden'}.`
       : 'The marketplace curation ledger is unavailable.',
-    status: !signal.available ? 'unknown' : ready ? 'ready' : 'attention',
+    status: !signal.available ? 'unknown' : enabledTooEarly ? 'blocked' : supplyReady ? 'ready' : 'attention',
     required: false,
-    action: `Certify at least ${target} launch listings and clear the unreviewed queue.`,
+    action,
   }
 }
 

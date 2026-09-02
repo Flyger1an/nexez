@@ -1,3 +1,5 @@
+import { MARKETPLACE_DISCOVERY_ENABLED } from './marketplace-discovery'
+
 export type CapabilityAvailability = 'Core' | 'Plan-controlled' | 'Developer' | 'Admin-operated'
 
 export type PlatformCapability = {
@@ -16,8 +18,8 @@ export type PlatformDocsChapter = {
   capabilities: readonly PlatformCapability[]
 }
 
-export const PLATFORM_DOCS_REVIEWED_AT = '2026-08-25'
-export const PLATFORM_DOCS_VERSION = '1.1'
+export const PLATFORM_DOCS_REVIEWED_AT = '2026-09-02'
+export const PLATFORM_DOCS_VERSION = '1.2'
 
 export const platformPrimitives = [
   {
@@ -145,15 +147,23 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
   {
     id: 'discovery-intelligence',
     number: '04',
-    title: 'Discovery and Agent Lab intelligence',
+    title: MARKETPLACE_DISCOVERY_ENABLED
+      ? 'Discovery and Agent Lab intelligence'
+      : 'Agent search and Agent Lab intelligence',
     promise: 'Nexez connects buyer intent to eligible supply, then lets owners inspect how agents interpret that supply before relying on it.',
     capabilities: [
       {
-        name: 'Intent-aware search and marketplace discovery',
+        name: MARKETPLACE_DISCOVERY_ENABLED
+          ? 'Intent-aware search and marketplace discovery'
+          : 'Intent-aware agent search',
         availability: 'Core',
-        summary: 'Natural-language search preserves the requested category, evaluates listing and offer fit, and exposes public discovery through search, directory, and leaderboard surfaces.',
+        summary: MARKETPLACE_DISCOVERY_ENABLED
+          ? 'Natural-language search preserves the requested category, evaluates listing and offer fit, and exposes public discovery through search, directory, and leaderboard surfaces.'
+          : 'Natural-language search preserves the requested category and evaluates listing and offer fit through agent APIs and merchant-owned surfaces.',
         details: ['Category-preserving search behavior', 'Location, readiness, and offer-aware filtering', 'Marketplace curation and discoverability controls'],
-        surfaces: ['Agent search API', 'Discovery', 'Leaderboard'],
+        surfaces: MARKETPLACE_DISCOVERY_ENABLED
+          ? ['Agent search API', 'Discovery', 'Leaderboard']
+          : ['Agent search API', 'Directory API', 'Marketplace curation'],
       },
       {
         name: 'Per-listing agent simulation',
@@ -165,8 +175,12 @@ export const platformDocsChapters: readonly PlatformDocsChapter[] = [
       {
         name: 'URL and competitor research',
         availability: 'Plan-controlled',
-        summary: 'Launch unlocks private merchant URL research, competitor benchmarks, saved reports, and trends; the public buyer simulator and marketplace matching remain a core platform-funded discovery exception.',
-        details: ['Core public buyer simulation and public-marketplace matching', 'Launch private public-web analysis, owned-listing comparison, and recommendations', 'Launch saved reports, history, and trend deltas'],
+        summary: MARKETPLACE_DISCOVERY_ENABLED
+          ? 'Launch unlocks private merchant URL research, competitor benchmarks, saved reports, and trends; the public buyer simulator and marketplace matching remain a core platform-funded discovery exception.'
+          : 'Launch unlocks private merchant URL research, competitor benchmarks, saved reports, and trends; core owner listing tests remain available on every plan.',
+        details: MARKETPLACE_DISCOVERY_ENABLED
+          ? ['Core public buyer simulation and public-marketplace matching', 'Launch private public-web analysis, owned-listing comparison, and recommendations', 'Launch saved reports, history, and trend deltas']
+          : ['Core owner listing tests and deterministic agent lenses', 'Launch private public-web analysis, owned-listing comparison, and recommendations', 'Launch saved reports, history, and trend deltas'],
         surfaces: ['Agent Lab research', 'Competitor comparison', 'Platform Settings operations'],
       },
     ],

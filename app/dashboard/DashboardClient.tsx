@@ -774,7 +774,7 @@ function RecentActivity({ events, pages }: { events: CheckoutEvent[]; pages: Age
       ) : (
         <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
           <p className="max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
-            No discovery or checkout activity yet. Share the marketplace, run the agent tester, or open a public
+            No discovery or checkout activity yet. Share your public listing, run the agent tester, or open a public
             checkout page to start collecting activity.
           </p>
           <a

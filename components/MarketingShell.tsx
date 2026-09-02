@@ -5,8 +5,10 @@ import { NexezLockup } from './NexezLogo'
 import { ThemeToggle } from './ThemeToggle'
 import { hasSupabaseAuthCookieInDocument } from '../lib/auth-cookie'
 import { appUrl } from '../lib/site'
+import { MARKETPLACE_DISCOVERY_ENABLED } from '../lib/marketplace-discovery'
 
-// Marketing chrome for the nexez.ai surfaces (discovery/simulator/support/legal).
+// Marketing chrome for the nexez.ai surfaces (optional Discovery, Agent Lab,
+// support, and legal).
 // Modeled on the homepage nav so the marketing domain stays visually consistent.
 
 // Cookie-presence heuristic on purpose - importing the supabase-js client here put
@@ -26,7 +28,7 @@ const navLinks = [
   { label: 'Scan your site', href: '/scan' },
   { label: 'How it works', href: '/how-it-works' },
   { label: 'Use cases', href: '/use-cases' },
-  { label: 'Discovery', href: '/discovery' },
+  ...(MARKETPLACE_DISCOVERY_ENABLED ? [{ label: 'Discovery', href: '/discovery' }] : []),
   { label: 'Learn', href: '/learn' },
   { label: 'Pricing', href: '/pricing' },
 ]
@@ -213,8 +215,12 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
             ['How it works', '/how-it-works'],
             ['Use cases', '/use-cases'],
             ['Examples', '/examples'],
-            ['Discovery', '/discovery'],
-            ['Leaderboard', '/leaderboard'],
+            ...(MARKETPLACE_DISCOVERY_ENABLED
+              ? [
+                  ['Discovery', '/discovery'] as [string, string],
+                  ['Leaderboard', '/leaderboard'] as [string, string],
+                ]
+              : []),
             ['Simulator', '/simulator'],
             ['Learn', '/learn'],
             ['llms.txt generator', '/tools/llms-txt-generator'],

@@ -56,6 +56,7 @@ import {
 } from '../../lib/simulation-history'
 import { createClient } from '../../utils/supabase/client'
 import { agentRuntimeUrl, appUrl } from '../../lib/site'
+import { MARKETPLACE_DISCOVERY_ENABLED } from '../../lib/marketplace-discovery'
 
 const agentTabs = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent', 'LLM-Enhanced']
 
@@ -518,7 +519,9 @@ export default function GlobalAgentSimulator() {
             actions={(
               <>
                 {isLoggedIn ? <a href={appUrl('/dashboard/settings#agent-surfaces')} className={surfaceActionClass}>Agent operations</a> : null}
-                <a href="/discovery" className={surfaceActionClass}>Browse Discovery</a>
+                {MARKETPLACE_DISCOVERY_ENABLED ? (
+                  <a href="/discovery" className={surfaceActionClass}>Browse Discovery</a>
+                ) : null}
                 {mode === 'test' && selectedPage ? (
                   <a href={appUrl(`/dashboard/${(selectedPage as any).id || ''}/test`)} className={surfaceActionClass}>Per-listing simulator →</a>
                 ) : null}

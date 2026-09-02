@@ -347,7 +347,7 @@ function marketplaceHref(opts: { query?: string; type?: string; category?: strin
   if (opts.category && opts.category !== 'all') params.set('category', opts.category)
   if (opts.minReadiness && opts.minReadiness > 0) params.set('min_readiness', String(opts.minReadiness))
   const qs = params.toString()
-  return `/discovery${qs ? `?${qs}` : ''}`
+  return `/api/directory${qs ? `?${qs}` : ''}`
 }
 
 export function parseMarketplacePriceCents(value: string | null | undefined): number | null {

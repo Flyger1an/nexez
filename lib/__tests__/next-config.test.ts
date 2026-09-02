@@ -6,6 +6,12 @@ type HeaderRule = {
   headers: Array<{ key: string; value: string }>
 }
 
+type RedirectRule = {
+  source: string
+  destination: string
+  permanent: boolean
+}
+
 function asHeaderMap(rule: HeaderRule | undefined): Record<string, string> {
   return Object.fromEntries((rule?.headers ?? []).map(({ key, value }) => [key, value]))
 }
@@ -43,5 +49,31 @@ describe('staged settlement browser CORS', () => {
     const checkout = asHeaderMap(rules.find((rule) => rule.source === '/api/staged-settlements/:token/checkout'))
 
     expect(checkout['Access-Control-Allow-Origin']).toBe('https://app.nexez.ai')
+  })
+})
+
+describe('marketplace discovery redirects', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('temporarily sends legacy marketplace aliases home while Discovery is hidden', async () => {
+    vi.stubEnv('NEXT_PUBLIC_MARKETPLACE_DISCOVERY_ENABLED', 'false')
+    const rules = await nextConfig.redirects?.() as RedirectRule[]
+
+    expect(rules.find((rule) => rule.source === '/discovery')).toMatchObject({ destination: '/', permanent: false })
+    expect(rules.find((rule) => rule.source === '/leaderboard')).toMatchObject({ destination: '/', permanent: false })
+    expect(rules.find((rule) => rule.source === '/directory')).toMatchObject({ destination: '/', permanent: false })
+    expect(rules.find((rule) => rule.source === '/marketplace')).toMatchObject({ destination: '/', permanent: false })
+  })
+
+  it('restores the canonical Discovery redirects only after explicit enablement', async () => {
+    vi.stubEnv('NEXT_PUBLIC_MARKETPLACE_DISCOVERY_ENABLED', 'true')
+    const rules = await nextConfig.redirects?.() as RedirectRule[]
+
+    expect(rules.find((rule) => rule.source === '/discovery')).toBeUndefined()
+    expect(rules.find((rule) => rule.source === '/leaderboard')).toBeUndefined()
+    expect(rules.find((rule) => rule.source === '/directory')).toMatchObject({ destination: '/discovery', permanent: true })
+    expect(rules.find((rule) => rule.source === '/marketplace')).toMatchObject({ destination: '/discovery?sort=trending', permanent: true })
   })
 })

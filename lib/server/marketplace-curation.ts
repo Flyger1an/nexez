@@ -27,6 +27,11 @@ type CurationRow = {
   updated_at: string | null
 }
 
+type PageOwnerRow = {
+  id: string
+  owner_id: string | null
+}
+
 export class MarketplaceCurationError extends Error {
   constructor(
     message: string,
@@ -50,6 +55,7 @@ function emptyQueue(generatedAt = new Date().toISOString()): MarketplaceCuration
       excluded: 0,
       blockers: 0,
       warnings: 0,
+      certifiedMerchants: 0,
     },
   }
 }
@@ -94,10 +100,12 @@ function queueItem(
   decision: MarketplaceCurationDecision,
   counts: Map<string, number>,
   now: Date,
+  merchantOwnerId: string | null = null,
 ): MarketplaceCurationQueueItem {
   const duplicateNameCount = counts.get(normalizeMarketplaceName(page.name)) ?? 1
   return {
     page,
+    merchantOwnerId,
     decision,
     duplicateNameCount,
     assessment: assessMarketplacePage(page, { duplicateNameCount, now }),
@@ -117,7 +125,11 @@ export async function getMarketplaceCurationQueue(): Promise<MarketplaceCuration
 
   try {
     const admin = createAdminClient()
-    const [{ data: pageRows, error: pageError }, { data: curationRows, error: curationError }] = await Promise.all([
+    const [
+      { data: pageRows, error: pageError },
+      { data: curationRows, error: curationError },
+      { data: pageOwnerRows, error: pageOwnerError },
+    ] = await Promise.all([
       admin
         .from('pages_public')
         .select(PUBLIC_PAGE_SELECT)
@@ -130,16 +142,31 @@ export async function getMarketplaceCurationQueue(): Promise<MarketplaceCuration
         .select('page_id, status, decision_reason, notes, reviewed_by, reviewed_at, certified_at, updated_at')
         .limit(MAX_CURATED_PAGES)
         .returns<CurationRow[]>(),
+      admin
+        .from('pages')
+        .select('id, owner_id')
+        .eq('is_published', true)
+        .order('updated_at', { ascending: false })
+        .limit(MAX_CURATED_PAGES)
+        .returns<PageOwnerRow[]>(),
     ])
     if (pageError) throw pageError
     if (curationError) throw curationError
+    if (pageOwnerError) throw pageOwnerError
 
     const pages = pageRows ?? []
     const decisions = new Map((curationRows ?? []).map((row) => [row.page_id, mapDecision(row)]))
+    const ownerIds = new Map((pageOwnerRows ?? []).map((row) => [row.id, row.owner_id]))
     const counts = duplicateCounts(pages)
     const now = new Date(generatedAt)
     const items = pages
-      .map((page) => queueItem(page, decisions.get(page.id) ?? defaultDecision(page.id), counts, now))
+      .map((page) => queueItem(
+        page,
+        decisions.get(page.id) ?? defaultDecision(page.id),
+        counts,
+        now,
+        ownerIds.get(page.id) ?? null,
+      ))
       .sort((a, b) => {
         const statusDelta = STATUS_ORDER[a.decision.status] - STATUS_ORDER[b.decision.status]
         if (statusDelta !== 0) return statusDelta
@@ -188,11 +215,11 @@ export async function updateMarketplaceCuration(input: {
       .eq('is_published', true)
       .maybeSingle<AgentPage>(),
     admin
-      .from('pages_public')
-      .select('id, name')
+      .from('pages')
+      .select('id, owner_id, name')
       .eq('is_published', true)
       .limit(MAX_CURATED_PAGES)
-      .returns<Array<Pick<AgentPage, 'id' | 'name'>>>(),
+      .returns<Array<Pick<AgentPage, 'id' | 'owner_id' | 'name'>>>(),
   ])
   if (pageError) throw new MarketplaceCurationError('The listing could not be loaded.', 'persistence_failed')
   if (namesError) throw new MarketplaceCurationError('Duplicate checks could not be completed.', 'persistence_failed')
@@ -236,6 +263,7 @@ export async function updateMarketplaceCuration(input: {
 
   return {
     page,
+    merchantOwnerId: names?.find((candidate) => candidate.id === page.id)?.owner_id ?? null,
     decision: mapDecision(row),
     assessment,
     duplicateNameCount,

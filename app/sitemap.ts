@@ -7,6 +7,7 @@ import { scanPlatforms } from '../lib/scan-platforms'
 import { publicLaunchVisiblePages } from '../lib/public-page-visibility'
 import { supabase } from '../lib/supabase'
 import { AGENT_RUNTIME_HOST, APP_HOST, MARKETING_HOST, agentRuntimeUrl, marketingUrl } from '../lib/site'
+import { MARKETPLACE_DISCOVERY_ENABLED } from '../lib/marketplace-discovery'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Host-aware split: marketing/discovery URLs on nexez.ai, app UI hidden from
@@ -51,8 +52,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: 'monthly' as const,
         priority: 0.8,
       })),
-      entry('/discovery', 0.8, 'daily'),
-      entry('/leaderboard', 0.6, 'daily'),
+      ...(MARKETPLACE_DISCOVERY_ENABLED
+        ? [entry('/discovery', 0.8, 'daily'), entry('/leaderboard', 0.6, 'daily')]
+        : []),
       entry('/simulator', 0.5, 'weekly'),
       entry('/support', 0.4, 'monthly'),
       entry('/sms-notifications', 0.3, 'monthly'),
