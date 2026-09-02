@@ -372,7 +372,7 @@ export default function NexezHome() {
               price, the exact options, the requirement, and a safe next step. Here is the same
               business, twice.
             </p>
-            <div className="nx-home-problem-xray hidden w-full md:mt-9 md:block">
+            <div className="nx-home-problem-xray w-full md:mt-9">
               <AgentXray />
             </div>
           </div>
