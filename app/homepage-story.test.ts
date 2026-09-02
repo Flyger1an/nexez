@@ -119,6 +119,11 @@ describe('homepage commerce story', () => {
     expect(source).not.toContain('nx-home-simulator-full')
   })
 
+  it('keeps the simulator visible independently of human Discovery', () => {
+    expect(source).toContain('The simulator demonstrates platform capability without exposing Discovery.')
+    expect(source).not.toContain('MARKETPLACE_DISCOVERY_ENABLED')
+  })
+
   it('keeps the agent simulator section at the bottom of the page', () => {
     const simulatorIndex = source.indexOf('Run a buying scenario before a real buyer does.')
     const heroScanIndex = source.indexOf('<HeroScan />')

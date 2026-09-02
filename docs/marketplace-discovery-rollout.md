@@ -15,7 +15,8 @@ public environment variables in the client bundle at build time.
 When hidden, the application:
 
 - removes Discovery and Leaderboard from marketing, desktop, and mobile navigation;
-- removes marketplace browsing calls to action and the homepage buyer finder;
+- removes marketplace browsing calls to action while keeping the homepage Agent
+  Simulator available as a platform capability demo;
 - redirects direct `/discovery` and `/leaderboard` visits to the marketing home page;
 - removes both routes from the marketing sitemap and disallows them in robots.txt;
 - keeps individual listings, merchant storefronts, seller analytics, admin curation,
