@@ -86,7 +86,7 @@ export function ReadinessLab() {
       ? { text: 'Ready for buyers', color: 'var(--ready)' }
       : score >= 50
         ? { text: 'Needs a few details', color: 'var(--amber)' }
-        : { text: 'Hard for AI to use', color: '#E5635A' }
+        : { text: 'Ready to set up', color: 'var(--signal)' }
 
   return (
     <div ref={rootRef} data-home-readiness-lab className="grid min-w-0 items-stretch gap-5 lg:grid-cols-[1fr_0.85fr]">

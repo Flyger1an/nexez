@@ -38,11 +38,22 @@ const DIMENSION_ORDER: DimensionKey[] = ['discovery', 'understanding', 'transact
 
 // Shown before a scan runs, so the panel explains itself instead of sitting empty.
 const IDLE_ROWS: Array<[string, string]> = [
-  ['Discovery', 'Can agents reach your pages at all?'],
+  ['Discovery', 'Can AI assistants reach your pages at all?'],
   ['Understanding', 'Can they pull your real offers and prices?'],
-  ['Transactability', 'Is there a booking or checkout path to follow?'],
+  ['Ways to buy', 'Is there a booking or checkout path to follow?'],
   ['Trust', 'Do your details hold up when verified?'],
 ]
+
+// /api/scan returns its own dimension labels, and one of them is
+// "Transactability". Merchants do not use that word, so the panel shows its own
+// plain label and ignores the wire label. Keyed, so a server rename cannot
+// silently put jargon back on the homepage.
+const DIMENSION_LABEL: Record<DimensionKey, string> = {
+  discovery: 'Discovery',
+  understanding: 'Understanding',
+  transactability: 'Ways to buy',
+  trust: 'Trust',
+}
 
 // A visitor who will not type their own domain still needs to see a real result.
 // example.com is IANA-reserved for exactly this purpose, so the homepage never
@@ -57,8 +68,8 @@ function hostPart(value: string): string {
 
 function scoreTone(score: number): { color: string; label: string } {
   if (score >= 85) return { color: 'var(--ready)', label: 'Agent-ready' }
-  if (score >= 60) return { color: 'var(--amber)', label: 'Needs a few fixes' }
-  return { color: '#ef4444', label: 'Hard for agents' }
+  if (score >= 60) return { color: 'var(--amber)', label: 'Almost ready' }
+  return { color: 'var(--signal)', label: 'Ready to set up' }
 }
 
 function CompactRing({ score }: { score: number }) {
@@ -94,17 +105,18 @@ function CompactRing({ score }: { score: number }) {
   )
 }
 
-function MiniMeter({ value }: { value: Dimension }) {
+function MiniMeter({ dimension, value }: { dimension: DimensionKey; value: Dimension }) {
+  const label = DIMENSION_LABEL[dimension]
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-[11px] font-medium text-[var(--fg-muted)]">{value.label}</span>
+        <span className="truncate text-[11px] font-medium text-[var(--fg-muted)]">{label}</span>
         <span className="font-mono text-xs font-semibold tabular-nums">{value.score}</span>
       </div>
       <div
         className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--bd-10)]"
         role="progressbar"
-        aria-label={`${value.label} score`}
+        aria-label={`${label} score`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={value.score}
@@ -289,7 +301,7 @@ export function HeroScan() {
             <div className="min-w-0 flex-1 text-center sm:text-left">
               <p className="truncate text-[15px] font-semibold">{result.origin}</p>
               <p className="mt-1 text-[12px] leading-5 text-[var(--fg-muted)]">
-                {result.checks.length} evidence checks across discovery, understanding, transactability, and trust.
+                {result.checks.filter((c) => c.status === 'pass').length} of {result.checks.length} evidence checks already pass across discovery, understanding, ways to buy, and trust.
               </p>
               {result.blockedBots.length ? (
                 <div className="mt-2 flex flex-wrap justify-center gap-1.5 sm:justify-start">
@@ -303,14 +315,14 @@ export function HeroScan() {
 
           <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3">
             {DIMENSION_ORDER.map((key) => (
-              <MiniMeter key={key} value={result.dimensions[key]} />
+              <MiniMeter key={key} dimension={key} value={result.dimensions[key]} />
             ))}
           </div>
 
           {topFixes.length ? (
             <div className="mt-5 border-t border-[var(--bd-10)] pt-4">
               <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--fg-muted)]">
-                Fix these first
+                Turn these on next
               </p>
               <ul>{topFixes.map((check) => <FixRow key={check.id} check={check} />)}</ul>
             </div>

@@ -266,11 +266,11 @@ export default function NexezHome() {
             {/* LEFT - h1, copy, CTAs */}
             <div className="nx-home-hero-copy">
               <h1 className="nx-home-hero-title text-balance text-[2.3rem] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-[2.7rem] lg:text-[3.05rem]">
-                Get found by the agents <span className="nx-accent-text">doing the buying.</span>
+                Turn AI assistants into <span className="nx-accent-text">a sales channel.</span>
               </h1>
               <p className="nx-home-hero-lead mt-6 max-w-xl text-base leading-7 text-muted-foreground md:text-lg">
-                AI assistants are already shopping on behalf of your customers. Scan your site and
-                see what they can actually read, price, and buy today.
+                AI assistants are already shopping for your customers. Nexez gives them your real
+                prices, options, and rules, so the sale happens on your terms.
               </p>
               <div className="nx-home-hero-actions mt-7 flex flex-col gap-3 sm:flex-row">
                 <a href={appUrl('/create')} className="btn-secondary h-11 px-5">
@@ -365,11 +365,12 @@ export default function NexezHome() {
         <div className="nx-home-section-inner nx-home-problem-layout mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start" data-reveal>
           <div>
             <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              Your site was built for eyes. <span className="nx-accent-text">Agents read it differently.</span>
+              Your site was built for eyes. <span className="nx-accent-text">AI assistants read it differently.</span>
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              A person fills in the gaps without noticing. An agent cannot. It needs the exact price,
-              the exact options, the requirement, and a safe next step. Here is the same business, twice.
+              Those assistants read your site before they recommend anything. A person fills in
+              the gaps without noticing. An agent cannot. It needs the exact price, the exact
+              options, the requirement, and a safe next step. Here is the same business, twice.
             </p>
             <div className="nx-home-problem-xray hidden w-full md:mt-9 md:block">
               <AgentXray />
@@ -382,7 +383,7 @@ export default function NexezHome() {
                   <div key={title} className="flex items-center gap-3 rounded-lg border border-border bg-white/[0.035] p-3">
                     <span className="font-mono text-[10px] text-[var(--signal)]">0{index + 1}</span>
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-black">
-                      <Icon className="size-3.5 text-[var(--signal)]" />
+                      <Icon className="size-3.5 text-[var(--fg-muted)]" />
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium tracking-tight">{title}</p>
@@ -397,7 +398,7 @@ export default function NexezHome() {
                     <div className="flex h-full flex-col rounded-lg border border-border bg-white/[0.035] p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
-                          <Icon className="size-4 text-[var(--signal)]" />
+                          <Icon className="size-4 text-[var(--fg-muted)]" />
                         </div>
                         <span className="text-right font-mono text-[10px] uppercase leading-[1.5] tracking-[0.14em] text-muted-foreground">
                           {label}
@@ -446,99 +447,6 @@ export default function NexezHome() {
         </div>
       </section>
 
-      {/* PINNED STORY CARDS */}
-      <section
-        className="nx-home-reveal-band--tint-01 border-b border-border"
-        aria-label="Merchant control"
-        data-section-name="Merchant control"
-        data-benefits-section-name="Benefits"
-        style={{ position: 'relative', zIndex: 2 }}
-      >
-        <p className="sr-only">Merchant control</p>
-        <p className="sr-only">Benefits</p>
-        <div className="nx-home-section-inner nx-home-control-layout mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
-          <div className="lg:sticky lg:top-24">
-            <h2 className="max-w-xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              Let AI sell what you offer. <span className="nx-accent-text">Keep control of how you sell it.</span>
-            </h2>
-            <p className="mt-5 max-w-lg text-sm leading-6 text-muted-foreground md:text-base">
-              Buyers can move forward without changing your prices, skipping your requirements, or promising work you did not approve.
-            </p>
-            <ul className="nx-home-value-list mt-7 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
-              {valueBullets.map((item) => (
-                <li key={item} className="flex items-center gap-3">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-lg font-semibold tracking-[-0.015em] md:text-xl">What stays under your control</h3>
-            <div className="nx-home-story-mobile mt-5 grid gap-3 md:hidden">
-              {pinnedStories.map(({ title, copy, Icon }, index) => (
-                <details key={title} name="merchant-control" open={index === 0} className="nx-home-story-disclosure nx-tile">
-                  <summary>
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-black">
-                        <Icon className="size-4 text-[var(--signal)]" />
-                      </div>
-                      <span className="text-sm font-semibold leading-5">{title}</span>
-                    </div>
-                    <ChevronDown aria-hidden="true" className="nx-home-disclosure-chevron size-4 shrink-0 text-muted-foreground" />
-                  </summary>
-                  <div className="border-t border-border px-4 pb-4 pt-3">
-                    <p className="text-sm leading-6 text-muted-foreground">{copy}</p>
-                    <p className="mt-3 text-xs font-medium text-[var(--signal)]">
-                      {index === 0
-                        ? 'Your pricing'
-                        : index === 1
-                          ? 'Your limits'
-                          : index === 2
-                            ? 'Your timing'
-                            : 'Your business'}
-                    </p>
-                  </div>
-                </details>
-              ))}
-            </div>
-            <div className="nx-home-story-desktop mt-5 hidden gap-5 pb-0 md:grid lg:pb-[34vh]">
-              {pinnedStories.map(({ title, copy, Icon }, index) => (
-                <article
-                  key={title}
-                  className="nx-home-story-card nx-tile min-h-[320px] p-6 transition-colors lg:!sticky lg:min-h-[360px]"
-                  style={{ top: `${96 + index * 18}px`, zIndex: index + 1 }}
-                >
-                  <div className="flex h-full flex-col justify-between gap-10">
-                    <div>
-                      <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-black">
-                        <Icon className="size-4 text-[var(--signal)]" />
-                      </div>
-                      <h3 className="mt-6 max-w-xl text-lg font-semibold leading-tight tracking-[-0.015em] md:text-2xl">{title}</h3>
-                      <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">{copy}</p>
-                    </div>
-                    <div className="flex items-center justify-between border-t border-border pt-5">
-                      <span className="font-mono text-xs text-muted-foreground">0{index + 1} / 04</span>
-                      <span className="inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
-                        {index === 0
-                          ? 'Your pricing'
-                          : index === 1
-                            ? 'Your limits'
-                            : index === 2
-                              ? 'Your timing'
-                              : 'Your business'}
-                        <ArrowRight className="size-4" />
-                      </span>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* WHY IT MATTERS */}
       <section
         id="readiness"
@@ -550,173 +458,14 @@ export default function NexezHome() {
         <p className="sr-only">Why it matters</p>
         <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20" data-reveal>
           <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-            Six signals decide whether <span className="nx-accent-text">an agent can buy from you.</span>
+            Six signals. <span className="nx-accent-text">Each one turns on something an AI assistant can do.</span>
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Each one unlocks a specific ability. This is the number the scan at the top of this page
-            gives you, and the number Nexez moves.
+            That gap breaks down into six things. Your score is
+            the number the scan at the top of this page gives you, and the number Nexez moves.
           </p>
           <div className="nx-home-readiness mt-10">
             <ReadinessLab />
-          </div>
-        </div>
-      </section>
-
-      {/* ANALYTICS */}
-      <section
-        id="analytics"
-        className="nx-home-reveal-band border-b border-border"
-        aria-label="Analytics"
-        data-section-name="Analytics"
-        style={{ position: 'relative', zIndex: 3 }}
-      >
-        <p className="sr-only">Analytics</p>
-        <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20" data-reveal>
-          <div className="nx-home-analytics-head grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
-            <div>
-              <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-                See where agent demand is coming from.
-              </h2>
-              <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-                See what buyers want, which offers get attention, and what leads to a sale.
-              </p>
-            </div>
-            <ul className="nx-home-analytics-points nx-tile hidden gap-3 p-5 text-sm text-muted-foreground md:grid md:p-6">
-              {analyticsBullets.map((item) => (
-                <li key={item} className="flex items-center gap-3">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="nx-home-analytics-demo mt-10">
-            <LiveAgentFeed />
-          </div>
-        </div>
-      </section>
-
-      {/* PRODUCT CAPABILITIES */}
-      <section
-        id="capabilities"
-        className="nx-home-static-band nx-home-reveal-band--tint-015 border-b border-border overflow-hidden"
-        aria-label="Product capabilities"
-        data-section-name="Product capabilities"
-        style={{ position: 'relative', zIndex: 4 }}
-      >
-        <p className="sr-only">Product capabilities</p>
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle, color-mix(in srgb, var(--signal) 7%, transparent) 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-            WebkitMaskImage: 'radial-gradient(110% 75% at 50% 8%, #000, transparent 72%)',
-            maskImage: 'radial-gradient(110% 75% at 50% 8%, #000, transparent 72%)',
-          }}
-        />
-        <div className="nx-home-section-inner relative z-10 mx-auto max-w-7xl px-5 py-20">
-          <div className="mb-10 max-w-2xl">
-            <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              The controls behind a <span className="nx-accent-text">safer AI sale.</span>
-            </h2>
-            <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              Tell Nexez how your business works. It keeps the buying steps clear.
-            </p>
-          </div>
-          <div className="nx-home-feature-mobile md:hidden">
-            <div className="grid grid-cols-2 gap-3">
-              {keyFeatures.slice(0, 4).map(({ title, copy, Icon }) => (
-                <div key={title} className="card flex min-h-24 flex-col items-start gap-3 !p-4" title={copy}>
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
-                    <Icon className="size-4 text-[var(--signal)]" />
-                  </div>
-                  <h3 className="text-sm font-medium leading-5 tracking-tight">{title}</h3>
-                </div>
-              ))}
-            </div>
-            <details className="nx-home-capabilities-disclosure mt-3">
-              <summary className="nx-tile">
-                <span className="nx-home-capabilities-closed">View all capabilities</span>
-                <span className="nx-home-capabilities-open">Show fewer capabilities</span>
-                <ChevronDown aria-hidden="true" className="nx-home-disclosure-chevron size-4 text-muted-foreground" />
-              </summary>
-              <div className="mt-3 grid gap-3">
-                {keyFeatures.map(({ title, copy, Icon }) => (
-                  <div key={title} className="card flex items-start gap-3 !p-4">
-                    <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
-                      <Icon className="size-4 text-[var(--signal)]" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium tracking-tight">{title}</h3>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </details>
-          </div>
-          <div className="nx-home-feature-desktop hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
-            {keyFeatures.map(({ title, copy, Icon }) => (
-              <div key={title} data-reveal className="card flex items-start gap-3">
-                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
-                  <Icon className="size-4 text-[var(--signal)]" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium tracking-tight">{title}</h3>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* INTEGRATIONS */}
-      <section
-        id="integrations"
-        className="nx-home-static-band border-b border-border"
-        aria-label="Integrations"
-        data-section-name="Integrations"
-        style={{ zIndex: 5 }}
-      >
-        <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20">
-          <div className="nx-home-integration-layout grid gap-8 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--signal)]">
-                Integrations
-              </p>
-              <h2 className="mt-4 max-w-xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-                Your existing tools become <span className="nx-accent-text">one clear buying path.</span>
-              </h2>
-              <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-                Bring in your products, prices, and calendar. Review every offer before it goes live.
-              </p>
-              <a href="/integrations" className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
-                Explore integrations
-                <ArrowRight className="size-4" />
-              </a>
-            </div>
-            <div className="nx-home-integration-mobile grid grid-cols-2 gap-2 md:hidden">
-              {integrationRail.map((provider) => (
-                <div key={provider} className="nx-tile flex min-h-12 items-center gap-2 px-3 py-2.5">
-                  <CheckCircle2 className="size-3.5 shrink-0 text-[var(--ready)]" />
-                  <span className="text-xs font-medium">{provider}</span>
-                </div>
-              ))}
-            </div>
-            <div className="nx-home-integration-desktop hidden gap-4 md:grid md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-              {integrationGroups.map(({ title, copy, Icon }) => (
-                <article key={title} className="nx-tile p-5">
-                  <div className="flex size-9 items-center justify-center rounded-md border border-border bg-black">
-                    <Icon className="size-4 text-[var(--signal)]" />
-                  </div>
-                  <h3 className="mt-5 text-sm font-medium tracking-tight">{title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{copy}</p>
-                </article>
-              ))}
-            </div>
           </div>
         </div>
       </section>
@@ -727,7 +476,7 @@ export default function NexezHome() {
         className="nx-home-static-band border-b border-border"
         aria-label="How it works"
         data-section-name="How it works"
-        style={{ zIndex: 6 }}
+        style={{ zIndex: 3 }}
       >
         <p className="sr-only">How it works</p>
         <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20">
@@ -735,6 +484,9 @@ export default function NexezHome() {
             <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
               Four simple steps. <span className="nx-accent-text">Your rules stay in charge.</span>
             </h2>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+              Closing those gaps takes four steps. Nothing goes live until you approve it.
+            </p>
           </div>
           <div className="nx-home-workflow-mobile grid md:hidden">
             {workflow.map((item) => (
@@ -770,13 +522,268 @@ export default function NexezHome() {
         </div>
       </section>
 
+      {/* INTEGRATIONS */}
+      <section
+        id="integrations"
+        className="nx-home-static-band border-b border-border"
+        aria-label="Integrations"
+        data-section-name="Integrations"
+        style={{ zIndex: 4 }}
+      >
+        <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20">
+          <div className="nx-home-integration-layout grid gap-8 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--signal)]">
+                Integrations
+              </p>
+              <h2 className="mt-4 max-w-xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+                Your existing tools become <span className="nx-accent-text">one clear buying path.</span>
+              </h2>
+              <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+                The first step uses tools you already have. Bring in your products, prices, and
+                calendar. Review every offer before it goes live.
+              </p>
+              <a href="/integrations" className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
+                Explore integrations
+                <ArrowRight className="size-4" />
+              </a>
+            </div>
+            <div className="nx-home-integration-mobile grid grid-cols-2 gap-2 md:hidden">
+              {integrationRail.map((provider) => (
+                <div key={provider} className="nx-tile flex min-h-12 items-center gap-2 px-3 py-2.5">
+                  <CheckCircle2 className="size-3.5 shrink-0 text-[var(--ready)]" />
+                  <span className="text-xs font-medium">{provider}</span>
+                </div>
+              ))}
+            </div>
+            <div className="nx-home-integration-desktop hidden gap-4 md:grid md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+              {integrationGroups.map(({ title, copy, Icon }) => (
+                <article key={title} className="nx-tile p-5">
+                  <div className="flex size-9 items-center justify-center rounded-md border border-border bg-black">
+                    <Icon className="size-4 text-[var(--fg-muted)]" />
+                  </div>
+                  <h3 className="mt-5 text-sm font-medium tracking-tight">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{copy}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PRODUCT CAPABILITIES */}
+      <section
+        id="capabilities"
+        className="nx-home-static-band nx-home-reveal-band--tint-01 border-b border-border overflow-hidden"
+        aria-label="Product capabilities"
+        data-section-name="Product capabilities"
+        style={{ position: 'relative', zIndex: 5 }}
+      >
+        <p className="sr-only">Product capabilities</p>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle, color-mix(in srgb, var(--signal) 7%, transparent) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+            WebkitMaskImage: 'radial-gradient(110% 75% at 50% 8%, #000, transparent 72%)',
+            maskImage: 'radial-gradient(110% 75% at 50% 8%, #000, transparent 72%)',
+          }}
+        />
+        <div className="nx-home-section-inner relative z-10 mx-auto max-w-7xl px-5 py-20">
+          <div className="mb-10 max-w-2xl">
+            <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+              Everything a sale needs, <span className="nx-accent-text">in one place.</span>
+            </h2>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+              Once your offers are in, this is what every sale runs on. Tell Nexez how your
+              business works. It keeps the buying steps clear.
+            </p>
+          </div>
+          <div className="nx-home-feature-mobile md:hidden">
+            <div className="grid grid-cols-2 gap-3">
+              {keyFeatures.slice(0, 4).map(({ title, copy, Icon }) => (
+                <div key={title} className="card flex min-h-24 flex-col items-start gap-3 !p-4" title={copy}>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
+                    <Icon className="size-4 text-[var(--fg-muted)]" />
+                  </div>
+                  <h3 className="text-sm font-medium leading-5 tracking-tight">{title}</h3>
+                </div>
+              ))}
+            </div>
+            <details className="nx-home-capabilities-disclosure mt-3">
+              <summary className="nx-tile">
+                <span className="nx-home-capabilities-closed">View all capabilities</span>
+                <span className="nx-home-capabilities-open">Show fewer capabilities</span>
+                <ChevronDown aria-hidden="true" className="nx-home-disclosure-chevron size-4 text-muted-foreground" />
+              </summary>
+              <div className="mt-3 grid gap-3">
+                {keyFeatures.map(({ title, copy, Icon }) => (
+                  <div key={title} className="card flex items-start gap-3 !p-4">
+                    <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
+                      <Icon className="size-4 text-[var(--fg-muted)]" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium tracking-tight">{title}</h3>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+          <div className="nx-home-feature-desktop hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
+            {keyFeatures.map(({ title, copy, Icon }) => (
+              <div key={title} data-reveal className="card flex items-start gap-3">
+                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
+                  <Icon className="size-4 text-[var(--fg-muted)]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium tracking-tight">{title}</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ANALYTICS */}
+      <section
+        id="analytics"
+        className="nx-home-reveal-band border-b border-border"
+        aria-label="Analytics"
+        data-section-name="Analytics"
+        style={{ position: 'relative', zIndex: 6 }}
+      >
+        <p className="sr-only">Analytics</p>
+        <div className="nx-home-section-inner mx-auto max-w-7xl px-5 py-20" data-reveal>
+          <div className="nx-home-analytics-head grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
+            <div>
+              <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+                See where your AI buyers come from.
+              </h2>
+              <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+                Every request is recorded. See what buyers want, which offers get
+                attention, and what leads to a sale.
+              </p>
+            </div>
+            <ul className="nx-home-analytics-points nx-tile hidden gap-3 p-5 text-sm text-muted-foreground md:grid md:p-6">
+              {analyticsBullets.map((item) => (
+                <li key={item} className="flex items-center gap-3">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="nx-home-analytics-demo mt-10">
+            <LiveAgentFeed />
+          </div>
+        </div>
+      </section>
+
+      {/* PINNED STORY CARDS */}
+      <section
+        className="nx-home-reveal-band--tint-015 border-b border-border"
+        aria-label="Merchant control"
+        data-section-name="Merchant control"
+        data-benefits-section-name="Benefits"
+        style={{ position: 'relative', zIndex: 7 }}
+      >
+        <p className="sr-only">Merchant control</p>
+        <p className="sr-only">Benefits</p>
+        <div className="nx-home-section-inner nx-home-control-layout mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
+          <div className="lg:sticky lg:top-24">
+            <h2 className="max-w-xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+              Sell through AI assistants. <span className="nx-accent-text">Keep control of how you sell.</span>
+            </h2>
+            <p className="mt-5 max-w-lg text-sm leading-6 text-muted-foreground md:text-base">
+              None of this changes who sets the terms. Buyers can move forward without changing your prices, skipping your requirements, or promising work you did not approve.
+            </p>
+            <ul className="nx-home-value-list mt-7 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+              {valueBullets.map((item) => (
+                <li key={item} className="flex items-center gap-3">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold tracking-[-0.015em] md:text-xl">What stays under your control</h3>
+            <div className="nx-home-story-mobile mt-5 grid gap-3 md:hidden">
+              {pinnedStories.map(({ title, copy, Icon }, index) => (
+                <details key={title} name="merchant-control" open={index === 0} className="nx-home-story-disclosure nx-tile">
+                  <summary>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-black">
+                        <Icon className="size-4 text-[var(--fg-muted)]" />
+                      </div>
+                      <span className="text-sm font-semibold leading-5">{title}</span>
+                    </div>
+                    <ChevronDown aria-hidden="true" className="nx-home-disclosure-chevron size-4 shrink-0 text-muted-foreground" />
+                  </summary>
+                  <div className="border-t border-border px-4 pb-4 pt-3">
+                    <p className="text-sm leading-6 text-muted-foreground">{copy}</p>
+                    <p className="mt-3 text-xs font-medium text-[var(--signal)]">
+                      {index === 0
+                        ? 'Your pricing'
+                        : index === 1
+                          ? 'Your limits'
+                          : index === 2
+                            ? 'Your timing'
+                            : 'Your business'}
+                    </p>
+                  </div>
+                </details>
+              ))}
+            </div>
+            <div className="nx-home-story-desktop mt-5 hidden gap-5 pb-0 md:grid lg:pb-[34vh]">
+              {pinnedStories.map(({ title, copy, Icon }, index) => (
+                <article
+                  key={title}
+                  className="nx-home-story-card nx-tile min-h-[320px] p-6 transition-colors lg:!sticky lg:min-h-[360px]"
+                  style={{ top: `${96 + index * 18}px`, zIndex: index + 1 }}
+                >
+                  <div className="flex h-full flex-col justify-between gap-10">
+                    <div>
+                      <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-black">
+                        <Icon className="size-4 text-[var(--fg-muted)]" />
+                      </div>
+                      <h3 className="mt-6 max-w-xl text-lg font-semibold leading-tight tracking-[-0.015em] md:text-2xl">{title}</h3>
+                      <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">{copy}</p>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-border pt-5">
+                      <span className="font-mono text-xs text-muted-foreground">0{index + 1} / 04</span>
+                      <span className="inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
+                        {index === 0
+                          ? 'Your pricing'
+                          : index === 1
+                            ? 'Your limits'
+                            : index === 2
+                              ? 'Your timing'
+                              : 'Your business'}
+                        <ArrowRight className="size-4" />
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* SIMULATOR */}
       <section
         id="simulator"
         className="nx-home-simulator nx-home-static-band nx-home-reveal-band--tint-02 border-b border-border py-20"
         aria-label="Agent simulator"
         data-section-name="Agent simulator"
-        style={{ zIndex: 7 }}
+        style={{ zIndex: 8 }}
       >
         <p className="sr-only">Agent simulator</p>
         <div className="mx-auto max-w-4xl px-5 text-center" data-reveal>
@@ -784,7 +791,7 @@ export default function NexezHome() {
             Run a buying scenario before a real buyer does.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            See what an AI assistant understands, what details are missing, and whether the request can move forward.
+            You can test all of it before publishing. See what an AI assistant understands, what details are missing, and whether the request can move forward.
           </p>
           <div className="mt-8">
             <SimulatorTeaser />
@@ -797,7 +804,7 @@ export default function NexezHome() {
         className="nx-home-static-band relative overflow-hidden"
         aria-label="Final call to action"
         data-section-name="Final call to action"
-        style={{ zIndex: 8 }}
+        style={{ zIndex: 9 }}
       >
         <p className="sr-only">Final call to action</p>
         <div className="pointer-events-none absolute inset-0 z-0">

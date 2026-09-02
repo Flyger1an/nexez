@@ -81,7 +81,7 @@ function XrayDesktop({ className }: { className?: string }) {
       {/* instrument labels */}
       <div className="mb-2.5 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
         <span className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="size-2 rounded-[2px]" style={{ background: '#F3EFE6' }} />
+          <span className="size-2 rounded-[2px]" style={{ background: 'var(--paper)' }} />
           Human view
         </span>
         <span className="flex items-center gap-1.5 text-[var(--signal)]">
@@ -99,10 +99,10 @@ function XrayDesktop({ className }: { className?: string }) {
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 flex flex-col overflow-hidden"
-          style={{ background: '#F3EFE6', color: '#16150F', padding: '18px 20px', clipPath: humanClip, WebkitMaskImage: humanMask, maskImage: humanMask }}
+          style={{ background: 'var(--paper)', color: 'var(--paper-ink)', padding: '18px 20px', clipPath: humanClip, WebkitMaskImage: humanMask, maskImage: humanMask }}
         >
           {/* promo strip (full-bleed) */}
-          <div className="flex items-center justify-between text-[10px]" style={{ margin: '-18px -20px 0', background: '#16150F', color: '#F3EFE6', padding: '5px 20px' }}>
+          <div className="flex items-center justify-between text-[10px]" style={{ margin: '-18px -20px 0', background: 'var(--paper-ink)', color: 'var(--paper)', padding: '5px 20px' }}>
             <span>
               ▸ SUMMER SALE - <b style={{ color: '#E7B14B' }}>40% off*</b> select packages
             </span>
@@ -113,14 +113,14 @@ function XrayDesktop({ className }: { className?: string }) {
             {/* busy nav */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
-                <div className="flex size-5 items-center justify-center rounded font-display text-[11px] font-bold" style={{ background: '#16150F', color: '#F3EFE6' }}>N</div>
+                <div className="flex size-5 items-center justify-center rounded font-display text-[11px] font-bold" style={{ background: 'var(--paper-ink)', color: 'var(--paper)' }}>N</div>
                 <span className="font-display text-[13px] font-bold">Serenity Spa</span>
               </div>
               <div className="flex items-center gap-2 text-[10px]" style={{ color: '#6A6760' }}>
                 <span>Services ▾</span>
                 <span>About</span>
                 <span>🔍</span>
-                <span className="rounded px-2 py-0.5 font-semibold" style={{ background: '#16150F', color: '#F3EFE6' }}>Book now</span>
+                <span className="rounded px-2 py-0.5 font-semibold" style={{ background: 'var(--paper-ink)', color: 'var(--paper)' }}>Book now</span>
               </div>
             </div>
 
@@ -158,7 +158,7 @@ function XrayDesktop({ className }: { className?: string }) {
           </div>
 
           {/* cookie banner (full-bleed bottom) */}
-          <div className="flex items-center justify-between text-[10px]" style={{ margin: '10px -20px -18px', background: '#16150F', color: '#F3EFE6', padding: '8px 20px' }}>
+          <div className="flex items-center justify-between text-[10px]" style={{ margin: '10px -20px -18px', background: 'var(--paper-ink)', color: 'var(--paper)', padding: '8px 20px' }}>
             🍪 We use cookies to improve your experience.
             <span className="rounded px-2.5 py-0.5 font-semibold" style={{ background: 'var(--signal)', color: '#08080A' }}>Accept all</span>
           </div>

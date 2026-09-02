@@ -40,7 +40,7 @@ const DIMENSION_ORDER: DimensionKey[] = ['discovery', 'understanding', 'transact
 const DIMENSION_EXPLAINERS: Array<[string, string]> = [
   ['Discovery', 'Can crawlers and AI agents reach your pages at all, or are they blocked before they start?'],
   ['Understanding', 'Can an agent pull your actual offers, prices, and policies out of the page?'],
-  ['Transactability', 'Is there a booking or checkout path an agent can follow all the way to the end?'],
+  ['Ways to buy', 'Is there a booking or checkout path an AI assistant can follow all the way to the end?'],
   ['Trust', 'Do contact details, policies, and freshness signals hold up when an agent verifies them?'],
 ]
 
@@ -328,7 +328,7 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
               <p className="mt-2 text-sm text-[var(--fg-muted)]">
                 {deep?.llmAssisted
                   ? 'Evidence-based checks plus an AI buyer-agent reading of the offers.'
-                  : `${shown.checks.length} evidence checks across discovery, understanding, transactability, and trust.`}
+                  : `${shown.checks.length} evidence checks across discovery, understanding, ways to buy, and trust.`}
               </p>
               {comparison ? (
                 <p className="mt-2 text-sm font-medium text-[var(--ready)]">
