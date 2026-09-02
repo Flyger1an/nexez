@@ -80,8 +80,10 @@ import { howAiAgentsPay } from './learn-articles/how-ai-agents-pay'
 import { productFeedsForAiAgents } from './learn-articles/product-feeds-for-ai-agents'
 import { googleAiModeVisibility } from './learn-articles/google-ai-mode-visibility'
 import { perplexityAndClaudeShopping } from './learn-articles/perplexity-and-claude-shopping'
+import { cloudflareAiCrawlerDeadline } from './learn-articles/cloudflare-ai-crawler-deadline'
 
 export const learnArticles: LearnArticle[] = [
+  cloudflareAiCrawlerDeadline,
   perplexityAndClaudeShopping,
   googleAiModeVisibility,
   productFeedsForAiAgents,
