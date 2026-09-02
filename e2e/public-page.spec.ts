@@ -46,13 +46,16 @@ test.describe('public surface', () => {
       height: document.documentElement.scrollHeight,
     }))
     expect(compactLayout.overflow).toBeLessThanOrEqual(1)
-    // Budget raised from 7500 when the homepage gained its narrative connective
-    // copy: a lead paragraph for "How it works" (which had none) plus the
-    // handoff sentences that stop each section starting cold. That cost ~177px
-    // against 128px of remaining slack. The guard's job is catching runaway
-    // bloat, not pinning the page to a byte, so the budget moved with the
-    // content rather than the copy being cut to fit a stale number.
-    expect(compactLayout.height).toBeLessThan(7800)
+    // Budget history, so the number is not mistaken for arbitrary:
+    //   7500  original
+    //   7800  narrative connective copy (a lead for "How it works", which had
+    //         none, plus the handoff sentences), ~177px against 128px of slack
+    //   8300  restoring XrayMobile, ~422px. b2c13540 wrapped AgentXray in
+    //         `hidden md:block` when moving it into the problem band, which
+    //         also killed the component's own mobile variant. The lead has
+    //         promised "the same business, twice" on mobile ever since.
+    // The guard catches runaway bloat; it is not a pin. Move it deliberately.
+    expect(compactLayout.height).toBeLessThan(8300)
 
     const menuButton = page.getByRole('button', { name: 'Open menu' })
     await expect(menuButton).toBeVisible()
