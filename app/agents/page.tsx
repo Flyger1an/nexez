@@ -20,6 +20,7 @@ import {
   buildAgentDistributionLinks,
 } from '../../lib/agent-distribution'
 import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
+import { MARKETPLACE_DISCOVERY_ENABLED } from '../../lib/marketplace-discovery'
 import { safeJsonScript } from '../../lib/safe-json'
 
 export const metadata: Metadata = {
@@ -584,17 +585,18 @@ export default function AgentAccessPage() {
             Ready for the agent web.
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Publish a seller listing, make it visible in the directory, and let agents discover the offer through the
-            clean runtime.
+            Publish a seller listing and let agents discover the offer through the clean runtime.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a href={appUrl('/create')} className="btn-primary h-11 px-5">
               Create a listing
               <ArrowRight className="size-4" />
             </a>
-            <a href="/discovery" className="btn-secondary h-11 px-5">
-              Browse discovery
-            </a>
+            {MARKETPLACE_DISCOVERY_ENABLED ? (
+              <a href="/discovery" className="btn-secondary h-11 px-5">
+                Browse discovery
+              </a>
+            ) : null}
           </div>
         </div>
       </section>

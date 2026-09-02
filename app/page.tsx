@@ -26,9 +26,10 @@ import { LiveAgentFeed } from '../components/home/LiveAgentFeed'
 import { ScrollProgress } from '../components/home/ScrollProgress'
 import { ShaderBackdrop } from '../components/home/ShaderBackdrop'
 import { safeJsonScript } from '../lib/safe-json'
+import { MARKETPLACE_DISCOVERY_ENABLED } from '../lib/marketplace-discovery'
 
-// Marketing homepage: fully static (fast on nexez.ai). The always-live listing
-// directory lives on /discovery.
+// Marketing homepage: fully static (fast on nexez.ai). Human marketplace
+// browsing is added only when the deliberate Discovery launch switch is on.
 const metaTitle = 'Nexez - Commerce for AI agents'
 const metaDescription =
   'Help customers and AI assistants buy from your business while your prices, requirements, and rules stay under your control.'
@@ -777,27 +778,29 @@ export default function NexezHome() {
         </div>
       </section>
 
-      {/* SIMULATOR */}
-      <section
-        id="simulator"
-        className="nx-home-simulator nx-home-static-band nx-home-reveal-band--tint-02 border-b border-border py-20"
-        aria-label="Agent simulator"
-        data-section-name="Agent simulator"
-        style={{ zIndex: 8 }}
-      >
-        <p className="sr-only">Agent simulator</p>
-        <div className="mx-auto max-w-4xl px-5 text-center" data-reveal>
-          <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-            Run a buying scenario before a real buyer does.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Test it before you publish. See what an AI assistant understands, what details are missing, and whether the request can move forward.
-          </p>
-          <div className="mt-8">
-            <SimulatorTeaser />
+      {/* The homepage buyer finder is part of the human Discovery launch. */}
+      {MARKETPLACE_DISCOVERY_ENABLED ? (
+        <section
+          id="simulator"
+          className="nx-home-simulator nx-home-static-band nx-home-reveal-band--tint-02 border-b border-border py-20"
+          aria-label="Agent simulator"
+          data-section-name="Agent simulator"
+          style={{ zIndex: 8 }}
+        >
+          <p className="sr-only">Agent simulator</p>
+          <div className="mx-auto max-w-4xl px-5 text-center" data-reveal>
+            <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+              Run a buying scenario before a real buyer does.
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+              Test it before you publish. See what an AI assistant understands, what details are missing, and whether the request can move forward.
+            </p>
+            <div className="mt-8">
+              <SimulatorTeaser />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* FINAL CTA */}
       <section

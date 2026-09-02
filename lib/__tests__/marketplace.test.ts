@@ -167,5 +167,7 @@ describe('marketplace intelligence', () => {
     expect(insights.totals.checkoutReady).toBe(1)
     expect(insights.categories.find((category) => category.id === 'consumer')?.count).toBe(1)
     expect(insights.intentPresets.length).toBeGreaterThan(0)
+    expect(insights.categories.every((category) => category.href.startsWith('/api/directory'))).toBe(true)
+    expect(insights.intentPresets.every((preset) => preset.href.startsWith('/api/directory'))).toBe(true)
   })
 })

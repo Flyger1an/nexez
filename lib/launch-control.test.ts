@@ -456,14 +456,19 @@ describe('Launch Control operations', () => {
   it('tracks curated launch supply without turning the inventory target into a release blocker', () => {
     const attention = buildMarketplaceCurationCheck({
       available: true,
-      summary: { total: 10, unreviewed: 5, candidate: 2, certified: 0, excluded: 3 },
+      summary: { total: 10, unreviewed: 5, candidate: 2, certified: 0, excluded: 3, certifiedMerchants: 0 },
     })
     const ready = buildMarketplaceCurationCheck({
       available: true,
-      summary: { total: 24, unreviewed: 0, candidate: 1, certified: 20, excluded: 3 },
+      summary: { total: 55, unreviewed: 0, candidate: 1, certified: 52, excluded: 2, certifiedMerchants: 50 },
     })
     expect(attention).toMatchObject({ status: 'attention', required: false })
     expect(ready.status).toBe('ready')
+    expect(ready.evidence).toContain('50 of 50 certified merchants')
+    expect(buildMarketplaceCurationCheck({
+      available: true,
+      summary: { total: 20, unreviewed: 0, candidate: 0, certified: 20, excluded: 0, certifiedMerchants: 20 },
+    }, true).status).toBe('blocked')
     expect(buildMarketplaceCurationCheck({
       available: false,
       summary: { total: 0, unreviewed: 0, candidate: 0, certified: 0, excluded: 0 },

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import { Trophy } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
@@ -6,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
 import { DiscoveryTabs } from '../../components/DiscoveryTabs'
 import { safeJsonScript } from '../../lib/safe-json'
+import { MARKETPLACE_DISCOVERY_ENABLED } from '../../lib/marketplace-discovery'
 
 export const metadata: Metadata = {
   title: 'Agent-Ready Leaderboard',
@@ -23,11 +25,14 @@ export const metadata: Metadata = {
     description:
       'The most agent-ready businesses on Nexez, ranked by readiness score and trust signals - see who leads each industry and how your listing stacks up.',
   },
+  robots: MARKETPLACE_DISCOVERY_ENABLED ? undefined : { index: false, follow: false },
 }
 
 type Props = { searchParams?: Promise<{ industry?: string }> }
 
 export default async function LeaderboardPage({ searchParams }: Props) {
+  if (!MARKETPLACE_DISCOVERY_ENABLED) redirect(marketingUrl('/'))
+
   const industry = (await searchParams)?.industry || ''
 
   const { data } = await supabase

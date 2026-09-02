@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import { ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles, Star, Store } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
@@ -16,6 +17,7 @@ import { FavoriteButton } from '../../components/FavoriteButton'
 import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
 import { DiscoveryTabs } from '../../components/DiscoveryTabs'
 import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
+import { MARKETPLACE_DISCOVERY_ENABLED } from '../../lib/marketplace-discovery'
 
 type DirectoryProps = {
   searchParams: Promise<{ q?: string; type?: string; category?: string; min_readiness?: string; sort?: string; location?: string }>
@@ -55,9 +57,12 @@ export const metadata: Metadata = {
     description:
       'Browse the live directory of agent-ready businesses - search by category, compare readiness scores, and transact with listings built for AI agents.',
   },
+  robots: MARKETPLACE_DISCOVERY_ENABLED ? undefined : { index: false, follow: false },
 }
 
 export default async function DirectoryPage({ searchParams }: DirectoryProps) {
+  if (!MARKETPLACE_DISCOVERY_ENABLED) redirect(marketingUrl('/'))
+
   const { q = '', type = 'all', category: rawCategory = 'all', min_readiness: rawMin = '0', sort: rawSort = '', location: rawLocation = '' } = await searchParams
   const sortMode: 'relevant' | 'trending' | 'new' = rawSort === 'trending' || rawSort === 'new' ? rawSort : 'relevant'
   const cleanQuery = q.trim()

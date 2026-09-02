@@ -275,7 +275,7 @@ export default function PlatformDocsPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               {[
-                ['nexez.ai', 'Learn', 'Public education, discovery, simulator, Trust, and this documentation.'],
+                ['nexez.ai', 'Learn', 'Public education, scanner, Agent Lab, Trust, and this documentation.'],
                 ['app.nexez.ai', 'Control', 'Authenticated listings, settings, integrations, analytics, negotiations, and finance.'],
                 ['nexez.app', 'Act', 'Published listings, storefronts, artifacts, APIs, checkout, negotiations, and buyer orders.'],
               ].map(([host, label, copy]) => (

@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { track } from '@vercel/analytics'
 import { appUrl } from '../lib/site'
+import { MARKETPLACE_DISCOVERY_ENABLED } from '../lib/marketplace-discovery'
 import type {
   PublicSimulatorDecisionStatus,
   PublicSimulatorDecisionStep,
@@ -480,14 +481,18 @@ export function SimulatorTeaser() {
               {result.mode === 'coverage_gap' ? 'List this service' : 'Create an agent-ready listing'}
             </a>
             <a
-              href={result.mode === 'coverage_gap' ? '/discovery' : '/simulator'}
+              href={result.mode === 'coverage_gap' && MARKETPLACE_DISCOVERY_ENABLED ? '/discovery' : '/simulator'}
               onClick={() => trackSimulatorEvent('simulator_cta', {
                 mode: result.mode,
-                cta: result.mode === 'coverage_gap' ? 'explore_marketplace' : 'open_full_simulator',
+                cta: result.mode === 'coverage_gap' && MARKETPLACE_DISCOVERY_ENABLED
+                  ? 'explore_marketplace'
+                  : 'open_full_simulator',
               })}
               className="text-sm text-[var(--signal)] hover:underline"
             >
-              {result.mode === 'coverage_gap' ? 'Explore live marketplace →' : 'Open the full simulator →'}
+              {result.mode === 'coverage_gap' && MARKETPLACE_DISCOVERY_ENABLED
+                ? 'Explore live marketplace →'
+                : 'Open the full simulator →'}
             </a>
           </div>
         </div>

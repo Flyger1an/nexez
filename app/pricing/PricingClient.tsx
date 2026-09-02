@@ -194,8 +194,8 @@ export default function PricingClient() {
               <div className="chip mx-0" style={{ color: 'var(--signal)' }}>Agent-ready checkout on every plan</div>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight">Start selling before you subscribe.</h2>
               <p className="mt-3 text-sm text-[#9CA3AF]">
-                Every published merchant can be discovered and sell through Nexez. Paid plans raise limits and reduce platform
-                fees as sales grow.
+                Every published merchant gets an agent-readable sales surface and can sell through Nexez. Paid plans raise
+                limits and reduce platform fees as sales grow.
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-black/10 p-6">
@@ -204,7 +204,7 @@ export default function PricingClient() {
                 Nexez earns <span className="font-medium text-white">9% only when a transaction is completed through Nexez.</span>
               </p>
               <ul className="mt-5 space-y-3 text-sm text-[#9CA3AF]">
-                <li className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" /> Discovery and checkout are available on Free</li>
+                <li className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" /> Agent-readable publishing and checkout are available on Free</li>
                 <li className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" /> Upgrade for tools, scale, and better economics</li>
               </ul>
             </div>

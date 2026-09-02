@@ -28,6 +28,7 @@ describe('robots()', () => {
     const result = await robots()
     const rules = Array.isArray(result.rules) ? result.rules : [result.rules]
     expect(rules[0]).toMatchObject({ userAgent: '*', allow: '/' })
+    expect(rules[0]).toMatchObject({ disallow: ['/discovery', '/leaderboard'] })
     expect(result.sitemap).toBe(`https://${MARKETING_HOST}/sitemap.xml`)
   })
 
@@ -35,6 +36,7 @@ describe('robots()', () => {
     const result = await robots()
     const rules = Array.isArray(result.rules) ? result.rules : [result.rules]
     expect(rules[0]).toMatchObject({ userAgent: '*', allow: '/' })
+    expect(rules[0]).toMatchObject({ disallow: ['/discovery', '/leaderboard'] })
     expect(JSON.stringify(rules)).toContain('ClaudeBot')
     expect(result.sitemap).toBe(`https://${AGENT_RUNTIME_HOST}/sitemap.xml`)
   })

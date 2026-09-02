@@ -1,6 +1,10 @@
 import type { MetadataRoute } from 'next'
 import { headers } from 'next/headers'
 import { AGENT_RUNTIME_HOST, APP_HOST } from '../lib/site'
+import {
+  MARKETPLACE_DISCOVERY_ENABLED,
+  MARKETPLACE_DISCOVERY_PATHS,
+} from '../lib/marketplace-discovery'
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
   // Host-aware: each crawlable domain points at its own sitemap (the marketing
@@ -24,11 +28,16 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     }
   }
 
+  const hiddenMarketplaceRules = MARKETPLACE_DISCOVERY_ENABLED
+    ? {}
+    : { disallow: [...MARKETPLACE_DISCOVERY_PATHS] }
+
   return {
     rules: [
       {
         userAgent: '*',
         allow: '/',
+        ...hiddenMarketplaceRules,
       },
       {
         // Explicitly welcome the major AI agents/crawlers (core to Nexez's promise).
@@ -54,6 +63,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
           'DuckAssistBot',
         ],
         allow: '/',
+        ...hiddenMarketplaceRules,
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { NextConfig } from "next";
+import { parseMarketplaceDiscoveryEnabled } from "./lib/marketplace-discovery";
 
 function configuredAppOrigin(): string {
   try {
@@ -28,6 +29,9 @@ const nextConfig: NextConfig = {
     root: path.resolve("."),
   },
   async redirects() {
+    const marketplaceDiscoveryEnabled = parseMarketplaceDiscoveryEnabled(
+      process.env.NEXT_PUBLIC_MARKETPLACE_DISCOVERY_ENABLED,
+    );
     return [
       {
         source: "/:path*",
@@ -41,12 +45,24 @@ const nextConfig: NextConfig = {
         destination: "http://127.0.0.1:3000/:path*",
         permanent: false,
       },
-      // Discovery consolidation: the Directory is now the canonical Browse view
-      // at /discovery; the old Marketplace folded into it as the "trending" sort.
-      // 308s preserve SEO equity + the incoming query string. (/api/directory is
-      // a separate API route and is intentionally untouched.)
-      { source: "/directory", destination: "/discovery", permanent: true },
-      { source: "/marketplace", destination: "/discovery?sort=trending", permanent: true },
+      ...(!marketplaceDiscoveryEnabled
+        ? [
+            { source: "/discovery", destination: "/", permanent: false },
+            { source: "/leaderboard", destination: "/", permanent: false },
+          ]
+        : []),
+      // Legacy human marketplace aliases follow the same launch switch. Hidden
+      // redirects are temporary so browsers do not cache them past launch.
+      {
+        source: "/directory",
+        destination: marketplaceDiscoveryEnabled ? "/discovery" : "/",
+        permanent: marketplaceDiscoveryEnabled,
+      },
+      {
+        source: "/marketplace",
+        destination: marketplaceDiscoveryEnabled ? "/discovery?sort=trending" : "/",
+        permanent: marketplaceDiscoveryEnabled,
+      },
       // Agent Lab consolidation: the standalone Competitors dashboard page folded
       // into the simulator as its signed-in "Compare a competitor" lens.
       { source: "/dashboard/competitors", destination: "/simulator?mode=compare", permanent: true },

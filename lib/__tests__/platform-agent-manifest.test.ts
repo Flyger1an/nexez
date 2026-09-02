@@ -47,13 +47,13 @@ describe('Nexez first-party agent evidence', () => {
     expect(JSON.stringify(graph)).toContain('Free and paid plans')
   })
 
-  it('emits a WebSite node with a SearchAction targeting /discovery', () => {
+  it('keeps structured search on the agent API while human discovery is hidden', () => {
     const site = buildPlatformStructuredData()['@graph'].find(
       (node) => node['@type'] === 'WebSite',
     ) as Record<string, any>
     expect(site).toBeTruthy()
     expect(site.potentialAction['@type']).toBe('SearchAction')
-    expect(site.potentialAction.target.urlTemplate).toContain('/discovery?q={search_term_string}')
+    expect(site.potentialAction.target.urlTemplate).toContain('/api/agent-search?q={search_term_string}')
     expect(site.publisher['@id']).toContain('#organization')
   })
 

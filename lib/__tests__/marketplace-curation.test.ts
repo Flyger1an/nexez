@@ -107,8 +107,12 @@ describe('marketplace quality assessment', () => {
 
   it('summarizes review states and quality pressure', () => {
     const assessment = assessMarketplacePage(page(), { now: NOW })
-    const item = (status: MarketplaceCurationQueueItem['decision']['status']): MarketplaceCurationQueueItem => ({
-      page: page({ id: status }),
+    const item = (
+      status: MarketplaceCurationQueueItem['decision']['status'],
+      merchantOwnerId: string = status,
+    ): MarketplaceCurationQueueItem => ({
+      page: page({ id: `${status}-${merchantOwnerId}` }),
+      merchantOwnerId,
       duplicateNameCount: 1,
       assessment,
       decision: {
@@ -132,6 +136,13 @@ describe('marketplace quality assessment', () => {
       excluded: 1,
       blockers: 0,
       warnings: 0,
+      certifiedMerchants: 1,
     })
+
+    expect(summarizeMarketplaceCuration([
+      item('certified', 'merchant-a'),
+      item('certified', 'merchant-a'),
+      item('certified', 'merchant-b'),
+    ]).certifiedMerchants).toBe(2)
   })
 })

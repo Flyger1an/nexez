@@ -90,12 +90,12 @@ export function buildPlatformStructuredData() {
         name: 'Nexez',
         url: marketingUrl('/'),
         publisher: { '@id': `${marketingUrl('/')}#organization` },
-        // /discovery?q= is the site's real search surface.
+        // Keep machine search independent from the human marketplace launch.
         potentialAction: {
           '@type': 'SearchAction',
           target: {
             '@type': 'EntryPoint',
-            urlTemplate: marketingUrl('/discovery?q={search_term_string}'),
+            urlTemplate: agentRuntimeUrl('/api/agent-search?q={search_term_string}'),
           },
           'query-input': 'required name=search_term_string',
         },
