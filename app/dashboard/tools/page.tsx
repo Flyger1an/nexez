@@ -9,7 +9,6 @@ import { CalendlyTool } from '../../../components/tools/CalendlyTool'
 import { PlanGate } from '../../../components/billing/PlanGate'
 import { usePlan } from '../../../components/billing/PlanProvider'
 import { planAllows } from '../../../lib/billing'
-import { MARKETPLACE_DISCOVERY_ENABLED } from '../../../lib/marketplace-discovery'
 
 type OutboundWebhook = {
   id: string
@@ -137,9 +136,7 @@ export default function ToolsPage() {
         <a href="/openapi.json" className="text-[var(--signal)] hover:underline block">OpenAPI spec - full endpoint reference →</a>
         <a href="/agent-pages.json" className="text-[var(--signal)] hover:underline block">Public agent index →</a>
         <a href="/api/directory" className="text-[var(--signal)] hover:underline block">Directory API - readiness &amp; trust signals →</a>
-        {MARKETPLACE_DISCOVERY_ENABLED ? (
-          <a href="/api/public-simulate" className="text-[var(--signal)] hover:underline block">Simulation API - preview how agents read a listing →</a>
-        ) : null}
+        <a href="/api/public-simulate" className="text-[var(--signal)] hover:underline block">Simulation API - preview how agents read a listing →</a>
       </div>
     </div>
   )
