@@ -1,6 +1,35 @@
 # Shopify App Store readiness
 
-Last reviewed against Shopify's public requirements: 2026-08-28.
+Last reviewed against Shopify's public requirements: 2026-09-03.
+
+## Paused-submission recovery: 2026-09-03
+
+Shopify paused review under requirements 4.5.3 and 2.1.4. The reviewer could
+not find the named `Shopify Review Catalog 2` fixture. The existing
+`Shopify Review Catalog` was actively linked to another test store. After the
+reviewer linked a different listing, Shopify did not show the expected Nexez
+publishing destination and every catalog reconciliation failed.
+
+Production evidence at the time of review showed no successful sync for the
+reviewer's shop and five failed attempts ending in `Shopify rejected the catalog
+query.` The previous July and August validation evidence below is historical and
+must not be reused as proof for this resubmission.
+
+- [x] Remove the deprecated app-level current-publication lookup from installed-app sync.
+- [x] Scope installed-app product queries to the exact confirmed channel handle.
+- [x] Verify stored channel IDs against Shopify and repair a stale listing/account mapping.
+- [x] Stop showing `Connected` when channel verification or the first sync is incomplete.
+- [x] Preserve bounded Shopify GraphQL diagnostics in server logs without exposing them to reviewers.
+- [x] Replace ambiguous fallback instructions with one exact prepared listing.
+- [x] Rewrite the screencast plan to show installation, OAuth, listing connection, publication, sync, update, unpublish, and endpoint verification.
+- [ ] Deploy the matching server release and Shopify app version.
+- [ ] Create and publish `Shopify Review Catalog 2` under the reviewer account.
+- [ ] Confirm `Shopify Review Catalog 2` has no active Shopify binding at submission time.
+- [ ] Rehearse the full flow on a separate clean listing and fresh development store.
+- [ ] Record the new continuous English screencast and verify its captions.
+- [ ] Replace stale screenshots that show the old review catalog or sync state.
+- [ ] Update the Partner Dashboard testing instructions and screencast URL.
+- [ ] Resubmit only after the production review flow passes twice from a clean install.
 
 ## Code-backed requirements
 
@@ -22,7 +51,7 @@ Last reviewed against Shopify's public requirements: 2026-08-28.
   HMAC verified, and handled. Nexez stores no Shopify customer data.
 - [x] Contextual full and incremental product-feed webhooks queue bounded background reconciliation.
 - [x] A channel config extension declares the sales channel and its US English specification.
-- [x] OAuth requests `read_product_listings`, and installed-app imports keep only products published to Nexez.
+- [x] OAuth requests `read_product_listings`, and installed-app imports use the exact Nexez channel handle to keep only products published to that connection.
 - [x] Account linking creates a channel connection and triggers a Shopify full product-feed sync.
 - [x] Catalog reads use the versioned GraphQL Admin API, not the legacy REST Admin API.
 - [x] Requested scopes are limited to `read_products,read_product_listings,write_app_proxy`.
@@ -73,7 +102,7 @@ Shopify-origin purchase around Shopify checkout.
 
 ## Partner Dashboard and listing work
 
-Validation evidence from 2026-07-13:
+Historical validation evidence from 2026-07-13, not valid for the current resubmission:
 
 - Shopify CLI `app build` passed the production config and theme-extension checks.
 - The full suite passed after the relink work: 254 test files, 1,971 tests. Lint,
@@ -112,6 +141,7 @@ Validation evidence from 2026-07-13:
   account, choose listing, publish products, sync catalog, enable app embed, and
   inspect the HTTP 200 agent endpoint.
 - [ ] Provide durable review credentials with access to the complete feature set.
+- [ ] Create the exact unbound `Shopify Review Catalog 2` fixture named in the private instructions.
 - [ ] Run the Partner Dashboard automated quality checks and mandatory-webhook test.
 - [ ] Test fresh install, uninstall, reinstall, token refresh, link expiry, webhook
   sync, product deletion, and mobile admin. Manual sync and theme activation are
@@ -129,4 +159,4 @@ npx @shopify/cli app deploy
 ```
 
 Release the generated version only after the matching Nexez server deployment is
-READY and migration `20260828210519_shopify_sales_channel_billing.sql` is applied.
+READY and migration `20260828210659_shopify_sales_channel_billing.sql` is applied.

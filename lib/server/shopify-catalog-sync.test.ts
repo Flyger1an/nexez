@@ -27,6 +27,7 @@ const pendingJob: {
   shop_domain: string
   owner_id: string | null
   page_id: string | null
+  channel_handle: string | null
   catalog_sync_pending_at: string
   catalog_sync_attempted_at: string | null
   catalog_sync_attempts: number
@@ -36,6 +37,7 @@ const pendingJob: {
   shop_domain: 'demo.myshopify.com',
   owner_id: 'owner-1',
   page_id: 'page-1',
+  channel_handle: 'nexez-page1',
   catalog_sync_pending_at: '2026-07-13T12:00:00.000Z',
   catalog_sync_attempted_at: null,
   catalog_sync_attempts: 0,
@@ -98,6 +100,8 @@ describe('Shopify catalog sync queue', () => {
         pageId: 'page-1',
         generation: 3,
       },
+      shopifyChannelHandle: 'nexez-page1',
+      trigger: 'background',
     })
     expect(updates.some((u) => u.catalog_sync_attempted_at && u.catalog_sync_attempts === 1)).toBe(true)
     expect(updates.at(-1)).toMatchObject({
@@ -167,6 +171,21 @@ describe('Shopify catalog sync queue', () => {
     expect(result).toMatchObject({ claimed: 1, synced: 0, failed: 1 })
     expect(syncPageIntegration).not.toHaveBeenCalled()
     expect(updates.find((u) => u.catalog_sync_error)?.catalog_sync_pending_at).toBeNull()
+  })
+
+  it('stops a queued sync when the installed channel has not been established', async () => {
+    const updates: any[] = []
+    const result = await processPendingShopifyCatalogSyncs(
+      admin(updates, [{ ...pendingJob, channel_handle: null }]),
+      4,
+    )
+
+    expect(result).toMatchObject({ claimed: 1, synced: 0, failed: 1 })
+    expect(syncPageIntegration).not.toHaveBeenCalled()
+    expect(updates.find((u) => u.catalog_sync_error)).toMatchObject({
+      catalog_sync_pending_at: null,
+      catalog_sync_error: expect.stringMatching(/repair the sales channel/i),
+    })
   })
 
   it('does not claim or sync a job whose mapping transition is active', async () => {

@@ -1,11 +1,21 @@
 # Shopify App Store media
 
-## Ready
+## September 3 review status
+
+The existing connected-home and sync-success captures predate the paused review
+and must not be reused for resubmission. Capture a new set only after the
+channel-scoped sync repair is live and the exact review flow passes on a fresh
+store. The new set must visibly use `Shopify Review Catalog 2`, show
+`Nexez AI discovery` in Shopify publishing controls, and show a current
+successful sync time.
+
+## Icon ready
 
 - `icon-1200x1200.png`: square, text-free Nexez mark for the app icon field.
 
-The files under `final/` are genuine 1600 x 900 captures from the dedicated,
-published `Shopify Review Catalog` and connected development store:
+The files under `final/` are historical 1600 x 900 captures from the former
+`Shopify Review Catalog` connection. Retain them as implementation history, but
+replace them before resubmission:
 
 1. `01-connected-app-home.jpg`: connected listing and catalog status
 2. `02-catalog-sync-success.jpg`: successful sync of 13 active products

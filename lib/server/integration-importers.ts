@@ -226,7 +226,6 @@ type ShopifyProductNode = {
   description: string
   handle: string
   onlineStoreUrl: string | null
-  publishedOnCurrentPublication?: boolean
   variants: { nodes: ShopifyVariantNode[] }
 }
 
@@ -251,7 +250,6 @@ const SHOPIFY_PRODUCTS_QUERY = `
         description
         handle
         onlineStoreUrl
-        publishedOnCurrentPublication
         variants(first: 50) {
           nodes {
             id
@@ -278,6 +276,20 @@ function formatShopifyMoney(amount: string, currencyCode: string): string {
   } catch {
     return `${amount} ${currencyCode}`
   }
+}
+
+function shopifyCatalogSearch(channelHandle?: string): string | null {
+  if (!channelHandle) return 'status:active published_status:published'
+  const normalized = channelHandle.trim().toLowerCase()
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(normalized)) return null
+  return `status:active published_status:${normalized}-published`
+}
+
+function safeShopifyGraphqlErrors(errors: ShopifyCatalogResponse['errors']): string[] {
+  if (!Array.isArray(errors)) return []
+  return errors
+    .slice(0, 4)
+    .map((error) => String(error?.message || 'Unknown Shopify GraphQL error').replace(/\s+/g, ' ').trim().slice(0, 240))
 }
 
 function shopifyProductToOffer(product: ShopifyProductNode, shopDomain: string, currencyCode: string): OfferItem {
@@ -328,10 +340,12 @@ export async function importShopifyOffers(opts: {
   shop: string
   accessToken: string
   limit?: number
-  channelPublishedOnly?: boolean
+  channelHandle?: string
 }): Promise<ProviderOffers> {
   const shopDomain = resolveShopDomain(opts.shop)
   if (!shopDomain) return { ok: false, status: 400, error: 'Invalid Shopify store domain (expected your-store.myshopify.com).' }
+  const catalogSearch = shopifyCatalogSearch(opts.channelHandle)
+  if (!catalogSearch) return { ok: false, status: 400, error: 'The Shopify sales channel identifier is invalid. Reopen the app to repair the connection.' }
   const safeLimit = Math.min(Math.max(1, Number(opts.limit) || 50), 250)
   try {
     const offers: OfferItem[] = []
@@ -346,7 +360,7 @@ export async function importShopifyOffers(opts: {
         headers: { 'X-Shopify-Access-Token': opts.accessToken, 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           query: SHOPIFY_PRODUCTS_QUERY,
-          variables: { first, after, query: 'status:active published_status:published' },
+          variables: { first, after, query: catalogSearch },
         }),
         // The token must never follow a redirect off *.myshopify.com.
       }, 12_000)
@@ -356,14 +370,16 @@ export async function importShopifyOffers(opts: {
       }
       const json = (await res.json()) as ShopifyCatalogResponse
       if (json.errors?.length || !json.data?.products) {
+        console.warn('[shopify-import] catalog query rejected', {
+          shop: shopDomain,
+          channelHandle: opts.channelHandle ?? null,
+          errors: safeShopifyGraphqlErrors(json.errors),
+        })
         return { ok: false, status: 502, error: 'Shopify rejected the catalog query.' }
       }
       currencyCode = String(json.data.shop?.currencyCode || currencyCode).toUpperCase()
       const nodes = Array.isArray(json.data.products.nodes) ? json.data.products.nodes : []
-      const eligibleNodes = opts.channelPublishedOnly
-        ? nodes.filter((product) => product.publishedOnCurrentPublication === true)
-        : nodes
-      offers.push(...eligibleNodes.slice(0, safeLimit - offers.length).map((product) => shopifyProductToOffer(product, shopDomain, currencyCode)))
+      offers.push(...nodes.slice(0, safeLimit - offers.length).map((product) => shopifyProductToOffer(product, shopDomain, currencyCode)))
       const pageInfo = json.data.products.pageInfo
       if (!pageInfo?.hasNextPage) {
         catalogComplete = true
@@ -378,7 +394,7 @@ export async function importShopifyOffers(opts: {
       ok: true,
       offers,
       catalogComplete,
-      note: `${catalogComplete ? 'Imported' : 'Imported the first'} ${offers.length} active ${opts.channelPublishedOnly ? 'Nexez channel' : 'storefront'} products from Shopify in ${currencyCode}.`,
+      note: `${catalogComplete ? 'Imported' : 'Imported the first'} ${offers.length} active ${opts.channelHandle ? 'Nexez channel' : 'storefront'} products from Shopify in ${currencyCode}.`,
     }
   } catch (error) {
     console.error('Shopify import error:', error)
@@ -669,7 +685,7 @@ export async function fetchAcuityTypes(authentication: AcuityAuthentication): Pr
  *  excluded (its import uses the platform key). */
 export type IntegrationIngestInput =
   | { provider: 'calendly'; token: string }
-  | { provider: 'shopify'; shop: string; accessToken: string; limit?: number; channelPublishedOnly?: boolean }
+  | { provider: 'shopify'; shop: string; accessToken: string; limit?: number; channelHandle?: string }
   | { provider: 'square'; accessToken: string }
   | ({ provider: 'acuity' } & AcuityAuthentication)
   | { provider: 'woocommerce'; credentials: WooCommerceCredential }
@@ -692,7 +708,7 @@ export async function importIntegrationOffers(input: IntegrationIngestInput): Pr
         shop: input.shop,
         accessToken: input.accessToken,
         limit: input.limit,
-        channelPublishedOnly: input.channelPublishedOnly,
+        channelHandle: input.channelHandle,
       })
     case 'square': {
       return importSquareOffers(input.accessToken)

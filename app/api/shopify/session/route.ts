@@ -62,23 +62,24 @@ export async function POST(request: Request) {
       status: install.shopify_billing_status ?? (shopifyPartnerBillingConfigured() ? 'checking' : 'attention'),
       verifiedAt: install.shopify_billing_verified_at ?? null,
     }
-    let channel = install.channel_id
-      ? {
-          id: install.channel_id,
-          handle: install.channel_handle,
-          specificationHandle: install.channel_specification_handle,
-          connectedAt: install.channel_connected_at,
-        }
-      : null
+    let channel: Awaited<ReturnType<typeof ensureShopifySalesChannel>> | null = null
+    let channelError: string | null = null
     const credentials = listing
       ? await getShopifyInstallCredentialsByShop(admin, session.shop)
       : null
     if (listing && credentials) {
-      if (!channel) {
+      try {
         channel = await ensureShopifySalesChannel(admin, install, credentials, {
           pageId: listing.id,
           accountName: listing.name || listing.slug,
+          startFullSync: false,
         })
+      } catch (error) {
+        console.error('[shopify-session] sales channel verification failed', {
+          shop: session.shop,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        channelError = 'Shopify could not verify the Nexez sales channel. Use Sync now to repair it.'
       }
       if (shopifyPartnerBillingConfigured()) {
         const verified = await verifyShopifyBilling(admin, install, credentials, returnedPlanHandle)
@@ -90,6 +91,8 @@ export async function POST(request: Request) {
           verifiedAt: verified.verifiedAt,
         }
       }
+    } else if (listing) {
+      channelError = 'Reconnect the Shopify app to repair the sales channel.'
     }
 
     let connectUrl: string | null = null
@@ -106,6 +109,7 @@ export async function POST(request: Request) {
       connectUrl,
       billing,
       channel,
+      channelError,
       themeEditorUrl: `https://${session.shop}/admin/themes/current/editor?context=apps&template=index&activateAppId=${encodeURIComponent(shopifyApiKey())}/agent-ready`,
       storefrontArtifactUrl: `https://${session.shop}/apps/nexez/agent.json`,
       sync: {

@@ -185,14 +185,13 @@ describe('importShopifyOffers', () => {
     expect(r.catalogComplete).toBe(true)
   })
 
-  it('keeps only products published to the installed sales channel when requested', async () => {
-    const product = (id: number, publishedOnCurrentPublication: boolean) => ({
+  it('asks Shopify for only products published to the exact installed sales channel', async () => {
+    const product = (id: number) => ({
       id: `gid://shopify/Product/${id}`,
       title: `Product ${id}`,
       description: '',
       handle: `product-${id}`,
       onlineStoreUrl: `https://acme.myshopify.com/products/product-${id}`,
-      publishedOnCurrentPublication,
       variants: { nodes: [{
         id: `gid://shopify/ProductVariant/${id}`,
         title: 'Default',
@@ -201,25 +200,43 @@ describe('importShopifyOffers', () => {
         sellableOnlineQuantity: 1,
       }] },
     })
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({
       data: {
         shop: { currencyCode: 'USD' },
         products: {
-          nodes: [product(1, true), product(2, false)],
+          nodes: [product(1)],
           pageInfo: { hasNextPage: false, endCursor: null },
         },
       },
-    })))
+    }))
+    vi.stubGlobal('fetch', fetchMock)
 
     const r = await importShopifyOffers({
       shop: 'acme.myshopify.com',
       accessToken: 't',
-      channelPublishedOnly: true,
+      channelHandle: 'nexez-page-1',
     })
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.offers.map((offer) => offer.name)).toEqual(['Product 1'])
     expect(r.note).toContain('Nexez channel products')
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(requestBody.variables.query).toBe('status:active published_status:nexez-page-1-published')
+    expect(requestBody.query).not.toContain('publishedOnCurrentPublication')
+  })
+
+  it('rejects an invalid channel handle before sending credentials upstream', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const r = await importShopifyOffers({
+      shop: 'acme.myshopify.com',
+      accessToken: 't',
+      channelHandle: 'nexez-page-1) OR status:draft',
+    })
+
+    expect(r).toMatchObject({ ok: false, status: 400 })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('marks a limit-truncated Shopify catalog as incomplete', async () => {
@@ -259,6 +276,28 @@ describe('importShopifyOffers', () => {
     const r = await importShopifyOffers({ shop: 'acme.myshopify.com', accessToken: 't' })
     expect(r).toMatchObject({ ok: false, status: 502, upstreamStatus: 401 })
     expect(JSON.stringify(r)).not.toContain('leak')
+  })
+
+  it('logs bounded GraphQL diagnostics without returning the upstream message', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({
+      errors: [{ message: 'Field publishedOnCurrentPublication is unavailable for this channel connection.' }],
+    })))
+
+    const r = await importShopifyOffers({
+      shop: 'acme.myshopify.com',
+      accessToken: 't',
+      channelHandle: 'nexez-page-1',
+    })
+
+    expect(r).toMatchObject({ ok: false, status: 502, error: 'Shopify rejected the catalog query.' })
+    expect(warn).toHaveBeenCalledWith('[shopify-import] catalog query rejected', expect.objectContaining({
+      shop: 'acme.myshopify.com',
+      channelHandle: 'nexez-page-1',
+      errors: [expect.stringContaining('publishedOnCurrentPublication')],
+    }))
+    expect(JSON.stringify(r)).not.toContain('publishedOnCurrentPublication')
+    warn.mockRestore()
   })
 })
 

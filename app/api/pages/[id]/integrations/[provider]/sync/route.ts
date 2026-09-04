@@ -61,6 +61,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       if (!mapping || mapping.ownerId !== access.ownerId || mapping.pageId !== access.pageId) {
         return NextResponse.json({ error: 'Reconnect the Shopify app to this listing before syncing.' }, { status: 409 })
       }
+      if (!install.channel_handle) {
+        return NextResponse.json({ error: 'Open Nexez in Shopify admin to repair the sales channel before syncing.' }, { status: 409 })
+      }
       const credentials = await getShopifyInstallCredentialsByShop(admin, mapping.shop)
       if (!credentials) {
         return NextResponse.json({ error: 'Reconnect the Shopify app to resume catalog sync.' }, { status: 409 })
@@ -68,7 +71,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       const installedResult = await syncPageIntegration(admin, 'shopify', access.pageId, {
         shopifyCredentials: credentials,
         shopifyMapping: mapping,
+        shopifyChannelHandle: install.channel_handle,
         clearShopifyCatalogSyncState: true,
+        trigger: 'manual',
       })
       if (!installedResult.ok) {
         return NextResponse.json({ error: installedResult.error }, { status: installedResult.status })

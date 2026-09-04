@@ -28,7 +28,12 @@ vi.mock('../../../../utils/supabase/admin', () => ({
 
 import { POST } from './route'
 import { verifyShopifySessionToken } from '../../../../lib/server/shopify'
-import { ensureShopifySessionInstall, issueShopifyLinkToken } from '../../../../lib/server/shopify-install'
+import {
+  ensureShopifySessionInstall,
+  getShopifyInstallCredentialsByShop,
+  issueShopifyLinkToken,
+} from '../../../../lib/server/shopify-install'
+import { ensureShopifySalesChannel } from '../../../../lib/server/shopify-channel'
 import { createAdminClient } from '../../../../utils/supabase/admin'
 
 const request = () => new Request('https://app.nexez.ai/api/shopify/session', {
@@ -39,6 +44,8 @@ const request = () => new Request('https://app.nexez.ai/api/shopify/session', {
 describe('POST /api/shopify/session', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getShopifyInstallCredentialsByShop).mockResolvedValue(null)
+    vi.mocked(ensureShopifySalesChannel).mockReset()
     vi.mocked(verifyShopifySessionToken).mockReturnValue({
       shop: 'demo.myshopify.com',
       userId: '42',
@@ -93,15 +100,66 @@ describe('POST /api/shopify/session', () => {
       channel_specification_handle: 'nexez-us',
       channel_connected_at: '2026-07-13T17:00:00Z',
     })
+    vi.mocked(getShopifyInstallCredentialsByShop).mockResolvedValue({
+      shop: 'demo.myshopify.com',
+      accessToken: 'access-token',
+    })
+    vi.mocked(ensureShopifySalesChannel).mockResolvedValue({
+      id: 'gid://shopify/Channel/1',
+      handle: 'nexez-page1',
+      accountId: 'page-1',
+      accountName: 'Demo',
+      specificationHandle: 'nexez-us',
+      connectedAt: '2026-09-03T18:00:00Z',
+    })
 
     const body = await (await POST(request())).json()
     expect(body).toMatchObject({
       state: 'linked',
       listing: { id: 'page-1', name: 'Demo', slug: 'demo' },
       connectUrl: null,
+      channel: { id: 'gid://shopify/Channel/1', handle: 'nexez-page1', accountId: 'page-1' },
+      channelError: null,
       sync: { lastSyncedAt: '2026-07-13T18:00:00Z', pending: false, attempts: 0, error: null },
     })
+    expect(ensureShopifySalesChannel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ channel_id: 'gid://shopify/Channel/1' }),
+      { shop: 'demo.myshopify.com', accessToken: 'access-token' },
+      { pageId: 'page-1', accountName: 'Demo', startFullSync: false },
+    )
     expect(issueShopifyLinkToken).not.toHaveBeenCalled()
+  })
+
+  it('returns an attention state instead of trusting a stale stored channel id', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(createSupabaseMock((ctx) => ({
+      data: ctx.table === 'pages' ? { id: 'page-1', name: 'Demo', slug: 'demo' } : null,
+      error: null,
+    })) as any)
+    vi.mocked(ensureShopifySessionInstall).mockResolvedValue({
+      shop_domain: 'demo.myshopify.com',
+      owner_id: 'owner-1',
+      page_id: 'page-1',
+      scope: 'read_products,write_app_proxy',
+      uninstalled_at: null,
+      channel_id: 'gid://shopify/Channel/stale',
+    })
+    vi.mocked(getShopifyInstallCredentialsByShop).mockResolvedValue({
+      shop: 'demo.myshopify.com',
+      accessToken: 'access-token',
+    })
+    vi.mocked(ensureShopifySalesChannel).mockRejectedValueOnce(new Error('Channel no longer exists'))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const body = await (await POST(request())).json()
+
+    expect(body).toMatchObject({
+      state: 'linked',
+      channel: null,
+      channelError: expect.stringMatching(/could not verify/i),
+    })
+    expect(body.channel?.id).not.toBe('gid://shopify/Channel/stale')
+    error.mockRestore()
   })
 
   it('fails closed while a mapping lifecycle transition is still finishing', async () => {
