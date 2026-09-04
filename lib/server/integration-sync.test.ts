@@ -154,6 +154,7 @@ describe('syncPageIntegration', () => {
     const r = await syncPageIntegration(admin(), 'shopify', 'pg1', {
       shopifyCredentials: credentials,
       shopifyMapping: mapping,
+      shopifyChannelHandle: 'nexez-pg1',
       clearShopifyCatalogSyncState: true,
     })
     expect(r).toMatchObject({ ok: true, provider: 'shopify', imported: 1, availabilitySynced: false })
@@ -171,7 +172,7 @@ describe('syncPageIntegration', () => {
       shop: 'oauth-shop.myshopify.com',
       accessToken: 'oauth-token',
       limit: 250,
-      channelPublishedOnly: true,
+      channelHandle: 'nexez-pg1',
     })
   })
 
@@ -186,6 +187,19 @@ describe('syncPageIntegration', () => {
     expect(h.pagesUpdate).toBeNull()
   })
 
+  it('refuses an installed sync without the exact channel handle', async () => {
+    const mapping = { shop: 'oauth.myshopify.com', ownerId: 'owner-1', pageId: 'pg1', generation: 7 }
+
+    const result = await syncPageIntegration(admin(), 'shopify', 'pg1', {
+      shopifyCredentials: { shop: mapping.shop, accessToken: 'oauth-token' },
+      shopifyMapping: mapping,
+    })
+
+    expect(result).toMatchObject({ ok: false, status: 409 })
+    expect((result as { error: string }).error).toMatch(/sales channel needs to be repaired/i)
+    expect(h.importInput).toBeNull()
+  })
+
   it('rejects an in-flight installed sync after a relink generation wins the race', async () => {
     h.shopifyCreds = null
     h.imported = { ok: true, offers: [shopOffer()], note: 'Imported 1' }
@@ -195,6 +209,7 @@ describe('syncPageIntegration', () => {
     const result = await syncPageIntegration(admin(), 'shopify', 'pg1', {
       shopifyCredentials: { shop: mapping.shop, accessToken: 'oauth-token' },
       shopifyMapping: mapping,
+      shopifyChannelHandle: 'nexez-pg1',
     })
 
     expect(result).toMatchObject({ ok: false, status: 409 })

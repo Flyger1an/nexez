@@ -1,260 +1,288 @@
 1
-00:00:00,000 --> 00:00:03,595
-Nexez Agent-Ready makes a Shopify catalog legible to AI
+00:00:00,000 --> 00:00:06,830
+This is a complete, fresh
+installation of Nexez Agent-Ready on
 
 2
-00:00:03,595 --> 00:00:07,588
-agents while keeping the merchant's storefront and
-checkout in control.
+00:00:06,830 --> 00:00:13,660
+a Shopify review store. I
+am starting on Shopify's installation
 
 3
-00:00:07,588 --> 00:00:11,183
-This walkthrough uses a dedicated development store and
-the
+00:00:13,660 --> 00:00:20,490
+screen before the app has
+access to the store. The
 
 4
-00:00:11,183 --> 00:00:14,777
-prepared Shopify Review Catalog. Reviewer credentials
-are supplied privately
+00:00:20,490 --> 00:00:27,320
+app requests read products, read
+product listings, and write app
 
 5
-00:00:14,777 --> 00:00:18,372
-in the app submission, so no password or sensitive
+00:00:27,320 --> 00:00:34,151
+proxy. It does not request
+customer or order data. I
 
 6
-00:00:18,372 --> 00:00:21,168
-account data appears on screen. After installation,
+00:00:34,151 --> 00:00:40,981
+will select Install now. Shopify
+opens the newly installed embedded
 
 7
-00:00:21,168 --> 00:00:24,762
-the merchant opens Nexez Agent-Ready directly inside
-Shopify admin.
+00:00:40,981 --> 00:00:47,811
+app. The status says Account
+link needed because this store
 
 8
-00:00:24,762 --> 00:00:27,558
-The embedded home shows the connected store,
+00:00:47,811 --> 00:00:54,641
+has not been connected to
+a Nexez account or listing.
 
 9
-00:00:27,558 --> 00:00:31,152
-the selected Nexez listing, and the latest catalog sync.
+00:00:54,641 --> 00:01:01,471
+I will select Continue to
+Nexez. This user-initiated handoff opens
 
 10
-00:00:31,152 --> 00:00:34,747
-From one clear workspace, the merchant can change the
+00:01:01,471 --> 00:01:08,301
+the secure account-link flow outside
+the embedded frame. I am
 
 11
-00:00:34,747 --> 00:00:37,942
-destination listing, refresh products, open the theme
-integration,
+00:01:08,301 --> 00:01:15,131
+signing in with the private
+reviewer credentials supplied in the
 
 12
-00:00:37,942 --> 00:00:41,137
-or inspect the same endpoint that agents receive.
+00:01:15,131 --> 00:01:21,961
+app submission. The listing picker
+shows the exact prepared listing
 
 13
-00:00:41,137 --> 00:00:44,732
-Connecting a store is always an explicit merchant
-action.
+00:01:21,961 --> 00:01:28,792
+named Shopify Review Catalog 2.
+I will select that listing
 
 14
-00:00:44,732 --> 00:00:47,927
-The merchant chooses one of their Nexez listings,
+00:01:28,792 --> 00:01:35,622
+and confirm Connect this listing.
+This choice is explicit, and
 
 15
-00:00:47,927 --> 00:00:51,521
-then confirms the connection. Nexez does not silently
-attach
+00:01:35,622 --> 00:01:42,452
+the app will not silently
+select another listing. I am
 
 16
-00:00:51,521 --> 00:00:55,116
-a store to an account or restore a previous
+00:01:42,452 --> 00:01:49,282
+returning to Nexez Agent-Ready in
+Shopify admin. The Sales channel
 
 17
-00:00:55,116 --> 00:00:58,710
-listing after an uninstall. One Shopify store can be
+00:01:49,282 --> 00:01:56,112
+card now confirms the Shopify
+channel connection for Shopify Review
 
 18
-00:00:58,710 --> 00:01:01,506
-active on a listing at a time,
+00:01:56,112 --> 00:02:02,942
+Catalog 2. Nexez checks the
+live Shopify channel instead of
 
 19
-00:01:01,506 --> 00:01:04,302
-which keeps catalog ownership and attribution clear.
+00:02:02,942 --> 00:02:09,772
+treating a saved database identifier
+as proof that the connection
 
 20
-00:01:04,302 --> 00:01:07,896
-Nexez is a Shopify sales channel. Catalog sync imports
+00:02:09,772 --> 00:02:16,602
+still exists. Next I will
+select Open products. In Shopify's
 
 21
-00:01:07,896 --> 00:01:11,491
-the details agents need to compare an offer accurately.
+00:02:16,602 --> 00:02:23,433
+Manage publishing controls, Nexez appears
+as Nexez AI discovery. I
 
 22
-00:01:11,491 --> 00:01:15,085
-That includes product names, descriptions, variants,
-prices, currency, availability,
+00:02:23,433 --> 00:02:30,263
+will publish these two active
+products to that destination and
 
 23
-00:01:15,085 --> 00:01:19,079
-and the original Shopify storefront URL. In this review
-store,
+00:02:30,263 --> 00:02:37,093
+save the change. Shopify remains
+the place where the merchant
 
 24
-00:01:19,079 --> 00:01:21,875
-only products published to Nexez.
+00:02:37,093 --> 00:02:43,923
+decides which products are available
+to Nexez. Back in the
 
 25
-00:01:21,875 --> 00:01:25,469
-A single refresh supports up to two hundred and
+00:02:43,923 --> 00:02:50,753
+embedded app, I will select
+Sync now. The success message
 
 26
-00:01:25,469 --> 00:01:29,064
-fifty products, and a failed refresh preserves the
-existing
+00:02:50,753 --> 00:02:57,583
+reports the exact number of
+active products imported from this
 
 27
-00:01:29,064 --> 00:01:32,658
-catalog instead of replacing it with incomplete data.
-Next,
+00:02:57,583 --> 00:03:04,413
+channel. The latest catalog sync
+time is now visible. Nexez
 
 28
-00:01:32,658 --> 00:01:36,253
-the merchant enables the lightweight Agent-ready
-discovery app embed
+00:03:04,413 --> 00:03:11,243
+scopes this reconciliation to the
+confirmed channel connection, so a
 
 29
-00:01:36,253 --> 00:01:39,847
-in the Shopify theme editor and saves the theme.
+00:03:11,243 --> 00:03:18,074
+product published only to another
+Shopify destination is not imported.
 
 30
-00:01:39,847 --> 00:01:43,442
-The embed publishes discovery links through the store's
-configured
+00:03:18,074 --> 00:03:24,904
+I will open the agent
+endpoint. It returns HTTP 200
 
 31
-00:01:43,442 --> 00:01:47,036
-app proxy path. It does not replace the storefront,
+00:03:24,904 --> 00:03:31,734
+from the store's app proxy
+and contains the two products
 
 32
-00:01:47,036 --> 00:01:51,030
-add a competing checkout, or change the merchant's
-visual theme.
+00:03:31,734 --> 00:03:38,564
+just published. Here is the
+first product in Shopify admin,
 
 33
-00:01:51,030 --> 00:01:54,625
-It gives compatible agents a stable path to the
+00:03:38,564 --> 00:03:45,394
+and here is the same
+product in the endpoint. The
 
 34
-00:01:54,625 --> 00:01:58,219
-structured catalog. Back in Shopify admin, the connected
-state
+00:03:45,394 --> 00:03:52,224
+name, description, variant, price, currency,
+availability, and original Shopify storefront
 
 35
-00:01:58,219 --> 00:02:01,414
-remains available for routine management. Shopify
-contextual product-feed
+00:03:52,224 --> 00:03:59,054
+URL agree. Now I will
+change this product's price in
 
 36
-00:02:01,414 --> 00:02:04,609
-events queue a bounded catalog refresh,
+00:03:59,054 --> 00:04:05,884
+Shopify and save it. I
+will return to the app
 
 37
-00:02:04,609 --> 00:02:08,603
-while the Sync now action gives the merchant immediate
-control.
+00:04:05,884 --> 00:04:12,715
+and run Sync now again.
+The endpoint now shows the
 
 38
-00:02:08,603 --> 00:02:12,597
-The app requests read products, read product listings,
-and write app proxy.
+00:04:12,715 --> 00:04:19,545
+changed price. This demonstrates that
+Shopify remains the source of
 
 39
-00:02:12,597 --> 00:02:16,192
-It does not request or store customer data or
+00:04:19,545 --> 00:04:26,375
+truth and that Nexez replaces
+the synchronized value instead of
 
 40
-00:02:16,192 --> 00:02:19,786
-order data. The resulting Nexez page presents the
-business
+00:04:26,375 --> 00:04:33,205
+retaining stale catalog data. I
+will also remove the second
 
 41
-00:02:19,786 --> 00:02:23,381
-as a concise, agent-readable catalog. The summary
-exposes the
+00:04:33,205 --> 00:04:40,035
+product from Nexez AI discovery
+using Manage publishing. After another
 
 42
-00:02:23,381 --> 00:02:26,975
-best-fit buyer, offer count, service area, and primary
-action.
+00:04:40,035 --> 00:04:46,865
+Sync now, the second product
+is absent from the endpoint
 
 43
-00:02:26,975 --> 00:02:30,170
-The linked agent artifact provides structured product
-data,
+00:04:46,865 --> 00:04:53,695
+and the first product remains.
+Unpublishing from this channel therefore
 
 44
-00:02:30,170 --> 00:02:33,765
-and the public page gives human reviewers a clear
+00:04:53,695 --> 00:05:00,525
+removes only the affected Shopify
+product from Nexez. For storefront
 
 45
-00:02:33,765 --> 00:02:37,359
-view of the same catalog. Open endpoint returns HTTP 200,
+00:05:00,525 --> 00:05:07,356
+discovery, I will open the
+theme editor, enable Agent-ready discovery,
 
 46
-00:02:37,359 --> 00:02:40,954
-and Shopify App Pricing manages the plan. Each product
-preserves
+00:05:07,356 --> 00:05:14,186
+and save the theme. The
+app embed publishes discovery links
 
 47
-00:02:40,954 --> 00:02:44,548
-its Shopify source and shows useful commerce details
-such
+00:05:14,186 --> 00:05:21,016
+through the configured Shopify app
+proxy. It does not replace
 
 48
-00:02:44,548 --> 00:02:48,143
-as variants, pricing, and availability. The primary
-action returns
+00:05:21,016 --> 00:05:27,846
+the merchant's theme or add
+a separate checkout. From the
 
 49
-00:02:48,143 --> 00:02:52,137
-the buyer or agent to the original Shopify product page.
+00:05:27,846 --> 00:05:34,676
+endpoint, I will follow the
+remaining product's action. It opens
 
 50
-00:02:52,137 --> 00:02:55,731
-Nexez does not process the product purchase or divert
+00:05:34,676 --> 00:05:41,506
+the original product page on
+this Shopify storefront. Nexez does
 
 51
-00:02:55,731 --> 00:02:59,326
-it to another cart. Shopify remains the system of
+00:05:41,506 --> 00:05:48,336
+not process the purchase or
+divert the buyer to another
 
 52
-00:02:59,326 --> 00:03:02,920
-record for the product and the place where checkout
+00:05:48,336 --> 00:05:55,166
+cart. Shopify remains the checkout
+and merchant-of-record surface. Finally, Manage
 
 53
-00:03:02,920 --> 00:03:06,515
-is completed. To recap, Nexez Agent-Ready is a Shopify
+00:05:55,166 --> 00:06:01,996
+plan in Shopify opens Shopify
+App Pricing. Plan selection and
 
 54
-00:03:06,515 --> 00:03:10,109
-sales channel for agent discovery. It imports only
-channel-published products,
+00:06:01,996 --> 00:06:08,827
+app charges remain inside Shopify.
+Returning to the embedded home
 
 55
-00:03:10,109 --> 00:03:13,304
-publishes structured discovery artifacts from the
-storefront path,
+00:06:08,827 --> 00:06:15,657
+shows the exact connected listing,
+a Shopify-confirmed sales channel, and
 
 56
-00:03:13,304 --> 00:03:17,298
-keeps changes synchronized, and routes product purchases
-back to Shopify.
+00:06:15,657 --> 00:06:22,487
+the latest successful sync time.
+This completes installation, account linking,
 
 57
-00:03:17,298 --> 00:03:21,292
-The merchant retains control of the listing, storefront,
-customer relationship,
+00:06:22,487 --> 00:06:29,317
+publication, synchronization, storefront discovery, and
+checkout verification from start to
 
 58
-00:03:21,292 --> 00:03:23,689
-and checkout from start to finish.
+00:06:29,317 --> 00:06:30,000
+finish.

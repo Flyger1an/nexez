@@ -6,6 +6,7 @@ import {
   getInstallByShop,
   getShopifyInstallCredentialsByShop,
 } from '../../../../../lib/server/shopify-install'
+import { ensureShopifySalesChannel } from '../../../../../lib/server/shopify-channel'
 import { syncPageIntegration } from '../../../../../lib/server/integration-sync'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/supabase/admin'
 
@@ -29,7 +30,10 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient()
   const install = await getInstallByShop(admin, session.shop)
-  const mapping = install ? activeShopifyInstallMapping(install) : null
+  if (!install) {
+    return json({ error: 'Connect this store to a Nexez listing before syncing.' }, 409)
+  }
+  const mapping = activeShopifyInstallMapping(install)
   if (!mapping) {
     return json({ error: 'Connect this store to a Nexez listing before syncing.' }, 409)
   }
@@ -37,10 +41,26 @@ export async function POST(request: Request) {
   const credentials = await getShopifyInstallCredentialsByShop(admin, session.shop)
   if (!credentials) return json({ error: 'Reconnect the Shopify app to resume catalog sync.' }, 409)
 
+  let channel: Awaited<ReturnType<typeof ensureShopifySalesChannel>>
+  try {
+    channel = await ensureShopifySalesChannel(admin, install, credentials, {
+      pageId: mapping.pageId,
+      startFullSync: false,
+    })
+  } catch (error) {
+    console.error('[shopify-session-sync] sales channel verification failed', {
+      shop: session.shop,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return json({ error: 'Nexez could not verify the Shopify sales channel. Reopen the app and try again.' }, 502)
+  }
+
   const result = await syncPageIntegration(admin, 'shopify', mapping.pageId, {
     shopifyCredentials: credentials,
     shopifyMapping: mapping,
+    shopifyChannelHandle: channel.handle,
     clearShopifyCatalogSyncState: true,
+    trigger: 'manual',
   })
   if (!result.ok) return json({ error: result.error }, result.status)
 

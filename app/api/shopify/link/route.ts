@@ -142,9 +142,10 @@ export async function POST(request: Request) {
         getInstallByShop(admin, shop),
       ])
       if (!linkedInstall) throw new Error('The Shopify installation disappeared after linking.')
-      await ensureShopifySalesChannel(admin, linkedInstall, credentials, {
+      const channel = await ensureShopifySalesChannel(admin, linkedInstall, credentials, {
         pageId,
         accountName: page?.name || page?.slug || 'Nexez catalog',
+        startFullSync: true,
       })
       if (shopifyPartnerBillingConfigured()) {
         await verifyShopifyBilling(admin, linkedInstall, credentials)
@@ -152,7 +153,9 @@ export async function POST(request: Request) {
       const result = await syncPageIntegration(admin, 'shopify', pageId, {
         shopifyCredentials: credentials,
         shopifyMapping: mapping,
+        shopifyChannelHandle: channel.handle,
         clearShopifyCatalogSyncState: true,
+        trigger: 'oauth_callback',
       })
       if (result.ok) {
         const syncedAt = new Date().toISOString()

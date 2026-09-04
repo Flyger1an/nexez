@@ -23,8 +23,18 @@ type GraphqlEnvelope<T> = {
 export type ShopifyChannelConnection = {
   id: string
   handle: string
+  accountId: string
+  accountName: string
   specificationHandle: string
   connectedAt: string
+}
+
+type ShopifyChannelNode = {
+  id: string
+  handle: string
+  accountId: string
+  accountName: string
+  specificationHandle: string
 }
 
 function channelHandle(pageId: string): string {
@@ -69,33 +79,50 @@ function throwUserErrors(operation: string, errors: UserError[] | null | undefin
   throw new Error(`${operation}: ${errors.map((error) => error.message).join(' ')}`)
 }
 
-async function createOrLoadChannel(
+async function channelById(
   credentials: ShopifyInstallCredentials,
-  pageId: string,
-  accountName: string,
-): Promise<{ id: string; handle: string }> {
-  const handle = channelHandle(pageId)
-  const existing = await adminGraphql<{
-    channelByHandle: { id: string; handle: string } | null
-  }>(
+  id: string,
+): Promise<ShopifyChannelNode | null> {
+  const result = await adminGraphql<{ channel: ShopifyChannelNode | null }>(
+    credentials,
+    `query NexezChannel($id: ID!) {
+      channel(id: $id) { id handle accountId accountName specificationHandle }
+    }`,
+    { id },
+  )
+  return result.channel
+}
+
+async function channelByHandle(
+  credentials: ShopifyInstallCredentials,
+  handle: string,
+): Promise<ShopifyChannelNode | null> {
+  const result = await adminGraphql<{ channelByHandle: ShopifyChannelNode | null }>(
     credentials,
     `query NexezChannelByHandle($handle: String!) {
-      channelByHandle(handle: $handle) { id handle }
+      channelByHandle(handle: $handle) { id handle accountId accountName specificationHandle }
     }`,
     { handle },
   )
-  if (existing.channelByHandle) return existing.channelByHandle
+  return result.channelByHandle
+}
 
+async function createChannel(
+  credentials: ShopifyInstallCredentials,
+  pageId: string,
+  accountName: string,
+): Promise<ShopifyChannelNode> {
+  const handle = channelHandle(pageId)
   const created = await adminGraphql<{
     channelCreate: {
-      channel: { id: string; handle: string } | null
+      channel: ShopifyChannelNode | null
       userErrors: UserError[]
     }
   }>(
     credentials,
     `mutation NexezChannelCreate($input: ChannelCreateInput!) {
       channelCreate(input: $input) {
-        channel { id handle }
+        channel { id handle accountId accountName specificationHandle }
         userErrors { field message code }
       }
     }`,
@@ -111,6 +138,78 @@ async function createOrLoadChannel(
   throwUserErrors('Shopify could not create the Nexez sales channel', created.channelCreate.userErrors)
   if (!created.channelCreate.channel) throw new Error('Shopify did not return the new sales channel.')
   return created.channelCreate.channel
+}
+
+async function updateChannel(
+  credentials: ShopifyInstallCredentials,
+  channel: ShopifyChannelNode,
+  input: { pageId: string; accountName: string; handle: string },
+): Promise<ShopifyChannelNode> {
+  const updated = await adminGraphql<{
+    channelUpdate: {
+      channel: ShopifyChannelNode | null
+      userErrors: UserError[]
+    }
+  }>(
+    credentials,
+    `mutation NexezChannelUpdate($id: ID!, $input: ChannelUpdateInput!) {
+      channelUpdate(id: $id, input: $input) {
+        channel { id handle accountId accountName specificationHandle }
+        userErrors { field message code }
+      }
+    }`,
+    {
+      id: channel.id,
+      input: {
+        handle: input.handle,
+        specificationHandle: SHOPIFY_CHANNEL_SPECIFICATION_HANDLE,
+        accountId: input.pageId,
+        accountName: input.accountName,
+      },
+    },
+  )
+  throwUserErrors('Shopify could not update the Nexez sales channel', updated.channelUpdate.userErrors)
+  if (!updated.channelUpdate.channel) throw new Error('Shopify did not return the updated sales channel.')
+  return updated.channelUpdate.channel
+}
+
+async function resolveChannel(
+  install: ShopifyInstall,
+  credentials: ShopifyInstallCredentials,
+  input: { pageId: string; accountName?: string },
+): Promise<{ channel: ShopifyChannelNode; changed: boolean }> {
+  const expectedHandle = channelHandle(input.pageId)
+  const expectedAccountName = input.accountName?.trim().slice(0, 120) || null
+  let channel = install.channel_id
+    ? await channelById(credentials, install.channel_id)
+    : null
+
+  if (!channel || channel.handle !== expectedHandle) {
+    const expectedChannel = await channelByHandle(credentials, expectedHandle)
+    if (expectedChannel) channel = expectedChannel
+  }
+
+  if (!channel) {
+    return {
+      channel: await createChannel(credentials, input.pageId, expectedAccountName || 'Nexez catalog'),
+      changed: true,
+    }
+  }
+
+  const needsUpdate = channel.handle !== expectedHandle
+    || channel.specificationHandle !== SHOPIFY_CHANNEL_SPECIFICATION_HANDLE
+    || channel.accountId !== input.pageId
+    || (expectedAccountName !== null && channel.accountName !== expectedAccountName)
+  if (!needsUpdate) return { channel, changed: false }
+
+  return {
+    channel: await updateChannel(credentials, channel, {
+      pageId: input.pageId,
+      accountName: expectedAccountName || channel.accountName,
+      handle: expectedHandle,
+    }),
+    changed: true,
+  }
 }
 
 async function ensureProductFeedSubscriptions(credentials: ShopifyInstallCredentials): Promise<void> {
@@ -163,17 +262,18 @@ export async function ensureShopifySalesChannel(
   admin: Pick<SupabaseClient, 'from'>,
   install: ShopifyInstall,
   credentials: ShopifyInstallCredentials,
-  input: { pageId: string; accountName: string },
+  input: { pageId: string; accountName?: string; startFullSync?: boolean },
 ): Promise<ShopifyChannelConnection> {
-  const channel = install.channel_id && install.channel_handle
-    ? { id: install.channel_id, handle: install.channel_handle }
-    : await createOrLoadChannel(credentials, input.pageId, input.accountName)
+  const resolved = await resolveChannel(install, credentials, input)
+  const channel = resolved.channel
 
-  await ensureProductFeedSubscriptions(credentials)
-  await triggerFullSync(credentials, channel.id)
+  if (resolved.changed || input.startFullSync !== false) {
+    await ensureProductFeedSubscriptions(credentials)
+    await triggerFullSync(credentials, channel.id)
+  }
 
   const connectedAt = new Date().toISOString()
-  const { error } = await admin
+  let save = admin
     .from('shopify_installs')
     .update({
       channel_id: channel.id,
@@ -183,12 +283,23 @@ export async function ensureShopifySalesChannel(
       updated_at: connectedAt,
     })
     .eq('shop_domain', install.shop_domain)
+    .eq('page_id', input.pageId)
+    .is('mapping_transition_token', null)
     .is('uninstalled_at', null)
+  if (Number.isSafeInteger(install.mapping_generation) && Number(install.mapping_generation) > 0) {
+    save = save.eq('mapping_generation', Number(install.mapping_generation))
+  }
+  const { data: saved, error } = await save
+    .select('shop_domain')
+    .maybeSingle<{ shop_domain: string }>()
   if (error) throw new Error('Could not save the Shopify sales channel connection.')
+  if (!saved) throw new Error('The Shopify listing connection changed while the sales channel was being verified.')
 
   return {
     id: channel.id,
     handle: channel.handle,
+    accountId: channel.accountId,
+    accountName: channel.accountName,
     specificationHandle: SHOPIFY_CHANNEL_SPECIFICATION_HANDLE,
     connectedAt,
   }

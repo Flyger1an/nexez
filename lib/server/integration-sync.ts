@@ -65,7 +65,7 @@ async function resolveStoredInput(
         shop: options.shopifyCredentials.shop,
         accessToken: options.shopifyCredentials.accessToken,
         limit: 250,
-        channelPublishedOnly: true,
+        channelHandle: options.shopifyChannelHandle,
       }
     }
     const creds = await getShopifyCreds(pageId)
@@ -102,6 +102,9 @@ export type SyncOptions = {
    * credential. Both are required together; installed sync never falls back to
    * page_secrets after the mapping is inspected. */
   shopifyMapping?: ShopifyInstallMapping
+  /** Exact Shopify channel handle for the installed mapping. Explicit channel
+   * connections must never fall back to an ambiguous app-level publication. */
+  shopifyChannelHandle?: string
   /** Seller-triggered installed-app retries clear retained queue/attention
    * state; a claimed worker keeps ownership of clearing its own queue row. */
   clearShopifyCatalogSyncState?: boolean
@@ -148,6 +151,9 @@ export async function syncPageIntegration(
       )
     ) {
       return { ok: false, status: 409, error: 'The Shopify listing connection changed before sync started.' }
+    }
+    if (hasInstalledCredential && !options.shopifyChannelHandle) {
+      return { ok: false, status: 409, error: 'The Shopify sales channel needs to be repaired before syncing.' }
     }
   }
   const input = await resolveStoredInput(admin, provider, pageId, options)

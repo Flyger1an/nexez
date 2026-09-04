@@ -15,6 +15,9 @@ vi.mock('../../../../../lib/server/shopify-install', () => ({
 vi.mock('../../../../../lib/server/integration-sync', () => ({
   syncPageIntegration: vi.fn(),
 }))
+vi.mock('../../../../../lib/server/shopify-channel', () => ({
+  ensureShopifySalesChannel: vi.fn(),
+}))
 vi.mock('../../../../../utils/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({})),
   hasSupabaseAdminEnv: vi.fn(() => true),
@@ -29,6 +32,7 @@ import {
   getShopifyInstallCredentialsByShop,
 } from '../../../../../lib/server/shopify-install'
 import { syncPageIntegration } from '../../../../../lib/server/integration-sync'
+import { ensureShopifySalesChannel } from '../../../../../lib/server/shopify-channel'
 import { ownerAllows } from '../../../../../lib/server/plan'
 
 const request = () => new Request('https://app.nexez.ai/api/shopify/session/sync', {
@@ -57,6 +61,14 @@ describe('POST /api/shopify/session/sync', () => {
     vi.mocked(getShopifyInstallCredentialsByShop).mockResolvedValue({
       shop: 'demo.myshopify.com',
       accessToken: 'access-token',
+    })
+    vi.mocked(ensureShopifySalesChannel).mockResolvedValue({
+      id: 'gid://shopify/Channel/1',
+      handle: 'nexez-page1',
+      accountId: 'page-1',
+      accountName: 'Demo',
+      specificationHandle: 'nexez-us',
+      connectedAt: '2026-09-03T18:00:00Z',
     })
     vi.mocked(syncPageIntegration).mockResolvedValue({
       ok: true,
@@ -87,8 +99,16 @@ describe('POST /api/shopify/session/sync', () => {
         pageId: 'page-1',
         generation: 4,
       },
+      shopifyChannelHandle: 'nexez-page1',
       clearShopifyCatalogSyncState: true,
+      trigger: 'manual',
     })
+    expect(ensureShopifySalesChannel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ shop_domain: 'demo.myshopify.com' }),
+      { shop: 'demo.myshopify.com', accessToken: 'access-token' },
+      { pageId: 'page-1', startFullSync: false },
+    )
   })
 
   it('keeps installed-app catalog sync available after a downgrade', async () => {
@@ -117,6 +137,16 @@ describe('POST /api/shopify/session/sync', () => {
 
     expect(response.status).toBe(409)
     expect(getShopifyInstallCredentialsByShop).not.toHaveBeenCalled()
+    expect(syncPageIntegration).not.toHaveBeenCalled()
+  })
+
+  it('does not query products when Shopify cannot verify the channel connection', async () => {
+    vi.mocked(ensureShopifySalesChannel).mockRejectedValueOnce(new Error('Channel missing'))
+
+    const response = await POST(request())
+
+    expect(response.status).toBe(502)
+    expect((await response.json()).error).toMatch(/verify the Shopify sales channel/i)
     expect(syncPageIntegration).not.toHaveBeenCalled()
   })
 })

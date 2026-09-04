@@ -67,6 +67,8 @@ vi.mock('../../../../lib/server/shopify-channel', () => ({
   ensureShopifySalesChannel: vi.fn(async () => ({
     id: 'gid://shopify/Channel/1',
     handle: 'nexez-p1',
+    accountId: 'p1',
+    accountName: 'Demo catalog',
     specificationHandle: 'nexez-us',
     connectedAt: '2026-08-28T00:00:00Z',
   })),
@@ -182,7 +184,9 @@ describe('POST /api/shopify/link', () => {
     expect(syncPageIntegration).toHaveBeenCalledWith(expect.anything(), 'shopify', 'p1', {
       shopifyCredentials: state.credentials,
       shopifyMapping: state.mapping,
+      shopifyChannelHandle: 'nexez-p1',
       clearShopifyCatalogSyncState: true,
+      trigger: 'oauth_callback',
     })
     expect(await res.json()).toMatchObject({
       ok: true,

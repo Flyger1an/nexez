@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
     uninstalled_at: null,
     mapping_generation: 5,
     mapping_transition_token: null,
+    channel_handle: 'nexez-pg1',
   } as any,
   installReadError: false,
   installedCredentials: {
@@ -91,6 +92,7 @@ describe('POST /api/pages/[id]/integrations/[provider]/sync', () => {
       uninstalled_at: null,
       mapping_generation: 5,
       mapping_transition_token: null,
+      channel_handle: 'nexez-pg1',
     }
     h.installReadError = false
     h.installedCredentials = { shop: 'demo.myshopify.com', accessToken: 'oauth-token' }
@@ -152,7 +154,9 @@ describe('POST /api/pages/[id]/integrations/[provider]/sync', () => {
           pageId: 'pg1',
           generation: 5,
         },
+        shopifyChannelHandle: 'nexez-pg1',
         clearShopifyCatalogSyncState: true,
+        trigger: 'manual',
       },
     })
   })
@@ -178,6 +182,17 @@ describe('POST /api/pages/[id]/integrations/[provider]/sync', () => {
     expect(response.status).toBe(409)
     expect((await response.json()).error).toMatch(/reconnect the shopify app/i)
     expect(spies.gateIntegrationImport).not.toHaveBeenCalled()
+    expect(h.syncArgs).toBeNull()
+  })
+
+  it('requires a confirmed channel handle for an installed-app sync', async () => {
+    h.install = { ...h.install, channel_handle: null }
+
+    const response = await POST(request(), context('shopify'))
+
+    expect(response.status).toBe(409)
+    expect((await response.json()).error).toMatch(/repair the sales channel/i)
+    expect(spies.getShopifyInstallCredentialsByShop).not.toHaveBeenCalled()
     expect(h.syncArgs).toBeNull()
   })
 

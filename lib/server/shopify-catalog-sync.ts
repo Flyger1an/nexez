@@ -24,6 +24,7 @@ type CatalogSyncJob = {
   shop_domain: string
   owner_id: string | null
   page_id: string | null
+  channel_handle: string | null
   catalog_sync_pending_at: string
   catalog_sync_attempted_at: string | null
   catalog_sync_attempts: number | null
@@ -72,7 +73,7 @@ export async function queueShopifyCatalogSync(
 async function loadPendingJobs(admin: Pick<SupabaseClient, 'from'>, limit: number): Promise<CatalogSyncJob[]> {
   const { data, error } = await admin
     .from('shopify_installs')
-    .select('shop_domain, owner_id, page_id, catalog_sync_pending_at, catalog_sync_attempted_at, catalog_sync_attempts, mapping_generation, mapping_transition_token')
+    .select('shop_domain, owner_id, page_id, channel_handle, catalog_sync_pending_at, catalog_sync_attempted_at, catalog_sync_attempts, mapping_generation, mapping_transition_token')
     .is('uninstalled_at', null)
     .is('mapping_transition_token', null)
     .not('page_id', 'is', null)
@@ -205,6 +206,18 @@ export async function processPendingShopifyCatalogSyncs(
         run.failed += 1
         continue
       }
+      if (!job.channel_handle) {
+        await failJob(
+          admin,
+          job,
+          'Open Nexez in Shopify admin to repair the sales channel before syncing.',
+          attemptedAt,
+          attemptedAt,
+          false,
+        )
+        run.failed += 1
+        continue
+      }
       // Webhook-driven refresh is part of the installed Shopify App Store
       // connector. It remains available on every plan; manually supplied
       // Shopify credentials continue to use the Pro-gated import routes.
@@ -223,6 +236,8 @@ export async function processPendingShopifyCatalogSyncs(
           pageId: job.page_id,
           generation: job.mapping_generation,
         },
+        shopifyChannelHandle: job.channel_handle,
+        trigger: 'background',
       })
       const completedAt = new Date().toISOString()
       if (result.ok) {
