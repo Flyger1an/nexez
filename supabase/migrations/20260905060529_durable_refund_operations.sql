@@ -1,5 +1,10 @@
 -- A refund is an immutable user operation. Keep unresolved operations reserved
 -- until Stripe proves their outcome; never mint a new key for an uncertain retry.
+-- Fresh Supabase projects no longer guarantee historical default table grants.
+-- Declare the server writer's existing contract explicitly; client grants stay
+-- unchanged and all new refund operations remain service-only.
+grant select, insert, update on public.checkout_orders, public.agent_negotiations to service_role;
+
 create table public.refund_operations (
   id uuid primary key,
   owner_id uuid not null references auth.users(id) on delete cascade,
