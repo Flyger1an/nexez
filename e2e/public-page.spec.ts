@@ -104,6 +104,87 @@ test.describe('public surface', () => {
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
 
+  test('the learn library survives a 320px viewport and its shelves stay navigable', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(String(error)))
+
+    await page.setViewportSize({ width: 320, height: 568 })
+    await page.goto('/learn', { waitUntil: 'domcontentloaded' })
+
+    // The three things the hub rebuild added, in the order a stranger meets them.
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(page.getByText('Original research')).toBeVisible()
+    await expect(page.getByText('Start here')).toBeVisible()
+
+    // Deliberately no height budget here, unlike the homepage. This page grows by
+    // one card every time we publish, so a height pin would fail on a schedule and
+    // be raised without thought, which is worse than not having one.
+    for (const width of [320, 360, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 })
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+      expect(overflow, `horizontal overflow at ${width}px`).toBeLessThanOrEqual(1)
+    }
+
+    // The category filter is the element most likely to introduce a sideways
+    // scroller: `.platform-tablist` scrolls by default and only the `-grid`
+    // variant wraps. This is the check that catches losing that class.
+    const sidewaysScrollers = await page.evaluate(() => Array.from(document.querySelectorAll('main *'))
+      .filter((element) => {
+        const htmlElement = element as HTMLElement
+        const overflowX = getComputedStyle(htmlElement).overflowX
+        return ['auto', 'scroll'].includes(overflowX) && htmlElement.scrollWidth > htmlElement.clientWidth + 1
+      })
+      .map((element) => element.className))
+    expect(sidewaysScrollers).toEqual([])
+
+    // Filtering is link based and lives in the URL, so it has to work as navigation.
+    await page.setViewportSize({ width: 320, height: 568 })
+    // Scope to the filter, not the page: the featured card carries its category as
+    // text too, so an unscoped match opens the article instead of filtering.
+    const filter = page.getByRole('navigation', { name: 'Filter guides by category' })
+    await filter.getByRole('link', { name: /Agent readiness/ }).click()
+    await expect(page).toHaveURL(/\/learn\?category=/)
+    await expect(page.getByRole('heading', { name: 'Agent readiness', level: 2 })).toBeVisible()
+    // A filtered view drops the hero, so the shelf is all there is; it must not be empty.
+    await expect(page.getByText('Nothing in this shelf yet')).toHaveCount(0)
+
+    expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
+  })
+
+  test('a learn article offers contents and related reading on a phone', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(String(error)))
+
+    await page.setViewportSize({ width: 320, height: 568 })
+    await page.goto('/learn', { waitUntil: 'domcontentloaded' })
+
+    // Follow whatever is on the shelf rather than pinning a slug, so publishing
+    // does not break the test.
+    await page.locator('main a[href^="/learn/"]').first().click()
+    await expect(page).toHaveURL(/\/learn\/[a-z0-9-]+$/)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toBeVisible()
+
+    // Contents costs one closed line until someone wants it, and its entries are
+    // in-page anchors, which only works because the renderer emits heading ids.
+    const contents = page.locator('details', { hasText: 'On this page' }).first()
+    await expect(contents).not.toHaveAttribute('open', '')
+    await contents.locator('summary').click()
+    await expect(contents).toHaveAttribute('open', '')
+
+    const firstAnchor = contents.locator('a[href^="#"]').first()
+    const fragment = await firstAnchor.getAttribute('href')
+    expect(fragment).toMatch(/^#[a-z0-9-]+$/)
+    await expect(page.locator(`${fragment}`)).toHaveCount(1)
+
+    await expect(page.getByRole('heading', { name: 'Keep reading', level: 2 })).toBeVisible()
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(overflow).toBeLessThanOrEqual(1)
+
+    expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
+  })
+
   test('pricing comparison is keyboard reachable with semantic headings and accessible signal contrast', async ({ page }) => {
     await page.goto('/pricing', { waitUntil: 'domcontentloaded' })
 
