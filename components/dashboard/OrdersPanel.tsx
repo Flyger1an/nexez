@@ -1,5 +1,6 @@
 'use client'
 
+import { requestRefund } from '../../lib/refund-request'
 import { useState } from 'react'
 import { Loader2, RotateCcw } from 'lucide-react'
 import { formatCurrencyAmount, toMajorAmount } from '../../lib/currency'
@@ -63,11 +64,7 @@ export function OrdersPanel({ orders, locale = 'en-US' }: { orders: OrderRow[]; 
     setBusyId(o.id)
     setError('')
     try {
-      const res = await fetch('/api/orders/refund', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ orderId: o.id, ...(partial ? { amount: entered } : {}) }),
-      })
+      const res = await requestRefund('/api/orders/refund', { orderId: o.id, ...(partial ? { amount: entered } : {}) })
       const data = (await res.json().catch(() => ({}))) as { error?: string; status?: string; refundedCents?: number; fully?: boolean }
       if (!res.ok) {
         setError(data.error || 'Refund failed.')
@@ -81,8 +78,8 @@ export function OrdersPanel({ orders, locale = 'en-US' }: { orders: OrderRow[]; 
             : row,
         ),
       )
-    } catch {
-      setError('Refund failed - try again.')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Refund failed - try again.')
     } finally {
       setBusyId(null)
     }

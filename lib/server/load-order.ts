@@ -405,12 +405,13 @@ type SessionLookup = { token: string; status: string } | null
 export async function loadOrderTokenBySession(sessionId: string): Promise<SessionLookup> {
   const clean = (sessionId || '').trim()
   if (!clean || !hasSupabaseAdminEnv()) return null
-  const { data } = await createAdminClient()
+  const { data, error } = await createAdminClient()
     .from('checkout_orders')
-    .select('access_token, access_token_encrypted, status')
+    .select('access_token_encrypted, status')
     .eq('stripe_session_id', clean)
-    .maybeSingle<{ access_token: string | null; access_token_encrypted: string | null; status: string }>()
-  const token = recoverBearerToken({ encrypted: data?.access_token_encrypted, plaintext: data?.access_token })
+    .maybeSingle<{ access_token_encrypted: string | null; status: string }>()
+  if (error) throw new Error('Order return lookup failed', { cause: error })
+  const token = recoverBearerToken({ encrypted: data?.access_token_encrypted })
   if (!token) return null
   return { token, status: data!.status }
 }
@@ -425,13 +426,14 @@ export async function loadBuyerOrderTokenBySession(
   const cleanSession = (sessionId || '').trim()
   const cleanBuyer = (buyerReference || '').trim()
   if (!cleanSession || cleanSession.length > 255 || !cleanBuyer || !hasSupabaseAdminEnv()) return null
-  const { data } = await createAdminClient()
+  const { data, error } = await createAdminClient()
     .from('checkout_orders')
-    .select('access_token, access_token_encrypted, status')
+    .select('access_token_encrypted, status')
     .eq('stripe_session_id', cleanSession)
     .eq('buyer_reference', cleanBuyer)
-    .maybeSingle<{ access_token: string | null; access_token_encrypted: string | null; status: string }>()
-  const token = recoverBearerToken({ encrypted: data?.access_token_encrypted, plaintext: data?.access_token })
+    .maybeSingle<{ access_token_encrypted: string | null; status: string }>()
+  if (error) throw new Error('Buyer order return lookup failed', { cause: error })
+  const token = recoverBearerToken({ encrypted: data?.access_token_encrypted })
   return token ? { token, status: data!.status } : null
 }
 

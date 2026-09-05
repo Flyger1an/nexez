@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import type { CredentialRecord } from '../../../../lib/agent-page'
+import { credentialPathBelongsToPage } from '../../../../lib/credential-path'
 
 // Public viewer for credential documents the owner has explicitly marked public.
 // Only serves a file when its record is public === true AND status === 'verified'
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
   const { data: page } = await admin
     .from('pages')
-    .select('verification_details, is_published')
+    .select('id, owner_id, verification_details, is_published')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -28,11 +29,14 @@ export async function GET(request: Request) {
     ? (docs.find((d: unknown) => d && typeof d === 'object' && (d as CredentialRecord).id === id) as CredentialRecord | undefined)
     : undefined
 
-  if (!rec || rec.public !== true || rec.status !== 'verified' || !rec.file_path) {
+  if (!rec || rec.public !== true || rec.status !== 'verified' || !rec.file_path
+    || !credentialPathBelongsToPage(rec, page.owner_id, page.id)) {
     return NextResponse.json({ error: 'This document is not publicly available.' }, { status: 404 })
   }
 
   const { data: signed, error } = await admin.storage.from('credentials').createSignedUrl(rec.file_path, 600)
   if (error || !signed?.signedUrl) return NextResponse.json({ error: 'Could not generate a link.' }, { status: 500 })
-  return NextResponse.redirect(signed.signedUrl)
+  const response = NextResponse.redirect(signed.signedUrl)
+  response.headers.set('Cache-Control', 'private, no-store')
+  return response
 }

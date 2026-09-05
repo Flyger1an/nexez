@@ -11,7 +11,14 @@ import {
 
 const refs = vi.hoisted(() => ({
   getSession: vi.fn(),
+  storage: new Map<string, string>(),
 }))
+
+vi.mock('@react-native-async-storage/async-storage', () => ({ default: {
+  getItem: async (key: string) => refs.storage.get(key) ?? null,
+  setItem: async (key: string, value: string) => { refs.storage.set(key, value) },
+  removeItem: async (key: string) => { refs.storage.delete(key) },
+} }))
 
 vi.mock('./config', () => ({ config: { apiUrl: 'https://app.nexez.test' } }))
 vi.mock('./supabase', () => ({
@@ -21,6 +28,7 @@ vi.mock('./supabase', () => ({
 describe('mobile platform API contracts', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    refs.storage.clear()
     refs.getSession.mockResolvedValue({ data: { session: { access_token: 'seller-token' } } })
   })
 
@@ -107,7 +115,8 @@ describe('mobile platform API contracts', () => {
     const [url, options] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe(`https://app.nexez.test${path}`)
     expect(options.method).toBe('POST')
-    expect(JSON.parse(String(options.body))).toEqual(body)
+    expect(JSON.parse(String(options.body))).toMatchObject(body)
+    if (path === '/api/orders/refund') expect(JSON.parse(String(options.body)).operationId).toMatch(/^[0-9a-f-]{36}$/)
     expect(new Headers(options.headers).get('authorization')).toBe('Bearer seller-token')
   })
 

@@ -1,7 +1,8 @@
 import 'server-only'
+import { withStripeWebhookLease } from './stripe-webhook-lease'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
-import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+import { createAdminClient } from '../../utils/supabase/admin'
 import { bearerTokenColumns, mintBearerToken } from './bearer-token'
 import { STRIPE_STAGED_SETTLEMENT_KIND } from './staged-settlement-agreement'
 
@@ -77,38 +78,11 @@ export function stagedObligationMatchesCheckout(input: {
   )
 }
 
-async function claimEvent(event: Stripe.Event): Promise<'claimed' | 'duplicate' | 'unavailable'> {
-  if (!hasSupabaseAdminEnv()) return 'unavailable'
-  const { error } = await createAdminClient().from('stripe_webhook_events').insert({
-    event_id: event.id,
-    type: event.type,
-    account: eventAccount(event),
-  })
-  if (!error) return 'claimed'
-  if (error.code === '23505') return 'duplicate'
-  console.warn('[Staged Settlement Webhook] event ledger insert failed:', error.message)
-  return 'unavailable'
-}
-
-async function releaseEvent(eventId: string) {
-  if (!hasSupabaseAdminEnv()) return
-  await createAdminClient().from('stripe_webhook_events').delete().eq('event_id', eventId)
-}
-
 async function failRetry(event: Stripe.Event, message: string) {
-  await releaseEvent(event.id)
   return NextResponse.json({ error: message, type: event.type }, { status: 500 })
 }
 
-export async function handleStagedSettlementStripeEvent(event: Stripe.Event) {
-  const claim = await claimEvent(event)
-  if (claim === 'duplicate') {
-    return NextResponse.json({ received: true, type: event.type, duplicate: true })
-  }
-  if (claim === 'unavailable') {
-    return NextResponse.json({ error: 'Staged settlement persistence is unavailable.', type: event.type }, { status: 503 })
-  }
-
+async function processStagedSettlementStripeEvent(event: Stripe.Event) {
   const session = event.data.object as Stripe.Checkout.Session
   const metadata = session.metadata ?? {}
   const agreementId = metadata.nexez_staged_settlement_id
@@ -210,4 +184,8 @@ export async function handleStagedSettlementStripeEvent(event: Stripe.Event) {
     obligation: obligation.id,
     status: 'paid',
   })
+}
+
+export async function handleStagedSettlementStripeEvent(event: Stripe.Event): Promise<Response> {
+  return withStripeWebhookLease(event, () => processStagedSettlementStripeEvent(event))
 }

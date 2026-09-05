@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createSupabaseMock, type QueryContext } from '../../../../test/supabase-mock'
 
-const { stripeRef } = vi.hoisted(() => ({
+const { stripeRef, refundRef } = vi.hoisted(() => ({
+  refundRef: { execute: vi.fn(), configured: false },
   stripeRef: { refundCreate: (..._a: any[]) => ({}) as any },
 }))
 
@@ -13,6 +14,9 @@ vi.mock('stripe', () => ({
     paymentIntents = { capture: async () => ({}), cancel: async () => ({}) }
   },
 }))
+
+vi.mock('../../../../utils/supabase/admin', () => ({ hasSupabaseAdminEnv: () => refundRef.configured, createAdminClient: () => ({}) }))
+vi.mock('../../../../lib/server/refund-operation', async (original) => ({ ...await original<any>(), executeRefund: refundRef.execute }))
 
 import { POST } from './route'
 import { createClient } from '../../../../utils/supabase/server'
@@ -37,87 +41,38 @@ const post = (body: unknown) =>
     body: JSON.stringify(body),
   })
 
-describe('POST /api/negotiations/escrow - refund', () => {
+describe('POST /api/negotiations/escrow - durable refund', () => {
+  const operationId = '75000000-0000-4000-8000-000000000001'
   beforeEach(() => {
-    vi.clearAllMocks()
-    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_x')
-    stripeRef.refundCreate = vi.fn(async () => ({ id: 're_1', amount: 9000 }))
+    vi.clearAllMocks(); vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_fixture')
+    refundRef.configured = true
+    refundRef.execute.mockResolvedValue(Response.json({ ok: true, operationId }))
+    withNegotiation({ id: 'n1', status: 'complete', currency: 'jpy' })
   })
-  afterEach(() => vi.unstubAllEnvs())
-
-  it('412 when Stripe is not enabled', async () => {
-    vi.stubEnv('STRIPE_SECRET_KEY', '')
-    expect((await POST(post({ negotiationId: 'n1', action: 'refund' }))).status).toBe(412)
+  afterEach(() => { vi.unstubAllEnvs(); refundRef.configured = false })
+  it('binds a refund to the authenticated owner and recorded currency', async () => {
+    expect((await POST(post({ negotiationId: 'n1', action: 'refund', amount: 200, operationId }))).status).toBe(200)
+    expect(refundRef.execute).toHaveBeenCalledWith({ operationId, ownerId: 'owner-1', kind: 'negotiation', targetId: 'n1', currency: 'jpy', amount: 200 })
   })
-
-  it('401 when not authenticated', async () => {
-    vi.mocked(createClient).mockReturnValue(createSupabaseMock(() => ({ data: null }), { user: null }) as any)
-    expect((await POST(post({ negotiationId: 'n1', action: 'refund' }))).status).toBe(401)
+  it('requires a stable operation identity', async () => {
+    expect((await POST(post({ negotiationId: 'n1', action: 'refund' }))).status).toBe(400)
+    expect(refundRef.execute).not.toHaveBeenCalled()
   })
-
-  it('409 when the negotiation is not a completed payment', async () => {
-    withNegotiation({ id: 'n1', status: 'held', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 0, metadata: {} })
-    const res = await POST(post({ negotiationId: 'n1', action: 'refund' }))
-    expect(res.status).toBe(409)
-    expect((stripeRef.refundCreate as any)).not.toHaveBeenCalled()
+  it('requires durable storage before a refund', async () => {
+    refundRef.configured = false
+    expect((await POST(post({ negotiationId: 'n1', action: 'refund', operationId }))).status).toBe(503)
+    expect(refundRef.execute).not.toHaveBeenCalled()
   })
-
-  it('refunds a completed payment IN FULL → status refunded (+ cumulative idempotency key)', async () => {
-    const getUpdate = withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 0, metadata: { foo: 'bar' } })
-    const res = await POST(post({ negotiationId: 'n1', action: 'refund' }))
-    expect(res.status).toBe(200)
-    expect((await res.json())).toMatchObject({ ok: true, status: 'refunded', refundId: 're_1', fully: true, refundedCents: 9000 })
-    const [params, opts] = (stripeRef.refundCreate as any).mock.calls[0]
-    expect(params.payment_intent).toBe('pi_1')
-    expect(params.amount).toBe(9000) // full remainder, explicit amount
-    // gives Nexez's commission back on the refund (seller isn't out the fee)
-    expect(params.refund_application_fee).toBe(true)
-    // keyed on the resulting cumulative total, not just the id
-    expect(opts.idempotencyKey).toBe('refund-n1-9000')
-    const upd = getUpdate()
-    expect(upd.status).toBe('refunded')
-    expect(upd.refunded_cents).toBe(9000)
-    expect(upd.metadata.foo).toBe('bar')
-    expect(upd.metadata.refund).toMatchObject({ id: 're_1', amount_cents: 9000, source: 'owner_action' })
+  it('preserves authentication and owner visibility checks', async () => {
+    withNegotiation(null)
+    expect((await POST(post({ negotiationId: 'n1', action: 'refund', operationId }))).status).toBe(404)
+    withNegotiation(null, null)
+    expect((await POST(post({ negotiationId: 'n1', action: 'refund', operationId }))).status).toBe(401)
+    expect(refundRef.execute).not.toHaveBeenCalled()
   })
-
-  it('PARTIAL refund keeps the deal complete + advances the ledger', async () => {
-    stripeRef.refundCreate = vi.fn(async () => ({ id: 're_p1', amount: 3000 }))
-    const getUpdate = withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 0, metadata: {} })
-    const res = await POST(post({ negotiationId: 'n1', action: 'refund', amount: 30 })) // $30 of $90
-    expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({ ok: true, status: 'complete', fully: false, refundedCents: 3000 })
-    const [params, opts] = (stripeRef.refundCreate as any).mock.calls[0]
-    expect(params.amount).toBe(3000)
-    expect(opts.idempotencyKey).toBe('refund-n1-3000')
-    const upd = getUpdate()
-    expect(upd.status).toBeUndefined() // not flipped - remainder still refundable
-    expect(upd.refunded_cents).toBe(3000)
-    expect(upd.metadata.partial_refund).toMatchObject({ amount_cents: 3000, source: 'owner_action' })
-  })
-
-  it('a SECOND equal-amount partial gets a distinct key (no collision) + closes when it reaches the total', async () => {
-    stripeRef.refundCreate = vi.fn(async () => ({ id: 're_p2', amount: 6000 }))
-    const getUpdate = withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 3000, metadata: { partial_refund: { amount_cents: 3000 } } })
-    const res = await POST(post({ negotiationId: 'n1', action: 'refund', amount: 60 })) // remaining $60 → full
-    expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({ ok: true, status: 'refunded', fully: true, refundedCents: 9000 })
-    const [, opts] = (stripeRef.refundCreate as any).mock.calls[0]
-    expect(opts.idempotencyKey).toBe('refund-n1-9000') // distinct from the first partial's key
-    expect(getUpdate().status).toBe('refunded')
-  })
-
-  it('400 on a non-positive partial amount', async () => {
-    withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 0, metadata: {} })
-    expect((await POST(post({ negotiationId: 'n1', action: 'refund', amount: 0 }))).status).toBe(400)
-    expect((await POST(post({ negotiationId: 'n1', action: 'refund', amount: -5 }))).status).toBe(400)
-  })
-
-  it('409 when the requested partial exceeds the refundable remainder', async () => {
-    withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 6000, metadata: {} })
-    const res = await POST(post({ negotiationId: 'n1', action: 'refund', amount: 50 })) // $50 > $30 remaining
-    expect(res.status).toBe(409)
-    expect((stripeRef.refundCreate as any)).not.toHaveBeenCalled()
+  it.each([0, -1])('rejects an invalid partial amount %s', async (amount) => {
+    expect((await POST(post({ negotiationId: 'n1', action: 'refund', amount, operationId }))).status).toBe(400)
+    expect(refundRef.execute).not.toHaveBeenCalled()
   })
 })
 

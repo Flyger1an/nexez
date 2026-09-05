@@ -23,8 +23,8 @@ describe('planRefund', () => {
     expect(first).toMatchObject({ newTotal: 3000, fully: false })
     expect(second).toMatchObject({ newTotal: 6000, fully: false })
     // Distinct cumulative totals → distinct idempotency keys (the collision fix).
-    expect(refundIdempotencyKey('refund', 'n1', first.ok ? first.newTotal : 0)).not.toBe(
-      refundIdempotencyKey('refund', 'n1', second.ok ? second.newTotal : 0),
+    expect(refundIdempotencyKey('first-confirmed-operation')).not.toBe(
+      refundIdempotencyKey('second-confirmed-operation'),
     )
   })
 
@@ -63,8 +63,9 @@ describe('planRefund', () => {
 })
 
 describe('refundIdempotencyKey', () => {
-  it('namespaces by prefix + id + running total', () => {
-    expect(refundIdempotencyKey('refund-order', 'o1', 5000)).toBe('refund-order-o1-5000')
-    expect(refundIdempotencyKey('refund', 'n1', 6000)).toBe('refund-n1-6000')
+  it('namespaces one stable operation independently of its changing ledger', () => {
+    expect(refundIdempotencyKey('operation-1')).toBe('nexez-refund-operation-1')
+    expect(refundIdempotencyKey('operation-1')).toBe(refundIdempotencyKey('operation-1'))
+    expect(refundIdempotencyKey('operation-2')).not.toBe(refundIdempotencyKey('operation-1'))
   })
 })

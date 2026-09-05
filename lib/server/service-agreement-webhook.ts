@@ -1,4 +1,5 @@
 import 'server-only'
+import { withStripeWebhookLease } from './stripe-webhook-lease'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { calculateApplicationFeeCentsFromBps } from '../stripe-billing'
@@ -86,24 +87,6 @@ function eventAccount(event: Stripe.Event): string | null {
   return (event as Stripe.Event & { account?: string }).account ?? null
 }
 
-async function claimEvent(event: Stripe.Event): Promise<'claimed' | 'duplicate' | 'unavailable'> {
-  if (!hasSupabaseAdminEnv()) return 'unavailable'
-  const { error } = await createAdminClient().from('stripe_webhook_events').insert({
-    event_id: event.id,
-    type: event.type,
-    account: eventAccount(event),
-  })
-  if (!error) return 'claimed'
-  if (error.code === '23505') return 'duplicate'
-  console.warn('[Service Agreement Webhook] event ledger insert failed:', error.message)
-  return 'claimed'
-}
-
-async function releaseEvent(eventId: string) {
-  if (!hasSupabaseAdminEnv()) return
-  await createAdminClient().from('stripe_webhook_events').delete().eq('event_id', eventId)
-}
-
 function metadataFromEvent(event: Stripe.Event): Record<string, string> {
   if (event.type === 'checkout.session.completed') {
     return (event.data.object as Stripe.Checkout.Session).metadata ?? {}
@@ -126,18 +109,18 @@ async function agreementForEvent(event: Stripe.Event): Promise<AgreementRow | nu
   const account = eventAccount(event)
   if (!agreementId || !fingerprint || !account) return null
 
-  const { data } = await createAdminClient()
+  const { data, error } = await createAdminClient()
     .from('service_agreements')
     .select('id, owner_id, page_id, slug, offer_key, offer_name, status, contract_fingerprint, amount_per_period_cents, currency, stripe_connect_account_id, stripe_checkout_session_id, stripe_subscription_id, commission_bps, plan_id_at_purchase, commission_source, buyer_email, buyer_name, buyer_reference, buyer_agent, started_at')
     .eq('id', agreementId)
     .eq('contract_fingerprint', fingerprint)
     .eq('stripe_connect_account_id', account)
     .maybeSingle<AgreementRow>()
+  if (error) throw new Error('Service agreement lookup failed.', { cause: error })
   return data ?? null
 }
 
 async function failRetry(event: Stripe.Event, message: string) {
-  await releaseEvent(event.id)
   return NextResponse.json({ error: message, type: event.type }, { status: 500 })
 }
 
@@ -389,7 +372,7 @@ async function handleSubscriptionLifecycle(event: Stripe.Event, agreement: Agree
   return NextResponse.json({ received: true, type: event.type, recurring: true, agreement: agreement.id, status: state.status })
 }
 
-export async function handleServiceAgreementStripeEvent(
+async function processServiceAgreementStripeEvent(
   event: Stripe.Event,
   stripe: ServiceAgreementStripe,
 ): Promise<Response> {
@@ -401,10 +384,6 @@ export async function handleServiceAgreementStripeEvent(
     return NextResponse.json({ received: true, type: event.type, recurring: false, reason: 'service agreement event missing connected account' })
   }
 
-  const claim = await claimEvent(event)
-  if (claim === 'duplicate') {
-    return NextResponse.json({ received: true, type: event.type, recurring: true, duplicate: true })
-  }
   const agreement = await agreementForEvent(event)
   if (!agreement) {
     return NextResponse.json({ received: true, type: event.type, recurring: false, reason: 'agreement provenance mismatch' })
@@ -423,4 +402,8 @@ export async function handleServiceAgreementStripeEvent(
     return handleSubscriptionLifecycle(event, agreement)
   }
   return NextResponse.json({ received: true, type: event.type, recurring: false })
+}
+
+export async function handleServiceAgreementStripeEvent(event: Stripe.Event, stripe: ServiceAgreementStripe): Promise<Response> {
+  return withStripeWebhookLease(event, () => processServiceAgreementStripeEvent(event, stripe))
 }

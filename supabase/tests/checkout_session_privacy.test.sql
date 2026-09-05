@@ -1,3 +1,6 @@
+-- Run the payment and credential adversarial gauntlet on the fully migrated CI schema.
+\ir high_priority_security.sql
+
 begin;
 
 select plan(11);

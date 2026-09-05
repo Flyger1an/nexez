@@ -1,10 +1,37 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createSupabaseMock, type QueryContext } from '../../../../test/supabase-mock'
+import { createSupabaseMock as baseSupabaseMock, type QueryContext, type QueryHandler } from '../../../../test/supabase-mock'
+
+// Route tests stub the database RPC boundary. The real transaction, ordering,
+// and lease semantics run in high_priority_security.sql and the concurrency test.
+function createSupabaseMock(handler: QueryHandler) {
+  return baseSupabaseMock((context) => {
+    const result = handler(context)
+    if (context.table === 'rpc:nz_claim_stripe_event') return { data: 'claimed', error: null }
+    if (context.table === 'rpc:nz_finish_stripe_event') return { data: true, error: null }
+    if (context.table === 'rpc:nz_apply_payment_reversal') {
+      const { p_kind, p_target_id, p_type, p_object } = context.payload
+      const table = p_kind === 'order' ? 'checkout_orders' : 'agent_negotiations'
+      const read = { table, op: 'select' as const, eqs: { id: p_target_id }, calls: [] }
+      const before = handler(read).data
+      const status = p_type === 'charge.refunded'
+        ? p_object.amount_refunded < p_object.amount ? before.status : 'refunded'
+        : p_type === 'charge.dispute.created' ? 'disputed'
+        : p_type === 'charge.dispute.closed' ? p_object.status === 'won' ? (p_kind === 'order' ? 'dispute_won' : 'complete') : 'refunded'
+        : before.status === 'held' ? 'declined' : before.status
+      handler({ ...read, op: 'update', payload: { status, metadata: { dispute: { reason: p_object.reason } } } })
+      return { data: { changed: true, before, status }, error: null }
+    }
+    return result
+  })
+}
 
 const {
   constructEvent,
   retrieveSubscription,
   retrievePrice,
+  retrieveDispute,
+  retrieveCharge,
+  listRefunds,
   hasSupabaseAdminEnv,
   createAdminClient,
   adminFrom,
@@ -16,6 +43,9 @@ const {
   constructEvent: vi.fn(),
   retrieveSubscription: vi.fn(),
   retrievePrice: vi.fn(),
+  retrieveDispute: vi.fn(),
+  retrieveCharge: vi.fn(),
+  listRefunds: vi.fn(),
   hasSupabaseAdminEnv: vi.fn(),
   createAdminClient: vi.fn(),
   adminFrom: vi.fn(),
@@ -29,6 +59,9 @@ vi.mock('stripe', () => ({
     webhooks = { constructEvent }
     subscriptions = { retrieve: retrieveSubscription }
     prices = { retrieve: retrievePrice }
+    disputes = { retrieve: retrieveDispute }
+    charges = { retrieve: retrieveCharge }
+    refunds = { list: listRefunds }
   },
 }))
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient, hasSupabaseAdminEnv }))
@@ -71,7 +104,16 @@ describe('POST /api/webhooks/stripe', () => {
     // .insert covers the new webhook event-id idempotency ledger (Burst 1).
     adminInsert.mockResolvedValue({ error: null })
     adminFrom.mockReturnValue({ upsert: adminUpsert, insert: adminInsert })
-    createAdminClient.mockReturnValue({ from: adminFrom })
+    createAdminClient.mockReturnValue({ from: adminFrom, rpc: vi.fn(async (name) => ({ data: name === 'nz_claim_stripe_event' ? 'claimed' : true })) })
+    retrieveDispute.mockImplementation(async () => constructEvent.mock.results.at(-1)?.value.data.object)
+    retrieveCharge.mockImplementation(async (id) => {
+      const snapshot = constructEvent.mock.results.at(-1)?.value.data.object
+      return { ...snapshot, id, amount: snapshot.amount ?? snapshot.amount_refunded ?? 10000, currency: 'usd' }
+    })
+    listRefunds.mockImplementation(async ({ charge }) => ({ data: [{
+      id: 're_fixture', charge, currency: 'usd', status: 'succeeded',
+      amount: constructEvent.mock.results.at(-1)?.value.data.object.amount_refunded ?? 10000,
+    }], has_more: false }))
     planRef.deniedOwners.clear()
     getOwnerPlanIds.mockImplementation(async (_admin: unknown, ownerIds: string[]) => Object.fromEntries(
       ownerIds.map((ownerId) => [ownerId, planRef.deniedOwners.has(ownerId) ? 'free' : 'pro']),
@@ -96,15 +138,26 @@ describe('POST /api/webhooks/stripe', () => {
     expect((await POST(post({ sig: 'bad' }))).status).toBe(401)
   })
 
-  it('200 acknowledges a verified event', async () => {
+  it('200 acknowledges a verified event only after durable processing', async () => {
+    hasSupabaseAdminEnv.mockReturnValue(true)
     vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test')
     constructEvent.mockReturnValue({ type: 'checkout.session.completed', data: { object: {} } })
     const res = await POST(post({ sig: 'good', body: '{"id":"evt_1"}' }))
     expect(res.status).toBe(200)
     expect((await res.json()).received).toBe(true)
   })
+  it('keeps an invoice retryable when its authoritative subscription lookup fails', async () => {
+    hasSupabaseAdminEnv.mockReturnValue(true)
+    vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test')
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    constructEvent.mockReturnValue({ id: 'evt_invoice_failure', type: 'invoice.paid',
+      data: { object: { parent: { subscription_details: { subscription: 'sub_fixture' } } } } })
+    retrieveSubscription.mockRejectedValueOnce(new Error('Provider timeout'))
+    expect((await POST(post({ sig: 'good' }))).status).toBe(503)
+  })
 
   it('verifies against the connected-accounts secret when the account secret fails (multi-endpoint)', async () => {
+    hasSupabaseAdminEnv.mockReturnValue(true)
     vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_account')
     vi.stubEnv('STRIPE_WEBHOOK_SECRET_CONNECT', 'whsec_connect')
     // The connected-account endpoint signs with its OWN secret; the account secret
@@ -263,8 +316,8 @@ describe('POST /api/webhooks/stripe', () => {
       const deletedEventIds: string[] = []
       createAdminClient.mockReturnValue(
         createSupabaseMock((ctx: QueryContext) => {
-          if (ctx.table === 'stripe_webhook_events' && ctx.op === 'delete') {
-            deletedEventIds.push(ctx.eqs.event_id)
+          if (ctx.table === 'rpc:nz_finish_stripe_event' && ctx.payload.p_error) {
+            deletedEventIds.push(ctx.payload.p_event_id)
             return { error: null }
           }
           if (ctx.table === 'billing_subscriptions' && ctx.op === 'upsert') {
@@ -411,7 +464,7 @@ describe('POST /api/webhooks/stripe', () => {
 
     it('charge.refunded → refunded', async () => {
       const getUpd = withNeg({ id: 'n1', status: 'complete', metadata: {} })
-      constructEvent.mockReturnValue({ id: 'evt_r', type: 'charge.refunded', data: { object: { payment_intent: 'pi_1', amount_refunded: 9000 } } })
+      constructEvent.mockReturnValue({ id: 'evt_r', type: 'charge.refunded', data: { object: { id: 'ch_fixture', payment_intent: 'pi_1', amount_refunded: 9000 } } })
       const res = await POST(post({ sig: 'good', body: '{}' }))
       expect(res.status).toBe(200)
       expect(getUpd().status).toBe('refunded')
@@ -419,7 +472,7 @@ describe('POST /api/webhooks/stripe', () => {
 
     it('charge.dispute.created → disputed', async () => {
       const getUpd = withNeg({ id: 'n1', status: 'complete', metadata: {} })
-      constructEvent.mockReturnValue({ id: 'evt_d', type: 'charge.dispute.created', data: { object: { payment_intent: 'pi_1', reason: 'fraudulent', amount: 9000, status: 'needs_response' } } })
+      constructEvent.mockReturnValue({ id: 'evt_d', type: 'charge.dispute.created', data: { object: { id: 'dp_fixture', payment_intent: 'pi_1', reason: 'fraudulent', amount: 9000, status: 'needs_response' } } })
       await POST(post({ sig: 'good', body: '{}' }))
       const upd = getUpd()
       expect(upd.status).toBe('disputed')
@@ -428,12 +481,12 @@ describe('POST /api/webhooks/stripe', () => {
 
     it('charge.dispute.closed lost → refunded, won → complete', async () => {
       const getLost = withNeg({ id: 'n1', status: 'disputed', metadata: {} })
-      constructEvent.mockReturnValue({ id: 'evt_dl', type: 'charge.dispute.closed', data: { object: { payment_intent: 'pi_1', status: 'lost' } } })
+      constructEvent.mockReturnValue({ id: 'evt_dl', type: 'charge.dispute.closed', data: { object: { id: 'dp_fixture', payment_intent: 'pi_1', status: 'lost' } } })
       await POST(post({ sig: 'good', body: '{}' }))
       expect(getLost().status).toBe('refunded')
 
       const getWon = withNeg({ id: 'n1', status: 'disputed', metadata: {} })
-      constructEvent.mockReturnValue({ id: 'evt_dw', type: 'charge.dispute.closed', data: { object: { payment_intent: 'pi_1', status: 'won' } } })
+      constructEvent.mockReturnValue({ id: 'evt_dw', type: 'charge.dispute.closed', data: { object: { id: 'dp_fixture', payment_intent: 'pi_1', status: 'won' } } })
       await POST(post({ sig: 'good', body: '{}' }))
       expect(getWon().status).toBe('complete')
     })
@@ -445,13 +498,13 @@ describe('POST /api/webhooks/stripe', () => {
       expect(getUpd().status).toBe('declined')
     })
 
-    it('no matching negotiation → 200, no change', async () => {
+    it('retries when a reversal arrives before its payment record', async () => {
       hasSupabaseAdminEnv.mockReturnValue(true)
       createAdminClient.mockReturnValue(createSupabaseMock(() => ({ data: null, error: null })) as any)
-      constructEvent.mockReturnValue({ id: 'evt_x', type: 'charge.refunded', data: { object: { payment_intent: 'pi_unknown' } } })
+      constructEvent.mockReturnValue({ id: 'evt_x', type: 'charge.refunded', data: { object: { id: 'ch_fixture', payment_intent: 'pi_unknown' } } })
       const res = await POST(post({ sig: 'good', body: '{}' }))
-      expect(res.status).toBe(200)
-      expect((await res.json()).matched).toBe(false)
+      expect(res.status).toBe(503)
+      expect((await res.json()).error).toContain('not been recorded')
     })
   })
 
@@ -484,7 +537,7 @@ describe('POST /api/webhooks/stripe', () => {
         }) as any,
       )
     }
-    const refundEvent = (id: string) => ({ id, type: 'charge.refunded', account: 'acct_seller', data: { object: { payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
+    const refundEvent = (id: string) => ({ id, type: 'charge.refunded', account: 'acct_seller', data: { object: { id: 'ch_fixture', payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
 
     it('POSTs order_updated (status canceled + refunds) to OpenAI on a full refund', async () => {
       vi.stubEnv('ACP_ORDER_WEBHOOK_URL', 'https://openai.example/orders')
@@ -542,7 +595,7 @@ describe('POST /api/webhooks/stripe', () => {
 
     it('full refund cancels the linked booking', async () => {
       withNeg(linked())
-      constructEvent.mockReturnValue({ id: 'evt_rc', type: 'charge.refunded', data: { object: { payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
+      constructEvent.mockReturnValue({ id: 'evt_rc', type: 'charge.refunded', data: { object: { id: 'ch_fixture', payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
       await POST(post({ sig: 'good', body: '{}' }))
       await drain()
       expect(cancelSpy).toHaveBeenCalledTimes(1)
@@ -551,7 +604,7 @@ describe('POST /api/webhooks/stripe', () => {
 
     it('PARTIAL refund does NOT cancel the booking', async () => {
       withNeg(linked())
-      constructEvent.mockReturnValue({ id: 'evt_rp', type: 'charge.refunded', data: { object: { payment_intent: 'pi_1', amount: 9000, amount_refunded: 4000 } } })
+      constructEvent.mockReturnValue({ id: 'evt_rp', type: 'charge.refunded', data: { object: { id: 'ch_fixture', payment_intent: 'pi_1', amount: 9000, amount_refunded: 4000 } } })
       await POST(post({ sig: 'good', body: '{}' }))
       await drain()
       expect(cancelSpy).not.toHaveBeenCalled()
@@ -559,7 +612,7 @@ describe('POST /api/webhooks/stripe', () => {
 
     it('lost dispute (→ refunded) also cancels the booking', async () => {
       withNeg(linked({ status: 'disputed' }))
-      constructEvent.mockReturnValue({ id: 'evt_dll', type: 'charge.dispute.closed', data: { object: { payment_intent: 'pi_1', status: 'lost' } } })
+      constructEvent.mockReturnValue({ id: 'evt_dll', type: 'charge.dispute.closed', data: { object: { id: 'dp_fixture', payment_intent: 'pi_1', status: 'lost' } } })
       await POST(post({ sig: 'good', body: '{}' }))
       await drain()
       expect(cancelSpy).toHaveBeenCalledTimes(1)
@@ -567,7 +620,7 @@ describe('POST /api/webhooks/stripe', () => {
 
     it('won dispute (→ complete) does NOT cancel', async () => {
       withNeg(linked({ status: 'disputed' }))
-      constructEvent.mockReturnValue({ id: 'evt_dw', type: 'charge.dispute.closed', data: { object: { payment_intent: 'pi_1', status: 'won' } } })
+      constructEvent.mockReturnValue({ id: 'evt_dw', type: 'charge.dispute.closed', data: { object: { id: 'dp_fixture', payment_intent: 'pi_1', status: 'won' } } })
       await POST(post({ sig: 'good', body: '{}' }))
       await drain()
       expect(cancelSpy).not.toHaveBeenCalled()
@@ -575,7 +628,7 @@ describe('POST /api/webhooks/stripe', () => {
 
     it('no linked booking → no cancel attempt', async () => {
       withNeg(linked({ calendly_event_uri: null }))
-      constructEvent.mockReturnValue({ id: 'evt_rn', type: 'charge.refunded', data: { object: { payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
+      constructEvent.mockReturnValue({ id: 'evt_rn', type: 'charge.refunded', data: { object: { id: 'ch_fixture', payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
       await POST(post({ sig: 'good', body: '{}' }))
       await drain()
       expect(cancelSpy).not.toHaveBeenCalled()
@@ -583,7 +636,7 @@ describe('POST /api/webhooks/stripe', () => {
 
     it('already-cancelled booking → skipped (idempotent)', async () => {
       withNeg(linked({ calendly_cancelled_at: '2026-07-08T00:00:00Z' }))
-      constructEvent.mockReturnValue({ id: 'evt_ra', type: 'charge.refunded', data: { object: { payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
+      constructEvent.mockReturnValue({ id: 'evt_ra', type: 'charge.refunded', data: { object: { id: 'ch_fixture', payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
       await POST(post({ sig: 'good', body: '{}' }))
       await drain()
       expect(cancelSpy).not.toHaveBeenCalled()
@@ -638,7 +691,7 @@ describe('POST /api/webhooks/stripe', () => {
           return { data: null, error: null }
         }) as any,
       )
-      constructEvent.mockReturnValue({ id: 'evt_or', type: 'charge.refunded', data: { object: { payment_intent: 'pi_dc', amount_refunded: 5000 } } })
+      constructEvent.mockReturnValue({ id: 'evt_or', type: 'charge.refunded', data: { object: { id: 'ch_fixture', payment_intent: 'pi_dc', amount_refunded: 5000 } } })
       const res = await POST(post({ sig: 'good', body: '{}' }))
       expect(res.status).toBe(200)
       expect(await res.json()).toMatchObject({ order: 'o1', status: 'refunded' })
@@ -669,7 +722,7 @@ describe('POST /api/webhooks/stripe', () => {
       constructEvent.mockReturnValue({
         id: 'evt_order_refund_push',
         type: 'charge.refunded',
-        data: { object: { payment_intent: 'pi_dc', amount: 5000, amount_refunded: 5000 } },
+        data: { object: { id: 'ch_fixture', payment_intent: 'pi_dc', amount: 5000, amount_refunded: 5000 } },
       })
 
       expect((await POST(post({ sig: 'good', body: '{}' }))).status).toBe(200)
@@ -781,7 +834,7 @@ describe('POST /api/webhooks/stripe', () => {
       expect(await res.json()).toMatchObject({ skipped: 'plan not eligible' })
       expect(retrievePrice).not.toHaveBeenCalled()
       expect(contexts.some((ctx) => ctx.table === 'pages')).toBe(false)
-      expect(contexts.some((ctx) => ctx.table === 'stripe_webhook_events' && ctx.op === 'insert')).toBe(true)
+      expect(contexts.some((ctx) => ctx.table === 'rpc:nz_claim_stripe_event')).toBe(true)
     })
 
     it('price.created reaches product-keyed offers via the stripe_product_id fallback', async () => {
@@ -1048,7 +1101,7 @@ describe('POST /api/webhooks/stripe', () => {
       constructEvent.mockReturnValue(piEvent(fullMeta))
       const res = await POST(post({ sig: 'good', body: '{}' }))
       expect(res.status).toBe(500)
-      expect(contexts.some((c) => c.table === 'stripe_webhook_events' && c.op === 'delete')).toBe(true)
+      expect(contexts.some((c) => c.table === 'rpc:nz_finish_stripe_event' && c.payload.p_error)).toBe(true)
     })
   })
 })

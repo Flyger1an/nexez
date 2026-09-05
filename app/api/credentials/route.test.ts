@@ -110,6 +110,15 @@ beforeEach(() => {
   reviewRef.fn = () => ({ status: 'verified', verdict: { reason: 'ok' } })
 })
 
+describe('credential storage authority', () => {
+  it('never deletes another owner file through forged historical metadata', async () => {
+    adminRef.page.verification_details = { docs_provided: [{ id: 'doc-1', file_path: 'other-owner/other-page/doc-1.pdf' }] }
+    expect((await DELETE(delReq('p1', 'doc-1'))).status).toBe(200)
+    expect(adminRef.captured.storageRemoved).toEqual([])
+    expect(adminRef.captured.update.verification_details.docs_provided).toEqual([])
+  })
+})
+
 describe('POST /api/credentials (collaborator-aware)', () => {
   it('401 before parsing multipart when there is no session user', async () => {
     userRef.user = null

@@ -1,26 +1,11 @@
-import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { resolveRequestAuth } from '../../../../lib/server/request-auth'
-import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
-import { toStripeAmount } from '../../../../lib/currency'
-import { planRefund, refundIdempotencyKey } from '../../../../lib/refunds'
+import { executeRefund, validRefundOperationId } from '../../../../lib/server/refund-operation'
 
-/**
- * Owner-initiated refund of a DIRECT checkout order (the negotiation/escrow refund
- * lives in /api/negotiations/escrow). Authenticated owner → RLS confirms the order
- * is theirs + status 'paid' → refund on the connected account WITH
- * refund_application_fee so Nexez's commission comes back too (proportional on a
- * partial). Supports PARTIAL refunds: an optional `amount` (major units, page
- * currency) refunds part of the remainder; omit it to refund the full remainder.
- * The cumulative-refunded ledger (refunded_cents) caps each refund on the remainder
- * and keys idempotency on the running total, so equal-amount partials can't collide
- * (the bug that made partials unsafe). A partial keeps the order 'paid' so the
- * remainder stays refundable; only a full refund flips it to 'refunded'. The
- * charge.refunded webhook reconciles refunded_cents to Stripe's authoritative total.
- * Unlisted /api/* canonicalizes to the app host, so this dashboard action keeps the
- * owner session.
- */
+// Owner-authenticated direct checkout refund. Postgres reserves a stable operation
+// before Stripe is called and serializes every refund against the same order.
 export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, 'order-refund', 20, 60_000, { failClosed: true })
   if (limited) return limited
@@ -34,7 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Order refunds are not enabled on this deployment.' }, { status: 503 })
   }
 
-  const body = (await request.json().catch(() => ({}))) as { orderId?: string; amount?: number }
+  const body = (await request.json().catch(() => ({}))) as { orderId?: string; amount?: number; operationId?: string }
   const orderId = String(body.orderId || '').trim()
   if (!orderId) return NextResponse.json({ error: 'orderId is required.' }, { status: 400 })
   // Optional partial amount, in MAJOR units of the page currency (e.g. 30 = $30).
@@ -60,62 +45,11 @@ export async function POST(request: Request) {
       metadata: Record<string, unknown> | null
     }>()
   if (!order) return NextResponse.json({ error: 'Order not found.' }, { status: 404 })
-  if (order.status !== 'paid') return NextResponse.json({ error: 'Only a paid order can be refunded.' }, { status: 409 })
-  if (!order.stripe_payment_intent_id) {
-    return NextResponse.json({ error: 'This order has no captured payment to refund yet.' }, { status: 409 })
+  if (!validRefundOperationId(body.operationId)) {
+    return NextResponse.json({ error: 'A stable refund operationId (UUID v4) is required.' }, { status: 400 })
   }
-
-  // checkout_orders.amount_cents is already Stripe smallest-unit (session.amount_total),
-  // as is refunded_cents - so the ledger math is a direct subtraction (no conversion).
-  const plan = planRefund({
-    capturedAmount: order.amount_cents ?? 0,
-    alreadyRefunded: order.refunded_cents ?? 0,
-    requestedAmount: hasAmount ? toStripeAmount(body.amount as number, order.currency || 'usd') : null,
+  return executeRefund({
+    operationId: body.operationId, ownerId: user.id, kind: 'order', targetId: order.id,
+    currency: order.currency || 'usd', amount: body.amount,
   })
-  if (!plan.ok) return NextResponse.json({ error: plan.error }, { status: plan.status })
-
-  const stripe = new Stripe(secret)
-  const stripeAccount = order.stripe_connect_account_id || undefined
-  try {
-    const refund = await stripe.refunds.create(
-      { payment_intent: order.stripe_payment_intent_id, amount: plan.refundAmount, refund_application_fee: true },
-      { ...(stripeAccount ? { stripeAccount } : {}), idempotencyKey: refundIdempotencyKey('refund-order', order.id, plan.newTotal) },
-    )
-    const now = new Date().toISOString()
-    const meta = (order.metadata as Record<string, unknown>) || {}
-    const { data: recorded, error: recordError } = await createAdminClient()
-      .from('checkout_orders')
-      .update({
-        // A partial keeps the order 'paid' (remainder still refundable); only a
-        // full refund closes it. refunded_cents is the running cumulative total.
-        ...(plan.fully ? { status: 'refunded' } : {}),
-        refunded_cents: plan.newTotal,
-        updated_at: now,
-        metadata: plan.fully
-          ? { ...meta, refund: { id: refund.id, amount_cents: plan.newTotal, source: 'owner_action', at: now } }
-          : { ...meta, partial_refund: { last_refund_id: refund.id, amount_cents: plan.newTotal, source: 'owner_action', at: now } },
-      })
-      .eq('id', order.id)
-      .select('id, status, refunded_cents')
-      .maybeSingle<{ id: string; status: string; refunded_cents: number }>()
-    if (recordError || !recorded) {
-      return NextResponse.json({
-        error: 'Stripe accepted the refund, but Nexez could not confirm the order ledger update. Retry safely or wait for Stripe reconciliation.',
-        code: 'refund_ledger_pending',
-        refundCommitted: true,
-        refundId: refund.id,
-        refundedCents: plan.newTotal,
-      }, { status: 503 })
-    }
-    return NextResponse.json({
-      ok: true,
-      status: recorded.status,
-      refundId: refund.id,
-      refundedCents: recorded.refunded_cents,
-      fully: plan.fully,
-    })
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'Refund failed.'
-    return NextResponse.json({ error: message }, { status: 502 })
-  }
 }
