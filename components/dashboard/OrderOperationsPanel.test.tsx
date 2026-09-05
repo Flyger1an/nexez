@@ -40,7 +40,7 @@ function props() {
 }
 
 describe('OrderOperationsPanel', () => {
-  beforeEach(() => refs.refresh.mockClear())
+  beforeEach(() => { refs.refresh.mockClear(); localStorage.clear() })
   afterEach(() => vi.unstubAllGlobals())
 
   it('records a fulfillment transition and refreshes server evidence', async () => {
@@ -85,8 +85,9 @@ describe('OrderOperationsPanel', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/orders/refund', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ orderId: ORDER_ID, amount: 12.5 }),
+      body: expect.any(String),
     }))
+    expect(JSON.parse(String((fetchMock.mock.calls as unknown as Array<[unknown, RequestInit]>)[0]?.[1]?.body))).toMatchObject({ orderId: ORDER_ID, amount: 12.5, operationId: expect.any(String) })
     expect(await screen.findByText('$12.50 refund recorded.')).toBeInTheDocument()
   })
 

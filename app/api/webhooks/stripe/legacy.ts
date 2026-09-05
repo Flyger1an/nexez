@@ -36,6 +36,10 @@ import { planAllows } from '../../../../lib/billing'
 import { getOwnerPlanIds } from '../../../../lib/server/plan'
 import { appUrl } from '../../../../lib/site'
 
+import { withStripeWebhookLease } from '../../../../lib/server/stripe-webhook-lease'
+import { settledRefundCharge } from '../../../../lib/server/settled-refund-charge'
+import { subscriptionIdFromInvoice } from '../../../../lib/server/service-agreement'
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
 function metadataNumber(value: string | undefined, options: { integer?: boolean; min?: number; max?: number } = {}): number | null {
@@ -93,22 +97,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid Stripe signature.' }, { status: 401 })
   }
 
-  // Idempotency: record each event id once; a conflict means we already processed it
-  // (Stripe retry / redelivery) so we no-op. Covers escrow + billing handlers below.
-  if (hasSupabaseAdminEnv()) {
-    const ledger = createAdminClient()
-    const { error: ledgerErr } = await ledger
-      .from('stripe_webhook_events')
-      .insert({ event_id: event.id, type: event.type, account: (event as { account?: string }).account ?? null })
-    if (ledgerErr) {
-      if (ledgerErr.code === '23505') {
-        return NextResponse.json({ received: true, type: event.type, duplicate: true }, { status: 200 })
-      }
-      // Don't block processing on a ledger hiccup - log and continue.
-      console.warn('[Stripe Webhook] event ledger insert failed:', ledgerErr.message)
-    }
-  }
+  return withStripeWebhookLease(event, () => processLegacyStripeEvent(event))
+}
 
+async function processLegacyStripeEvent(event: Stripe.Event) {
   // Bi-directional catalog sync: a price changed in Stripe, or a Product moved
   // to a replacement default Price, refresh every
   // offer imported with that stripe_price_id (or, for product-keyed imports,
@@ -127,11 +119,12 @@ export async function POST(request: NextRequest) {
     let ownerId: string | null = null
     const eligibleOwners = new Set<string>()
     if (connectedAccount) {
-      const { data: sub } = await admin
+      const { data: sub, error: subReadError } = await admin
         .from('billing_subscriptions')
         .select('owner_id')
         .eq('stripe_connect_account_id', connectedAccount)
         .maybeSingle<{ owner_id: string }>()
+      if (subReadError) throw new Error('Connected owner lookup failed.', { cause: subReadError })
       if (!sub?.owner_id) {
         return NextResponse.json({ received: true, type: event.type, skipped: 'unknown connected account' }, { status: 200 })
       }
@@ -166,7 +159,6 @@ export async function POST(request: NextRequest) {
           connectedAccount ? { stripeAccount: connectedAccount } : undefined,
         )
       } catch (error) {
-        await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         console.warn('[Stripe Webhook] replacement price lookup failed:', error instanceof Error ? error.message : error)
         return NextResponse.json({ error: 'replacement price lookup failed', type: event.type }, { status: 500 })
       }
@@ -214,7 +206,6 @@ export async function POST(request: NextRequest) {
       }
     }
     if (lookupFailed) {
-      await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
       return NextResponse.json({ error: 'price sync lookup failed', type: event.type }, { status: 500 })
     }
 
@@ -281,7 +272,6 @@ export async function POST(request: NextRequest) {
       }
     }
     if (updateFailed) {
-      await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
       return NextResponse.json({ error: 'price sync update failed', type: event.type }, { status: 500 })
     }
     if (entitlementSkipped > 0) {
@@ -320,7 +310,7 @@ export async function POST(request: NextRequest) {
       // (Legacy escrow sessions carry no nexez_settlement; treat them as holds.)
       const autoSettle = session.metadata?.nexez_settlement === 'auto'
       const expectedSettlementState = autoSettle ? 'auto' : 'approved'
-      const { data: negotiation } = await admin
+      const { data: negotiation, error: negotiationError } = await admin
         .from('agent_negotiations')
         .select('id, status, amount_cents, currency, settlement_state, stripe_checkout_session_id, offer_name, slug, page_id, buyer_agent, status_token_encrypted')
         .eq('id', session.metadata.nexez_negotiation_id)
@@ -338,6 +328,7 @@ export async function POST(request: NextRequest) {
           status_token_encrypted: string | null
         }>()
 
+      if (negotiationError) throw new Error('Escrow settlement lookup failed.', { cause: negotiationError })
       if (!negotiation) {
         return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
       }
@@ -393,7 +384,6 @@ export async function POST(request: NextRequest) {
         console.warn('[Stripe Webhook] escrow settle update failed:', settleErr.message)
         // Release the idempotency claim so Stripe's retry reprocesses this event
         // (the settle update is idempotent), and signal a retry with a non-200.
-        await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'escrow settle failed', type: event.type }, { status: 500 })
       }
       captureEvent('commerce.transaction_settled', {
@@ -523,7 +513,6 @@ export async function POST(request: NextRequest) {
       const { error: orderErr } = await admin.from('checkout_orders').upsert(orderRow, { onConflict: 'stripe_session_id' })
       if (orderErr) {
         console.warn('[Stripe Webhook] checkout_orders upsert failed:', orderErr.message)
-        await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'order persist failed', type: event.type }, { status: 500 })
       }
       captureEvent('commerce.transaction_settled', {
@@ -662,7 +651,6 @@ export async function POST(request: NextRequest) {
     const { error: orderErr } = await admin.from('checkout_orders').upsert(orderRow, { onConflict: 'stripe_payment_intent_id' })
     if (orderErr) {
       console.warn('[Stripe Webhook] ACP/UCP checkout_orders upsert failed:', orderErr.message)
-      await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
       return NextResponse.json({ error: 'order persist failed', type: event.type }, { status: 500 })
     }
     captureEvent('commerce.transaction_settled', {
@@ -756,13 +744,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
     }
     const invoice = event.data.object as Stripe.Invoice
-    const subId = stripeObjectId((invoice as { subscription?: string | { id?: string } | null }).subscription)
+    const subId = subscriptionIdFromInvoice(invoice)
     if (subId && process.env.STRIPE_SECRET_KEY) {
       try {
         const sub = await stripe.subscriptions.retrieve(subId, { expand: ['items.data.price'] })
         return syncBillingSubscription(event, sub)
       } catch (error) {
-        console.warn('[Stripe Webhook] invoice subscription retrieve failed:', error instanceof Error ? error.message : error)
+        throw new Error('Invoice subscription retrieval failed.', { cause: error })
       }
     }
     return NextResponse.json({ received: true, type: event.type, billing: false, reason: 'no subscription on invoice' }, { status: 200 })
@@ -773,6 +761,7 @@ export async function POST(request: NextRequest) {
   // the event-id idempotency ledger above.
   if (
     event.type === 'charge.refunded' ||
+    event.type === 'refund.created' || event.type === 'refund.updated' || event.type === 'refund.failed' ||
     event.type === 'charge.dispute.created' ||
     event.type === 'charge.dispute.closed' ||
     event.type === 'payment_intent.canceled'
@@ -781,13 +770,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
     }
     const admin = createAdminClient()
-    const obj = event.data.object as {
+    let obj = event.data.object as {
       id?: string
       payment_intent?: string | { id?: string } | null
       amount?: number
       amount_refunded?: number
       reason?: string
       status?: string
+      charge?: string | { id?: string } | null
+    }
+    let reversalType: string = event.type
+    if (event.type === 'charge.refunded' || event.type.startsWith('refund.')) {
+      const chargeId = event.type === 'charge.refunded' ? obj.id : typeof obj.charge === 'string' ? obj.charge : obj.charge?.id
+      if (!chargeId) throw new Error('Missing refunded charge identity.')
+      obj = await settledRefundCharge(stripe, chargeId, event.account ? { stripeAccount: event.account } : {})
+      reversalType = 'charge.refunded'
+    }
+    if (event.type === 'charge.dispute.created' || event.type === 'charge.dispute.closed') {
+      if (!obj.id) throw new Error('Missing dispute identity.')
+      obj = await stripe.disputes.retrieve(obj.id, {}, event.account ? { stripeAccount: event.account } : {})
+      reversalType = ['won', 'lost'].includes(obj.status ?? '') ? 'charge.dispute.closed' : 'charge.dispute.created'
     }
     const piId =
       typeof obj.payment_intent === 'string'
@@ -797,7 +799,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
     }
 
-    const { data: neg } = await admin
+    const { data: foundNegotiation, error: negotiationReadError } = await admin
       .from('agent_negotiations')
       .select('id, status, metadata, offer_name, page_id, currency, buyer_agent, slug, buyer_email, status_token_encrypted, calendly_event_uri, calendly_cancelled_at')
       .eq('stripe_payment_intent_id', piId)
@@ -815,17 +817,26 @@ export async function POST(request: NextRequest) {
         calendly_event_uri: string | null
         calendly_cancelled_at: string | null
       }>()
-    if (!neg) {
+    if (negotiationReadError) throw new Error('Negotiation reversal lookup failed.', { cause: negotiationReadError })
+    if (!foundNegotiation) {
       // Not a negotiation - try a direct-checkout ORDER (same PI matching). This is
       // what closes the "direct-checkout disputes/refunds vanish silently" hole.
-      const { data: order } = await admin
+      const { data: foundOrder, error: orderReadError } = await admin
         .from('checkout_orders')
         .select('id, owner_id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token_encrypted, channel, staged_settlement_obligation_id')
         .eq('stripe_payment_intent_id', piId)
         .maybeSingle<{ id: string; owner_id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token_encrypted: string | null; channel: string | null; staged_settlement_obligation_id: string | null }>()
-      if (!order) {
-        return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
+      if (orderReadError) throw new Error('Order reversal lookup failed.', { cause: orderReadError })
+      if (!foundOrder) {
+        // Delivery can precede checkout completion. Keep the event retryable.
+        return NextResponse.json({ error: 'Payment has not been recorded yet.' }, { status: 503 })
       }
+      const { data: applied, error: reversalError } = await admin.rpc('nz_apply_payment_reversal', {
+        p_kind: 'order', p_target_id: foundOrder.id, p_type: reversalType, p_object: obj,
+      })
+      if (reversalError || !applied) throw new Error('Order reversal failed.', { cause: reversalError })
+      if (!applied.changed) return NextResponse.json({ received: true, changed: false, order: foundOrder.id })
+      const order = applied.before as NonNullable<typeof foundOrder>
       const oMeta = (order.metadata as Record<string, unknown>) || {}
       const oNow = new Date().toISOString()
       let oUpdate: Record<string, unknown> | null = null
@@ -833,7 +844,7 @@ export async function POST(request: NextRequest) {
       // Buyer-facing status update (sent to the buyer's captured email). Distinct from
       // the seller notify: we skip dispute_opened (the buyer started it via their bank).
       let oBuyerNotify: { kind: 'refunded' | 'partial_refund' | 'dispute_update'; amountCents: number | null; detail: string | null } | null = null
-      if (event.type === 'charge.refunded') {
+      if (reversalType === 'charge.refunded') {
         // A PARTIAL refund (e.g. from the Stripe dashboard) must NOT mark the order
         // fully refunded - keep it 'paid' so the owner can still refund the remainder
         // in-app; only a full refund flips status. (Stripe never double-refunds.)
@@ -853,10 +864,10 @@ export async function POST(request: NextRequest) {
         } else if (!oMeta.partial_refund) {
           oBuyerNotify = { kind: 'partial_refund', amountCents: obj.amount_refunded ?? null, detail: null }
         }
-      } else if (event.type === 'charge.dispute.created') {
+      } else if (reversalType === 'charge.dispute.created') {
         oUpdate = { status: 'disputed', metadata: { ...oMeta, dispute: { reason: obj.reason ?? null, amount_cents: obj.amount ?? null, at: oNow } } }
         oNotify = { kind: 'dispute_opened', amountCents: obj.amount ?? null, detail: obj.reason ? `Reason: ${obj.reason}` : null }
-      } else if (event.type === 'charge.dispute.closed') {
+      } else if (reversalType === 'charge.dispute.closed') {
         const won = obj.status === 'won'
         oUpdate = { status: won ? 'dispute_won' : 'refunded', metadata: { ...oMeta, dispute_outcome: { result: won ? 'won' : obj.status ?? 'lost', at: oNow } } }
         oNotify = { kind: 'dispute_closed', amountCents: obj.amount ?? null, detail: won ? 'You won - funds retained.' : `Lost (${obj.status ?? 'lost'}) - refunded to the buyer.` }
@@ -869,45 +880,14 @@ export async function POST(request: NextRequest) {
       if (!oUpdate) {
         return NextResponse.json({ received: true, type: event.type, order: order.id, changed: false }, { status: 200 })
       }
-      oUpdate.updated_at = oNow
-      const { error: oErr } = await admin.from('checkout_orders').update(oUpdate).eq('id', order.id)
-      if (oErr) {
-        console.warn('[Stripe Webhook] order reversal update failed:', oErr.message)
-        await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
-        return NextResponse.json({ error: 'order reversal update failed', type: event.type }, { status: 500 })
-      }
-      if (order.staged_settlement_obligation_id) {
-        const stagedUpdate = event.type === 'charge.refunded'
-          ? (obj.amount == null || obj.amount_refunded == null || obj.amount_refunded >= obj.amount
-              ? { status: 'refunded', refunded_at: oNow }
-              : null)
-          : event.type === 'charge.dispute.created'
-            ? { status: 'disputed', disputed_at: oNow }
-            : event.type === 'charge.dispute.closed'
-              ? (obj.status === 'won'
-                  ? { status: 'paid', disputed_at: null }
-                  : { status: 'refunded', refunded_at: oNow })
-              : null
-        if (stagedUpdate) {
-          const { error: stagedError } = await admin
-            .from('staged_settlement_obligations')
-            .update({ ...stagedUpdate, updated_at: oNow })
-            .eq('id', order.staged_settlement_obligation_id)
-            .eq('stripe_payment_intent_id', piId)
-          if (stagedError) {
-            console.warn('[Stripe Webhook] staged obligation reversal update failed:', stagedError.message)
-            await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
-            return NextResponse.json({ error: 'staged obligation reversal update failed', type: event.type }, { status: 500 })
-          }
-        }
-      }
+      oUpdate.status = applied.status
       // A4: notify OpenAI of an ACP order's async status change (refund/dispute).
       // Best-effort + dormant without ACP_ORDER_WEBHOOK_URL/SECRET; the durable state
       // stays in checkout_orders regardless. The ACP checkout_session id comes from the
       // persisted session row (indexed by PI), not the order.
       if (order.channel === 'acp' && acpOrderWebhookConfigured()) {
         const newStatus = (oUpdate.status as string | undefined) ?? order.status
-        const refundCents = event.type === 'charge.refunded' ? obj.amount_refunded ?? null : null
+        const refundCents = reversalType === 'charge.refunded' ? obj.amount_refunded ?? null : null
         const orderCurrency = (order.currency || 'usd').toLowerCase()
         after(async () => {
           const { data: sess } = await admin
@@ -986,6 +966,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, type: event.type, order: order.id, status: oUpdate.status }, { status: 200 })
     }
 
+    const { data: applied, error: reversalError } = await admin.rpc('nz_apply_payment_reversal', {
+      p_kind: 'negotiation', p_target_id: foundNegotiation.id, p_type: reversalType, p_object: obj,
+    })
+    if (reversalError || !applied) throw new Error('Negotiation reversal failed.', { cause: reversalError })
+    if (!applied.changed) return NextResponse.json({ received: true, changed: false, negotiation: foundNegotiation.id })
+    const neg = applied.before as NonNullable<typeof foundNegotiation>
     const baseMeta = (neg.metadata as Record<string, unknown>) || {}
     const now = new Date().toISOString()
     let update: Record<string, unknown> | null = null
@@ -994,7 +980,7 @@ export async function POST(request: NextRequest) {
     // Buyer-facing status update (skips dispute_opened - the buyer started it).
     let buyerNotify: { kind: 'refunded' | 'partial_refund' | 'dispute_update'; amountCents: number | null; detail: string | null } | null = null
 
-    if (event.type === 'charge.refunded') {
+    if (reversalType === 'charge.refunded') {
       // A PARTIAL refund keeps the deal 'complete' (remainder still refundable);
       // only a full refund closes it. Mirrors the direct-order handler above.
       const fullyRefunded = obj.amount == null || obj.amount_refunded == null || obj.amount_refunded >= obj.amount
@@ -1010,10 +996,10 @@ export async function POST(request: NextRequest) {
       } else if (!baseMeta.partial_refund) {
         buyerNotify = { kind: 'partial_refund', amountCents: obj.amount_refunded ?? null, detail: null }
       }
-    } else if (event.type === 'charge.dispute.created') {
+    } else if (reversalType === 'charge.dispute.created') {
       update = { status: 'disputed', metadata: { ...baseMeta, dispute: { reason: obj.reason ?? null, amount_cents: obj.amount ?? null, status: obj.status ?? null, at: now } } }
       notify = { kind: 'dispute_opened', amountCents: obj.amount ?? null, detail: obj.reason ? `Reason: ${obj.reason}` : null }
-    } else if (event.type === 'charge.dispute.closed') {
+    } else if (reversalType === 'charge.dispute.closed') {
       const won = obj.status === 'won'
       update = won
         ? { status: 'complete', metadata: { ...baseMeta, dispute_outcome: { result: 'won', at: now } } }
@@ -1032,13 +1018,7 @@ export async function POST(request: NextRequest) {
     if (!update) {
       return NextResponse.json({ received: true, type: event.type, negotiation: neg.id, changed: false }, { status: 200 })
     }
-    update.updated_at = now
-    const { error: upErr } = await admin.from('agent_negotiations').update(update).eq('id', neg.id)
-    if (upErr) {
-      console.warn('[Stripe Webhook] reversal update failed:', upErr.message)
-      await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
-      return NextResponse.json({ error: 'reversal update failed', type: event.type }, { status: 500 })
-    }
+    update.status = applied.status
 
     // Cancel-on-refund: a full refund / lost dispute flips status → 'refunded'
     // (partials never do). If this negotiation has a Calendly booking linked via
@@ -1140,11 +1120,12 @@ export async function POST(request: NextRequest) {
     }
     const account = event.data.object as Stripe.Account
     const admin = createAdminClient()
-    const { data: billing } = await admin
+    const { data: billing, error: billingError } = await admin
       .from('billing_subscriptions')
       .select('owner_id, stripe_connect_charges_enabled')
       .eq('stripe_connect_account_id', account.id)
       .maybeSingle<{ owner_id: string; stripe_connect_charges_enabled: boolean | null }>()
+    if (billingError) throw new Error('Connect billing lookup failed.', { cause: billingError })
 
     if (billing?.owner_id) {
       const update = {
@@ -1158,7 +1139,6 @@ export async function POST(request: NextRequest) {
         // Don't 200 a failed sync (the Connect-id-bug class): release the idempotency
         // claim and signal a retry so Stripe redelivers and the status isn't left stale.
         console.warn('[Stripe Webhook] account.updated connect sync failed:', connectErr.message)
-        await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'connect sync failed', type: event.type }, { status: 500 })
       }
       // Charges just turned on (false/unset → true): tell the owner they can accept
@@ -1246,7 +1226,6 @@ async function syncBillingCheckoutSession(event: Stripe.Event, session: Stripe.C
     // Release the idempotency claim so Stripe's retry reprocesses this event (the upsert
     // is idempotent, no emails fire here) rather than being swallowed as a duplicate,
     // which would strand billing state until the reconcile cron catches up.
-    await supabase.from('stripe_webhook_events').delete().eq('event_id', event.id)
     return NextResponse.json({ error: 'Could not sync billing checkout.' }, { status: 500 })
   }
 
@@ -1292,6 +1271,7 @@ async function syncBillingSubscription(event: Stripe.Event, subscription: Stripe
       .select('owner_id')
       .eq('stripe_subscription_id', subscription.id)
       .maybeSingle<{ owner_id: string }>()
+    if (bySubscription.error) throw new Error('Subscription owner lookup failed.', { cause: bySubscription.error })
 
     ownerId = bySubscription.data?.owner_id || null
   }
@@ -1302,6 +1282,7 @@ async function syncBillingSubscription(event: Stripe.Event, subscription: Stripe
       .select('owner_id')
       .eq('stripe_customer_id', customerId)
       .maybeSingle<{ owner_id: string }>()
+    if (byCustomer.error) throw new Error('Customer owner lookup failed.', { cause: byCustomer.error })
 
     ownerId = byCustomer.data?.owner_id || null
   }
@@ -1328,7 +1309,6 @@ async function syncBillingSubscription(event: Stripe.Event, subscription: Stripe
     console.warn('[Stripe Webhook] subscription lifecycle sync failed:', error.message)
     // Release the idempotency claim so Stripe retries this event instead of it being
     // swallowed as a duplicate (the upsert is idempotent; no side effects fire here).
-    await supabase.from('stripe_webhook_events').delete().eq('event_id', event.id)
     return NextResponse.json({ error: 'Could not sync billing subscription.' }, { status: 500 })
   }
 

@@ -45,6 +45,12 @@ describe('GET /api/agents/nexxi/checkout-return', () => {
     const response = await GET(request('cs_test_12345678'))
     expect(await response.json()).toEqual({ ok: true, state: 'pending' })
   })
+  it('surfaces a database failure instead of asking a paid buyer to wait for a webhook', async () => {
+    lookup.mockRejectedValue(new Error('Buyer order return lookup failed'))
+    const response = await GET(request('cs_test_12345678'))
+    expect(response.status).toBe(500)
+    expect(await response.json()).not.toMatchObject({ state: 'pending' })
+  })
 
   it('rejects malformed session identifiers before lookup', async () => {
     const response = await GET(request('../session'))

@@ -1,3 +1,4 @@
+import { withRefundIntent } from './refund-intent'
 import { config } from './config'
 import { supabase } from './supabase'
 import type { SimulationResult } from '@/src/types/nexez'
@@ -125,6 +126,7 @@ export type DealActionResult = {
   ok?: boolean
   status?: string
   settlementState?: string
+  operationId?: string
   refundId?: string
   refundedCents?: number
   fully?: boolean
@@ -151,18 +153,19 @@ export function escrowAction(input: {
   action: 'approve' | 'capture' | 'cancel' | 'refund'
   amount?: number
 }) {
-  return apiFetch<DealActionResult>(MOBILE_PLATFORM_API_PATHS.negotiationEscrow, {
-    method: 'POST',
-    body: JSON.stringify(input),
+  const send = (body: object) => apiFetch<DealActionResult>(MOBILE_PLATFORM_API_PATHS.negotiationEscrow, {
+    method: 'POST', body: JSON.stringify(body),
   })
+  return input.action === 'refund'
+    ? withRefundIntent(`negotiation:${input.negotiationId}`, input, send)
+    : send(input)
 }
 
 // Refund a direct checkout order. `amount` (major units) optional - omit for full remainder.
 export function refundOrder(input: { orderId: string; amount?: number }) {
-  return apiFetch<DealActionResult>(MOBILE_PLATFORM_API_PATHS.orderRefund, {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
+  return withRefundIntent(`order:${input.orderId}`, input, (body) => apiFetch<DealActionResult>(MOBILE_PLATFORM_API_PATHS.orderRefund, {
+    method: 'POST', body: JSON.stringify(body),
+  }))
 }
 
 // ---- Seller intake interview (authed; same threads API as web /create) -------

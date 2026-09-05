@@ -7,6 +7,7 @@ import type { CredentialRecord } from '../../../lib/agent-page'
 import { ownerAllows } from '../../../lib/server/plan'
 import { resolvePageAccess } from '../../../lib/server/page-access'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { credentialPathBelongsToPage } from '../../../lib/credential-path'
 
 // Owner-managed, LLM-reviewed credentials for a page. Files live in the private
 // `credentials` bucket; the record (with the review verdict) is stored in
@@ -172,6 +173,8 @@ export async function DELETE(request: Request): Promise<NextResponse> {
   const remaining = docsOf(page).filter((d) => !(typeof d === 'object' && d?.id === id))
   const { error } = await saveDocs(admin, access.pageId, access.ownerId, page, remaining)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (target?.file_path) await admin.storage.from(BUCKET).remove([target.file_path]).catch(() => {})
+  if (target?.file_path && credentialPathBelongsToPage(target, access.ownerId, access.pageId)) {
+    await admin.storage.from(BUCKET).remove([target.file_path]).catch(() => {})
+  }
   return NextResponse.json({ ok: true })
 }

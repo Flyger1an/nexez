@@ -1,5 +1,6 @@
 'use client'
 
+import { requestRefund } from '../../../lib/refund-request'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -286,11 +287,12 @@ export default function NegotiationsInbox() {
     setUpdatingId(item.id)
     setMessage('')
     try {
-      const res = await fetch('/api/negotiations/escrow', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ negotiationId: item.id, action, ...(amount != null ? { amount } : {}) }),
-      })
+      const body = { negotiationId: item.id, action, ...(amount != null ? { amount } : {}) }
+      const res = action === 'refund'
+        ? await requestRefund('/api/negotiations/escrow', body)
+        : await fetch('/api/negotiations/escrow', {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+          })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setMessage(data.error || 'Could not update the payment.')

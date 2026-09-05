@@ -26,7 +26,7 @@ function webhookSecrets(): string[] {
 }
 
 /**
- * Thin commerce dispatcher in front of the byte-preserved legacy Stripe webhook.
+ * Thin commerce dispatcher in front of the legacy Stripe webhook.
  *
  * The clone-only raw-body check is a routing prefilter, NOT an authorization
  * decision. Ordinary events delegate immediately so the legacy handler remains
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       event = stripe.webhooks.constructEvent(rawBody, signature, secret)
       break
     } catch {
-      // If no secret verifies, delegate to the byte-preserved handler so it emits
+      // If no secret verifies, delegate to the legacy handler so it emits
       // the canonical legacy signature/configuration response.
     }
   }
@@ -67,3 +67,6 @@ export async function POST(request: NextRequest) {
 }
 
 export const GET = legacyGET
+
+// Shorter than the database processing lease, so an abandoned worker expires first.
+export const maxDuration = 60

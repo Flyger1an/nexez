@@ -85,7 +85,8 @@ describe('reservable resource webhook provenance', () => {
     vi.clearAllMocks()
     rpcCalls.length = 0
     adminRef.handler = (context) => {
-      if (context.table === 'stripe_webhook_events' && context.op === 'insert') return { data: null, error: null }
+      if (context.table === 'rpc:nz_claim_stripe_event') return { data: 'claimed', error: null }
+      if (context.table === 'rpc:nz_finish_stripe_event') return { data: true, error: null }
       if (context.table === 'resource_holds') return { data: hold, error: null }
       if (context.table === 'rpc:commit_resource_hold') return { data: 'reservation-1', error: null }
       if (context.table === 'rpc:release_resource_hold') return { data: 'expired', error: null }
@@ -147,6 +148,6 @@ describe('reservable resource webhook provenance', () => {
     const response = await handleReservableResourceStripeEvent(event('checkout.session.completed', session({ amount_total: 1 })))
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ resources: false, reason: 'stale_or_mismatched_resource_checkout' })
-    expect(rpcCalls).toHaveLength(0)
+    expect(rpcCalls.map((call) => call.fn)).toEqual(['nz_claim_stripe_event', 'nz_finish_stripe_event'])
   })
 })

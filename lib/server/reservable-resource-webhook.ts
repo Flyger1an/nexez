@@ -1,4 +1,5 @@
 import 'server-only'
+import { withStripeWebhookLease } from './stripe-webhook-lease'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { bearerTokenColumns, mintBearerToken } from './bearer-token'
@@ -8,7 +9,7 @@ import {
   releaseResourceHold,
   STRIPE_RESERVABLE_RESOURCE_KIND,
 } from './reservable-resource'
-import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+import { createAdminClient } from '../../utils/supabase/admin'
 
 type HoldRow = {
   id: string
@@ -75,35 +76,11 @@ export function resourceHoldMatchesSession(input: {
   )
 }
 
-async function claimEvent(event: Stripe.Event): Promise<'claimed' | 'duplicate' | 'unavailable'> {
-  if (!hasSupabaseAdminEnv()) return 'unavailable'
-  const { error } = await createAdminClient().from('stripe_webhook_events').insert({
-    event_id: event.id,
-    type: event.type,
-    account: eventAccount(event),
-  })
-  if (!error) return 'claimed'
-  if (error.code === '23505') return 'duplicate'
-  return 'unavailable'
-}
-
-async function releaseEvent(eventId: string) {
-  if (!hasSupabaseAdminEnv()) return
-  await createAdminClient().from('stripe_webhook_events').delete().eq('event_id', eventId)
-}
-
 async function failRetry(event: Stripe.Event, message: string) {
-  await releaseEvent(event.id)
   return NextResponse.json({ error: message, type: event.type }, { status: 500 })
 }
 
-export async function handleReservableResourceStripeEvent(event: Stripe.Event) {
-  const claim = await claimEvent(event)
-  if (claim === 'duplicate') return NextResponse.json({ received: true, type: event.type, duplicate: true })
-  if (claim === 'unavailable') {
-    return NextResponse.json({ error: 'Resource reservation persistence is unavailable.', type: event.type }, { status: 503 })
-  }
-
+async function processReservableResourceStripeEvent(event: Stripe.Event) {
   const session = event.data.object as Stripe.Checkout.Session
   const holdId = session.metadata?.nexez_resource_hold_id
   if (!holdId) return failRetry(event, 'Resource Checkout is missing hold provenance.')
@@ -214,4 +191,8 @@ export async function handleReservableResourceStripeEvent(event: Stripe.Event) {
     order: order.id,
     status: 'committed',
   })
+}
+
+export async function handleReservableResourceStripeEvent(event: Stripe.Event): Promise<Response> {
+  return withStripeWebhookLease(event, () => processReservableResourceStripeEvent(event))
 }

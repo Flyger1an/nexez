@@ -1,5 +1,6 @@
 'use client'
 
+import { requestRefund } from '../../lib/refund-request'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, CheckCircle2, Loader2, PackageCheck, RefreshCcw } from 'lucide-react'
@@ -141,13 +142,9 @@ export function OrderOperationsPanel({
     setBusy('refund')
     clearFeedback()
     try {
-      const response = await fetch('/api/orders/refund', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          orderId: order.id,
-          ...(confirmation.amount == null ? {} : { amount: confirmation.amount }),
-        }),
+      const response = await requestRefund('/api/orders/refund', {
+        orderId: order.id,
+        ...(confirmation.amount == null ? {} : { amount: confirmation.amount }),
       })
       const result = (await response.json().catch(() => ({}))) as {
         error?: string
